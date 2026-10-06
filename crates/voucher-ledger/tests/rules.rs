@@ -1,6 +1,6 @@
 use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, civil::time, tz::TimeZone};
-use voucher_ledger::{Change, Credited, Effect, Ledger, Refusal, Settings};
+use voucher_ledger::{Change, Completion, Credited, Effect, Ledger, Refusal, Settings};
 use voucher_protocol::verify;
 
 fn ledger_key() -> SigningKey {
@@ -221,4 +221,37 @@ fn a_tightening_cancels_a_pending_loosening_of_the_same_setting() {
 
     let redeemed = ledger.redeem(at("2026-10-07T07:00-07:00")).unwrap();
     assert_eq!(redeemed.ends_at, at("2026-10-07T07:10-07:00"));
+}
+
+fn done(task: &str, moment: &str) -> Completion {
+    Completion {
+        task: task.into(),
+        at: at(moment),
+    }
+}
+
+#[test]
+fn a_task_earns_at_most_one_voucher_per_day() {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+
+    // Ticked, unticked, and ticked again; then the next poll sees it again.
+    ledger.record(
+        &[
+            done("todoist:habit", "2026-10-06T08:00-07:00"),
+            done("todoist:habit", "2026-10-06T08:05-07:00"),
+        ],
+        at("2026-10-06T08:10-07:00"),
+    );
+    ledger.record(
+        &[done("todoist:habit", "2026-10-06T08:05-07:00")],
+        at("2026-10-06T08:20-07:00"),
+    );
+    assert_eq!(ledger.bank(), 1);
+
+    // The same recurring habit, done again the next day, earns again.
+    ledger.record(
+        &[done("todoist:habit", "2026-10-07T08:00-07:00")],
+        at("2026-10-07T08:10-07:00"),
+    );
+    assert_eq!(ledger.bank(), 2);
 }

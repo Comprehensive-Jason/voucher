@@ -1,0 +1,71 @@
+{
+  "results": [
+    {
+      "object_type": "item",
+      "object_id": "6XGgmFVcrG5RRjVr",
+      "event_type": "completed",
+      "event_date": "2026-10-06T16:30:00Z",
+      "id": 900001,
+      "parent_project_id": "6XGgm6PHrGgMpCFX",
+      "parent_item_id": null,
+      "initiator_id": null,
+      "extra_data": {
+        "content": "Finish the problem set"
+      }
+    },
+    {
+      "object_type": "item",
+      "object_id": "6XGgmFVcrG5RRjVr",
+      "event_type": "uncompleted",
+      "event_date": "2026-10-06T16:31:00Z",
+      "id": 900004,
+      "parent_project_id": "6XGgm6PHrGgMpCFX",
+      "parent_item_id": null,
+      "initiator_id": null,
+      "extra_data": {
+        "content": "Finish the problem set"
+      }
+    },
+    {
+      "object_type": "note",
+      "object_id": "6XGgmNote000001",
+      "event_type": "added",
+      "event_date": "2026-10-06T16:40:00Z",
+      "id": 900005,
+      "parent_project_id": "6XGgm6PHrGgMpCFX",
+      "parent_item_id": "6XGgmFVcrG5RRjVr",
+      "initiator_id": null,
+      "extra_data": {
+        "content": "Done, see attached"
+      }
+    },
+    {
+      "object_type": "item",
+      "object_id": "6XGgmLeisure0001",
+      "event_type": "completed",
+      "event_date": "2026-10-06T17:00:00Z",
+      "id": 900002,
+      "parent_project_id": "LEISURE-PROJECT",
+      "parent_item_id": null,
+      "initiator_id": null,
+      "extra_data": {
+        "content": "Watch an episode"
+      }
+    },
+    {
+      "object_type": "item",
+      "object_id": "6XGgmHabit00001",
+      "event_type": "completed",
+      "event_date": "2026-10-06T18:00:00Z",
+      "id": 900003,
+      "parent_project_id": "6XGgmHealth0001",
+      "parent_item_id": null,
+      "initiator_id": null,
+      "extra_data": {
+        "content": "Stretch 10 min",
+        "due_date": "2026-10-07T00:00:00Z"
+      }
+    }
+  ],
+  "next_cursor": null
+}

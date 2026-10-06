@@ -1,0 +1,36 @@
+{
+  "tasks": [
+    {
+      "id": "86b1done",
+      "name": "Draft the budget",
+      "status": { "status": "complete", "type": "closed", "orderindex": 3, "color": "#6bc950" },
+      "date_done": "1791345600000",
+      "date_closed": "1791345600000",
+      "assignees": [{ "id": 111, "username": "Me" }]
+    },
+    {
+      "id": "86b2gabe",
+      "name": "Call the supplier",
+      "status": { "status": "complete", "type": "closed", "orderindex": 3, "color": "#6bc950" },
+      "date_done": "1791349200000",
+      "date_closed": "1791349200000",
+      "assignees": [{ "id": 222, "username": "Teammate" }]
+    },
+    {
+      "id": "86b3open",
+      "name": "Revise the slides",
+      "status": { "status": "in progress", "type": "custom", "orderindex": 1, "color": "#4194f6" },
+      "date_done": null,
+      "date_closed": null,
+      "assignees": [{ "id": 111, "username": "Me" }]
+    },
+    {
+      "id": "86b4both",
+      "name": "Return the library books",
+      "status": { "status": "complete", "type": "closed", "orderindex": 3, "color": "#6bc950" },
+      "date_done": "1791352800000",
+      "date_closed": "1791352800000",
+      "assignees": [{ "id": 222, "username": "Teammate" }, { "id": 111, "username": "Me" }]
+    }
+  ]
+}

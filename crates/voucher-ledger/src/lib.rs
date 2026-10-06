@@ -2,8 +2,17 @@
 //! signed Unlocks, Curfew, and holding Loosenings until the Morning boundary.
 //! Pure logic: every method takes the current time, so tests can control it.
 
+pub mod clickup;
+pub mod todoist;
+
+use std::collections::HashSet;
+
 use ed25519_dalek::SigningKey;
-use jiff::{SignedDuration, Timestamp, civil::Time, tz::TimeZone};
+use jiff::{
+    SignedDuration, Timestamp,
+    civil::{Date, Time},
+    tz::TimeZone,
+};
 use voucher_protocol::{Unlock, sign};
 
 /// The tunable numbers and times the rules run on.
@@ -15,6 +24,14 @@ pub struct Settings {
     pub curfew_start: Time,
     pub curfew_end: Time,
     pub morning_boundary: Time,
+}
+
+/// One finished task reported by an Activity source. `task` is prefixed with
+/// its source (`todoist:`, `clickup:`) so IDs from different sources never clash.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Completion {
+    pub task: String,
+    pub at: Timestamp,
 }
 
 /// What happened to a batch of earned Vouchers.
@@ -66,6 +83,8 @@ pub struct Ledger {
     unlock_ends_at: Option<Timestamp>,
     /// Loosenings waiting for their Morning boundary, oldest first.
     pending: Vec<(Change, Timestamp)>,
+    /// Which tasks have already earned on which local day.
+    earned: HashSet<(String, Date)>,
 }
 
 impl Ledger {
@@ -76,6 +95,7 @@ impl Ledger {
             bank: 0,
             unlock_ends_at: None,
             pending: Vec::new(),
+            earned: HashSet::new(),
         }
     }
 
@@ -94,6 +114,23 @@ impl Ledger {
             kept,
             forfeited: vouchers - kept,
         }
+    }
+
+    /// Credits one Voucher per Completion, but each task earns at most once
+    /// per local day. Re-polling, or ticking a task off, on, and off again,
+    /// earns nothing extra; a recurring habit done again tomorrow earns again.
+    pub fn record(&mut self, completions: &[Completion], now: Timestamp) -> Credited {
+        let mut fresh = 0;
+        for completion in completions {
+            let day = completion
+                .at
+                .to_zoned(self.settings.time_zone.clone())
+                .date();
+            if self.earned.insert((completion.task.clone(), day)) {
+                fresh += 1;
+            }
+        }
+        self.credit(fresh, now)
     }
 
     /// Spends one Voucher and signs an Unlock starting now.
