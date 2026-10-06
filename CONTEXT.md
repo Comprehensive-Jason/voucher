@@ -1,56 +1,70 @@
 # Voucher
 
-An app and website blocker in which unlocked time is earned by verified productive work rather than granted on request. The name nods to the labour certificates of Marx's *Critique of the Gotha Programme*: proof of work done, redeemed for an equal share.
+An app and website blocker in which free time is earned by verified productive work rather than granted on request. The name nods to the labour certificates of Marx's *Critique of the Gotha Programme*: proof of work done, cashed in later for an equal share.
 
 ## Language
 
 ### Authority and devices
 
 **Ledger**:
-The single authority that tracks Earnings, holds the signing key, and issues Vouchers. There is exactly one.
+The single authority that credits Vouchers, keeps the Bank, and signs Unlocks. There is exactly one.
 _Avoid_: server, backend, verifier service
 
 **Enforcer**:
-A per-device program that blocks Distractions unless it holds a valid Voucher. It can check Vouchers but never create them.
+A per-device program that blocks Distractions unless an Unlock is active. It can check an Unlock's signature but never create one.
 _Avoid_: blocker, client, agent
-
-**Voucher**:
-A short-lived, signed grant of unlocked time for Distractions, issued by the Ledger from the Balance.
-_Avoid_: token, unlock token, grant
-
-**Pass**:
-A short, signed grant that opens one named Tool for a stated reason. It is not paid for from the Balance and never opens a Distraction.
-_Avoid_: scoped pass, exception, override
 
 ### Earning
 
 **Activity source**:
-An external record of productive work that the Ledger reads, such as completed tasks, reading, notes, or exercise.
+An external record of productive work that the Ledger reads, such as completed tasks, workouts, or Focused time in a chosen app.
 _Avoid_: integration, verifier, provider
 
-**Earning**:
-Minutes credited to the Balance for one piece of verified activity.
-_Avoid_: reward, credit
+**Focused time**:
+Time a chosen app spends in the foreground while the screen is on and the user is active. Time open in the background or on an idle screen does not count.
+_Avoid_: screen time, usage, time open
 
-**Balance**:
-Earned minutes not yet spent on Vouchers.
-_Avoid_: allowance, credit, wallet
-
-**Rate**:
-How much of one kind of activity converts to how many minutes of Earning.
+**Earning rate**:
+How many Vouchers one kind of activity is worth, such as one Voucher per completed task or per 30 minutes of Focused time.
 _Avoid_: exchange rate, multiplier
 
-**Daily cap**:
-The most minutes that can be spent on Vouchers in one day, whatever the Balance.
+**Voucher**:
+One earned, unredeemed unit of free time, held in the Bank until Redeemed.
+_Avoid_: token, credit, point
+
+**Bank**:
+The Vouchers currently held. They carry over from day to day.
+_Avoid_: balance, wallet
+
+**Bank limit**:
+The most Vouchers the Bank can hold. Vouchers earned while the Bank is full are forfeited.
+_Avoid_: cap, max balance
+
+### Spending
+
+**Redeem**:
+To spend one Voucher from the Bank to open one Unlock.
+_Avoid_: spend, cash in, use
+
+**Unlock**:
+A signed, fixed-length window during which Distractions are allowed. Only one Unlock is active at a time; when it ends, everything locks until the next Redemption.
+_Avoid_: session, break, grant, token
+
+**Unlock length**:
+How many minutes one Unlock lasts.
+
+**Pass**:
+A short, signed window that opens one named Tool for a stated reason. It costs no Vouchers and never opens a Distraction.
+_Avoid_: scoped pass, exception, override
 
 ### Targets
 
 **Distraction**:
-An app or site that is blocked unless a Voucher is active.
+An app or site, such as social media or games, that is blocked unless an Unlock is active.
 _Avoid_: blocked app, blacklist entry
 
 **Tool**:
-An app or site that is never blocked by default, such as system settings or admin pages, and that only a Pass can open if it ever is blocked.
+An app or site, such as system settings or admin pages, that is never blocked by default.
 _Avoid_: whitelist entry, exception
 
 ### Commitment
@@ -59,7 +73,7 @@ _Avoid_: whitelist entry, exception
 A rule change that reduces access. It takes effect immediately.
 
 **Loosening**:
-A rule change that increases access, including pausing, removing a schedule, raising a cap, or removing an Enforcer's protections. It never takes effect immediately.
+A rule change that increases access, including pausing, moving the Curfew, raising an Earning rate, the Bank limit, or the Unlock length, and removing an Enforcer's protections. It never takes effect immediately.
 _Avoid_: unlock, edit
 
 **Morning boundary**:
@@ -67,7 +81,7 @@ The daily moment when every pending Loosening takes effect.
 _Avoid_: cooldown, delay
 
 **Curfew**:
-The nightly window during which the Ledger issues no Vouchers, regardless of Balance.
+The nightly window during which no Voucher can be Redeemed.
 _Avoid_: bedtime block, sleep mode, downtime
 
 **Gap**:

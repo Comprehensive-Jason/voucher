@@ -1,4 +1,4 @@
-//! The Ledger: reads Activity sources, keeps the Balance, and issues Vouchers.
+//! The Ledger: reads Activity sources, credits Vouchers to the Bank, and signs Unlocks.
 //! Runs on Spruce.
 
 fn main() {

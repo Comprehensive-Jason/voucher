@@ -2,15 +2,15 @@
 
 > Claude: scaffold written 2026-10-05 as a starting point. Nothing here works yet.
 
-An app and website blocker for Android and Windows where unlocked time is **earned**, not requested. Distractions stay blocked until verified productive work (finished tasks, reading, notes, exercise) adds minutes to your Balance, which you spend on short Vouchers.
+An app and website blocker for Android and Windows where free time is **earned**, not requested. Finished tasks, workouts, and focused time reading or taking notes earn Vouchers into your Bank. Redeem one and social media and games open for a fixed Unlock; when it ends, everything locks again.
 
 It exists because existing blockers let you switch them off whenever you like, protect themselves by blocking your own settings, and feel like punishment rather than reward.
 
 ## How it works
 
-- **Ledger** (runs on a home server): reads your Activity sources, keeps the Balance, and signs short-lived Vouchers.
-- **Enforcers** (one per device): block Distractions unless they hold a valid Voucher. They can verify signatures but cannot create them, and they fail closed.
-- **Commitment rules**: tightening is instant; loosening waits for the next morning. No Vouchers are issued during the nightly Curfew.
+- **Ledger** (runs on a home server): reads your Activity sources, credits Vouchers to the Bank, and signs an Unlock each time you Redeem one.
+- **Enforcers** (one per device): block Distractions unless an Unlock is active. They can verify signatures but cannot create them, and they fail closed.
+- **Commitment rules**: tightening is instant; loosening waits for the next morning. Nothing can be Redeemed during the nightly Curfew.
 
 The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [docs/adr](docs/adr).
 
@@ -18,17 +18,17 @@ The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [
 
 | Step | What | State |
 | --- | --- | --- |
-| 1 | Ledger, Todoist Activity source, manual CLI Enforcer | Not started |
+| 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Not started |
 | 2 | Android Enforcer (Kotlin, Device Owner) | Not started |
 | 3 | Windows Enforcer | Not started |
-| 4 | Readwise, Obsidian, and exercise Activity sources | Not started |
+| 4 | Focused time (Moon+ Reader, Readwise Reader, Obsidian) and exercise (Health Connect) Activity sources | Not started |
 | 5 | Tamper-hardening | Not started |
 
 ## Layout
 
 ```
 crates/
-  voucher-protocol/   Voucher format and signature checking, shared by Ledger and Rust Enforcers
+  voucher-protocol/   Unlock format and signature checking, shared by Ledger and Rust Enforcers
   voucher-ledger/     the Ledger
   voucher-cli/        manual Enforcer for step 1
 docs/adr/             decision records
