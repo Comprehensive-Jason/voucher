@@ -18,7 +18,7 @@ The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [
 
 | Step | What | State |
 | --- | --- | --- |
-| 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Not started |
+| 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Built; not yet deployed on Spruce |
 | 2 | Android Enforcer (Kotlin, Device Owner) | Not started |
 | 3 | Windows Enforcer | Not started |
 | 4 | Focused time (Moon+ Reader, Readwise Reader, Obsidian) and exercise (Health Connect) Activity sources | Not started |
@@ -39,9 +39,41 @@ docs/adr/             decision records
 Needs a Rust toolchain ([rustup](https://rustup.rs)).
 
 ```sh
-cargo build
-cargo run -p voucher-cli
+cargo test
+cargo build --release
 ```
+
+## Running the Ledger
+
+`voucher-ledger` is configured with environment variables:
+
+| Variable | Meaning | Default |
+| --- | --- | --- |
+| `VOUCHER_DATA_DIR` | Where `state.json`, `signing.key`, and `public.key` live | `data` |
+| `VOUCHER_LISTEN` | Address to listen on; use the machine's Tailscale IP | `127.0.0.1:8787` |
+| `VOUCHER_POLL_MINUTES` | How often to check Activity sources | `5` |
+| `VOUCHER_TODOIST_TOKEN_FILE` | File holding a Todoist API token | Todoist off |
+| `VOUCHER_TODOIST_EXCLUDED_PROJECTS` | Comma-separated project IDs that never earn (Leisure) | none |
+| `VOUCHER_CLICKUP_TOKEN_FILE` | File holding a ClickUp personal API token | ClickUp off |
+| `VOUCHER_CLICKUP_TEAM_ID` | ClickUp Workspace ID | ClickUp off |
+| `VOUCHER_CLICKUP_USER_ID` | Your ClickUp user ID; only tasks assigned to it earn | ClickUp off |
+
+On first run it creates `signing.key` (readable only by its owner) and `public.key`. Copy `public.key` to every Enforcer; `signing.key` never leaves the server. Keep token files private too (`chmod 600`).
+
+Endpoints: `GET /status`, `GET /unlock`, `POST /redeem`, and `POST /change` (body is a Change, e.g. `{"UnlockMinutes": 15}`). Tightenings apply at once; Loosenings wait for the Morning boundary.
+
+## The CLI
+
+```sh
+export VOUCHER_LEDGER=http://<ledger-address>:8787
+export VOUCHER_PUBLIC_KEY=/path/to/public.key
+voucher-cli status
+voucher-cli redeem
+voucher-cli set unlock-minutes 15      # also: bank-limit 20, curfew 22:30 06:00
+voucher-cli check                      # the manual Enforcer: UNLOCKED or BLOCKED
+```
+
+`check` caches the last Unlock, so it keeps working when the Ledger is unreachable, until that Unlock runs out.
 
 ## Licence
 

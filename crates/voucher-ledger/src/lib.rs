@@ -52,7 +52,7 @@ pub struct Redeemed {
 }
 
 /// Why a Redemption was refused.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Refusal {
     EmptyBank,
     /// An Unlock is still running; Unlocks never stack.
@@ -70,7 +70,7 @@ pub enum Change {
 }
 
 /// When a requested change takes effect.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Effect {
     /// A Tightening: applied immediately.
     Now,
@@ -127,6 +127,26 @@ impl Ledger {
     /// Vouchers currently held.
     pub fn bank(&self) -> u32 {
         self.state.bank
+    }
+
+    /// The settings in force right now.
+    pub fn settings(&mut self, now: Timestamp) -> &Settings {
+        self.settle(now);
+        &self.state.settings
+    }
+
+    /// Loosenings still waiting for their Morning boundary.
+    pub fn pending(&mut self, now: Timestamp) -> &[(Change, Timestamp)] {
+        self.settle(now);
+        &self.state.pending
+    }
+
+    /// The Unlock that is running right now, if any.
+    pub fn current_unlock(&self, now: Timestamp) -> Option<&Redeemed> {
+        self.state
+            .unlock
+            .as_ref()
+            .filter(|unlock| now < unlock.ends_at)
     }
 
     /// Adds earned Vouchers to the Bank, forfeiting any past the Bank limit.
