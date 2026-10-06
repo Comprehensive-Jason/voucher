@@ -40,6 +40,14 @@ _Avoid_: balance, wallet
 The most Vouchers the Bank can hold. Vouchers earned while the Bank is full are forfeited.
 _Avoid_: cap, max balance
 
+**Daily goal**:
+The number of Vouchers to earn in one local day for that day to count toward the Streak. It motivates; it never changes access.
+_Avoid_: target, quota
+
+**Streak**:
+The run of consecutive days, up to yesterday, on which the Daily goal was met.
+_Avoid_: chain, combo
+
 ### Spending
 
 **Redeem**:
