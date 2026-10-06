@@ -1,0 +1,224 @@
+use ed25519_dalek::SigningKey;
+use jiff::{Timestamp, civil::time, tz::TimeZone};
+use voucher_ledger::{Change, Credited, Effect, Ledger, Refusal, Settings};
+use voucher_protocol::verify;
+
+fn ledger_key() -> SigningKey {
+    SigningKey::from_bytes(&[7; 32])
+}
+
+fn settings() -> Settings {
+    Settings {
+        time_zone: TimeZone::get("America/Los_Angeles").unwrap(),
+        bank_limit: 12,
+        unlock_minutes: 10,
+        curfew_start: time(22, 0, 0, 0),
+        curfew_end: time(6, 0, 0, 0),
+        morning_boundary: time(6, 0, 0, 0),
+    }
+}
+
+/// A moment written as local Berkeley time with its UTC offset, e.g. "2026-10-06T15:00-07:00".
+fn at(moment: &str) -> Timestamp {
+    moment.parse().unwrap()
+}
+
+#[test]
+fn earned_vouchers_go_into_the_bank() {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+
+    ledger.credit(3, at("2026-10-06T15:00-07:00"));
+
+    assert_eq!(ledger.bank(), 3);
+}
+
+#[test]
+fn vouchers_earned_past_the_bank_limit_are_forfeited() {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+    ledger.credit(10, at("2026-10-06T15:00-07:00"));
+
+    let credited = ledger.credit(5, at("2026-10-06T16:00-07:00"));
+
+    assert_eq!(ledger.bank(), 12);
+    assert_eq!(
+        credited,
+        Credited {
+            kept: 2,
+            forfeited: 3
+        }
+    );
+}
+
+#[test]
+fn redeeming_spends_one_voucher_for_a_signed_ten_minute_unlock() {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+    ledger.credit(3, at("2026-10-06T15:00-07:00"));
+    let now = at("2026-10-06T19:00-07:00");
+
+    let redeemed = ledger.redeem(now).unwrap();
+
+    assert_eq!(ledger.bank(), 2);
+    assert_eq!(redeemed.ends_at, at("2026-10-06T19:10-07:00"));
+    let unlock = verify(
+        &redeemed.wire,
+        &ledger_key().verifying_key(),
+        now.as_second(),
+    )
+    .unwrap();
+    assert_eq!(unlock.ends_at, redeemed.ends_at.as_second());
+}
+
+#[test]
+fn an_empty_bank_cannot_be_redeemed() {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+
+    assert_eq!(
+        ledger.redeem(at("2026-10-06T19:00-07:00")),
+        Err(Refusal::EmptyBank)
+    );
+}
+
+#[test]
+fn only_one_unlock_runs_at_a_time() {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+    ledger.credit(3, at("2026-10-06T15:00-07:00"));
+    ledger.redeem(at("2026-10-06T19:00-07:00")).unwrap();
+
+    assert_eq!(
+        ledger.redeem(at("2026-10-06T19:09-07:00")),
+        Err(Refusal::UnlockActive)
+    );
+    assert_eq!(ledger.bank(), 2);
+    assert!(ledger.redeem(at("2026-10-06T19:10-07:00")).is_ok());
+}
+
+/// A Ledger with a full Bank, earned the morning before.
+fn stocked() -> Ledger {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+    ledger.credit(12, at("2026-10-06T09:00-07:00"));
+    ledger
+}
+
+#[test]
+fn nothing_can_be_redeemed_during_curfew() {
+    assert!(stocked().redeem(at("2026-10-06T21:59-07:00")).is_ok());
+    assert_eq!(
+        stocked().redeem(at("2026-10-06T22:00-07:00")),
+        Err(Refusal::Curfew)
+    );
+    assert_eq!(
+        stocked().redeem(at("2026-10-07T05:59-07:00")),
+        Err(Refusal::Curfew)
+    );
+    assert!(stocked().redeem(at("2026-10-07T06:00-07:00")).is_ok());
+}
+
+#[test]
+fn an_unlock_redeemed_just_before_curfew_ends_when_curfew_starts() {
+    let redeemed = stocked().redeem(at("2026-10-06T21:55-07:00")).unwrap();
+
+    assert_eq!(redeemed.ends_at, at("2026-10-06T22:00-07:00"));
+}
+
+#[test]
+fn curfew_follows_the_wall_clock_across_daylight_saving_changes() {
+    // Clocks fell back at 02:00 on 2026-11-01: Berkeley is now UTC-8.
+    assert!(stocked().redeem(at("2026-11-01T21:30-08:00")).is_ok());
+    assert_eq!(
+        stocked().redeem(at("2026-11-01T22:00-08:00")),
+        Err(Refusal::Curfew)
+    );
+    // Clocks sprang forward at 02:00 on 2027-03-14: Berkeley is UTC-7 again.
+    assert!(stocked().redeem(at("2027-03-14T21:30-07:00")).is_ok());
+    assert_eq!(
+        stocked().redeem(at("2027-03-14T22:00-07:00")),
+        Err(Refusal::Curfew)
+    );
+}
+
+#[test]
+fn a_tightening_takes_effect_immediately() {
+    let mut ledger = stocked();
+
+    let effect = ledger.request(Change::UnlockMinutes(5), at("2026-10-06T21:00-07:00"));
+
+    assert_eq!(effect, Effect::Now);
+    let redeemed = ledger.redeem(at("2026-10-06T21:01-07:00")).unwrap();
+    assert_eq!(redeemed.ends_at, at("2026-10-06T21:06-07:00"));
+}
+
+#[test]
+fn a_loosening_requested_at_night_waits_for_the_morning_boundary() {
+    let mut ledger = stocked();
+
+    let effect = ledger.request(Change::UnlockMinutes(60), at("2026-10-06T21:00-07:00"));
+
+    assert_eq!(effect, Effect::At(at("2026-10-07T06:00-07:00")));
+    let before = ledger.redeem(at("2026-10-06T21:01-07:00")).unwrap();
+    assert_eq!(before.ends_at, at("2026-10-06T21:11-07:00"));
+    let after = ledger.redeem(at("2026-10-07T06:00-07:00")).unwrap();
+    assert_eq!(after.ends_at, at("2026-10-07T07:00-07:00"));
+}
+
+#[test]
+fn a_loosening_requested_after_the_morning_boundary_waits_for_tomorrows() {
+    let mut ledger = stocked();
+
+    let effect = ledger.request(Change::UnlockMinutes(60), at("2026-10-07T07:00-07:00"));
+
+    assert_eq!(effect, Effect::At(at("2026-10-08T06:00-07:00")));
+}
+
+#[test]
+fn raising_the_bank_limit_is_a_loosening() {
+    let mut ledger = stocked();
+
+    let effect = ledger.request(Change::BankLimit(20), at("2026-10-06T21:00-07:00"));
+
+    assert_eq!(effect, Effect::At(at("2026-10-07T06:00-07:00")));
+    assert_eq!(ledger.credit(1, at("2026-10-06T21:30-07:00")).forfeited, 1);
+    assert_eq!(ledger.credit(8, at("2026-10-07T08:00-07:00")).forfeited, 0);
+    assert_eq!(ledger.bank(), 20);
+}
+
+#[test]
+fn shrinking_curfew_waits_but_widening_it_is_immediate() {
+    let mut ledger = stocked();
+    let later = Change::Curfew {
+        start: time(23, 0, 0, 0),
+        end: time(6, 0, 0, 0),
+    };
+    assert_eq!(
+        ledger.request(later, at("2026-10-06T21:00-07:00")),
+        Effect::At(at("2026-10-07T06:00-07:00"))
+    );
+    assert_eq!(
+        ledger.redeem(at("2026-10-06T22:30-07:00")),
+        Err(Refusal::Curfew)
+    );
+
+    let mut ledger = stocked();
+    let earlier = Change::Curfew {
+        start: time(21, 0, 0, 0),
+        end: time(6, 0, 0, 0),
+    };
+    assert_eq!(
+        ledger.request(earlier, at("2026-10-06T20:00-07:00")),
+        Effect::Now
+    );
+    assert_eq!(
+        ledger.redeem(at("2026-10-06T21:30-07:00")),
+        Err(Refusal::Curfew)
+    );
+}
+
+#[test]
+fn a_tightening_cancels_a_pending_loosening_of_the_same_setting() {
+    let mut ledger = stocked();
+    ledger.request(Change::UnlockMinutes(60), at("2026-10-06T21:00-07:00"));
+
+    ledger.request(Change::UnlockMinutes(10), at("2026-10-06T21:05-07:00"));
+
+    let redeemed = ledger.redeem(at("2026-10-07T07:00-07:00")).unwrap();
+    assert_eq!(redeemed.ends_at, at("2026-10-07T07:10-07:00"));
+}

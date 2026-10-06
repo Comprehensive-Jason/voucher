@@ -6,4 +6,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+ed25519-dalek = "3.0.0"
+jiff = "0.2.37"
 voucher-protocol = { path = "../voucher-protocol" }
