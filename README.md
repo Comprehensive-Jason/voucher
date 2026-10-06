@@ -19,8 +19,8 @@ The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [
 | Step | What | State |
 | --- | --- | --- |
 | 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Running on sprout; awaiting a live check against real accounts |
-| 2 | Android Enforcer (Kotlin, Device Owner) | Not started |
-| 3 | Windows Enforcer | Not started |
+| 2 | Android app (Tauri v2 with Kotlin plugins, Device Owner) | Spike next: Tauri + Device Owner on an emulator |
+| 3 | Windows app (same Tauri project) and Enforcer service | Not started |
 | 4 | Focused time (Moon+ Reader, Readwise Reader, Obsidian) and exercise (Health Connect) Activity sources | Not started |
 | 5 | Tamper-hardening | Not started |
 
