@@ -255,3 +255,48 @@ fn a_task_earns_at_most_one_voucher_per_day() {
     );
     assert_eq!(ledger.bank(), 2);
 }
+
+#[test]
+fn a_saved_ledger_reloads_exactly_as_it_was() {
+    let mut original = Ledger::new(settings(), ledger_key());
+    original.record(
+        &[done("todoist:habit", "2026-10-06T08:00-07:00")],
+        at("2026-10-06T08:10-07:00"),
+    );
+    original.credit(4, at("2026-10-06T09:00-07:00"));
+    original.redeem(at("2026-10-06T19:00-07:00")).unwrap();
+    original.request(Change::UnlockMinutes(30), at("2026-10-06T19:01-07:00"));
+
+    let mut reloaded = Ledger::load(&original.save(), ledger_key()).unwrap();
+
+    assert_eq!(reloaded.bank(), 4);
+    // The running Unlock survived the restart.
+    assert_eq!(
+        reloaded.redeem(at("2026-10-06T19:05-07:00")),
+        Err(Refusal::UnlockActive)
+    );
+    // The habit is still remembered as having earned today.
+    reloaded.record(
+        &[done("todoist:habit", "2026-10-06T08:00-07:00")],
+        at("2026-10-06T19:06-07:00"),
+    );
+    assert_eq!(reloaded.bank(), 4);
+    // The queued Loosening still lands at 06:00.
+    let redeemed = reloaded.redeem(at("2026-10-07T06:00-07:00")).unwrap();
+    assert_eq!(redeemed.ends_at, at("2026-10-07T06:30-07:00"));
+}
+
+#[test]
+fn completions_older_than_two_days_earn_nothing() {
+    let mut ledger = Ledger::new(settings(), ledger_key());
+
+    ledger.record(
+        &[
+            done("todoist:old", "2026-10-03T23:00-07:00"),
+            done("todoist:recent", "2026-10-04T08:00-07:00"),
+        ],
+        at("2026-10-06T08:00-07:00"),
+    );
+
+    assert_eq!(ledger.bank(), 1);
+}
