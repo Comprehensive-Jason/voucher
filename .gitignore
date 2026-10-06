@@ -1,0 +1,6 @@
+/target
+
+# The Ledger's signing key must never be committed.
+*.key
+*.pem
+secrets/
