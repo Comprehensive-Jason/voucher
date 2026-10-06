@@ -74,7 +74,7 @@ fn main() {
     let state_path = config.data_dir.join("state.json");
     let ledger = match fs::read_to_string(&state_path) {
         Ok(saved) => Ledger::load(&saved, key).expect("state.json is readable"),
-        Err(_) => Ledger::new(first_run_settings(), key),
+        Err(_) => Ledger::new(first_run_settings(), key, Timestamp::now()),
     };
     let ledger = Arc::new(Mutex::new(ledger));
     save(&ledger.lock().unwrap(), &state_path);

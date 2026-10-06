@@ -18,6 +18,9 @@ fn settings() -> Settings {
     }
 }
 
+/// When every test Ledger was first started: the week before the tests' dates.
+const STARTED: Timestamp = Timestamp::constant(1_790_838_000, 0); // 2026-10-01T00:00-07:00
+
 /// A moment written as local Berkeley time with its UTC offset, e.g. "2026-10-06T15:00-07:00".
 fn at(moment: &str) -> Timestamp {
     moment.parse().unwrap()
@@ -25,7 +28,7 @@ fn at(moment: &str) -> Timestamp {
 
 #[test]
 fn earned_vouchers_go_into_the_bank() {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
 
     ledger.credit(3, at("2026-10-06T15:00-07:00"));
 
@@ -34,7 +37,7 @@ fn earned_vouchers_go_into_the_bank() {
 
 #[test]
 fn vouchers_earned_past_the_bank_limit_are_forfeited() {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
     ledger.credit(10, at("2026-10-06T15:00-07:00"));
 
     let credited = ledger.credit(5, at("2026-10-06T16:00-07:00"));
@@ -51,7 +54,7 @@ fn vouchers_earned_past_the_bank_limit_are_forfeited() {
 
 #[test]
 fn redeeming_spends_one_voucher_for_a_signed_ten_minute_unlock() {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
     ledger.credit(3, at("2026-10-06T15:00-07:00"));
     let now = at("2026-10-06T19:00-07:00");
 
@@ -70,7 +73,7 @@ fn redeeming_spends_one_voucher_for_a_signed_ten_minute_unlock() {
 
 #[test]
 fn an_empty_bank_cannot_be_redeemed() {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
 
     assert_eq!(
         ledger.redeem(at("2026-10-06T19:00-07:00")),
@@ -80,7 +83,7 @@ fn an_empty_bank_cannot_be_redeemed() {
 
 #[test]
 fn only_one_unlock_runs_at_a_time() {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
     ledger.credit(3, at("2026-10-06T15:00-07:00"));
     ledger.redeem(at("2026-10-06T19:00-07:00")).unwrap();
 
@@ -94,7 +97,7 @@ fn only_one_unlock_runs_at_a_time() {
 
 /// A Ledger with a full Bank, earned the morning before.
 fn stocked() -> Ledger {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
     ledger.credit(12, at("2026-10-06T09:00-07:00"));
     ledger
 }
@@ -232,7 +235,7 @@ fn done(task: &str, moment: &str) -> Completion {
 
 #[test]
 fn a_task_earns_at_most_one_voucher_per_day() {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
 
     // Ticked, unticked, and ticked again; then the next poll sees it again.
     ledger.record(
@@ -258,7 +261,7 @@ fn a_task_earns_at_most_one_voucher_per_day() {
 
 #[test]
 fn a_saved_ledger_reloads_exactly_as_it_was() {
-    let mut original = Ledger::new(settings(), ledger_key());
+    let mut original = Ledger::new(settings(), ledger_key(), STARTED);
     original.record(
         &[done("todoist:habit", "2026-10-06T08:00-07:00")],
         at("2026-10-06T08:10-07:00"),
@@ -288,7 +291,7 @@ fn a_saved_ledger_reloads_exactly_as_it_was() {
 
 #[test]
 fn completions_older_than_two_days_earn_nothing() {
-    let mut ledger = Ledger::new(settings(), ledger_key());
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
 
     ledger.record(
         &[
@@ -296,6 +299,21 @@ fn completions_older_than_two_days_earn_nothing() {
             done("todoist:recent", "2026-10-04T08:00-07:00"),
         ],
         at("2026-10-06T08:00-07:00"),
+    );
+
+    assert_eq!(ledger.bank(), 1);
+}
+
+#[test]
+fn work_done_before_the_ledger_started_earns_nothing() {
+    let mut ledger = Ledger::new(settings(), ledger_key(), at("2026-10-06T02:48-07:00"));
+
+    ledger.record(
+        &[
+            done("todoist:before", "2026-10-06T01:30-07:00"),
+            done("todoist:after", "2026-10-06T09:00-07:00"),
+        ],
+        at("2026-10-06T09:05-07:00"),
     );
 
     assert_eq!(ledger.bank(), 1);

@@ -1,6 +1,6 @@
 # Voucher
 
-> Claude: scaffold written 2026-10-05 as a starting point. Nothing here works yet.
+> Claude: written from 2026-10-05 as a starting point. Step 1 works; the Enforcers do not exist yet.
 
 An app and website blocker for Android and Windows where free time is **earned**, not requested. Finished tasks, workouts, and focused time reading or taking notes earn Vouchers into your Bank. Redeem one and social media and games open for a fixed Unlock; when it ends, everything locks again.
 

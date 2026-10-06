@@ -88,6 +88,11 @@ pub struct Ledger {
 #[derive(Serialize, Deserialize)]
 struct State {
     settings: Settings,
+    /// When this Ledger was first started. Work done before then never
+    /// earns, so a new Ledger starts with an empty Bank instead of back-paying
+    /// the last few days.
+    #[serde(default)]
+    started_at: Timestamp,
     bank: u32,
     /// The most recent Unlock, kept so Enforcers can fetch it.
     unlock: Option<Redeemed>,
@@ -98,11 +103,12 @@ struct State {
 }
 
 impl Ledger {
-    pub fn new(settings: Settings, key: SigningKey) -> Self {
+    pub fn new(settings: Settings, key: SigningKey, started_at: Timestamp) -> Self {
         Ledger {
             key,
             state: State {
                 settings,
+                started_at,
                 bank: 0,
                 unlock: None,
                 pending: Vec::new(),
@@ -183,7 +189,8 @@ impl Ledger {
         let mut fresh = 0;
         for completion in completions {
             let day = completion.at.to_zoned(tz.clone()).date();
-            if day >= oldest && self.state.earned.insert((completion.task.clone(), day)) {
+            let counts = day >= oldest && completion.at >= self.state.started_at;
+            if counts && self.state.earned.insert((completion.task.clone(), day)) {
                 fresh += 1;
             }
         }
