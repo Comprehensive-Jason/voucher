@@ -18,7 +18,7 @@ The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [
 
 | Step | What | State |
 | --- | --- | --- |
-| 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Built; not yet deployed on Spruce |
+| 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Running on sprout; awaiting a live check against real accounts |
 | 2 | Android Enforcer (Kotlin, Device Owner) | Not started |
 | 3 | Windows Enforcer | Not started |
 | 4 | Focused time (Moon+ Reader, Readwise Reader, Obsidian) and exercise (Health Connect) Activity sources | Not started |
