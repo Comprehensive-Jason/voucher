@@ -1,5 +1,6 @@
 package io.github.comprehensivejason.voucher
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
@@ -13,5 +14,17 @@ class MainActivity : TauriActivity() {
       navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
     )
     super.onCreate(savedInstanceState)
+    remember(intent)
+    EnforcerService.start(this)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    remember(intent)
+  }
+
+  /** A screen asked for by the blocked-app watcher; the interface picks it up when it becomes visible. */
+  private fun remember(intent: Intent?) {
+    intent?.getStringExtra("route")?.let { Store.setPendingRoute(this, it) }
   }
 }

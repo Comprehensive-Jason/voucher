@@ -5,20 +5,33 @@
   import { wide } from "$lib/wide.svelte";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { connection } from "$lib/api";
+  import { connection, device } from "$lib/api";
 
   let { children } = $props();
+  // Setup and the blocked-app screen stand alone, without the tab bar.
   const setup = $derived(page.url.pathname.startsWith("/setup"));
-  // A device that hasn't connected to a Ledger starts with setup.
-  onMount(async () => {
-    if (!setup && !(await connection())) goto("/setup", { replaceState: true });
+  const alone = $derived(setup || page.url.pathname.startsWith("/blocked"));
+
+  /** The Android side may ask for a screen, such as the blocked-app screen. */
+  async function followDevice() {
+    const route = await device<string | null>("pendingRoute").catch(() => null);
+    if (route) goto(route);
+  }
+
+  onMount(() => {
+    // A device that hasn't connected to a Ledger starts with setup.
+    connection().then((c) => { if (!c && !setup) goto("/setup", { replaceState: true }); });
+    followDevice();
+    const onVisible = () => document.visibilityState === "visible" && followDevice();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   });
   const active = $derived((page.url.pathname.split("/")[1] || "today") as "today" | "trends" | "log" | "rules");
 </script>
 
 <div class="screen" class:wide={wide.on}>
   <div class="body">{@render children()}</div>
-  {#if !wide.on && !setup}<NavTabs {active} />{/if}
+  {#if !wide.on && !alone}<NavTabs {active} />{/if}
 </div>
 
 <style>

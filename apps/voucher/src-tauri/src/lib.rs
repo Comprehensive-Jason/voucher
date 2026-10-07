@@ -105,10 +105,64 @@ async fn connect(app: tauri::AppHandle, url: String) -> Result<String, String> {
     .await
 }
 
+/// Anything the phone itself must do, forwarded to the Kotlin `VoucherPlugin`:
+/// protection status, usage, opening settings, the blocked-app screen's
+/// actions. Only exists on Android.
+#[tauri::command]
+async fn device(app: tauri::AppHandle, command: String, args: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    #[cfg(target_os = "android")]
+    {
+        use tauri::Manager;
+        let plugin = app.state::<Device>().0.clone();
+        let args = args.unwrap_or(serde_json::json!({}));
+        blocking(move || {
+            let reply: serde_json::Value = plugin.run_mobile_plugin(&command, args).map_err(|e| e.to_string())?;
+            // Plain values come back wrapped as {"value": ...}.
+            Ok(match reply.get("value") {
+                Some(value) if reply.as_object().is_some_and(|o| o.len() == 1) => value.clone(),
+                _ => reply,
+            })
+        })
+        .await
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, command, args);
+        Err("Only on Android".into())
+    }
+}
+
+#[cfg(target_os = "android")]
+struct Device(tauri::plugin::PluginHandle<tauri::Wry>);
+
+/// Registers the Kotlin side under the plugin name "voucher".
+fn device_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::new("voucher")
+        .setup(|_app, _api| {
+            #[cfg(target_os = "android")]
+            {
+                use tauri::Manager;
+                let handle = _api.register_android_plugin("io.github.comprehensivejason.voucher", "VoucherPlugin")?;
+                _app.manage(Device(handle));
+            }
+            Ok(())
+        })
+        .build()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![today, tear, ledger, connection, connect])
+        .plugin(device_plugin())
+        .setup(|app| {
+            // The Android Enforcer reads the connection from the saved file, so a
+            // development build's built-in Ledger is written there too.
+            if let Some(c) = connection::load(app.handle()) {
+                let _ = connection::save(app.handle(), &c);
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![today, tear, ledger, connection, connect, device])
         .run(tauri::generate_context!())
         .expect("error while running the Voucher app");
 }

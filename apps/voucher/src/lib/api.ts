@@ -6,6 +6,11 @@ import { sampleLedger } from "./sample";
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/** Calls the phone's own side (Kotlin), through the Rust `device` command. */
+export function device<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  return invoke<T>("device", { command, args: args ?? null });
+}
+
 export function today(): Promise<Today> {
   return inTauri ? invoke<Today>("today") : Promise.resolve(sampleToday());
 }
@@ -68,11 +73,12 @@ export function ledger<T>(method: "GET" | "POST", path: string, body?: unknown):
  */
 export async function deviceUsage(): Promise<DeviceUsage | null> {
   if (!inTauri) {
-    return { apps: [{ label: "Instagram", minutes: 14 }, { label: "YouTube", minutes: 8 }, { label: "Reddit", minutes: 4 }],
-      blockedOpens: 23, closedWithoutTearing: 21 };
+    return { measured: true, apps: [{ label: "Instagram", minutes: 14 }, { label: "YouTube", minutes: 8 }, { label: "Reddit", minutes: 4 }],
+      blockedOpens: 23, closedWithoutTearing: 21,
+      attempts: [{ label: "Instagram", count: 14 }, { label: "YouTube", count: 6 }, { label: "Reddit", count: 3 }] };
   }
   try {
-    return await invoke<DeviceUsage | null>("plugin:voucher|usage");
+    return await device<DeviceUsage | null>("usage");
   } catch {
     return null;
   }
@@ -85,7 +91,7 @@ export async function protection(): Promise<Protection | null> {
     return { deviceOwner: p !== "off", usageAccess: p !== "off", overlay: p !== "off" && p !== "partial" };
   }
   try {
-    return await invoke<Protection>("plugin:voucher|protection");
+    return await device<Protection>("protection");
   } catch {
     return null;
   }
@@ -93,7 +99,7 @@ export async function protection(): Promise<Protection | null> {
 
 /** Opens the system screen that turns on one protection part. */
 export async function fixProtection(part: keyof Protection): Promise<void> {
-  if (inTauri) await invoke("plugin:voucher|open_settings", { part });
+  if (inTauri) await device("openSettings", { part });
 }
 
 /** Apps on this phone that could count as Focused time. */
@@ -105,7 +111,7 @@ export async function launchableApps(): Promise<{ package: string; label: string
     ];
   }
   try {
-    return await invoke<{ package: string; label: string }[]>("plugin:voucher|apps");
+    return await device<{ package: string; label: string }[]>("apps");
   } catch {
     return [];
   }
@@ -126,7 +132,7 @@ export async function connect(url: string): Promise<string> {
 /** Asks for Health Connect access to exercise and heart rate. */
 export async function requestHealth(): Promise<boolean> {
   if (!inTauri) return true;
-  try { return await invoke<boolean>("plugin:voucher|request_health"); } catch { return false; }
+  try { return await device<boolean>("requestHealth"); } catch { return false; }
 }
 
 /** The ADB command that makes Voucher Device Owner on this phone. */
@@ -135,5 +141,11 @@ export const DEVICE_OWNER_COMMAND = "adb shell dpm set-device-owner io.github.co
 /** This device's name for the Ledger, such as "SM-S928U-4f2a". */
 export async function deviceId(): Promise<string> {
   if (!inTauri) return "sample-phone";
-  try { return await invoke<string>("plugin:voucher|device_id"); } catch { return "unknown-device"; }
+  try { return await device<string>("deviceId"); } catch { return "unknown-device"; }
+}
+
+/** An installed app's icon as a data URL, or null. */
+export async function appIcon(pkg: string): Promise<string | null> {
+  if (!inTauri) return null;
+  try { return await device<string>("appIcon", { pkg }); } catch { return null; }
 }

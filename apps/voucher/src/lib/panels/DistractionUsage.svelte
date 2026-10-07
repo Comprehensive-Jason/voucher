@@ -11,9 +11,12 @@
 <section class="card">
   <div class="head">
     <span class="cap">In Distractions today</span>
-    <span class="cap spend">{usage ? `${used} of ${unlockedMinutes} min` : ""}</span>
+    <span class="cap spend">{usage?.measured ? `${used} of ${unlockedMinutes} min` : ""}</span>
   </div>
-  {#if usage}
+  {#if usage && !usage.measured}
+    <div class="note">Minutes need usage access on this device: turn it on in Rules, under Protection.</div>
+    <div class="note">{usage.blockedOpens} blocked opens, {usage.closedWithoutTearing} closed without tearing</div>
+  {:else if usage}
     {#each usage.apps.slice(0, 4) as a, i}
       <div class="app">
         <div class="name">{a.label}</div>

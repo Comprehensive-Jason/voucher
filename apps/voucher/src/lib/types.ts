@@ -75,11 +75,15 @@ export interface DayTotal { day: string; earned: number; redeemed: number; goal_
 
 /** What the phone itself measured today, from the Android side. */
 export interface DeviceUsage {
+  /** False without usage access: minutes are unknown, opens are still counted. */
+  measured: boolean;
   /** Minutes in foreground per Distraction app today, most first. */
   apps: { label: string; minutes: number }[];
   /** Times a paused app was opened today, and how many of those ended without a tear. */
   blockedOpens: number;
   closedWithoutTearing: number;
+  /** Opens of each paused app today, most first. */
+  attempts: { label: string; count: number }[];
 }
 
 /** The phone's protection parts, from the Android side. */
