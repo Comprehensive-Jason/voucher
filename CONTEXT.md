@@ -55,7 +55,7 @@ To spend one Voucher from the Bank to open one Unlock.
 _Avoid_: spend, cash in, use
 
 **Unlock**:
-A signed, fixed-length window during which Distractions are allowed. Only one Unlock is active at a time; when it ends, everything locks until the next Redemption.
+A signed window during which Distractions are allowed. Each Redemption adds one Unlock length; Redeeming during an Unlock extends it rather than starting a second one. When it ends, everything locks again.
 _Avoid_: session, break, grant, token
 
 **Unlock length**:
