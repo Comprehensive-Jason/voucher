@@ -95,6 +95,7 @@ export interface Settings {
   morning_boundary: string;
   daily_goal: number;
   sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[] }>;
+  blocklists: Record<string, Blocklist>;
 }
 
 export interface Status {
@@ -106,3 +107,7 @@ export interface Status {
   /** What went wrong with each polled source's last check, such as "sign-in expired". */
   source_errors: Record<string, string>;
 }
+
+export interface BlockedApp { package: string; label: string; note: string | null; on: boolean; added: boolean }
+export interface BlockedSite { site: string; note: string | null; on: boolean; added: boolean }
+export interface Blocklist { name: string; color: string; premade: boolean; on: boolean; apps: BlockedApp[]; sites: BlockedSite[] }

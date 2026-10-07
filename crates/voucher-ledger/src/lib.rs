@@ -36,6 +36,121 @@ pub struct Settings {
     /// Every Activity source, by id (`todoist`, `obsidian`, …).
     #[serde(default = "default_sources")]
     pub sources: BTreeMap<String, Source>,
+    /// Every blocklist, by id. What they block, merged, is the Distractions.
+    #[serde(default = "default_blocklists")]
+    pub blocklists: BTreeMap<String, Blocklist>,
+}
+
+/// A named set of apps and sites that stay blocked outside an Unlock.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Blocklist {
+    pub name: String,
+    pub color: String,
+    /// Shipped with Voucher, so it can be reset to its original entries.
+    pub premade: bool,
+    pub on: bool,
+    pub apps: Vec<BlockedApp>,
+    pub sites: Vec<BlockedSite>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockedApp {
+    /// The Android package name.
+    pub package: String,
+    pub label: String,
+    #[serde(default)]
+    pub note: Option<String>,
+    pub on: bool,
+    /// Added by the user rather than shipped with a premade list.
+    #[serde(default)]
+    pub added: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockedSite {
+    /// A domain, which covers its subdomains, or `list:<name>` for a
+    /// maintained list of domains such as `list:invidious`.
+    pub site: String,
+    #[serde(default)]
+    pub note: Option<String>,
+    pub on: bool,
+    #[serde(default)]
+    pub added: bool,
+}
+
+/// Everything blocked right now, merged across switched-on blocklists.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Blocked {
+    /// Android package names.
+    pub apps: Vec<String>,
+    /// Domains, and `list:` names for maintained lists.
+    pub sites: Vec<String>,
+}
+
+/// The blocklists a new Ledger starts with.
+pub fn default_blocklists() -> BTreeMap<String, Blocklist> {
+    ["instagram", "youtube", "reddit"]
+        .into_iter()
+        .filter_map(|id| Some((id.to_string(), premade_blocklist(id)?)))
+        .collect()
+}
+
+/// A premade blocklist as shipped, for first runs and for "Reset".
+pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
+    let app = |package: &str, label: &str, note: Option<&str>| BlockedApp {
+        package: package.into(),
+        label: label.into(),
+        note: note.map(String::from),
+        on: true,
+        added: false,
+    };
+    let site = |site: &str, note: Option<&str>| BlockedSite {
+        site: site.into(),
+        note: note.map(String::from),
+        on: true,
+        added: false,
+    };
+    let viewer = Some("Alternative viewer");
+    let all = Some("All subdomains");
+    let maintained = Some("Known public instances, kept up to date");
+    let (name, color, apps, sites) = match id {
+        "instagram" => (
+            "Instagram",
+            "#e5609b",
+            vec![app("com.instagram.android", "Instagram", None)],
+            vec![site("instagram.com", all)],
+        ),
+        "youtube" => (
+            "YouTube",
+            "#ff6b5b",
+            vec![
+                app("com.google.android.youtube", "YouTube", None),
+                app("org.schabi.newpipe", "NewPipe", viewer),
+                app("com.github.libretube", "LibreTube", viewer),
+            ],
+            vec![
+                site("youtube.com", all),
+                site("youtu.be", None),
+                site("list:invidious", maintained),
+                site("list:piped", maintained),
+            ],
+        ),
+        "reddit" => (
+            "Reddit",
+            "#ff8a3d",
+            vec![app("com.reddit.frontpage", "Reddit", None)],
+            vec![site("reddit.com", all)],
+        ),
+        _ => return None,
+    };
+    Some(Blocklist {
+        name: name.into(),
+        color: color.into(),
+        premade: true,
+        on: true,
+        apps,
+        sites,
+    })
 }
 
 /// How one Activity source earns.
@@ -168,6 +283,40 @@ pub enum Change {
         id: String,
         source: Source,
     },
+    // Blocklist changes. Each is a Tightening when everything blocked before
+    // is still blocked after it, and a Loosening otherwise.
+    NewBlocklist {
+        id: String,
+        list: Blocklist,
+    },
+    BlocklistOn {
+        id: String,
+        on: bool,
+    },
+    RenameBlocklist {
+        id: String,
+        name: String,
+    },
+    /// Adds an app to a blocklist, or switches an existing entry on or off.
+    BlockApp {
+        list: String,
+        app: BlockedApp,
+    },
+    BlockSite {
+        list: String,
+        site: BlockedSite,
+    },
+    RemoveApp {
+        list: String,
+        package: String,
+    },
+    RemoveSite {
+        list: String,
+        site: String,
+    },
+    /// Puts a premade blocklist back to its shipped entries.
+    ResetBlocklist(String),
+    DeleteBlocklist(String),
 }
 
 /// One line of the log.
@@ -811,29 +960,25 @@ impl Ledger {
                 None => false,
             },
             Change::AddSource { .. } => true,
+            // Blocklist changes: try it on a copy and see if anything stops being blocked.
+            ref blocklist_change => {
+                let mut after = self.state.settings.clone();
+                apply_to(&mut after, blocklist_change.clone());
+                let (before, after) = (blocked_by(&self.state.settings), blocked_by(&after));
+                !(before.apps.iter().all(|a| after.apps.contains(a))
+                    && before.sites.iter().all(|s| after.sites.contains(s)))
+            }
         }
     }
 
     fn apply(&mut self, change: Change) {
-        match change {
-            // A zero-minute ticket would spend Vouchers for nothing.
-            Change::UnlockMinutes(minutes) => self.state.settings.unlock_minutes = minutes.max(1),
-            Change::BankLimit(limit) => self.state.settings.bank_limit = limit,
-            Change::Curfew { start, end } => {
-                self.state.settings.curfew_start = start;
-                self.state.settings.curfew_end = end;
-            }
-            Change::DailyGoal(goal) => self.state.settings.daily_goal = goal,
-            Change::Source { id, on, every } => {
-                if let Some(source) = self.state.settings.sources.get_mut(&id) {
-                    source.on = on;
-                    source.every = every.max(1);
-                }
-            }
-            Change::AddSource { id, source } => {
-                self.state.settings.sources.entry(id).or_insert(source);
-            }
-        }
+        apply_to(&mut self.state.settings, change);
+    }
+
+    /// What is blocked right now, merged across switched-on blocklists.
+    pub fn blocked(&mut self, now: Timestamp) -> Blocked {
+        self.settle(now);
+        blocked_by(&self.state.settings)
     }
 
     /// Withdraws a pending change before it takes effect. Withdrawing a
@@ -867,9 +1012,112 @@ fn source_of(task: &str) -> &str {
 
 /// Whether two changes set the same thing, so one replaces the other.
 fn same_setting(a: &Change, b: &Change) -> bool {
-    match (a, b) {
-        (Change::Source { id: x, .. }, Change::Source { id: y, .. }) => x == y,
-        _ => std::mem::discriminant(a) == std::mem::discriminant(b),
+    match (setting_key(a), setting_key(b)) {
+        (Some(x), Some(y)) => x == y,
+        (None, None) => std::mem::discriminant(a) == std::mem::discriminant(b),
+        _ => false,
+    }
+}
+
+/// Names the one thing a keyed change sets, such as one app in one blocklist.
+fn setting_key(change: &Change) -> Option<String> {
+    Some(match change {
+        Change::Source { id, .. } | Change::AddSource { id, .. } => format!("source {id}"),
+        Change::NewBlocklist { id, .. }
+        | Change::ResetBlocklist(id)
+        | Change::DeleteBlocklist(id) => format!("list {id}"),
+        Change::BlocklistOn { id, .. } => format!("list-on {id}"),
+        Change::RenameBlocklist { id, .. } => format!("list-name {id}"),
+        Change::BlockApp { list, app } => format!("app {list} {}", app.package),
+        Change::RemoveApp { list, package } => format!("app {list} {package}"),
+        Change::BlockSite { list, site } => format!("site {list} {}", site.site),
+        Change::RemoveSite { list, site } => format!("site {list} {site}"),
+        _ => return None,
+    })
+}
+
+fn apply_to(settings: &mut Settings, change: Change) {
+    match change {
+        // A zero-minute ticket would spend Vouchers for nothing.
+        Change::UnlockMinutes(minutes) => settings.unlock_minutes = minutes.max(1),
+        Change::BankLimit(limit) => settings.bank_limit = limit,
+        Change::Curfew { start, end } => {
+            settings.curfew_start = start;
+            settings.curfew_end = end;
+        }
+        Change::DailyGoal(goal) => settings.daily_goal = goal,
+        Change::Source { id, on, every } => {
+            if let Some(source) = settings.sources.get_mut(&id) {
+                source.on = on;
+                source.every = every.max(1);
+            }
+        }
+        Change::AddSource { id, source } => {
+            settings.sources.entry(id).or_insert(source);
+        }
+        Change::NewBlocklist { id, list } => {
+            settings.blocklists.insert(id, list);
+        }
+        Change::BlocklistOn { id, on } => {
+            if let Some(list) = settings.blocklists.get_mut(&id) {
+                list.on = on;
+            }
+        }
+        Change::RenameBlocklist { id, name } => {
+            if let Some(list) = settings.blocklists.get_mut(&id) {
+                list.name = name;
+            }
+        }
+        Change::BlockApp { list, app } => {
+            if let Some(list) = settings.blocklists.get_mut(&list) {
+                match list.apps.iter_mut().find(|a| a.package == app.package) {
+                    Some(existing) => existing.on = app.on,
+                    None => list.apps.push(app),
+                }
+            }
+        }
+        Change::BlockSite { list, site } => {
+            if let Some(list) = settings.blocklists.get_mut(&list) {
+                match list.sites.iter_mut().find(|s| s.site == site.site) {
+                    Some(existing) => existing.on = site.on,
+                    None => list.sites.push(site),
+                }
+            }
+        }
+        Change::RemoveApp { list, package } => {
+            if let Some(list) = settings.blocklists.get_mut(&list) {
+                list.apps.retain(|a| a.package != package);
+            }
+        }
+        Change::RemoveSite { list, site } => {
+            if let Some(list) = settings.blocklists.get_mut(&list) {
+                list.sites.retain(|s| s.site != site);
+            }
+        }
+        Change::ResetBlocklist(id) => {
+            if let (Some(list), Some(shipped)) =
+                (settings.blocklists.get_mut(&id), premade_blocklist(&id))
+            {
+                list.apps = shipped.apps;
+                list.sites = shipped.sites;
+            }
+        }
+        Change::DeleteBlocklist(id) => {
+            settings.blocklists.remove(&id);
+        }
+    }
+}
+
+fn blocked_by(settings: &Settings) -> Blocked {
+    let mut apps = std::collections::BTreeSet::new();
+    let mut sites = std::collections::BTreeSet::new();
+    for list in settings.blocklists.values().filter(|l| l.on) {
+        apps.extend(list.apps.iter().filter(|a| a.on).map(|a| a.package.clone()));
+        sites.extend(list.sites.iter().filter(|s| s.on).map(|s| s.site.clone()));
+    }
+    Blocked {
+        apps: apps.into_iter().collect(),
+        sites: sites.into_iter().collect(),
     }
 }
 

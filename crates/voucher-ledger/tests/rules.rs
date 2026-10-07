@@ -17,6 +17,7 @@ fn settings() -> Settings {
         morning_boundary: time(6, 0, 0, 0),
         daily_goal: 16,
         sources: voucher_ledger::default_sources(),
+        blocklists: voucher_ledger::default_blocklists(),
     }
 }
 

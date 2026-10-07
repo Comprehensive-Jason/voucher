@@ -1,6 +1,10 @@
 // Sample Ledger replies for design checks in a plain browser, where there is
 // no Tauri and no Ledger. Mirrors the round 4 canvas with neutral task names.
-import type { DaySummary, DayTotal, Entry } from "./types";
+import type { Blocklist, DaySummary, DayTotal, Entry } from "./types";
+
+const app = (pkg: string, label: string, note: string | null = null, added = false) =>
+  ({ package: pkg, label, note, on: true, added });
+const site = (s: string, note: string | null = null, added = false) => ({ site: s, note, on: true, added });
 
 const TODAY = "2026-10-07";
 
@@ -79,6 +83,20 @@ const settings = {
     moonreader: { kind: "focus", on: true, every: 30, packages: ["com.flyersoft.moonreaderp"] },
     anki: { kind: "focus", on: false, every: 30, packages: ["com.ichi2.anki"] },
   } as Record<string, { kind: "tasks" | "workout" | "focus"; on: boolean; every: number; packages: string[] }>,
+  blocklists: {
+    instagram: { name: "Instagram", color: "#e5609b", premade: true, on: true,
+      apps: [app("com.instagram.android", "Instagram")], sites: [site("instagram.com", "All subdomains")] },
+    youtube: { name: "YouTube", color: "#ff6b5b", premade: true, on: true,
+      apps: [app("com.google.android.youtube", "YouTube"), app("org.schabi.newpipe", "NewPipe", "Alternative viewer"),
+        app("com.github.libretube", "LibreTube", "Alternative viewer")],
+      sites: [site("youtube.com", "All subdomains"), site("youtu.be"),
+        site("list:invidious", "Known public instances, kept up to date"), site("list:piped", "Known public instances, kept up to date")] },
+    reddit: { name: "Reddit", color: "#ff8a3d", premade: true, on: true,
+      apps: [app("com.reddit.frontpage", "Reddit")], sites: [site("reddit.com", "All subdomains")] },
+    games: { name: "Games", color: "#7d8cff", premade: false, on: true,
+      apps: [app("com.example.chess", "Chess", null, true), app("com.example.puzzle", "Puzzle", null, true),
+        app("com.example.cards", "Cards", null, true), app("com.example.words", "Words", null, true)], sites: [] },
+  } as Record<string, Blocklist>,
 };
 /** The next 06:00 in Los Angeles (13:00 UTC while on daylight time). */
 function nextMorning(): string {

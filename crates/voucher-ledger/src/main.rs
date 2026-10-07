@@ -23,7 +23,8 @@ use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
 use voucher_ledger::{
-    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, clickup, default_sources, todoist,
+    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, clickup, default_blocklists,
+    default_sources, todoist,
 };
 
 struct Config {
@@ -69,6 +70,7 @@ fn first_run_settings() -> Settings {
         morning_boundary: time(6, 0, 0, 0),
         daily_goal: DEFAULT_DAILY_GOAL,
         sources: default_sources(),
+        blocklists: default_blocklists(),
     }
 }
 
@@ -309,12 +311,15 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         pending: &'a [(Change, Timestamp)],
         today: DaySummary,
         source_errors: BTreeMap<String, String>,
+        /// What Enforcers block outside an Unlock.
+        blocked: voucher_ledger::Blocked,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
     let bank = ledger.bank();
     let curfew_active = ledger.curfew_active(now);
     let today = ledger.today(now);
+    let blocked = ledger.blocked(now);
     json(&Status {
         bank,
         curfew_active,
@@ -323,6 +328,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         pending: ledger.pending(now),
         today,
         source_errors: SOURCE_ERRORS.lock().unwrap().clone(),
+        blocked,
     })
 }
 
