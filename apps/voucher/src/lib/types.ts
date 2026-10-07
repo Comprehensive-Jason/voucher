@@ -8,13 +8,21 @@ export interface Today {
   curfewActive: boolean;
   curfewStart: string;
   curfewEnd: string;
-  /** Not provided by the Ledger yet; drawn so the screen is ready for it. */
-  sample: {
-    goalDone: number;
-    goalTarget: number;
-    streakDays: number;
-    sources: { name: string; detail: string; progress: number; color: string }[];
-  };
+  /** Vouchers earned this Day, forfeited ones included. */
+  goalDone: number;
+  goalTarget: number;
+  streakDays: number;
+  sources: Source[];
+}
+
+export interface Source {
+  name: string;
+  detail: string;
+  /** 0 to 1 toward the next Voucher. */
+  progress: number;
+  color: string;
+  /** The Ledger can't measure this source yet, so these numbers are made up. */
+  sample: boolean;
 }
 
 export type Mode = "locked" | "running" | "curfew" | "full" | "empty";

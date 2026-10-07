@@ -7,7 +7,7 @@ use ed25519_dalek::VerifyingKey;
 use jiff::Timestamp;
 use serde::Deserialize;
 
-use crate::{Today, sample};
+use crate::{Today, sources};
 
 pub struct Client {
     base: String,
@@ -22,6 +22,16 @@ struct Status {
     curfew_active: bool,
     unlock: Option<Redeemed>,
     settings: Settings,
+    today: Score,
+}
+
+/// The current Day's score.
+#[derive(Deserialize)]
+struct Score {
+    earned: u32,
+    goal: u32,
+    streak: u32,
+    by_source: std::collections::BTreeMap<String, u32>,
 }
 
 #[derive(Deserialize)]
@@ -83,14 +93,18 @@ impl Client {
             curfew_active: status.curfew_active,
             curfew_start: hhmm(&status.settings.curfew_start),
             curfew_end: hhmm(&status.settings.curfew_end),
-            sample: sample(),
+            goal_done: status.today.earned,
+            goal_target: status.today.goal,
+            streak_days: status.today.streak,
+            sources: sources(status.today.by_source.values().sum()),
         })
     }
 
-    pub fn redeem(&self) -> Result<(), String> {
+    /// Tears `count` tickets in one go: all of them, or none if the Bank is short.
+    pub fn redeem(&self, count: u32) -> Result<(), String> {
         let mut response = self
             .agent
-            .post(format!("{}/redeem", self.base))
+            .post(format!("{}/redeem?count={count}", self.base))
             .send_empty()
             .map_err(|e| match e {
                 ureq::Error::StatusCode(409) => "Refused by the Ledger".to_string(),

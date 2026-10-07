@@ -37,11 +37,11 @@
 <div class="screen">
   <main>
     {#if data}
-      <Header streakDays={data.sample.streakDays} />
-      <BankMeter {mode} bank={data.bank} limit={data.bankLimit} goalDone={data.sample.goalDone} goalTarget={data.sample.goalTarget} />
+      <Header streakDays={data.streakDays} />
+      <BankMeter {mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} />
       <TicketStack {mode} bank={data.bank} unlockMinutes={data.unlockMinutes} ontear={onTear} />
       <StatusCard {mode} {now} unlockEndsAt={data.unlockEndsAt} curfewStart={data.curfewStart} curfewEnd={data.curfewEnd} />
-      <NextVoucher sources={data.sample.sources} />
+      <NextVoucher sources={data.sources} />
     {:else if error}
       <p class="error">{error}</p>
     {/if}

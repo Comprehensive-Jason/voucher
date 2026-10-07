@@ -1,11 +1,15 @@
 //! The Ledger's rules: crediting Vouchers to the Bank, Redeeming them for
-//! signed Unlocks, Curfew, and holding Loosenings until the Morning boundary.
+//! signed Unlocks, Curfew, holding Loosenings until the Morning boundary, and
+//! keeping score of each Day (the Daily goal, the Streak, and the log).
 //! Pure logic: every method takes the current time, so tests can control it.
 
 pub mod clickup;
 pub mod todoist;
 
-use std::collections::HashSet;
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, HashSet},
+};
 
 use ed25519_dalek::SigningKey;
 use jiff::{
@@ -26,6 +30,15 @@ pub struct Settings {
     pub curfew_start: Time,
     pub curfew_end: Time,
     pub morning_boundary: Time,
+    /// Vouchers to earn in a Day for it to count toward the Streak.
+    #[serde(default = "default_daily_goal")]
+    pub daily_goal: u32,
+}
+
+pub const DEFAULT_DAILY_GOAL: u32 = 16;
+
+fn default_daily_goal() -> u32 {
+    DEFAULT_DAILY_GOAL
 }
 
 /// One finished task reported by an Activity source. `task` is prefixed with
@@ -49,12 +62,21 @@ pub struct Credited {
 pub struct Redeemed {
     pub wire: String,
     pub ends_at: Timestamp,
+    /// When this run of stacked tickets began.
+    #[serde(default)]
+    pub started_at: Timestamp,
+    /// How many tickets this run of stacked tickets has used.
+    #[serde(default)]
+    pub tickets: u32,
 }
 
 /// Why a Redemption was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Refusal {
+    /// The Bank holds fewer Vouchers than the tickets asked for.
     EmptyBank,
+    /// Asked to tear zero tickets.
+    NoTickets,
     /// It is Curfew, or the Unlock already runs up to Curfew's start.
     Curfew,
 }
@@ -65,6 +87,57 @@ pub enum Change {
     UnlockMinutes(u32),
     BankLimit(u32),
     Curfew { start: Time, end: Time },
+    /// Always waits for the next Day: a Day's goal is fixed once it starts.
+    DailyGoal(u32),
+}
+
+/// One line of the log.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Entry {
+    /// A task earned a Voucher. `kept` is false when the Bank was full.
+    Earned {
+        at: Timestamp,
+        task: String,
+        kept: bool,
+    },
+    Redeemed {
+        at: Timestamp,
+        tickets: u32,
+    },
+}
+
+impl Entry {
+    pub fn at(&self) -> Timestamp {
+        match self {
+            Entry::Earned { at, .. } | Entry::Redeemed { at, .. } => *at,
+        }
+    }
+}
+
+/// The score for the current Day.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Today {
+    pub day: Date,
+    /// Vouchers earned this Day, forfeited ones included: the goal measures
+    /// work done, not what fitted in the Bank.
+    pub earned: u32,
+    pub goal: u32,
+    pub goal_met: bool,
+    /// Days in a row with the goal met, ending yesterday, plus today once its
+    /// goal is met.
+    pub streak: u32,
+    /// Vouchers earned this Day per Activity source (`todoist`, `clickup`).
+    pub by_source: BTreeMap<String, u32>,
+    /// This Day's entries, newest first.
+    pub log: Vec<Entry>,
+}
+
+/// What one Day earned, and the goal it had.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+struct DayScore {
+    earned: u32,
+    goal: u32,
 }
 
 /// When a requested change takes effect.
@@ -96,8 +169,14 @@ struct State {
     unlock: Option<Redeemed>,
     /// Loosenings waiting for their Morning boundary, oldest first.
     pending: Vec<(Change, Timestamp)>,
-    /// Which tasks have already earned on which local day.
+    /// Which tasks have already earned on which Day.
     earned: HashSet<(String, Date)>,
+    /// Every Day that earned anything, for the goal, the Streak, and Trends.
+    #[serde(default)]
+    days: BTreeMap<Date, DayScore>,
+    /// The last week of entries, oldest first.
+    #[serde(default)]
+    log: Vec<Entry>,
 }
 
 impl Ledger {
@@ -111,6 +190,8 @@ impl Ledger {
                 unlock: None,
                 pending: Vec::new(),
                 earned: HashSet::new(),
+                days: BTreeMap::new(),
+                log: Vec::new(),
             },
         }
     }
@@ -170,65 +251,165 @@ impl Ledger {
     }
 
     /// Credits one Voucher per Completion, but each task earns at most once
-    /// per local day. Re-polling, or ticking a task off, on, and off again,
-    /// earns nothing extra; a recurring habit done again tomorrow earns again.
+    /// per Day. Re-polling, or ticking a task off, on, and off again, earns
+    /// nothing extra; a recurring habit done again tomorrow earns again.
     ///
-    /// Only today and the two days before count. Older Completions are ignored
-    /// and forgotten, which keeps the memory of what has earned from growing
-    /// forever without ever letting an old Completion earn twice.
+    /// Only today and the two Days before count. Older Completions are
+    /// ignored and forgotten, which keeps the memory of what has earned from
+    /// growing forever without ever letting an old Completion earn twice.
     pub fn record(&mut self, completions: &[Completion], now: Timestamp) -> Credited {
-        let tz = self.state.settings.time_zone.clone();
-        let oldest = now
-            .to_zoned(tz.clone())
-            .date()
-            .checked_sub(jiff::Span::new().days(EARNING_WINDOW_DAYS))
-            .expect("not the year -9999");
+        self.settle(now);
+        let today = day_of(&self.state.settings, now);
+        let oldest = days_before(today, EARNING_WINDOW_DAYS);
         self.state.earned.retain(|(_, day)| *day >= oldest);
-        let mut fresh = 0;
+        let mut credited = Credited {
+            kept: 0,
+            forfeited: 0,
+        };
         for completion in completions {
-            let day = completion.at.to_zoned(tz.clone()).date();
+            let day = day_of(&self.state.settings, completion.at);
             let counts = day >= oldest && completion.at >= self.state.started_at;
-            if counts && self.state.earned.insert((completion.task.clone(), day)) {
-                fresh += 1;
+            if !counts || !self.state.earned.insert((completion.task.clone(), day)) {
+                continue;
             }
+            // One at a time, so the log can say which ones the full Bank lost.
+            let kept = self.credit(1, now).kept == 1;
+            if kept {
+                credited.kept += 1;
+            } else {
+                credited.forfeited += 1;
+            }
+            let goal = self.state.settings.daily_goal;
+            self.state
+                .days
+                .entry(day)
+                .or_insert(DayScore { earned: 0, goal })
+                .earned += 1;
+            self.state.log.push(Entry::Earned {
+                at: completion.at,
+                task: completion.task.clone(),
+                kept,
+            });
         }
-        self.credit(fresh, now)
+        self.forget_old_entries(today);
+        credited
     }
 
-    /// Spends one Voucher and signs an Unlock: starting now, or stacked onto
-    /// the end of the Unlock that is already running.
+    /// Spends one Voucher; see `redeem_many`.
     pub fn redeem(&mut self, now: Timestamp) -> Result<Redeemed, Refusal> {
+        self.redeem_many(1, now)
+    }
+
+    /// Spends `count` Vouchers and signs an Unlock: starting now, or stacked
+    /// onto the end of the Unlock that is already running. All or nothing:
+    /// if the Bank can't cover every ticket, none is torn.
+    ///
+    /// An Unlock never runs into Curfew. Tickets that would only add time
+    /// past Curfew's start stay in the Bank; a ticket that adds no time at
+    /// all is refused.
+    pub fn redeem_many(&mut self, count: u32, now: Timestamp) -> Result<Redeemed, Refusal> {
         self.settle(now);
+        if count == 0 {
+            return Err(Refusal::NoTickets);
+        }
         if self.in_curfew(now) {
             return Err(Refusal::Curfew);
         }
-        if self.state.bank == 0 {
+        if self.state.bank < count {
             return Err(Refusal::EmptyBank);
         }
-        // Tickets stack: redeeming during an Unlock extends it from its current end.
-        let starts_from = match &self.state.unlock {
-            Some(unlock) if now < unlock.ends_at => unlock.ends_at,
-            _ => now,
-        };
-        let length = SignedDuration::from_mins(i64::from(self.state.settings.unlock_minutes));
-        let full_length = starts_from
-            .checked_add(length)
-            .expect("an Unlock never ends past the year 9999");
-        // Never let an Unlock run into Curfew, and never spend a Voucher that adds no time.
-        let ends_at = full_length.min(self.next_local(now, self.state.settings.curfew_start));
-        if ends_at <= starts_from {
+        let running = self
+            .state
+            .unlock
+            .clone()
+            .filter(|unlock| now < unlock.ends_at);
+        let starts_from = running.as_ref().map_or(now, |unlock| unlock.ends_at);
+        let curfew = self.next_local(now, self.state.settings.curfew_start);
+        let room = starts_from.duration_until(curfew).as_secs();
+        if room <= 0 {
             return Err(Refusal::Curfew);
         }
-        self.state.bank -= 1;
+        let length = i64::from(self.state.settings.unlock_minutes) * 60;
+        // Tickets needed to reach Curfew, rounding up: the last may be cut short.
+        let fit = u32::try_from((room + length - 1) / length).unwrap_or(u32::MAX);
+        let tickets = count.min(fit);
+        let ends_at = starts_from
+            .checked_add(SignedDuration::from_secs(length * i64::from(tickets)))
+            .expect("an Unlock never ends past the year 9999")
+            .min(curfew);
+        self.state.bank -= tickets;
         let wire = sign(
             &Unlock {
                 ends_at: ends_at.as_second(),
             },
             &self.key,
         );
-        let redeemed = Redeemed { wire, ends_at };
+        let redeemed = Redeemed {
+            wire,
+            ends_at,
+            started_at: running.as_ref().map_or(now, |unlock| unlock.started_at),
+            tickets: running.as_ref().map_or(0, |unlock| unlock.tickets) + tickets,
+        };
         self.state.unlock = Some(redeemed.clone());
+        self.state.log.push(Entry::Redeemed { at: now, tickets });
         Ok(redeemed)
+    }
+
+    /// The current Day's score, Streak, and log.
+    pub fn today(&mut self, now: Timestamp) -> Today {
+        self.settle(now);
+        let settings = &self.state.settings;
+        let day = day_of(settings, now);
+        let earned = self.state.days.get(&day).map_or(0, |score| score.earned);
+        let goal = settings.daily_goal;
+        let goal_met = earned >= goal;
+        // Today joins the Streak once its goal is met; until then the Streak
+        // still stands on yesterday and before.
+        let mut streak = u32::from(goal_met);
+        let mut earlier = day.yesterday().expect("not the year -9999");
+        while let Some(score) = self.state.days.get(&earlier) {
+            if score.earned < score.goal {
+                break;
+            }
+            streak += 1;
+            earlier = earlier.yesterday().expect("not the year -9999");
+        }
+        // Newest first; reversing before the stable sort keeps same-moment
+        // entries newest-recorded first too.
+        let mut log: Vec<Entry> = self
+            .state
+            .log
+            .iter()
+            .rev()
+            .filter(|entry| day_of(settings, entry.at()) == day)
+            .cloned()
+            .collect();
+        log.sort_by_key(|entry| Reverse(entry.at()));
+        let mut by_source = BTreeMap::new();
+        for entry in &log {
+            if let Entry::Earned { task, .. } = entry {
+                let source = task.split_once(':').map_or(task.as_str(), |(s, _)| s);
+                *by_source.entry(source.to_string()).or_insert(0) += 1;
+            }
+        }
+        Today {
+            day,
+            earned,
+            goal,
+            goal_met,
+            streak,
+            by_source,
+            log,
+        }
+    }
+
+    /// Keeps a week of log entries; the Day scores keep the longer history.
+    fn forget_old_entries(&mut self, today: Date) {
+        let oldest = days_before(today, LOG_DAYS);
+        let settings = &self.state.settings;
+        self.state
+            .log
+            .retain(|entry| day_of(settings, entry.at()) >= oldest);
     }
 
     /// Whether Curfew is in force at `now`.
@@ -274,6 +455,16 @@ impl Ledger {
     /// for the next Morning boundary, however urgently they are wanted.
     pub fn request(&mut self, change: Change, now: Timestamp) -> Effect {
         self.settle(now);
+        if let Change::DailyGoal(_) = change {
+            // A Day's goal is fixed once it starts, so raising or lowering it
+            // waits for the next Day. The newest request replaces older ones.
+            let effective_at = self.next_local(now, self.state.settings.curfew_end);
+            self.state
+                .pending
+                .retain(|(queued, _)| !matches!(queued, Change::DailyGoal(_)));
+            self.state.pending.push((change, effective_at));
+            return Effect::At(effective_at);
+        }
         if self.loosens(change) {
             let effective_at = self.next_local(now, self.state.settings.morning_boundary);
             self.state.pending.push((change, effective_at));
@@ -301,18 +492,33 @@ impl Ledger {
                 );
                 from_noon(start) > from_noon(old_start) || from_noon(end) < from_noon(old_end)
             }
+            Change::DailyGoal(goal) => goal < self.state.settings.daily_goal,
         }
     }
 
     fn apply(&mut self, change: Change) {
         match change {
-            Change::UnlockMinutes(minutes) => self.state.settings.unlock_minutes = minutes,
+            // A zero-minute ticket would spend Vouchers for nothing.
+            Change::UnlockMinutes(minutes) => self.state.settings.unlock_minutes = minutes.max(1),
             Change::BankLimit(limit) => self.state.settings.bank_limit = limit,
             Change::Curfew { start, end } => {
                 self.state.settings.curfew_start = start;
                 self.state.settings.curfew_end = end;
             }
+            Change::DailyGoal(goal) => self.state.settings.daily_goal = goal,
         }
+    }
+
+    /// Withdraws a pending change before it takes effect. Withdrawing a
+    /// Loosening only tightens, so it is immediate. Returns false if there is
+    /// no pending change at `index`.
+    pub fn cancel_pending(&mut self, index: usize, now: Timestamp) -> bool {
+        self.settle(now);
+        if index >= self.state.pending.len() {
+            return false;
+        }
+        self.state.pending.remove(index);
+        true
     }
 
     /// Applies every pending Loosening whose Morning boundary has passed.
@@ -327,8 +533,28 @@ impl Ledger {
     }
 }
 
-/// How many days back, besides today, a Completion can still earn.
+/// How many Days back, besides today, a Completion can still earn.
 const EARNING_WINDOW_DAYS: i64 = 2;
+
+/// How many Days back, besides today, the log keeps entries.
+const LOG_DAYS: i64 = 6;
+
+/// The Day a moment belongs to. A Day runs from Curfew's end to the next
+/// Curfew's end, so work at 01:00 still counts toward the evening before.
+/// Assumes Curfew ends in the morning.
+fn day_of(settings: &Settings, at: Timestamp) -> Date {
+    let local = at.to_zoned(settings.time_zone.clone()).datetime();
+    if local.time() < settings.curfew_end {
+        local.date().yesterday().expect("not the year -9999")
+    } else {
+        local.date()
+    }
+}
+
+fn days_before(day: Date, days: i64) -> Date {
+    day.checked_sub(jiff::Span::new().days(days))
+        .expect("not the year -9999")
+}
 
 /// Minutes since noon. Curfew is a night window that crosses midnight, so
 /// measuring from noon puts its start before its end and makes "earlier" and

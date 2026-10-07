@@ -21,7 +21,7 @@ use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
-use voucher_ledger::{Change, Ledger, Settings, clickup, todoist};
+use voucher_ledger::{Change, DEFAULT_DAILY_GOAL, Ledger, Settings, Today, clickup, todoist};
 
 struct Config {
     data_dir: PathBuf,
@@ -64,6 +64,7 @@ fn first_run_settings() -> Settings {
         curfew_start: time(22, 0, 0, 0),
         curfew_end: time(6, 0, 0, 0),
         morning_boundary: time(6, 0, 0, 0),
+        daily_goal: DEFAULT_DAILY_GOAL,
     }
 }
 
@@ -93,7 +94,9 @@ fn main() {
 fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path) {
     let now = Timestamp::now();
     let mut ledger = ledger.lock().unwrap();
-    let (status, body) = match (request.method(), request.url()) {
+    let url = request.url().to_string();
+    let (path, query) = url.split_once('?').unwrap_or((&url, ""));
+    let (status, body) = match (request.method(), path) {
         (Method::Get, "/status") => (200, status_json(&mut ledger, now)),
         (Method::Get, "/unlock") => match ledger.current_unlock(now) {
             Some(unlock) => (200, json(unlock)),
@@ -104,9 +107,29 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path) {
                 }),
             ),
         },
-        (Method::Post, "/redeem") => match ledger.redeem(now) {
-            Ok(redeemed) => (200, json(&redeemed)),
-            Err(refusal) => (409, json(&refusal)),
+        // `?count=3` tears three tickets at once; no count means one.
+        (Method::Post, "/redeem") => match number(query, "count").unwrap_or(Some(1)) {
+            Some(count) => match ledger.redeem_many(count, now) {
+                Ok(redeemed) => (200, json(&redeemed)),
+                Err(refusal) => (409, json(&refusal)),
+            },
+            None => (
+                400,
+                json(&Message {
+                    message: "count is not a number",
+                }),
+            ),
+        },
+        (Method::Post, "/cancel") => match number(query, "index") {
+            Some(Some(index)) if ledger.cancel_pending(index as usize, now) => {
+                (200, status_json(&mut ledger, now))
+            }
+            _ => (
+                404,
+                json(&Message {
+                    message: "no pending change at that index",
+                }),
+            ),
         },
         (Method::Post, "/change") => {
             let mut body = String::new();
@@ -141,6 +164,15 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path) {
     let _ = request.respond(response);
 }
 
+/// Reads `name=<number>` from a query string: None if it is absent,
+/// Some(None) if it is there but not a number.
+fn number(query: &str, name: &str) -> Option<Option<u32>> {
+    query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='))
+        .map(|value| value.parse().ok())
+}
+
 #[derive(Serialize)]
 struct Message {
     message: &'static str,
@@ -154,17 +186,20 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         unlock: Option<voucher_ledger::Redeemed>,
         settings: Settings,
         pending: &'a [(Change, Timestamp)],
+        today: Today,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
     let bank = ledger.bank();
     let curfew_active = ledger.curfew_active(now);
+    let today = ledger.today(now);
     json(&Status {
         bank,
         curfew_active,
         unlock,
         settings,
         pending: ledger.pending(now),
+        today,
     })
 }
 

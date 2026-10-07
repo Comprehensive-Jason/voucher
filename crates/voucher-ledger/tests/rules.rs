@@ -15,6 +15,7 @@ fn settings() -> Settings {
         curfew_start: time(22, 0, 0, 0),
         curfew_end: time(6, 0, 0, 0),
         morning_boundary: time(6, 0, 0, 0),
+        daily_goal: 16,
     }
 }
 
@@ -330,4 +331,61 @@ fn work_done_before_the_ledger_started_earns_nothing() {
     );
 
     assert_eq!(ledger.bank(), 1);
+}
+
+#[test]
+fn several_tickets_can_be_torn_at_once() {
+    let mut ledger = stocked();
+
+    let redeemed = ledger.redeem_many(3, at("2026-10-06T19:00-07:00")).unwrap();
+
+    assert_eq!(redeemed.ends_at, at("2026-10-06T19:30-07:00"));
+    assert_eq!(ledger.bank(), 9);
+}
+
+#[test]
+fn tearing_more_tickets_than_the_bank_holds_is_refused_whole() {
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
+    ledger.credit(2, at("2026-10-06T09:00-07:00"));
+
+    assert_eq!(
+        ledger.redeem_many(3, at("2026-10-06T19:00-07:00")),
+        Err(Refusal::EmptyBank)
+    );
+    assert_eq!(ledger.bank(), 2);
+}
+
+#[test]
+fn a_pending_loosening_can_be_cancelled() {
+    let mut ledger = stocked();
+    ledger.request(Change::UnlockMinutes(15), at("2026-10-06T21:00-07:00"));
+
+    assert!(ledger.cancel_pending(0, at("2026-10-06T21:05-07:00")));
+
+    let redeemed = ledger.redeem(at("2026-10-07T07:00-07:00")).unwrap();
+    assert_eq!(redeemed.ends_at, at("2026-10-07T07:10-07:00"));
+}
+
+#[test]
+fn tickets_that_would_only_run_past_curfew_stay_in_the_bank() {
+    let mut ledger = stocked();
+
+    let redeemed = ledger.redeem_many(5, at("2026-10-06T21:45-07:00")).unwrap();
+
+    assert_eq!(redeemed.ends_at, at("2026-10-06T22:00-07:00"));
+    assert_eq!(ledger.bank(), 10);
+}
+
+#[test]
+fn a_state_saved_before_daily_goals_existed_still_loads() {
+    let mut saved: serde_json::Value = serde_json::from_str(&stocked().save()).unwrap();
+    let state = saved.as_object_mut().unwrap();
+    state.remove("days");
+    state.remove("log");
+    state["settings"].as_object_mut().unwrap().remove("daily_goal");
+
+    let mut ledger = Ledger::load(&saved.to_string(), ledger_key()).unwrap();
+
+    assert_eq!(ledger.settings(at("2026-10-06T09:00-07:00")).daily_goal, 16);
+    assert_eq!(ledger.bank(), 12);
 }

@@ -23,17 +23,15 @@ function sampleToday(): Today {
   const base: Today = {
     bank: 9, bankLimit: 24, unlockMinutes: 10, unlockEndsAt: null,
     curfewActive: false, curfewStart: "22:00", curfewEnd: "06:00",
-    sample: {
-      goalDone: 11, goalTarget: 16, streakDays: 4,
-      sources: [
-        { name: "Tasks", detail: "+1 each · 7 today", progress: 1, color: "#5b9cff" },
-        { name: "Obsidian", detail: "18 / 30 min", progress: 0.6, color: "#b08cff" },
-        { name: "Workout", detail: "9 / 15 zone min", progress: 0.6, color: "#ff8a5c" },
-        { name: "Readwise Reader", detail: "22 / 30 min", progress: 0.73, color: "#ffd166" },
-        { name: "Moon+ Reader", detail: "9 / 30 min", progress: 0.3, color: "#e0a82e" },
-        { name: "Anki", detail: "6 / 30 min", progress: 0.2, color: "#ff6fa8" },
-      ],
-    },
+    goalDone: 11, goalTarget: 16, streakDays: 4,
+    sources: [
+      { name: "Tasks", detail: "+1 each · 7 today", progress: 1, color: "#5b9cff", sample: false },
+      { name: "Obsidian", detail: "18 / 30 min", progress: 0.6, color: "#b08cff", sample: true },
+      { name: "Workout", detail: "9 / 15 zone min", progress: 0.6, color: "#ff8a5c", sample: true },
+      { name: "Readwise Reader", detail: "22 / 30 min", progress: 0.73, color: "#ffd166", sample: true },
+      { name: "Moon+ Reader", detail: "9 / 30 min", progress: 0.3, color: "#e0a82e", sample: true },
+      { name: "Anki", detail: "6 / 30 min", progress: 0.2, color: "#ff6fa8", sample: true },
+    ],
   };
   switch (state) {
     case "running": return { ...base, bank: 7, unlockEndsAt: now + 17 * 60 + 12 };
