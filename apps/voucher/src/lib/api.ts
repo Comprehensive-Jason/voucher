@@ -149,3 +149,21 @@ export async function appIcon(pkg: string): Promise<string | null> {
   if (!inTauri) return null;
   try { return await device<string>("appIcon", { pkg }); } catch { return null; }
 }
+
+/** Running on Windows, where the guard service and ActivityWatch replace Android's protection parts. */
+export const onWindows = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
+
+/** What each protection part is called and does on this platform. */
+export function protectionParts(): { part: keyof Protection; name: string; what: string }[] {
+  if (onWindows) {
+    return [
+      { part: "deviceOwner", name: "Voucher guard", what: "A Windows service that closes paused programs and blocks sites. Installed with Voucher." },
+      { part: "usageAccess", name: "ActivityWatch", what: "Counts focused time in your apps. Voucher reads it on this PC." },
+    ];
+  }
+  return [
+    { part: "deviceOwner", name: "App blocking", what: "Pauses your Distractions, and stops Voucher being uninstalled" },
+    { part: "usageAccess", name: "Usage access", what: "Counts focused time in your apps" },
+    { part: "overlay", name: "Blocked-app screen", what: "Shows Voucher's screen when a paused app opens" },
+  ];
+}

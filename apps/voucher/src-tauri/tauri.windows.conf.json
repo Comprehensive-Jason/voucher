@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "mainBinaryName": "Voucher",
+  "bundle": {
+    "targets": ["nsis"],
+    "externalBin": ["binaries/voucher-guard"],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "./windows/hooks.nsh"
+      }
+    }
+  }
+}

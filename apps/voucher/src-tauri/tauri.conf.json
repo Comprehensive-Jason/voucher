@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "voucher",
+  "productName": "Voucher",
   "version": "0.1.0",
   "identifier": "io.github.comprehensivejason.voucher",
   "build": {
@@ -12,9 +12,13 @@
   "app": {
     "windows": [
       {
-        "title": "voucher",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "Voucher",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 390,
+        "minHeight": 600,
+        "backgroundColor": "#0e0f11"
       }
     ],
     "security": {

@@ -6,7 +6,7 @@
   // its changes follow the usual waits.
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { connect, connection, device, fixProtection, ledger, protection, requestHealth } from "$lib/api";
+  import { connect, connection, device, fixProtection, ledger, onWindows, protection, protectionParts, requestHealth } from "$lib/api";
   import Switch from "$lib/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
@@ -78,7 +78,7 @@
     busy = false;
   }
 
-  const requiredLeft = $derived(guard ? [guard.deviceOwner, guard.usageAccess, guard.overlay].filter((g) => !g).length : 3);
+  const requiredLeft = $derived(guard ? protectionParts().filter((p) => !guard![p.part]).length : protectionParts().length);
   const wrap = (m: number) => (m + 1440) % 1440;
 
   onMount(() => {
@@ -141,18 +141,16 @@
   {:else if step === 3}
     <div class="intro">
       <h1>Let Voucher do its job</h1>
-      <p>Three permissions are needed. The fourth is only for workouts.</p>
+      <p>{onWindows ? "Two parts keep Voucher working on this PC." : "Three permissions are needed. The fourth is only for workouts."}</p>
     </div>
     <div class="list">
-      {#each [
-        { part: "deviceOwner", name: "App blocking", what: "Pauses your Distractions, and stops Voucher being uninstalled" },
-        { part: "usageAccess", name: "Usage access", what: "Counts focused time in your apps" },
-        { part: "overlay", name: "Blocked-app screen", what: "Shows Voucher's screen when a paused app opens" },
-      ] as p (p.part)}
+      {#each protectionParts() as p (p.part)}
         <div class="li">
           <span class="lt"><b>{p.name}</b><small>{p.what}</small></span>
           {#if guard?.[p.part as keyof Protection]}
             <span class="ok"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10" /></svg>Granted</span>
+          {:else if p.part === "deviceOwner" && onWindows}
+            <span class="hintsm">Reinstall Voucher as an administrator</span>
           {:else if p.part === "deviceOwner"}
             <button class="sm" onclick={() => (showSteps = true)}>How</button>
           {:else}
@@ -160,10 +158,12 @@
           {/if}
         </div>
       {/each}
+      {#if !onWindows}
       <div class="li">
         <span class="lt"><b>Health Connect</b><small>Optional. Needed for Workout</small></span>
         {#if health}<span class="ok">Connected</span>{:else}<button class="sm out" onclick={async () => (health = await requestHealth())}>Connect</button>{/if}
       </div>
+      {/if}
     </div>
     <div class="foot">
       <div class="hint">{requiredLeft ? `${requiredLeft} required permission${requiredLeft === 1 ? "" : "s"} still to grant` : "All set"}</div>
@@ -270,6 +270,7 @@
   .lt b { font-size: 15px; }
   .lt small { font-size: 12px; color: var(--muted); line-height: 1.3; }
   .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .hintsm { font-size: 12px; color: var(--goal); max-width: 120px; text-align: right; }
   .ok { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--voucher); flex-shrink: 0; }
   .sm { height: 36px; padding: 0 14px; border-radius: 10px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 13px var(--font); flex-shrink: 0; }
   .sm.out { background: none; border: 1px solid #3a3f45; color: var(--ink); }

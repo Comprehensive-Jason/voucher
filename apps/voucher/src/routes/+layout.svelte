@@ -10,7 +10,7 @@
   let { children } = $props();
   // Setup and the blocked-app screen stand alone, without the tab bar.
   const setup = $derived(page.url.pathname.startsWith("/setup"));
-  const alone = $derived(setup || page.url.pathname.startsWith("/blocked"));
+  const alone = $derived(setup || ["/blocked", "/tray", "/pc-blocked"].some((p) => page.url.pathname.startsWith(p)));
 
   /** The Android side may ask for a screen, such as the blocked-app screen. */
   async function followDevice() {

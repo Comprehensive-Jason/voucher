@@ -2,7 +2,7 @@
   // Rules, Limits: the four numbers that set how strict Voucher is. Every
   // Loosening shows as a pending banner, with a ghost knob, until 06:00.
   import { onMount } from "svelte";
-  import { fixProtection, ledger, protection } from "../api";
+  import { fixProtection, ledger, onWindows, protection } from "../api";
   import RuleSlider from "../components/RuleSlider.svelte";
   import CurfewSlider from "../components/CurfewSlider.svelte";
   import { describe, hhmm, minutesOf, pendingValue, timeOf, until } from "../rules";
@@ -49,10 +49,12 @@
   const missing = $derived.by(() => {
     if (!guard) return null;
     if (!guard.deviceOwner) return { level: "off", part: "deviceOwner" as const, title: "Protection off",
-      text: "Voucher isn't Device Owner on this phone, so nothing is paused.", action: "Set up app blocking" };
+      text: onWindows ? "The Voucher guard isn't running, so nothing is closed or blocked." : "Voucher isn't Device Owner on this phone, so nothing is paused.",
+      action: onWindows ? "See how to fix it" : "Set up app blocking" };
     if (!guard.usageAccess) return { level: "partial", part: "usageAccess" as const, title: "Protection partly on",
-      text: "Usage access is off, so Focused time and Distraction minutes can't be measured.", action: "Turn usage access on" };
-    if (!guard.overlay) return { level: "partial", part: "overlay" as const, title: "Protection partly on",
+      text: onWindows ? "ActivityWatch isn't running, so Focused time on this PC can't be counted." : "Usage access is off, so Focused time and Distraction minutes can't be measured.",
+      action: onWindows ? "Get ActivityWatch" : "Turn usage access on" };
+    if (!guard.overlay && !onWindows) return { level: "partial", part: "overlay" as const, title: "Protection partly on",
       text: "The blocked-app screen is off, so paused apps show Android's plain dialog instead.", action: "Turn the blocked-app screen on" };
     return null;
   });
@@ -126,7 +128,7 @@
     {#if guard && !missing}
       <a class="protected" href="/rules/protection">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--voucher)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
-        <span class="ptitle"><b>Protection on</b><small>App blocking, usage access, blocked-app screen</small></span>
+        <span class="ptitle"><b>Protection on</b><small>{onWindows ? "Voucher guard, ActivityWatch" : "App blocking, usage access, blocked-app screen"}</small></span>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </a>
     {/if}

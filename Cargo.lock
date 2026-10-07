@@ -3963,10 +3963,12 @@ dependencies = [
  "jiff",
  "serde",
  "serde_json",
+ "sysinfo",
  "tauri",
  "tauri-build",
  "ureq",
  "voucher-protocol",
+ "windows",
 ]
 
 [[package]]

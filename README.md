@@ -20,7 +20,7 @@ The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [
 | --- | --- | --- |
 | 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Running on sprout against real accounts |
 | 2 | Android app (Tauri v2 with Kotlin plugins, Device Owner): phone and tablet layouts, blocked-app screen, notification, tile, widgets | Working on an emulator; first real device next |
-| 3 | Windows app (same Tauri project) and Enforcer service | Not started |
+| 3 | Windows app (same Tauri project) and Enforcer service | Built: guard service, tray pop-up, blocked window, installer from CI; first real PC next |
 | 4 | Focused time (usage stats) and exercise (Health Connect) Activity sources | Built; Focused time checked on an emulator |
 | 5 | Tamper-hardening | Device Owner suspension, no force-stop or data clearing, fail-closed |
 
@@ -44,6 +44,16 @@ Voucher needs Android 13 or later, a Ledger reachable over Tailscale, and a comp
 
 To leave, release the device in Rules, Protection. Like any Loosening it waits for 06:00; then Voucher lifts every block, gives up Device Owner, and can be uninstalled.
 
+## Installing on Windows
+
+1. Run the installer as an administrator (from the "Windows installer" workflow's artifacts). It installs Voucher, registers the **Voucher guard** service, and starts Voucher in the tray whenever anyone signs in.
+2. Open Voucher from the tray and connect to your Ledger, as on Android. The guard takes the same connection once; after that only an administrator can change it.
+3. For Focused time on the PC, run [ActivityWatch](https://activitywatch.net/downloads/). Voucher reads it locally every two minutes; Obsidian and Anki count by default.
+
+The guard closes paused programs (Steam and other launchers, and anything in a game folder when "Every game" is on) and writes the site blocklist as browser policy for Chrome, Brave, Edge, and Firefox. Browsers that ignore policy, such as Opera and Vivaldi, are on the Other browsers list.
+
+An administrator can stop any Windows service. If you use Windows as an administrator, stopping the guard can't be prevented, only seen: the Ledger logs it as a Gap. Using Windows from a standard account, with a separate administrator account for maintenance, makes the guard hold.
+
 ## Layout
 
 ```
@@ -51,6 +61,7 @@ crates/
   voucher-protocol/   Unlock format and signature checking, shared by Ledger and Rust Enforcers
   voucher-ledger/     the Ledger
   voucher-cli/        manual Enforcer for step 1
+  voucher-guard/      the Windows Enforcer service
 docs/adr/             decision records
 ```
 

@@ -7,6 +7,8 @@
 //! rule every Enforcer follows (ADR 0001).
 
 mod connection;
+#[cfg(desktop)]
+mod desktop;
 mod ledger;
 
 use serde::Serialize;
@@ -99,7 +101,10 @@ async fn connect(app: tauri::AppHandle, url: String) -> Result<String, String> {
         let url = url.trim().trim_end_matches('/').to_string();
         let key = ledger::Client::fetch_key(&url)?;
         ledger::Client::new(&url, &key)?;
-        connection::save(&app, &connection::Connection { url, key: key.clone() })?;
+        connection::save(&app, &connection::Connection { url: url.clone(), key: key.clone() })?;
+        // On Windows the guard service gets the same Ledger, once.
+        #[cfg(desktop)]
+        desktop::connect_guard(&url, &key);
         Ok(key.chars().take(8).collect())
     })
     .await
@@ -125,10 +130,15 @@ async fn device(app: tauri::AppHandle, command: String, args: Option<serde_json:
         })
         .await
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(desktop)]
+    {
+        let args = args.unwrap_or(serde_json::json!({}));
+        blocking(move || desktop::device(&app, &command, &args)).await
+    }
+    #[cfg(not(any(target_os = "android", desktop)))]
     {
         let _ = (app, command, args);
-        Err("Only on Android".into())
+        Err("Not on this platform".into())
     }
 }
 
@@ -159,7 +169,11 @@ pub fn run() {
             // development build's built-in Ledger is written there too.
             if let Some(c) = connection::load(app.handle()) {
                 let _ = connection::save(app.handle(), &c);
+                #[cfg(desktop)]
+                desktop::connect_guard(&c.url, &c.key);
             }
+            #[cfg(desktop)]
+            desktop::setup(app.handle())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![today, tear, ledger, connection, connect, device])
