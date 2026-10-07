@@ -95,6 +95,19 @@ class VoucherPlugin(private val activity: Activity) : Plugin(activity) {
         "data:image/png;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
     }
 
+    /** Asks for Health Connect access; resolves false if Health Connect isn't on this device. */
+    @Command
+    fun requestHealth(invoke: Invoke) {
+        if (Health.granted(activity)) return invoke.resolve(JSObject().put("value", true))
+        val intent = Health.requestIntent(activity) ?: return invoke.resolve(JSObject().put("value", false))
+        activity.startActivity(intent)
+        // The answer arrives later; the interface checks again when it is visible.
+        invoke.resolve(JSObject().put("value", false))
+    }
+
+    @Command
+    fun healthGranted(invoke: Invoke) = background(invoke) { Health.granted(activity) }
+
     @Command
     fun deviceId(invoke: Invoke) = invoke.resolve(JSObject().put("value", Store.deviceId(activity)))
 

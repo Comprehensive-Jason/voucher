@@ -138,6 +138,17 @@ object Enforcer {
     private fun report(ctx: Context, c: Connection, status: JSONObject, zone: ZoneId, end: LocalTime, day: String) {
         val sources = status.optJSONObject("settings")?.optJSONObject("sources") ?: return
         val dayStart = LocalDate.parse(day).atTime(end).atZone(zone).toInstant().toEpochMilli()
+        val workout = sources.optJSONObject("workout")
+        if (workout != null && workout.optBoolean("on")) {
+            val maxHeartRate = workout.optInt("max_heart_rate").takeIf { it > 0 } ?: DEFAULT_MAX_HEART_RATE
+            Health.since(ctx, java.time.Instant.ofEpochMilli(dayStart), maxHeartRate)?.let { w ->
+                if (w.zoneMinutes > Store.reported(ctx, "workout", day)) {
+                    val body = JSONObject().put("source", "workout").put("day", day).put("minutes", w.zoneMinutes)
+                    w.title?.let { body.put("title", it) }
+                    if (runCatching { LedgerClient.post(c, "/report", body) }.getOrNull() == 200) Store.setReported(ctx, "workout", day, w.zoneMinutes)
+                }
+            }
+        }
         val wanted = mutableMapOf<String, List<String>>()
         for (id in sources.keys()) {
             val s = sources.getJSONObject(id)
@@ -230,6 +241,9 @@ object Enforcer {
         tick(ctx)
         return code == 200
     }
+
+    /** Used until the Workout source carries your own maximum heart rate. */
+    private const val DEFAULT_MAX_HEART_RATE = 195
 
     private val BROWSERS = listOf("com.android.chrome", "com.brave.browser", "com.chrome.beta", "org.chromium.chrome")
 }

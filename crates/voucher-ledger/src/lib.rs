@@ -168,6 +168,10 @@ pub struct Source {
     /// when an app comes in editions, such as a free and a paid one.
     #[serde(default)]
     pub packages: Vec<String>,
+    /// Workout only: the maximum heart rate zone minutes are measured
+    /// against. The phone uses 195 when this is unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_heart_rate: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -188,6 +192,7 @@ pub fn default_sources() -> BTreeMap<String, Source> {
         on: true,
         every,
         packages: packages.iter().map(|p| p.to_string()).collect(),
+        max_heart_rate: None,
     };
     BTreeMap::from([
         ("todoist".into(), source(SourceKind::Tasks, 1, &[])),

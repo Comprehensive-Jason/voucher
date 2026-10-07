@@ -77,6 +77,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
     // Ed25519 checks of the Ledger's signed Unlocks (see LedgerClient.verifyUnlock).
     implementation("org.bouncycastle:bcprov-jdk18on:1.82")
+    // Workout zone minutes from heart rate (see Health.kt).
+    implementation("androidx.health.connect:connect-client:1.1.0")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")

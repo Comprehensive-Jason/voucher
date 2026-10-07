@@ -6,7 +6,7 @@
   // its changes follow the usual waits.
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { connect, connection, fixProtection, ledger, protection, requestHealth } from "$lib/api";
+  import { connect, connection, device, fixProtection, ledger, protection, requestHealth } from "$lib/api";
   import Switch from "$lib/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
@@ -56,7 +56,10 @@
     busy = false;
   }
 
-  async function checkGuard() { guard = await protection(); }
+  async function checkGuard() {
+    guard = await protection();
+    health = await device<boolean>("healthGranted").catch(() => health);
+  }
 
   async function start() {
     busy = true;
