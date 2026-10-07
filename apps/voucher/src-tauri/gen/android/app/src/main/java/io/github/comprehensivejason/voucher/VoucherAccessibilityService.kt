@@ -44,10 +44,9 @@ class VoucherAccessibilityService : AccessibilityService() {
 
     /** The blocked app whose name appears in what was tapped ("Instagram", "Disabled Instagram"). */
     private fun blockedApp(tapped: String): Pair<String, String>? {
-        val apps = Store.lastStatus(this)?.optJSONObject("blocked")?.optJSONArray("apps") ?: return null
+        val apps = Enforcer.blockedPackages(this, Store.lastStatus(this))
         val pm = packageManager
-        for (i in 0 until apps.length()) {
-            val pkg = apps.getString(i)
+        for (pkg in apps) {
             val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrNull() ?: continue
             if (tapped.contains(label, ignoreCase = true)) return pkg to label
         }

@@ -107,7 +107,7 @@ export interface Settings {
   curfew_end: string;
   morning_boundary: string;
   daily_goal: number;
-  sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[] }>;
+  sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[]; max_heart_rate?: number }>;
   blocklists: Record<string, Blocklist>;
   released_devices: string[];
 }

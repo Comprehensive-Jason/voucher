@@ -40,3 +40,8 @@ export function serviceOf(id: string): SourceStyle {
 export function sourceOf(task: string): SourceStyle {
   return styleOf(task.split(":")[0]);
 }
+
+/** Poll problems that a new token fixes, as opposed to a service having a bad moment. */
+export function needsToken(problem: string | undefined): boolean {
+  return problem === "sign-in expired" || problem === "not connected";
+}

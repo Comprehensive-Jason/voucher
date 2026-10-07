@@ -85,6 +85,23 @@ object Enforcer {
 
     private fun strings(arr: JSONArray?): List<String> = arr?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
 
+    /**
+     * The installed packages the blocklists cover. "category:game" stands for
+     * every app Android marks as a game.
+     */
+    fun blockedPackages(ctx: Context, status: JSONObject?): Set<String> {
+        val entries = strings(status?.optJSONObject("blocked")?.optJSONArray("apps"))
+        val out = entries.filter { !it.startsWith("category:") && installed(ctx, it) }.toMutableSet()
+        if ("category:game" in entries) {
+            val pm = ctx.packageManager
+            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+                .filter { it.category == android.content.pm.ApplicationInfo.CATEGORY_GAME }
+                .forEach { out.add(it.packageName) }
+        }
+        out.remove(ctx.packageName)
+        return out
+    }
+
     private fun installed(ctx: Context, pkg: String) =
         runCatching { ctx.packageManager.getApplicationInfo(pkg, 0); true }.getOrDefault(false)
 
@@ -92,7 +109,7 @@ object Enforcer {
         val dpm = dpm(ctx)
         val admin = admin(ctx)
         val blocked = d.status?.optJSONObject("blocked")
-        val apps = strings(blocked?.optJSONArray("apps")).filter { installed(ctx, it) && it != ctx.packageName }.toSet()
+        val apps = blockedPackages(ctx, d.status)
         val block = !d.unlocked
         // Release anything suspended earlier that no blocklist covers any more.
         val stale = Store.suspended(ctx) - apps
@@ -199,7 +216,7 @@ object Enforcer {
     fun usage(ctx: Context): JSONObject? {
         val status = Store.lastStatus(ctx) ?: return null
         val decision = tickless(ctx, status)
-        val apps = strings(status.optJSONObject("blocked")?.optJSONArray("apps")).toSet()
+        val apps = blockedPackages(ctx, status)
         val zone = runCatching { ZoneId.of(status.optJSONObject("settings")?.optString("time_zone")) }.getOrElse { ZoneId.systemDefault() }
         val end = time(status.optJSONObject("settings")?.optString("curfew_end"), "06:00")
         val from = LocalDate.parse(decision).atTime(end).atZone(zone).toInstant().toEpochMilli()
@@ -245,5 +262,9 @@ object Enforcer {
     /** Used until the Workout source carries your own maximum heart rate. */
     private const val DEFAULT_MAX_HEART_RATE = 195
 
-    private val BROWSERS = listOf("com.android.chrome", "com.brave.browser", "com.chrome.beta", "org.chromium.chrome")
+    /** Chromium browsers that read a managed URLBlocklist, every release channel. */
+    private val BROWSERS = listOf(
+        "com.android.chrome", "com.chrome.beta", "com.chrome.dev", "com.chrome.canary", "org.chromium.chrome",
+        "com.brave.browser", "com.brave.browser_beta", "com.brave.browser_nightly",
+    )
 }

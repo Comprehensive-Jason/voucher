@@ -10,7 +10,7 @@
   import Switch from "$lib/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
-  import { serviceOf } from "$lib/sources";
+  import { needsToken, serviceOf } from "$lib/sources";
   import { hhmm, minutesOf, timeOf } from "$lib/rules";
   import { summary } from "$lib/blocklists";
   import type { Protection, Status } from "$lib/types";
@@ -185,7 +185,7 @@
           <div class="li">
             <span class="dot" style="background: {style.color}"></span>
             <span class="lt"><b>{style.name}</b></span>
-            {#if kind === "tasks" && problem}
+            {#if kind === "tasks" && needsToken(problem)}
               <button class="sm out" onclick={() => (tokenFor = id)}>Connect</button>
             {:else}
               {#if kind === "tasks"}<span class="ok">Connected</span>{/if}

@@ -24,6 +24,9 @@
   <Sheet {onclose}>
     <h2>Add an app</h2>
     <input placeholder="Search apps" bind:value={filter} />
+    <button class="pick" onclick={() => onapp({ package: "category:game", label: "Every game" })}>
+      <span>Every game</span><span class="pkg">Any app marked as a game, including ones installed later</span>
+    </button>
     {#each shown as a (a.package)}
       <button class="pick" onclick={() => onapp(a)}><span>{a.label}</span><span class="mono pkg">{a.package}</span></button>
     {:else}

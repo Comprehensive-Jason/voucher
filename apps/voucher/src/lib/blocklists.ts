@@ -3,6 +3,7 @@ import type { Blocklist } from "./types";
 
 /** "App, youtube.com, and alternative viewers" style summaries. */
 export function summary(list: Blocklist): string {
+  if (list.apps.some((a) => a.on && a.package === "category:game")) return "Every game on this device";
   // Alternative viewer apps read as "alternative viewers", alongside maintained site lists.
   const apps = list.apps.filter((a) => a.on && a.note !== "Alternative viewer");
   const viewers = list.apps.some((a) => a.on && a.note === "Alternative viewer");

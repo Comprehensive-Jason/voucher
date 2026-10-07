@@ -129,7 +129,7 @@ fn a_new_blocklist_and_a_rename_apply_now() {
     assert_eq!(
         ledger.request(
             Change::NewBlocklist {
-                id: "games".into(),
+                id: "puzzles".into(),
                 list: games
             },
             at(NOON)
@@ -139,7 +139,7 @@ fn a_new_blocklist_and_a_rename_apply_now() {
     assert_eq!(
         ledger.request(
             Change::RenameBlocklist {
-                id: "games".into(),
+                id: "puzzles".into(),
                 name: "Play".into()
             },
             at(NOON)
@@ -148,7 +148,7 @@ fn a_new_blocklist_and_a_rename_apply_now() {
     );
 
     assert!(blocks(&mut ledger, NOON, "example-games.com"));
-    assert_eq!(ledger.settings(at(NOON)).blocklists["games"].name, "Play");
+    assert_eq!(ledger.settings(at(NOON)).blocklists["puzzles"].name, "Play");
 }
 
 #[test]
@@ -182,4 +182,58 @@ fn resetting_a_premade_list_that_only_restores_entries_applies_now() {
         Effect::Now
     );
     assert!(blocks(&mut ledger, NOON, "youtu.be"));
+}
+
+#[test]
+fn a_new_blocklist_never_replaces_an_existing_one() {
+    let mut ledger = fresh();
+    let empty = Blocklist {
+        name: "Games".into(),
+        color: "#7d8cff".into(),
+        premade: false,
+        on: true,
+        apps: vec![],
+        sites: vec![],
+    };
+
+    ledger.request(
+        Change::NewBlocklist {
+            id: "games".into(),
+            list: empty,
+        },
+        at(NOON),
+    );
+
+    assert!(blocks(&mut ledger, NOON, "category:game"));
+}
+
+#[test]
+fn games_and_browsers_without_site_blocking_are_premade_lists() {
+    let mut ledger = fresh();
+
+    assert!(blocks(&mut ledger, NOON, "category:game"));
+    assert!(blocks(&mut ledger, NOON, "com.sec.android.app.sbrowser"));
+    assert!(blocks(&mut ledger, NOON, "com.futo.platformplayer"));
+}
+
+#[test]
+fn a_lower_maximum_heart_rate_waits_for_morning_and_a_higher_one_applies_now() {
+    let mut ledger = fresh();
+
+    assert_eq!(
+        ledger.request(Change::MaxHeartRate(198), at(NOON)),
+        Effect::Now
+    );
+    assert!(matches!(
+        ledger.request(Change::MaxHeartRate(180), at(NOON)),
+        Effect::At(_)
+    ));
+    assert_eq!(
+        ledger.settings(at(NOON)).sources["workout"].max_heart_rate,
+        Some(198)
+    );
+    assert_eq!(
+        ledger.settings(at(NEXT_MORNING)).sources["workout"].max_heart_rate,
+        Some(180)
+    );
 }

@@ -7,7 +7,7 @@
   import Switch from "../components/Switch.svelte";
   import Sheet from "../components/Sheet.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";
-  import { serviceOf } from "../sources";
+  import { needsToken, serviceOf } from "../sources";
   import { hhmm, until } from "../rules";
   import type { SourceKind, Status } from "../types";
 
@@ -57,6 +57,15 @@
       await load();
     } catch (e) { error = String(e); }
   }
+  /** Higher is stricter and applies now; lower waits for 06:00. */
+  async function maxHeartRate(bpm: number) {
+    try {
+      const effect = await ledger<"Now" | { At: string }>("POST", "/change", { MaxHeartRate: bpm });
+      note = effect === "Now" ? "Applied now." : `Waits for ${hhmm(status!.settings.morning_boundary)}.`;
+      await load();
+    } catch (e) { error = String(e); }
+  }
+
   async function openAdd() { apps = await launchableApps(); adding = true; }
   async function add(app: { package: string; label: string }) {
     adding = false;
@@ -99,21 +108,30 @@
                 <div class="dot" style="background: {style.color}"></div>
                 <div class="label">
                   <span class="name" class:off={!s.on}>{style.name}</span>
-                  <span class="sub" class:warn={!!problem}>{problem ? `${problem}, not counting` : s.on ? style.sub ?? "" : "off"}</span>
+                  <span class="sub" class:warn={!!problem}>{problem ? (needsToken(problem) ? `${problem}, not counting` : `${problem}, retrying`) : s.on ? style.sub ?? "" : "off"}</span>
                 </div>
                 <Switch on={s.on} label="{style.name} {s.on ? 'on' : 'off'}" onchange={(on) => set(id, on, s.every)} />
               </div>
-              {#if s.on && !problem}
+              {#if s.on && !needsToken(problem)}
                 <div class="rate">
                   <div class="mono rtext">{rate(s.kind, s.every)}</div>
                   <RuleSlider small strict="right" {...RANGE[s.kind]} value={s.every}
                     pending={waiting && waiting.on ? waiting.every : null} onchange={(v) => set(id, true, v)} />
                 </div>
               {/if}
+              {#if s.kind === "workout" && s.on}
+                {@const hr = s.max_heart_rate ?? 195}
+                <div class="hr">
+                  <span class="hrlabel">Max heart rate</span>
+                  <button class="step" aria-label="Lower maximum heart rate" onclick={() => maxHeartRate(hr - 1)}>−</button>
+                  <span class="mono hrval">{hr}</span>
+                  <button class="step" aria-label="Higher maximum heart rate" onclick={() => maxHeartRate(hr + 1)}>+</button>
+                </div>
+              {/if}
               {#if waiting}
                 <div class="waiting">{waiting.on ? (s.on ? `${rate(s.kind, waiting.every)}` : "On") : "Off"} at {hhmm(status.settings.morning_boundary)}, {until(waiting.at)}</div>
               {/if}
-              {#if problem}
+              {#if needsToken(problem)}
                 <button class="reconnect" onclick={() => (reconnecting = id)}>Reconnect {style.name}</button>
               {/if}
             </div>
@@ -161,6 +179,10 @@
   .sub.warn { color: var(--goal); }
   .rate { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
   .rtext { font-size: 13px; font-weight: 700; }
+  .hr { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .hrlabel { flex: 1; color: var(--muted); }
+  .hrval { min-width: 36px; text-align: center; font-weight: 700; }
+  .step { width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--ink); font: 700 16px var(--font); }
   .waiting { font-size: 12px; color: var(--goal); }
   .reconnect { height: 32px; border-radius: 10px; border: 1px solid var(--goal-line); background: var(--goal-bg); color: var(--goal); font: 700 13px var(--font); }
   .foot { font-size: 12px; color: var(--muted); line-height: 1.4; }

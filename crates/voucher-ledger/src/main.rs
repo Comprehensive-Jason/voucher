@@ -97,11 +97,44 @@ fn main() {
     let (poll_config, poll_ledger, poll_state_path) =
         (Arc::clone(&config), Arc::clone(&ledger), state_path.clone());
     thread::spawn(move || poll_forever(&poll_config, &poll_ledger, &poll_state_path));
+    thread::spawn(refresh_lists_forever);
 
     let server = Server::http(&config.listen).expect("bind the listen address");
     eprintln!("voucher-ledger listening on {}", config.listen);
     for request in server.incoming_requests() {
         handle(request, &ledger, &state_path, &config);
+    }
+}
+
+/// Domains of each maintained list (`list:invidious`), refreshed daily.
+static LISTS: Mutex<BTreeMap<String, Vec<String>>> = Mutex::new(BTreeMap::new());
+
+fn refresh_lists_forever() {
+    loop {
+        let fetch = |url: &str| -> Result<String, Box<dyn std::error::Error>> {
+            Ok(ureq::get(url).call()?.body_mut().read_to_string()?)
+        };
+        match fetch("https://api.invidious.io/instances.json?sort_by=type,users")
+            .and_then(|json| Ok(voucher_ledger::instances::invidious(&json)?))
+        {
+            Ok(domains) if !domains.is_empty() => {
+                LISTS.lock().unwrap().insert("invidious".into(), domains);
+            }
+            Ok(_) => eprintln!("invidious list came back empty; keeping the last one"),
+            Err(error) => eprintln!("invidious list: {error}"),
+        }
+        match fetch(
+            "https://raw.githubusercontent.com/TeamPiped/documentation/main/content/docs/public-instances/index.md",
+        ) {
+            Ok(markdown) => {
+                LISTS
+                    .lock()
+                    .unwrap()
+                    .insert("piped".into(), voucher_ledger::instances::piped(&markdown));
+            }
+            Err(error) => eprintln!("piped list: {error}"),
+        }
+        thread::sleep(Duration::from_secs(24 * 60 * 60));
     }
 }
 
@@ -364,7 +397,20 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let bank = ledger.bank();
     let curfew_active = ledger.curfew_active(now);
     let today = ledger.today(now);
-    let blocked = ledger.blocked(now);
+    let mut blocked = ledger.blocked(now);
+    // Maintained lists stay named, and their current domains follow them.
+    let lists = LISTS.lock().unwrap();
+    let named: Vec<String> = blocked
+        .sites
+        .iter()
+        .filter_map(|s| s.strip_prefix("list:").map(String::from))
+        .collect();
+    for name in named {
+        blocked
+            .sites
+            .extend(lists.get(&name).into_iter().flatten().cloned());
+    }
+    drop(lists);
     let setup_complete = ledger.setup_complete();
     json(&Status {
         bank,

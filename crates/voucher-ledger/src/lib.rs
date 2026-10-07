@@ -4,6 +4,7 @@
 //! Pure logic: every method takes the current time, so tests can control it.
 
 pub mod clickup;
+pub mod instances;
 pub mod todoist;
 
 use std::{
@@ -92,7 +93,7 @@ pub struct Blocked {
 
 /// The blocklists a new Ledger starts with.
 pub fn default_blocklists() -> BTreeMap<String, Blocklist> {
-    ["instagram", "youtube", "reddit"]
+    ["instagram", "youtube", "reddit", "games", "browsers"]
         .into_iter()
         .filter_map(|id| Some((id.to_string(), premade_blocklist(id)?)))
         .collect()
@@ -130,6 +131,7 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
                 app("com.google.android.youtube", "YouTube", None),
                 app("org.schabi.newpipe", "NewPipe", viewer),
                 app("com.github.libretube", "LibreTube", viewer),
+                app("com.futo.platformplayer", "Grayjay", viewer),
             ],
             vec![
                 site("youtube.com", all),
@@ -137,6 +139,57 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
                 site("list:invidious", maintained),
                 site("list:piped", maintained),
             ],
+        ),
+        // One entry stands for every app Android marks as a game, so new
+        // games are covered without editing the list.
+        "games" => (
+            "Games",
+            "#7d8cff",
+            vec![app(
+                "category:game",
+                "Every game",
+                Some("Apps marked as games"),
+            )],
+            vec![],
+        ),
+        // Browsers that ignore the site blocklist would get around it, so
+        // they stay paused outside Unlocks like any Distraction.
+        "browsers" => (
+            "Other browsers",
+            "#5bc8ff",
+            vec![
+                app(
+                    "com.sec.android.app.sbrowser",
+                    "Samsung Internet",
+                    Some("Ignores the site blocklist"),
+                ),
+                app(
+                    "org.mozilla.firefox",
+                    "Firefox",
+                    Some("Ignores the site blocklist"),
+                ),
+                app(
+                    "org.mozilla.focus",
+                    "Firefox Focus",
+                    Some("Ignores the site blocklist"),
+                ),
+                app(
+                    "com.duckduckgo.mobile.android",
+                    "DuckDuckGo",
+                    Some("Ignores the site blocklist"),
+                ),
+                app(
+                    "com.opera.browser",
+                    "Opera",
+                    Some("Ignores the site blocklist"),
+                ),
+                app(
+                    "com.microsoft.emmx",
+                    "Edge",
+                    Some("Ignores the site blocklist"),
+                ),
+            ],
+            vec![],
         ),
         "reddit" => (
             "Reddit",
@@ -325,6 +378,9 @@ pub enum Change {
     /// Puts a premade blocklist back to its shipped entries.
     ResetBlocklist(String),
     DeleteBlocklist(String),
+    /// The maximum heart rate Workout zone minutes are measured against.
+    /// Lower makes zone minutes easier, so it is a Loosening.
+    MaxHeartRate(u32),
     /// Lets one device stop enforcing, so Voucher can be removed from it.
     /// Always a Loosening.
     ReleaseDevice(String),
@@ -992,6 +1048,15 @@ impl Ledger {
                 !self.state.settings.released_devices.contains(device)
             }
             Change::KeepDevice(_) => false,
+            Change::MaxHeartRate(bpm) => {
+                let current = self
+                    .state
+                    .settings
+                    .sources
+                    .get("workout")
+                    .and_then(|s| s.max_heart_rate);
+                bpm < current.unwrap_or(DEFAULT_MAX_HEART_RATE)
+            }
             // Blocklist changes: try it on a copy and see if anything stops being blocked.
             ref blocklist_change => {
                 let mut after = self.state.settings.clone();
@@ -1057,6 +1122,9 @@ impl Ledger {
     }
 }
 
+/// What the phone assumes when the Workout source has no maximum heart rate.
+pub const DEFAULT_MAX_HEART_RATE: u32 = 195;
+
 /// The source an earning came from: the prefix of `todoist:123`.
 fn source_of(task: &str) -> &str {
     task.split_once(':').map_or(task, |(source, _)| source)
@@ -1108,8 +1176,9 @@ fn apply_to(settings: &mut Settings, change: Change) {
         Change::AddSource { id, source } => {
             settings.sources.entry(id).or_insert(source);
         }
+        // A new blocklist never replaces one with the same id.
         Change::NewBlocklist { id, list } => {
-            settings.blocklists.insert(id, list);
+            settings.blocklists.entry(id).or_insert(list);
         }
         Change::BlocklistOn { id, on } => {
             if let Some(list) = settings.blocklists.get_mut(&id) {
@@ -1163,6 +1232,11 @@ fn apply_to(settings: &mut Settings, change: Change) {
         }
         Change::KeepDevice(device) => {
             settings.released_devices.remove(&device);
+        }
+        Change::MaxHeartRate(bpm) => {
+            if let Some(workout) = settings.sources.get_mut("workout") {
+                workout.max_heart_rate = Some(bpm);
+            }
         }
     }
 }
