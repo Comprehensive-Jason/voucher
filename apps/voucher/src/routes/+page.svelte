@@ -1,5 +1,4 @@
 <script lang="ts">
-  import "$lib/theme.css";
   import { onMount } from "svelte";
   import { today, tear } from "$lib/api";
   import { modeOf, type Today } from "$lib/types";
@@ -8,7 +7,6 @@
   import TicketStack from "$lib/components/TicketStack.svelte";
   import StatusCard from "$lib/components/StatusCard.svelte";
   import NextVoucher from "$lib/components/NextVoucher.svelte";
-  import NavTabs from "$lib/components/NavTabs.svelte";
 
   let data = $state<Today | null>(null);
   let error = $state<string | null>(null);
@@ -34,8 +32,7 @@
   });
 </script>
 
-<div class="screen">
-  <main>
+<main>
     {#if data}
       <Header streakDays={data.streakDays} />
       <BankMeter {mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} />
@@ -45,12 +42,9 @@
     {:else if error}
       <p class="error">{error}</p>
     {/if}
-  </main>
-  <NavTabs active="today" />
-</div>
+</main>
 
 <style>
-  .screen { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
   .error { color: var(--goal); }
 </style>

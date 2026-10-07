@@ -25,6 +25,7 @@ fn fresh() -> Ledger {
 fn done(task: &str, moment: &str) -> Completion {
     Completion {
         task: task.into(),
+        title: format!("Title of {task}"),
         at: at(moment),
     }
 }
@@ -107,10 +108,59 @@ fn todays_log_lists_earnings_and_redemptions_newest_first() {
     assert_eq!(
         log,
         vec![
-            Entry::Redeemed { at: at("2026-10-07T12:00-07:00"), tickets: 1 },
-            Entry::Earned { at: at("2026-10-07T09:00-07:00"), task: "clickup:b".into(), kept: true },
-            Entry::Earned { at: at("2026-10-07T08:10-07:00"), task: "todoist:a".into(), kept: true },
+            Entry::Redeemed { at: at("2026-10-07T12:00-07:00"), tickets: 1, minutes: 10 },
+            Entry::Earned {
+                at: at("2026-10-07T09:00-07:00"),
+                task: "clickup:b".into(),
+                title: "Title of clickup:b".into(),
+                kept: true
+            },
+            Entry::Earned {
+                at: at("2026-10-07T08:10-07:00"),
+                task: "todoist:a".into(),
+                title: "Title of todoist:a".into(),
+                kept: true
+            },
         ]
     );
 }
 
+
+#[test]
+fn a_past_day_keeps_its_totals_and_when_its_goal_was_met() {
+    let mut ledger = fresh();
+    earn(&mut ledger, "a", 2, "2026-10-06T09:00-07:00");
+    earn(&mut ledger, "b", 1, "2026-10-06T11:30-07:00");
+    earn(&mut ledger, "c", 1, "2026-10-06T14:00-07:00");
+    ledger.redeem_many(2, at("2026-10-06T15:00-07:00")).unwrap();
+    // Clipped by Curfew: one ticket, but only 5 minutes.
+    ledger.redeem(at("2026-10-06T21:55-07:00")).unwrap();
+
+    let day = ledger.day("2026-10-06".parse().unwrap(), at("2026-10-07T09:00-07:00"));
+
+    assert_eq!((day.earned, day.redeemed, day.unlocked_minutes), (4, 3, 25));
+    assert_eq!(day.goal_met_at, Some(at("2026-10-06T11:30-07:00")));
+    assert_eq!(day.streak, 1);
+    assert_eq!(day.log.len(), 6);
+}
+
+#[test]
+fn history_lists_each_day_oldest_first_including_empty_ones() {
+    let mut ledger = fresh();
+    earn(&mut ledger, "a", 3, "2026-10-05T10:00-07:00");
+    earn(&mut ledger, "b", 1, "2026-10-07T10:00-07:00");
+
+    let history = ledger.history(4, at("2026-10-07T12:00-07:00"));
+
+    let summary: Vec<(String, u32, bool)> =
+        history.iter().map(|d| (d.day.to_string(), d.earned, d.goal_met)).collect();
+    assert_eq!(
+        summary,
+        vec![
+            ("2026-10-04".into(), 0, false),
+            ("2026-10-05".into(), 3, true),
+            ("2026-10-06".into(), 0, false),
+            ("2026-10-07".into(), 1, false),
+        ]
+    );
+}

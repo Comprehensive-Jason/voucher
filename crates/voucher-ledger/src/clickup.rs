@@ -15,6 +15,7 @@ struct Page {
 #[derive(Deserialize)]
 struct Task {
     id: String,
+    name: String,
     /// Unix milliseconds as a string, or null while the task is not done.
     date_done: Option<String>,
     assignees: Vec<Assignee>,
@@ -36,6 +37,7 @@ pub fn completions(page: &str, user_id: u64) -> Result<Vec<Completion>, serde_js
             let done_ms: i64 = task.date_done?.parse().ok()?;
             Some(Completion {
                 task: format!("clickup:{}", task.id),
+                title: task.name,
                 at: Timestamp::from_millisecond(done_ms).ok()?,
             })
         })

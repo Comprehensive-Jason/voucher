@@ -16,10 +16,12 @@ fn completed_tasks_outside_excluded_projects_become_completions() {
         vec![
             Completion {
                 task: "todoist:6XGgmFVcrG5RRjVr".into(),
+                title: "Finish the problem set".into(),
                 at: at("2026-10-06T16:30:00Z"),
             },
             Completion {
                 task: "todoist:6XGgmHabit00001".into(),
+                title: "Stretch 10 min".into(),
                 at: at("2026-10-06T18:00:00Z"),
             },
         ]

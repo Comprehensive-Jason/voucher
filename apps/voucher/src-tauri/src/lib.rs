@@ -1,7 +1,8 @@
 //! The Voucher app's Rust side: the bridge between the interface and the Ledger.
 //!
-//! The interface calls two commands. `today` fetches everything the Today
-//! screen shows; `tear` Redeems tickets. Every Unlock the Ledger hands back is
+//! The interface calls three commands. `today` fetches everything the Today
+//! screen shows; `tear` Redeems tickets; `ledger` passes any other request
+//! (a Day's log, history, settings changes) straight through. Every Unlock the Ledger hands back is
 //! checked against the Ledger's public key before the app trusts it, the same
 //! rule every Enforcer follows (ADR 0001).
 
@@ -86,10 +87,20 @@ async fn tear(count: u32) -> Result<Today, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Any other Ledger request: a Day's log, the history, a settings change.
+#[tauri::command]
+async fn ledger(method: String, path: String, body: Option<String>) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        ledger::Client::new(LEDGER_URL, LEDGER_PUBLIC_KEY)?.call(&method, &path, body.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![today, tear])
+        .invoke_handler(tauri::generate_handler![today, tear, ledger])
         .run(tauri::generate_context!())
         .expect("error while running the Voucher app");
 }

@@ -240,6 +240,7 @@ fn a_tightening_cancels_a_pending_loosening_of_the_same_setting() {
 fn done(task: &str, moment: &str) -> Completion {
     Completion {
         task: task.into(),
+        title: task.into(),
         at: at(moment),
     }
 }

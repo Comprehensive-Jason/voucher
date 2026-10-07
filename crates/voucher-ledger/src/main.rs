@@ -21,7 +21,7 @@ use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
-use voucher_ledger::{Change, DEFAULT_DAILY_GOAL, Ledger, Settings, Today, clickup, todoist};
+use voucher_ledger::{Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, clickup, todoist};
 
 struct Config {
     data_dir: PathBuf,
@@ -120,6 +120,26 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path) {
                 }),
             ),
         },
+        // One Day's totals and log, by its date: `?date=2026-10-06`.
+        (Method::Get, "/day") => match param(query, "date").and_then(|d| d.parse().ok()) {
+            Some(day) => (200, json(&ledger.day(day, now))),
+            None => (
+                400,
+                json(&Message {
+                    message: "date is missing or not YYYY-MM-DD",
+                }),
+            ),
+        },
+        // The last `?days=` Days' totals (default 84, twelve weeks), oldest first.
+        (Method::Get, "/history") => match number(query, "days").unwrap_or(Some(84)) {
+            Some(days) => (200, json(&ledger.history(days.min(400), now))),
+            None => (
+                400,
+                json(&Message {
+                    message: "days is not a number",
+                }),
+            ),
+        },
         (Method::Post, "/cancel") => match number(query, "index") {
             Some(Some(index)) if ledger.cancel_pending(index as usize, now) => {
                 (200, status_json(&mut ledger, now))
@@ -167,10 +187,14 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path) {
 /// Reads `name=<number>` from a query string: None if it is absent,
 /// Some(None) if it is there but not a number.
 fn number(query: &str, name: &str) -> Option<Option<u32>> {
+    param(query, name).map(|value| value.parse().ok())
+}
+
+/// Reads `name=<value>` from a query string.
+fn param<'a>(query: &'a str, name: &str) -> Option<&'a str> {
     query
         .split('&')
         .find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='))
-        .map(|value| value.parse().ok())
 }
 
 #[derive(Serialize)]
@@ -186,7 +210,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         unlock: Option<voucher_ledger::Redeemed>,
         settings: Settings,
         pending: &'a [(Change, Timestamp)],
-        today: Today,
+        today: DaySummary,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();

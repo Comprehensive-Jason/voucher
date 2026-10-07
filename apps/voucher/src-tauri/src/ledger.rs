@@ -100,6 +100,31 @@ impl Client {
         })
     }
 
+    /// Sends any other request to the Ledger and returns its JSON reply. Used
+    /// for reads and setting changes, where there is no Unlock to verify.
+    pub fn call(&self, method: &str, path: &str, body: Option<&str>) -> Result<serde_json::Value, String> {
+        let url = format!("{}{path}", self.base);
+        let reply = match (method, body) {
+            ("GET", _) => self.agent.get(&url).call(),
+            ("POST", Some(body)) => self
+                .agent
+                .post(&url)
+                .header("Content-Type", "application/json")
+                .send(body),
+            ("POST", None) => self.agent.post(&url).send_empty(),
+            _ => return Err(format!("unsupported method {method}")),
+        };
+        let text = reply
+            .map_err(|e| match e {
+                ureq::Error::StatusCode(code) => format!("The Ledger refused this ({code})"),
+                e => format!("Can't reach the Ledger: {e}"),
+            })?
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| e.to_string())?;
+        serde_json::from_str(&text).map_err(|e| format!("Unexpected Ledger reply: {e}"))
+    }
+
     /// Tears `count` tickets in one go: all of them, or none if the Bank is short.
     pub fn redeem(&self, count: u32) -> Result<(), String> {
         let mut response = self

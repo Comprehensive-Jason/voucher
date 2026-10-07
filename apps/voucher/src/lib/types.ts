@@ -34,3 +34,26 @@ export function modeOf(t: Today, nowSeconds: number): Mode {
   if (t.bank === 0) return "empty";
   return "locked";
 }
+
+/** One line of the Ledger's log. */
+export type Entry =
+  | { kind: "earned"; at: string; task: string; title: string; kept: boolean }
+  | { kind: "redeemed"; at: string; tickets: number; minutes: number };
+
+/** One Day's score and log, from the Ledger's `GET /day`. */
+export interface DaySummary {
+  day: string;
+  earned: number;
+  redeemed: number;
+  unlocked_minutes: number;
+  goal: number;
+  goal_met: boolean;
+  goal_met_at: string | null;
+  streak: number;
+  by_source: Record<string, number>;
+  /** Newest first. */
+  log: Entry[];
+}
+
+/** One Day in the Ledger's `GET /history`. */
+export interface DayTotal { day: string; earned: number; redeemed: number; goal_met: boolean }

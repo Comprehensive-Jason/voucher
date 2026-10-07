@@ -46,6 +46,8 @@ fn default_daily_goal() -> u32 {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Completion {
     pub task: String,
+    /// The task's name, for the log.
+    pub title: String,
     pub at: Timestamp,
 }
 
@@ -99,11 +101,16 @@ pub enum Entry {
     Earned {
         at: Timestamp,
         task: String,
+        #[serde(default)]
+        title: String,
         kept: bool,
     },
     Redeemed {
         at: Timestamp,
         tickets: u32,
+        /// Minutes the tickets actually added; Curfew can cut the last one short.
+        #[serde(default)]
+        minutes: u32,
     },
 }
 
@@ -115,17 +122,22 @@ impl Entry {
     }
 }
 
-/// The score for the current Day.
+/// One Day's score and log.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Today {
+pub struct DaySummary {
     pub day: Date,
     /// Vouchers earned this Day, forfeited ones included: the goal measures
     /// work done, not what fitted in the Bank.
     pub earned: u32,
+    /// Tickets torn this Day.
+    pub redeemed: u32,
+    pub unlocked_minutes: u32,
     pub goal: u32,
     pub goal_met: bool,
-    /// Days in a row with the goal met, ending yesterday, plus today once its
-    /// goal is met.
+    /// The earning that met the goal, if the log still holds it.
+    pub goal_met_at: Option<Timestamp>,
+    /// Goal Days in a row ending this Day. For today, the Streak still stands
+    /// on yesterday until today's goal is met, then includes today.
     pub streak: u32,
     /// Vouchers earned this Day per Activity source (`todoist`, `clickup`).
     pub by_source: BTreeMap<String, u32>,
@@ -133,11 +145,35 @@ pub struct Today {
     pub log: Vec<Entry>,
 }
 
+/// One Day in the history, for Trends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct DayTotal {
+    pub day: Date,
+    pub earned: u32,
+    pub redeemed: u32,
+    pub goal_met: bool,
+}
+
 /// What one Day earned, and the goal it had.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 struct DayScore {
     earned: u32,
     goal: u32,
+    #[serde(default)]
+    redeemed: u32,
+    #[serde(default)]
+    unlocked_minutes: u32,
+}
+
+impl DayScore {
+    fn new(goal: u32) -> Self {
+        DayScore {
+            earned: 0,
+            goal,
+            redeemed: 0,
+            unlocked_minutes: 0,
+        }
+    }
 }
 
 /// When a requested change takes effect.
@@ -174,7 +210,7 @@ struct State {
     /// Every Day that earned anything, for the goal, the Streak, and Trends.
     #[serde(default)]
     days: BTreeMap<Date, DayScore>,
-    /// The last week of entries, oldest first.
+    /// The last month of entries, oldest first.
     #[serde(default)]
     log: Vec<Entry>,
 }
@@ -283,11 +319,12 @@ impl Ledger {
             self.state
                 .days
                 .entry(day)
-                .or_insert(DayScore { earned: 0, goal })
+                .or_insert(DayScore::new(goal))
                 .earned += 1;
             self.state.log.push(Entry::Earned {
                 at: completion.at,
                 task: completion.task.clone(),
+                title: completion.title.clone(),
                 kept,
             });
         }
@@ -351,29 +388,52 @@ impl Ledger {
             tickets: running.as_ref().map_or(0, |unlock| unlock.tickets) + tickets,
         };
         self.state.unlock = Some(redeemed.clone());
-        self.state.log.push(Entry::Redeemed { at: now, tickets });
+        let minutes = (starts_from.duration_until(ends_at).as_secs() + 30) / 60;
+        let minutes = u32::try_from(minutes).unwrap_or(u32::MAX);
+        let goal = self.state.settings.daily_goal;
+        let today = self
+            .state
+            .days
+            .entry(day_of(&self.state.settings, now))
+            .or_insert(DayScore::new(goal));
+        today.redeemed += tickets;
+        today.unlocked_minutes += minutes;
+        self.state.log.push(Entry::Redeemed {
+            at: now,
+            tickets,
+            minutes,
+        });
         Ok(redeemed)
     }
 
     /// The current Day's score, Streak, and log.
-    pub fn today(&mut self, now: Timestamp) -> Today {
+    pub fn today(&mut self, now: Timestamp) -> DaySummary {
+        self.settle(now);
+        let today = day_of(&self.state.settings, now);
+        self.day(today, now)
+    }
+
+    /// Any Day's score and log. The log covers the last month; older Days
+    /// keep their totals only.
+    pub fn day(&mut self, day: Date, now: Timestamp) -> DaySummary {
         self.settle(now);
         let settings = &self.state.settings;
-        let day = day_of(settings, now);
-        let earned = self.state.days.get(&day).map_or(0, |score| score.earned);
-        let goal = settings.daily_goal;
-        let goal_met = earned >= goal;
-        // Today joins the Streak once its goal is met; until then the Streak
-        // still stands on yesterday and before.
-        let mut streak = u32::from(goal_met);
-        let mut earlier = day.yesterday().expect("not the year -9999");
-        while let Some(score) = self.state.days.get(&earlier) {
-            if score.earned < score.goal {
-                break;
-            }
-            streak += 1;
-            earlier = earlier.yesterday().expect("not the year -9999");
-        }
+        let is_today = day == day_of(settings, now);
+        let score = self
+            .state
+            .days
+            .get(&day)
+            .copied()
+            // Today's goal is the one in force; a Day that earned nothing never stored one.
+            .unwrap_or(DayScore::new(settings.daily_goal));
+        let goal = if is_today { settings.daily_goal } else { score.goal };
+        let goal_met = score.earned >= goal;
+        let before = self.streak_ending(day.yesterday().expect("not the year -9999"));
+        let streak = match (goal_met, is_today) {
+            (true, _) => before + 1,
+            (false, true) => before,
+            (false, false) => 0,
+        };
         // Newest first; reversing before the stable sort keeps same-moment
         // entries newest-recorded first too.
         let mut log: Vec<Entry> = self
@@ -386,24 +446,72 @@ impl Ledger {
             .collect();
         log.sort_by_key(|entry| Reverse(entry.at()));
         let mut by_source = BTreeMap::new();
-        for entry in &log {
-            if let Entry::Earned { task, .. } = entry {
+        let mut so_far = 0;
+        let mut goal_met_at = None;
+        for entry in log.iter().rev() {
+            if let Entry::Earned { task, at, .. } = entry {
                 let source = task.split_once(':').map_or(task.as_str(), |(s, _)| s);
                 *by_source.entry(source.to_string()).or_insert(0) += 1;
+                so_far += 1;
+                if so_far == goal && goal > 0 {
+                    goal_met_at = Some(*at);
+                }
             }
         }
-        Today {
+        DaySummary {
             day,
-            earned,
+            earned: score.earned,
+            redeemed: score.redeemed,
+            unlocked_minutes: score.unlocked_minutes,
             goal,
             goal_met,
+            goal_met_at,
             streak,
             by_source,
             log,
         }
     }
 
-    /// Keeps a week of log entries; the Day scores keep the longer history.
+    /// The last `days` Days, oldest first, today included.
+    pub fn history(&mut self, days: u32, now: Timestamp) -> Vec<DayTotal> {
+        self.settle(now);
+        let today = day_of(&self.state.settings, now);
+        let goal_today = self.state.settings.daily_goal;
+        (0..i64::from(days))
+            .rev()
+            .map(|back| {
+                let day = days_before(today, back);
+                let score = self.state.days.get(&day).copied();
+                let goal = if back == 0 {
+                    goal_today
+                } else {
+                    score.map_or(goal_today, |s| s.goal)
+                };
+                let score = score.unwrap_or(DayScore::new(goal));
+                DayTotal {
+                    day,
+                    earned: score.earned,
+                    redeemed: score.redeemed,
+                    goal_met: score.earned >= goal,
+                }
+            })
+            .collect()
+    }
+
+    /// Goal Days in a row ending with `day`.
+    fn streak_ending(&self, mut day: Date) -> u32 {
+        let mut streak = 0;
+        while let Some(score) = self.state.days.get(&day) {
+            if score.earned < score.goal {
+                break;
+            }
+            streak += 1;
+            day = day.yesterday().expect("not the year -9999");
+        }
+        streak
+    }
+
+    /// Keeps a month of log entries; the Day scores keep the longer history.
     fn forget_old_entries(&mut self, today: Date) {
         let oldest = days_before(today, LOG_DAYS);
         let settings = &self.state.settings;
@@ -537,7 +645,7 @@ impl Ledger {
 const EARNING_WINDOW_DAYS: i64 = 2;
 
 /// How many Days back, besides today, the log keeps entries.
-const LOG_DAYS: i64 = 6;
+const LOG_DAYS: i64 = 30;
 
 /// The Day a moment belongs to. A Day runs from Curfew's end to the next
 /// Curfew's end, so work at 01:00 still counts toward the evening before.

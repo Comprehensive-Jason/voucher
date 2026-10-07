@@ -2,6 +2,7 @@
 // on sprout) it serves sample data instead; `?state=` picks which situation.
 import { invoke } from "@tauri-apps/api/core";
 import type { Today } from "./types";
+import { sampleLedger } from "./sample";
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -40,4 +41,12 @@ function sampleToday(): Today {
     case "empty": return { ...base, bank: 0 };
     default: return base;
   }
+}
+
+/** Any other Ledger request, passed through the app's Rust side. */
+export function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  if (inTauri) {
+    return invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) });
+  }
+  return Promise.resolve(sampleLedger(method, path, body) as T);
 }

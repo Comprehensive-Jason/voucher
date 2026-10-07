@@ -17,10 +17,12 @@ fn only_done_tasks_assigned_to_me_become_completions() {
         vec![
             Completion {
                 task: "clickup:86b1done".into(),
+                title: "Draft the budget".into(),
                 at: at("2026-10-07T04:00:00Z"),
             },
             Completion {
                 task: "clickup:86b4both".into(),
+                title: "Return the library books".into(),
                 at: at("2026-10-07T06:00:00Z"),
             },
         ]

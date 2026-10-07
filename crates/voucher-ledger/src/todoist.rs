@@ -19,6 +19,14 @@ struct Event {
     event_type: String,
     event_date: Timestamp,
     parent_project_id: Option<String>,
+    #[serde(default)]
+    extra_data: ExtraData,
+}
+
+#[derive(Deserialize, Default)]
+struct ExtraData {
+    #[serde(default)]
+    content: String,
 }
 
 /// Turns one page of activity events into Completions, skipping events in
@@ -41,6 +49,7 @@ pub fn completions(
         })
         .map(|event| Completion {
             task: format!("todoist:{}", event.object_id),
+            title: event.extra_data.content,
             at: event.event_date,
         })
         .collect())
