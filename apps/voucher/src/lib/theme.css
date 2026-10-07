@@ -1,0 +1,39 @@
+/* Voucher design tokens, taken from the round 4 canvas. Dark only. */
+@import "@fontsource/space-grotesk/400.css";
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/700.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/700.css";
+
+:root {
+  color-scheme: dark;
+  --ground: #0e0f11;
+  --surface: #16181b;
+  --line: #2a2e33;
+  --divider: #23272b;
+  --ink: #f2f2f0;
+  --muted: #a3a8ad;
+  --voucher: #3ddc84;          /* Vouchers, the ticket, Unlocks */
+  --voucher-ink: #07170d;
+  --voucher-deep: #2b9a5e;     /* tickets further down the stack */
+  --voucher-deeper: #1f5c3c;
+  --unlocked-bg: #14251b;
+  --unlocked-line: #23573a;
+  --goal: #ffb547;             /* daily goal and streak */
+  --goal-bg: #2a2116;
+  --goal-line: #6b4a17;
+  --night: #7d8cff;            /* Curfew */
+  --night-ink: #c9cfff;
+  --night-ticket: #2e3a78;
+  --night-bg: #151935;
+  --font: "Space Grotesk", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--font); }
+button { font: inherit; color: inherit; }
+.cap { font: 600 11px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.mono { font-family: var(--mono); }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 3px; }

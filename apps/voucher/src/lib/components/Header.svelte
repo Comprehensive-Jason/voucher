@@ -1,0 +1,23 @@
+<script lang="ts">
+  let { streakDays }: { streakDays: number } = $props();
+</script>
+
+<header>
+  <div class="brand">
+    <svg width="22" height="22" viewBox="0 0 24 22" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" fill="var(--voucher)" /><path d="M8.2 7.6l3.8 6.8 3.8-6.8" fill="none" stroke="var(--ground)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+    <span class="mono word">VOUCHER</span>
+  </div>
+  {#if streakDays > 0}
+    <div class="streak">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-5 1-8z" /></svg>
+      {streakDays} day streak
+    </div>
+  {/if}
+</header>
+
+<style>
+  header { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .word { font-size: 15px; font-weight: 700; letter-spacing: .2em; }
+  .streak { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--goal-bg); color: var(--goal); font-size: 13px; font-weight: 700; }
+</style>

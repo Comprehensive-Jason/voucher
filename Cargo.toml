@@ -1,8 +1,17 @@
 [workspace]
 resolver = "3"
-members = ["crates/*"]
+members = ["crates/*", "apps/voucher/src-tauri"]
+# The app builds through the Tauri CLI for Android or Windows; plain `cargo test` covers the crates.
+default-members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
 license = "GPL-3.0-only"
 repository = "https://github.com/Comprehensive-Jason/voucher"
+
+# Small, fast app binaries (Tauri's size guide). Applies to every crate.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true

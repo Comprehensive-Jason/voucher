@@ -231,6 +231,11 @@ impl Ledger {
         Ok(redeemed)
     }
 
+    /// Whether Curfew is in force at `now`.
+    pub fn curfew_active(&self, now: Timestamp) -> bool {
+        self.in_curfew(now)
+    }
+
     /// Whether `now`, in local time, falls in the Curfew window. The window
     /// usually crosses midnight (22:00 to 06:00), so it is "after the start OR
     /// before the end" rather than "between".

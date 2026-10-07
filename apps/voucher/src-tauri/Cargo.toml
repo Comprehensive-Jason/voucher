@@ -1,0 +1,26 @@
+[package]
+name = "voucher-app"
+version = "0.1.0"
+description = "Voucher: earn-to-unlock app and website blocker"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+# The `_lib` suffix keeps the library name distinct from the binary on Windows.
+name = "voucher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+voucher-protocol = { path = "../../../crates/voucher-protocol" }
+# Plain HTTP: the Ledger is reached over Tailscale, which already encrypts the link.
+ureq = { version = "3.4.2", default-features = false }
+jiff = { version = "0.2.38", features = ["serde"] }
+base64 = "0.23.1"
+ed25519-dalek = "3.0.0"

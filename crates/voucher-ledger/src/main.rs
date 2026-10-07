@@ -150,6 +150,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     #[derive(Serialize)]
     struct Status<'a> {
         bank: u32,
+        curfew_active: bool,
         unlock: Option<voucher_ledger::Redeemed>,
         settings: Settings,
         pending: &'a [(Change, Timestamp)],
@@ -157,8 +158,10 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
     let bank = ledger.bank();
+    let curfew_active = ledger.curfew_active(now);
     json(&Status {
         bank,
+        curfew_active,
         unlock,
         settings,
         pending: ledger.pending(now),
