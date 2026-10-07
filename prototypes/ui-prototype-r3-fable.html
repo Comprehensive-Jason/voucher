@@ -1,0 +1,823 @@
+<!--
+  THROWAWAY PROTOTYPE. Voucher UI, round 3, written 2026-10-06 by Claude (model: Fable 5.1, claude-fable-5-1).
+  Two designs: fable-1 "Stub" (ticket stack, tear one off) and fable-2 "Punchcard" (twelve slots, hold to Redeem).
+  Query: ?variant=fable-1|fable-2&state=locked|running|curfew|full&device=phone|tablet|windows|widgets
+  Self-contained: no network, no external fonts, no libraries. Dark mode only.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voucher prototype, round 3, fable</title>
+<style>
+  :root{
+    --page:#09090c; --ink:#ececf1; --mute:#8d8c98; --faint:#55545f; --line:#26262e;
+    --ok:#5fd3a6; --bad:#ff6b7a; --warn:#f5b544; --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--page);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Inter,sans-serif;font-size:14px;line-height:1.3}
+  svg{display:inline-block;vertical-align:middle;flex:none}
+
+  /* ---------- stage chrome ---------- */
+  #stage{padding:18px 22px 110px;min-width:1000px;display:inline-block}
+  .stagehead{display:flex;gap:12px;align-items:center;margin:0 0 14px;color:var(--mute);font-size:12px;letter-spacing:.04em}
+  .stagehead b{color:var(--ink);font-weight:600}
+  .tag{border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:11px;color:var(--mute)}
+  .tag.proto{color:#000;background:var(--warn);border-color:var(--warn);font-weight:700;letter-spacing:.08em}
+  .row{display:flex;gap:26px;align-items:flex-start;flex-wrap:nowrap}
+  .col{display:flex;flex-direction:column;gap:26px}
+  .cap{font-size:12px;color:var(--mute);margin-top:8px;max-width:330px}
+  .cap b{color:var(--ink);font-weight:600}
+  .cap.wide{max-width:none}
+  .note{font-size:11px;color:var(--faint);margin-top:4px}
+
+  /* ---------- switcher ---------- */
+  .switcher{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#15151b;border:1px solid #2c2c35;border-radius:14px;padding:8px 10px;box-shadow:0 10px 30px rgba(0,0,0,.6);z-index:50;font-size:12px}
+  .switcher .grp{display:flex;gap:4px;align-items:center}
+  .switcher .lab{color:var(--mute);margin:0 4px 0 6px;letter-spacing:.06em;font-size:10px;text-transform:uppercase}
+  .switcher button{background:#20202a;border:1px solid #30303a;color:var(--ink);border-radius:8px;padding:5px 9px;font:inherit;cursor:pointer}
+  .switcher button.on{background:var(--warn);color:#000;border-color:var(--warn);font-weight:600}
+  .switcher .vname{min-width:170px;text-align:center}
+  .switcher .vname small{display:block;color:var(--mute);font-size:10px}
+  .switcher .proto{font-weight:800;letter-spacing:.12em;color:#000;background:var(--warn);border-radius:6px;padding:3px 7px;font-size:10px}
+
+  /* ---------- device frames ---------- */
+  .phone{width:342px;height:702px;border-radius:30px;border:6px solid #202026;background:var(--bg);overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.6),inset 0 0 0 1px #000}
+  .tablet{width:1192px;height:752px;border-radius:22px;border:6px solid #202026;background:var(--bg);overflow:hidden;position:relative;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.6)}
+  .sbar{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;color:var(--ink);flex:none}
+  .sbar .r{display:flex;gap:6px;align-items:center}
+  .screen{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .scroll{flex:1;overflow:hidden;padding:0 16px 16px}
+  .tabbar{flex:none;height:60px;border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;background:var(--bg2);font-size:10px;color:var(--mute);padding-bottom:6px}
+  .tabbar div{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .tabbar .on{color:var(--accent)}
+  .win{background:var(--bg);border:1px solid #33333b;border-radius:10px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.6);display:flex;flex-direction:column;position:relative}
+  .winbar{height:34px;display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--mute);flex:none;background:var(--bg2);border-bottom:1px solid var(--line)}
+  .winbar .ctl{margin-left:auto;display:flex;gap:16px;font-size:12px;color:var(--mute)}
+  .winbody{flex:1;overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .taskbar{height:48px;background:#1b1b22;border-top:1px solid #2d2d36;display:flex;align-items:center;padding:0 12px;gap:10px;position:relative}
+  .taskbar .start{width:24px;height:24px;display:grid;grid-template-columns:1fr 1fr;gap:2px}
+  .taskbar .start i{background:#4cc2ff;border-radius:1px}
+  .taskbar .tray{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:11px;color:#cfcfd6}
+  .taskbar .tray .ico{width:16px;height:16px}
+  .taskbar .tray .vouch{border-radius:4px;padding:2px;outline:1px solid var(--accent)}
+  .desktop{background:radial-gradient(120% 90% at 30% 10%,#1a2440 0%,#0b0d16 55%,#05060a 100%);position:relative;overflow:hidden}
+
+  /* ---------- shared bits ---------- */
+  .h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .h2{font-size:15px;font-weight:600}
+  .eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:600}
+  .mut{color:var(--mute)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)} .acc{color:var(--accent)}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--ink)}
+  .pill.ok{background:rgba(95,211,166,.14);color:var(--ok)}
+  .pill.bad{background:rgba(255,107,122,.14);color:var(--bad)}
+  .pill.warn{background:rgba(245,181,68,.16);color:var(--warn)}
+  .pill.acc{background:var(--accent-soft);color:var(--accent)}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .bar{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+  .prog{display:flex;flex-direction:column;gap:9px}
+  .prog .pr{display:flex;align-items:center;gap:10px;font-size:12px}
+  .prog .pr .n{width:84px;flex:none;display:flex;align-items:center;gap:6px}
+  .prog .pr .bar{flex:1}
+  .prog .pr .v{width:72px;text-align:right;color:var(--mute);flex:none}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:12px;padding:10px 14px;font-weight:600;font-size:13px;background:var(--bg3);color:var(--ink);border:1px solid var(--line)}
+  .btn.primary{background:var(--accent);color:#0a0a0c;border-color:var(--accent)}
+  .btn.ghost{background:transparent;border-color:#3a3a46}
+  .btn.dis{opacity:.45}
+  .btn.sm{padding:6px 10px;font-size:12px;border-radius:9px}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:0}
+  .hist{display:flex;flex-direction:column}
+  .hist .hr{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+  .hist .hr:last-child{border-bottom:0}
+  .hist .t{width:38px;color:var(--mute);flex:none}
+  .hist .w{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hist .w small{display:block;color:var(--mute);font-size:11px}
+  .hist .d{font-weight:700;flex:none;width:28px;text-align:right}
+  .banner{display:flex;gap:10px;align-items:center;border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.3}
+  .banner.bad{background:rgba(255,107,122,.12);border:1px solid rgba(255,107,122,.35);color:#ffd2d7}
+  .banner.warn{background:rgba(245,181,68,.12);border:1px solid rgba(245,181,68,.35);color:#ffe9bf}
+  .banner.moon{background:rgba(120,130,255,.12);border:1px solid rgba(120,130,255,.35);color:#d7daff}
+  .rail{width:76px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;background:var(--bg2)}
+  .rail .ri{width:58px;height:54px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:10px;color:var(--mute)}
+  .rail .ri.on{background:var(--accent-soft);color:var(--accent)}
+  .rail .logo{margin-bottom:10px;font-weight:800;letter-spacing:.08em;font-size:11px;color:var(--accent)}
+
+  /* ---------- Android system dialog (not ours) ---------- */
+  .sysbg{position:absolute;inset:0;background:#000}
+  .sysbg .feed{position:absolute;inset:0;filter:blur(1px);opacity:.5}
+  .sysbg .feed .top{height:52px;display:flex;align-items:center;padding:0 14px;font-weight:700;font-size:18px;font-style:italic;color:#fff}
+  .sysbg .feed .story{display:flex;gap:10px;padding:6px 14px}
+  .sysbg .feed .story i{width:56px;height:56px;border-radius:50%;background:conic-gradient(#f9ce34,#ee2a7b,#6228d7,#f9ce34);padding:2px;display:block}
+  .sysbg .feed .post{margin:12px 0 0;height:300px;background:linear-gradient(135deg,#2b2f4a,#4a2b3f 60%,#1f3a3a)}
+  .sysdim{position:absolute;inset:0;background:rgba(0,0,0,.62)}
+  .sysdlg{position:absolute;left:18px;right:18px;top:50%;transform:translateY(-50%);background:#1f2025;border-radius:28px;padding:22px 22px 14px;color:#e3e3e8;font-family:Roboto,system-ui,sans-serif}
+  .sysdlg .ic{width:28px;height:28px;border-radius:8px;background:#2e2f36;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;color:#c9c9d1}
+  .sysdlg h3{margin:0 0 10px;font-size:20px;font-weight:500;text-align:center;letter-spacing:0}
+  .sysdlg p{margin:0 0 18px;font-size:14px;color:#c4c5cc;line-height:1.4;text-align:center}
+  .sysdlg .acts{display:flex;justify-content:flex-end;gap:6px}
+  .sysdlg .acts span{color:#a9c5ff;font-weight:500;font-size:14px;padding:10px 12px;border-radius:999px}
+  .notif{position:absolute;left:12px;right:12px;top:40px;background:#26272d;border-radius:18px;padding:10px 12px;font-size:12px;color:#e3e3e8;display:flex;gap:10px;align-items:center;font-family:Roboto,system-ui,sans-serif}
+  .notif .ic{width:22px;height:22px;border-radius:6px;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center}
+  .notif b{display:block;font-weight:500}
+  .notif small{color:#a8a9b2}
+
+  /* ---------- Brave blocked page (not ours) ---------- */
+  .brave{width:640px;height:430px}
+  .brave .bar{display:flex;align-items:center;gap:10px;padding:8px 10px;background:#2b2b31;height:auto;border-radius:0;overflow:visible}
+  .brave .tab{background:#35353c;border-radius:8px 8px 0 0;padding:6px 12px;font-size:12px;color:#d8d8de;display:flex;gap:8px;align-items:center}
+  .brave .url{flex:1;background:#1f1f24;border-radius:999px;padding:6px 14px;font-size:12px;color:#c8c8cf;display:flex;gap:8px;align-items:center}
+  .brave .pg{flex:1;background:#202124;padding:70px 90px 0;color:#9aa0a6;font-family:Segoe UI,system-ui,sans-serif}
+  .brave .pg h2{margin:14px 0 8px;color:#e8eaed;font-size:22px;font-weight:400}
+  .brave .pg p{margin:0 0 20px;font-size:14px;line-height:1.5}
+  .brave .pg .code{font-size:11px;color:#9aa0a6;margin-top:30px}
+  .brave .pg .b{display:inline-block;background:#8ab4f8;color:#202124;border-radius:4px;padding:8px 20px;font-size:13px;font-weight:600}
+
+  /* ---------- home-screen wallpaper ---------- */
+  .wall{position:absolute;inset:0;background:radial-gradient(80% 60% at 70% 20%,#2a1a3f 0%,#0d0f1f 45%,#06070d 100%)}
+  .wall::after{content:"";position:absolute;inset:0;background:radial-gradient(40% 30% at 20% 80%,rgba(50,90,120,.35),transparent 70%)}
+  .wgrid{position:absolute;left:14px;right:14px;top:40px;display:grid;gap:14px}
+  .wgt{border-radius:22px;background:rgba(18,18,26,.9);border:1px solid rgba(255,255,255,.07);padding:12px;position:relative;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  .wgt .wl{font-size:10px;color:var(--mute);letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+  .wgt .big{font-size:38px;font-weight:800;letter-spacing:-.03em;line-height:1}
+  .wgt .btnw{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:var(--accent);color:#000;font-weight:700;font-size:12px;padding:7px 12px}
+  .wgt .btnw.off{background:rgba(255,255,255,.08);color:var(--mute)}
+  .wsz{position:absolute;right:10px;top:8px;font-size:9px;color:var(--faint);letter-spacing:.1em}
+  .dock{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:center;gap:18px}
+  .appic{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#3a3f55,#23263a)}
+  .approw{position:absolute;left:0;right:0;display:flex;justify-content:space-evenly}
+  .approw .appic{width:44px;height:44px}
+  .approw .appic.a{background:linear-gradient(135deg,#5b8def,#2f54c8)} .approw .appic.b{background:linear-gradient(135deg,#f4a259,#c44536)} .approw .appic.c{background:linear-gradient(135deg,#43b581,#1f7a4f)} .approw .appic.d{background:linear-gradient(135deg,#a37bff,#5b3bd1)}
+
+  /* =======================================================================
+     DESIGN 1: STUB. Warm amber ticket on near-black. Glass timer.
+     ======================================================================= */
+  .v-fable-1{--bg:#0b0b0f;--bg2:#141419;--bg3:#1e1e26;--accent:#f2b544;--accent-soft:rgba(242,181,68,.14);--ticket:#f2b544;--ticket-ink:#2a1b00;--ticket2:#e2a434}
+  .stackwrap{position:relative;margin:6px 0 0;height:166px}
+  .stack{position:absolute;left:0;right:0;top:0}
+  .ghost{position:absolute;left:0;right:0;height:108px;border-radius:14px;background:var(--ticket2);opacity:.55;filter:brightness(.75)}
+  .ticket{position:relative;height:108px;border-radius:14px;background:var(--ticket);color:var(--ticket-ink);display:flex;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.5)}
+  .ticket .stub{width:72px;flex:none;border-right:2px dashed rgba(42,27,0,.45);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+  .ticket .stub .num{font-size:34px;font-weight:900;letter-spacing:-.04em;line-height:1}
+  .ticket .stub .vt{font-size:9px;font-weight:800;letter-spacing:.18em}
+  .ticket .tb{flex:1;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;gap:3px}
+  .ticket .tb .l1{font-size:10px;font-weight:800;letter-spacing:.18em}
+  .ticket .tb .l2{font-size:30px;font-weight:900;letter-spacing:-.03em;line-height:1}
+  .ticket .tb .l3{font-size:11px;font-weight:600;opacity:.8}
+  .ticket .tb .serial{position:absolute;right:12px;bottom:8px;font-size:9px;letter-spacing:.12em;opacity:.6;font-family:var(--mono)}
+  .ticket::before,.ticket::after{content:"";position:absolute;left:64px;width:16px;height:16px;border-radius:50%;background:var(--bg)}
+  .ticket::before{top:-8px} .ticket::after{bottom:-8px}
+  .ticket.dim{filter:saturate(.25) brightness(.55)}
+  .ticket.small{height:76px;border-radius:12px}
+  .ticket.small .stub{width:54px}.ticket.small .stub .num{font-size:24px}.ticket.small::before,.ticket.small::after{left:46px}
+  .ticket.small .tb .l2{font-size:20px}.ticket.small .tb{padding:8px 12px}
+  .tearline{display:flex;align-items:center;gap:8px;color:var(--mute);font-size:11px;margin:10px 0 0}
+  .tearline i{flex:1;border-top:2px dashed var(--line)}
+  .tearline.live{color:var(--accent)} .tearline.live i{border-color:rgba(242,181,68,.5)}
+  .glass{background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:14px 16px;backdrop-filter:blur(10px)}
+  .timer{font-size:46px;font-weight:800;letter-spacing:-.03em;line-height:1;font-family:var(--mono)}
+  .lockveil{position:absolute;inset:-6px;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#d7daff;font-size:12px;text-align:center;background:rgba(8,8,14,.86);backdrop-filter:blur(3px);padding:0 12px}
+  .ticket.small .serial{display:none}
+  .lockveil b{font-size:14px}
+  .stepper{display:flex;flex-direction:column}
+  .step{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);gap:8px}
+  .step:last-child{border-bottom:0}
+  .step .lbl{font-size:14px;min-width:0}
+  .step .lbl small{display:block;color:var(--mute);font-size:11px;margin-top:2px}
+  .step .ctl{display:flex;align-items:center;gap:0;flex:none;background:var(--bg3);border-radius:12px;overflow:hidden}
+  .step .ctl span{width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--ink)}
+  .step .ctl .val{width:auto;min-width:68px;padding:0 6px;font-size:13px;font-weight:700;font-family:var(--mono);background:var(--bg2);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+  .step .ctl .val.pend{color:var(--accent)}
+  .step .pend{margin-top:4px;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:4px}
+  .foot{font-size:11px;color:var(--mute);padding:10px 2px;display:flex;gap:6px;align-items:center}
+  .secthead{margin:16px 0 6px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:600}
+
+  /* =======================================================================
+     DESIGN 2: PUNCHCARD. Violet on indigo. Twelve slots, hold ring, day rail.
+     ======================================================================= */
+  .v-fable-2{--bg:#0d0c15;--bg2:#15142a;--bg3:#1f1d38;--accent:#a08bff;--accent-soft:rgba(160,139,255,.16);--punch:#b9a9ff}
+  .slots{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+  .slot{aspect-ratio:1;border-radius:50%;border:2px dashed #38365a;position:relative}
+  .slot.on{border:0;background:radial-gradient(circle at 40% 35%,#d9d0ff,var(--punch) 55%,#7c66e6 100%);box-shadow:0 3px 10px rgba(160,139,255,.35)}
+  .slot.on::after{content:"";position:absolute;inset:34%;border-radius:50%;background:var(--bg2)}
+  .slot.use{border:2px solid var(--accent);background:transparent;box-shadow:0 0 0 4px rgba(160,139,255,.15)}
+  .slots.big{gap:12px}
+  .slots.full .slot.on{background:radial-gradient(circle at 40% 35%,#ffd1d6,#ff8a97 55%,#d6485a 100%);box-shadow:0 3px 10px rgba(255,107,122,.35)}
+  .holdwrap{display:flex;flex-direction:column;align-items:center;gap:6px;margin:14px 0 6px}
+  .hold{width:160px;height:160px;border-radius:50%;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:radial-gradient(circle at 50% 40%,#2a2750,#15142a 70%);border:1px solid #2d2b4d}
+  .hold svg.ring{position:absolute;inset:-2px;width:calc(100% + 4px);height:calc(100% + 4px)}
+  .hold .k{font-size:11px;letter-spacing:.18em;font-weight:800;color:var(--accent)}
+  .hold .v{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1}
+  .hold .s{font-size:11px;color:var(--mute)}
+  .hold.run .v{font-family:var(--mono);font-size:34px}
+  .hold.off{filter:saturate(.2);opacity:.7}
+  .hold.sm{width:112px;height:112px}.hold.sm .v{font-size:22px}.hold.sm .k{font-size:9px}
+  .tl{display:flex;flex-direction:column;position:relative;margin-left:4px}
+  .tl::before{content:"";position:absolute;left:52px;top:8px;bottom:8px;border-left:2px solid var(--line)}
+  .tr{display:flex;align-items:flex-start;gap:10px;padding:5px 0;font-size:12px;position:relative}
+  .tr .t{width:40px;flex:none;color:var(--mute);font-family:var(--mono);font-size:11px;padding-top:2px;text-align:right}
+  .tr .dot{width:14px;height:14px;border-radius:50%;flex:none;margin-top:1px;border:2px solid var(--ok);background:var(--bg);position:relative;z-index:1}
+  .tr .dot.earn{background:var(--ok);border-color:var(--ok)}
+  .tr .dot.red{background:var(--accent);border-color:var(--accent)}
+  .tr .dot.forf{background:transparent;border-color:var(--bad)}
+  .tr .dot.now{background:var(--ink);border-color:var(--ink);box-shadow:0 0 0 4px rgba(255,255,255,.12)}
+  .tr .w{flex:1;min-width:0}
+  .tr .w small{display:block;color:var(--mute);font-size:11px}
+  .tr .d{font-weight:700;flex:none;font-family:var(--mono);width:26px;text-align:right}
+  .tr.now{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:8px 10px 8px 0;margin:4px 0}
+  .tr.now .w{display:flex;flex-direction:column;gap:7px}
+  .inprog{display:flex;align-items:center;gap:8px;font-size:11px}
+  .inprog .n{width:66px;flex:none;display:flex;gap:5px;align-items:center}
+  .inprog .bar{flex:1}
+  .inprog .v{width:52px;text-align:right;color:var(--mute);flex:none}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;border:1px solid var(--line);color:var(--mute);background:var(--bg3);font-family:var(--mono)}
+  .chip.on{background:var(--accent);color:#0a0a14;border-color:var(--accent)}
+  .chip.pend{border:1.5px dashed var(--accent);color:var(--accent);background:transparent}
+  .rule{padding:12px 0;border-bottom:1px solid var(--line)}
+  .rule:last-child{border-bottom:0}
+  .rule .rh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px;font-weight:600}
+  .rule .rh small{color:var(--mute);font-weight:400;font-size:11px}
+  .pillnav{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:4px;background:rgba(31,29,56,.95);border:1px solid #2d2b4d;border-radius:999px;padding:4px;font-size:12px}
+  .pillnav span{padding:7px 14px;border-radius:999px;color:var(--mute);display:flex;gap:6px;align-items:center}
+  .pillnav span.on{background:var(--accent);color:#0a0a14;font-weight:700}
+  .week{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .week .c{background:var(--bg3);border-radius:12px;padding:10px;text-align:center}
+  .week .c b{display:block;font-size:20px;font-weight:800}
+  .week .c small{color:var(--mute);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+  .opened{display:flex;flex-direction:column;gap:6px;font-size:12px}
+  .opened .o{display:flex;align-items:center;gap:8px}
+  .opened .o .n{width:70px;flex:none}
+  .opened .o .bar{flex:1}
+  .opened .o .bar i{background:var(--bad)}
+  .opened .o .v{width:22px;text-align:right;color:var(--mute);flex:none}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="switcher" id="switcher"></div>
+<script>
+(() => {
+  // ------------------------------------------------------------ data
+  const VARIANTS = [
+    { key: 'fable-1', name: 'Stub', tag: 'Ticket stack, tear one off' },
+    { key: 'fable-2', name: 'Punchcard', tag: 'Twelve slots, hold to Redeem' },
+  ];
+  const STATES = {
+    locked:  { label: 'Locked, 5 banked', bank: 5,  left: null,    curfew: false, clock: '19:42' },
+    running: { label: 'Unlock running',   bank: 4,  left: '07:12', curfew: false, clock: '19:45' },
+    curfew:  { label: 'Curfew',           bank: 4,  left: null,    curfew: true,  clock: '22:31' },
+    full:    { label: 'Bank full',        bank: 12, left: null,    curfew: false, clock: '16:05' },
+  };
+  const DEVICES = ['phone', 'tablet', 'windows', 'widgets'];
+  const LIMIT = 12, UNLOCK_MIN = 10;
+  const HISTORY = [
+    { t: '08:10', what: 'Stretch 10 min', src: 'Todoist', d: 1 },
+    { t: '11:32', what: 'Finish the problem set', src: 'Todoist', d: 1 },
+    { t: '13:05', what: 'Draft the budget', src: 'ClickUp', d: 1 },
+    { t: '14:40', what: 'Fitbod upper body, 22 zone min', src: 'Health Connect', d: 1 },
+    { t: '15:20', what: 'Obsidian, 30 min focused', src: 'Focused time', d: 1 },
+    { t: '16:02', what: 'Reader, 30 min focused', src: 'Focused time, Bank full', d: 0, forfeited: true, only: ['full'] },
+    { t: '17:55', what: 'Redeemed', src: 'Unlock, 10 min', d: -1 },
+    { t: '19:42', what: 'Redeemed', src: 'Unlock, 10 min', d: -1, only: ['running', 'curfew'] },
+  ];
+  const PROGRESS = [
+    { n: 'Obsidian', ic: 'book', cur: 18, max: 30, unit: 'min' },
+    { n: 'Workout', ic: 'bolt', cur: 9, max: 15, unit: 'zone' },
+    { n: 'Anki', ic: 'cards', cur: 6, max: 30, unit: 'min' },
+  ];
+  const WEEK = { earned: 31, spent: 24, forfeited: 2 };
+  const STREAK = 4;
+  const OPENED = [['Instagram', 14], ['YouTube', 6], ['Reddit', 3]];
+
+  const histFor = (sk) => {
+    const st = STATES[sk];
+    return HISTORY.filter(h => h.t < st.clock && (!h.only || h.only.includes(sk)));
+  };
+  const tasksToday = (sk) => histFor(sk).filter(h => h.src === 'Todoist' || h.src === 'ClickUp').length;
+  const locksAt = (sk) => sk === 'running' ? '19:52' : '';
+  const elapsedPct = 28; // 07:12 left of 10:00
+
+  // ------------------------------------------------------------ icons (inline SVG, no emoji)
+  const I = {
+    ticket: '<path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z"/><path d="M9 6v12" stroke-dasharray="2 2"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    flame: '<path d="M12 22c4 0 7-3 7-7 0-3-2-5-3-7-1 2-2 3-3 3 0-3-1-6-3-8 0 4-5 6-5 12a7 7 0 0 0 7 7z"/>',
+    check: '<path d="M5 13l4 4L19 7"/>',
+    sunrise: '<path d="M3 18h18M5 14a7 7 0 0 1 14 0"/><path d="M12 3v4M4.2 9.2l1.4 1.4M19.8 9.2l-1.4 1.4"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+    home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+    list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    x: '<path d="M18 6L6 18M6 6l12 12"/>',
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+    bolt: '<path d="M13 2L3 14h9l-1 8 10-12h-9z"/>',
+    cards: '<rect x="3" y="5" width="13" height="16" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v12"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v4M12 17.5h.01"/>',
+    chevl: '<path d="M15 6l-6 6 6 6"/>',
+    chevr: '<path d="M9 6l6 6-6 6"/>',
+    down: '<path d="M12 4v14M6 12l6 6 6-6"/>',
+    hand: '<path d="M8 13V5a1.5 1.5 0 0 1 3 0v6M11 10V4a1.5 1.5 0 0 1 3 0v7M14 11V6a1.5 1.5 0 0 1 3 0v8M17 13a1.5 1.5 0 0 1 3 0v3a6 6 0 0 1-6 6h-2a6 6 0 0 1-5-2.6L4 15a1.5 1.5 0 0 1 2.4-1.8L8 15"/>',
+    steam: '<circle cx="12" cy="12" r="9"/><circle cx="15" cy="9" r="2.5"/><circle cx="8.5" cy="15.5" r="2"/><path d="M10.2 14.4L13 10.5"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 15s1-1.5 3-1.5 3 1.5 3 1.5M9.5 11h.01M14.5 11h.01"/>',
+    wifi: '<path d="M5 12.5a10 10 0 0 1 14 0M8 15.5a6 6 0 0 1 8 0M12 19h.01"/>',
+    signal: '<path d="M4 18h2v-3H4zM9 18h2v-7H9zM14 18h2V7h-2zM19 18h2V3h-2z"/>',
+    batt: '<rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 10v4"/><rect x="4" y="9" width="11" height="6" fill="currentColor" stroke="none"/>',
+    cam: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17 7h.01"/>',
+    shield: '<path d="M12 2l8 3v7c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z"/>',
+    pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+    tray: '<path d="M4 4h16v12H4z"/><path d="M4 16l4 4h8l4-4"/>',
+    tri: '<path d="M6 15l6-6 6 6"/>',
+    minus: '<path d="M5 12h14"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    key: '<circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M13 9l2 2"/>',
+    dot: '<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/>',
+  };
+  const ic = (n, s = 16, extra = '') =>
+    `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ${extra}>${I[n]}</svg>`;
+  const ring = (pct, size, stroke, color, track = 'rgba(255,255,255,.08)') => {
+    const r = (size - stroke) / 2, c = 2 * Math.PI * r;
+    return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${track}" stroke-width="${stroke}"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - pct)}" transform="rotate(-90 ${size/2} ${size/2})"/></svg>`;
+  };
+
+  // ------------------------------------------------------------ shared frames
+  const sbar = (clock, extra = '') =>
+    `<div class="sbar"><span class="mono">${clock}</span><span class="r">${extra}${ic('signal', 13)}${ic('wifi', 13)}${ic('batt', 15)}</span></div>`;
+  const phone = (inner, clock, cls = '') => `<div class="phone ${cls}">${sbar(clock)}<div class="screen">${inner}</div></div>`;
+  const tablet = (inner, clock) => `<div class="tablet">${sbar(clock)}<div class="screen" style="flex-direction:row">${inner}</div></div>`;
+  const win = (title, w, h, inner, cls = '') =>
+    `<div class="win ${cls}" style="width:${w}px;height:${h}px"><div class="winbar">${ic('ticket', 14)}&nbsp;&nbsp;${title}<span class="ctl"><span>${ic('minus', 12)}</span><span>&#9633;</span><span>${ic('x', 12)}</span></span></div><div class="winbody">${inner}</div></div>`;
+  const frame = (html, cap, wide = false) => `<div><div>${html}</div><div class="cap ${wide ? 'wide' : ''}">${cap}</div></div>`;
+
+  const histList = (sk, max = 99) => {
+    const rows = histFor(sk).slice().reverse().slice(0, max);
+    return `<div class="hist">${rows.map(h => `<div class="hr"><span class="t mono">${h.t}</span><span class="w">${h.what}<small>${h.src}</small></span><span class="d ${h.forfeited ? 'bad' : h.d > 0 ? 'ok' : 'acc'}">${h.forfeited ? '0' : h.d > 0 ? '+1' : '−1'}</span></div>`).join('')}</div>`;
+  };
+  const progRows = (sk, compact = false) =>
+    `<div class="prog">
+      ${PROGRESS.map(p => `<div class="pr"><span class="n">${ic(p.ic, 13)} ${p.n}</span><span class="bar"><i style="width:${Math.round(100 * p.cur / p.max)}%"></i></span><span class="v mono">${p.cur}/${p.max} ${p.unit}</span></div>`).join('')}
+      <div class="pr"><span class="n">${ic('check', 13)} Tasks</span><span class="mut" style="flex:1;font-size:11px">+1 each, Todoist and ClickUp</span><span class="v mono">${tasksToday(sk)} done</span></div>
+    </div>`;
+  const weekRow = () => `<div class="week"><div class="c"><b class="ok">${WEEK.earned}</b><small>earned</small></div><div class="c"><b>${WEEK.spent}</b><small>spent</small></div><div class="c"><b class="bad">${WEEK.forfeited}</b><small>forfeited</small></div></div>`;
+  const openedRows = () => `<div class="opened">${OPENED.map(([n, v]) => `<div class="o"><span class="n">${n}</span><span class="bar"><i style="width:${Math.round(100 * v / 14)}%"></i></span><span class="v mono">${v}</span></div>`).join('')}</div>`;
+
+  // Android system dialog (drawn by Android, we only control the text)
+  const androidDialog = (sk) => {
+    const st = STATES[sk];
+    let body;
+    if (sk === 'curfew') body = 'Curfew until 06:00. Nothing can be Redeemed until then.';
+    else if (sk === 'full') body = 'Bank full: 12 Vouchers. Redeem one for a 10 minute Unlock and make room.';
+    else body = `${st.bank} Vouchers banked. Redeem one for a 10 minute Unlock.`;
+    const feed = `<div class="feed"><div class="top">Instagram</div><div class="story"><i></i><i></i><i></i><i></i><i></i></div><div class="post"></div></div>`;
+    if (sk === 'running') {
+      return phone(`<div class="sysbg">${feed.replace('opacity:.5', '')}<div class="notif"><span class="ic">${ic('ticket', 14)}</span><span><b>Unlock running, ${st.left} left</b><small>Locks at ${locksAt(sk)}. Everything locks again then.</small></span></div></div>`, st.clock);
+    }
+    return phone(`<div class="sysbg">${feed}<div class="sysdim"></div>
+      <div class="sysdlg"><div class="ic">${ic('pause', 16)}</div><h3>Instagram is paused</h3><p>${body}</p>
+      <div class="acts"><span>Close</span><span>Open Voucher</span></div></div></div>`, st.clock);
+  };
+
+  const bravePage = () => `<div class="win brave"><div class="bar"><span class="tab">${ic('shield', 12)} instagram.com</span><span class="url">${ic('lock', 11)} https://www.instagram.com/</span></div>
+    <div class="pg">${ic('folder', 60, 'style="color:#9aa0a6"')}<h2>Your organization doesn't allow you to view this site</h2><p>instagram.com is blocked by an administrator policy on this device. Redeem a Voucher from the tray to open an Unlock, then reload.</p><span class="b">Reload</span><div class="code">ERR_BLOCKED_BY_ADMINISTRATOR</div></div></div>`;
+
+  const taskbarWith = (flyout, clock) => `<div class="desktop" style="width:620px;height:470px;border-radius:10px;border:1px solid #2a2a33">
+      <div style="position:absolute;right:16px;bottom:56px">${flyout}</div>
+      <div class="taskbar" style="position:absolute;left:0;right:0;bottom:0"><span class="start"><i></i><i></i><i></i><i></i></span>
+        <span class="tray">${ic('tri', 12)}<span class="vouch acc">${ic('ticket', 14)}</span>${ic('wifi', 14)}${ic('batt', 15)}<span class="mono" style="margin-left:6px">${clock}</span></span></div></div>`;
+
+  const wallpaperPhone = (widgets, clock) => phone(`<div class="wall"></div>${widgets}
+      <div class="approw" style="bottom:150px"><span class="appic c"></span><span class="appic d"></span><span class="appic a"></span><span class="appic b"></span></div>
+      <div class="approw" style="bottom:84px"><span class="appic a"></span><span class="appic b"></span><span class="appic c"></span><span class="appic d"></span></div>
+      <div class="dock"><span class="appic"></span><span class="appic"></span><span class="appic"></span><span class="appic"></span></div>`, clock);
+
+  // ------------------------------------------------------------ DESIGN 1: STUB
+  const ticket = (n, cls = '', body) =>
+    `<div class="ticket ${cls}"><div class="stub"><span class="num">${n}</span><span class="vt">VOUCHER</span></div>
+      <div class="tb">${body || `<span class="l1">ADMIT ONE UNLOCK</span><span class="l2">${UNLOCK_MIN} MIN</span><span class="l3">All Distractions, one at a time</span>`}<span class="serial">No. 2026-10-06-${String(n).padStart(2, '0')}</span></div></div>`;
+
+  const ticketStack = (sk, opts = {}) => {
+    const st = STATES[sk];
+    const n = st.bank;
+    const ghosts = Math.min(3, Math.max(0, n - 1));
+    let g = '';
+    for (let i = ghosts; i >= 1; i--) g += `<div class="ghost" style="top:${-7 * i}px;left:${4 * i}px;right:${4 * i}px"></div>`;
+    const dim = sk === 'curfew' || sk === 'running';
+    const veil = sk === 'curfew'
+      ? `<div class="lockveil">${ic('moon', 22)}<b>Curfew until 06:00</b><span>Nothing can be Redeemed. ${n} Vouchers wait for morning.</span></div>`
+      : sk === 'running' ? `<div class="lockveil"><b>One Unlock at a time</b><span>${n} Vouchers stay banked until it ends</span></div>` : '';
+    const tear = sk === 'curfew' ? `<div class="tearline">${ic('lock', 12)} Tear line closed until 06:00<i></i></div>`
+      : sk === 'running' ? `<div class="tearline">Torn at 19:42<i></i></div>`
+      : `<div class="tearline live">${ic('down', 13)} Drag down to tear one off<i></i>${opts.mouse ? 'or press Redeem' : ''}</div>`;
+    return `<div class="stackwrap" style="height:${108 + 7 * ghosts + 8}px"><div class="stack" style="top:${7 * ghosts}px">${g}${ticket(n, dim ? 'dim' : '')}${veil}</div></div>${tear}`;
+  };
+
+  const runningCard = (sk, big = true) => {
+    const st = STATES[sk];
+    return `<div class="glass" style="margin-top:10px"><div style="display:flex;justify-content:space-between;align-items:center"><span class="eyebrow acc">Unlock running</span><span class="pill acc">${ic('unlock', 12)} Distractions open</span></div>
+      <div class="timer" style="margin:8px 0 6px;${big ? '' : 'font-size:34px'}">${st.left}</div>
+      <div class="bar"><i style="width:${elapsedPct}%"></i></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-top:6px"><span>Torn 19:42</span><span>Locks at ${locksAt(sk)}</span></div></div>`;
+  };
+
+  const fullBanner = (sk) => sk === 'full' ? `<div class="banner bad" style="margin-top:10px">${ic('warn', 18)}<span><b>Bank full, 12 of 12.</b> Anything you earn now is forfeited. Reader, 30 min was lost at 16:02. Tear one off and take the break.</span></div>` : '';
+
+  const d1BankRow = (sk) => {
+    const st = STATES[sk];
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:8px">
+      <div><div class="eyebrow">Bank</div><div class="h1">${st.bank} <span class="mut" style="font-size:14px;font-weight:500">of ${LIMIT}</span></div></div>
+      <div style="display:flex;gap:6px"><span class="pill warn">${ic('flame', 12)} ${STREAK} day streak</span>${st.curfew ? `<span class="pill" style="color:#d7daff">${ic('moon', 12)} Curfew</span>` : ''}</div></div>`;
+  };
+
+  const d1Tabbar = (on = 'bank') => `<div class="tabbar">
+      <div class="${on === 'bank' ? 'on' : ''}">${ic('ticket', 20)}Bank</div><div class="${on === 'earn' ? 'on' : ''}">${ic('bolt', 20)}Earn</div><div class="${on === 'rules' ? 'on' : ''}">${ic('gear', 20)}Rules</div></div>`;
+
+  const d1Home = (sk) => {
+    const st = STATES[sk];
+    return phone(`<div class="scroll">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px"><span class="eyebrow acc" style="font-size:12px;letter-spacing:.2em">VOUCHER</span><span class="mut" style="font-size:11px">Curfew 22:00 to 06:00</span></div>
+      ${d1BankRow(sk)}
+      ${ticketStack(sk)}
+      ${sk === 'running' ? runningCard(sk) : ''}
+      ${fullBanner(sk)}
+      <div class="secthead">Next Voucher</div>
+      ${progRows(sk)}
+      <div class="secthead">Today</div>
+      ${histList(sk, 4)}
+    </div>${d1Tabbar('bank')}`, st.clock);
+  };
+
+  const d1Blocked = (sk) => {
+    const st = STATES[sk];
+    const head = `<div style="display:flex;align-items:center;gap:10px;padding-top:10px"><span style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f9ce34,#ee2a7b 60%,#6228d7);display:flex;align-items:center;justify-content:center;color:#fff">${ic('cam', 20)}</span><div><div class="h2">Instagram is locked</div><div class="mut" style="font-size:12px">Opened while locked ${OPENED[0][1]} times today</div></div></div>`;
+    let mid;
+    if (sk === 'running') {
+      mid = `${runningCard(sk)}<div class="card" style="margin-top:12px;text-align:center"><div class="h2">Instagram is open</div><div class="mut" style="font-size:12px;margin-top:4px">You should not see this screen while an Unlock runs. If Instagram still shows a dialog, the Enforcer is a few seconds behind.</div><div class="btn primary" style="margin-top:12px;width:100%">Open Instagram</div></div>`;
+    } else if (sk === 'curfew') {
+      mid = ticketStack(sk) + `<div class="banner moon" style="margin-top:12px">${ic('moon', 18)}<span><b>Curfew until 06:00.</b> Your ${st.bank} Vouchers are safe in the Bank. Try a Tool instead, or sleep.</span></div>`;
+    } else {
+      mid = ticketStack(sk) + fullBanner(sk) + `<div class="card" style="margin-top:12px"><div style="display:flex;justify-content:space-between;gap:12px;font-size:12px"><span class="mut" style="flex:none">Opens</span><span style="text-align:right">Instagram, YouTube, Reddit, and 9 more</span></div><div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span class="mut">For</span><span class="mono">10:00</span></div><div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span class="mut">Left after</span><span>${st.bank - 1} of ${LIMIT}</span></div></div>`;
+    }
+    return phone(`<div class="scroll">${head}${mid}
+      <div class="secthead">Opened while locked today</div>${openedRows()}
+      <div style="margin-top:16px;display:flex;gap:8px"><span class="btn ghost" style="flex:1">${ic('x', 14)} Close, stay locked</span></div>
+    </div>`, st.clock);
+  };
+
+  const stepRow = (lbl, sub, val, pend) => `<div class="step"><div class="lbl">${lbl}<small>${sub}</small>${pend ? `<div class="pend">${ic('sunrise', 12)} ${pend}</div>` : ''}</div>
+      <div class="ctl"><span>${ic('minus', 16)}</span><span class="val ${pend ? 'pend' : ''}">${val}</span><span>${ic('plus', 16)}</span></div></div>`;
+  const d1Steppers = (sk) => {
+    const st = STATES[sk];
+    return `<div class="stepper">
+      ${stepRow('Unlock length', 'One Voucher opens this long', '10 min', 'Changing to 15 min at 06:00')}
+      ${stepRow('Bank limit', 'Vouchers past this are forfeited', `${LIMIT}`)}
+      ${stepRow('Curfew start', 'No Redeeming after', '22:00')}
+      ${stepRow('Curfew end', 'Morning boundary, loosenings apply', '06:00')}
+    </div>
+    <div class="foot">${ic('minus', 12)} applies now. ${ic('plus', 12)} waits for 06:00.</div>
+    <div class="secthead">Earning rates</div>
+    <div class="stepper">
+      ${stepRow('Focused time', 'Obsidian, Reader, Moon+ Reader, and Anki', '30 min')}
+      ${stepRow('Workout', 'Heart-rate zone minutes, Health Connect', '15 min')}
+      ${stepRow('Task', 'Todoist, ClickUp', '1 each')}
+    </div>
+    <div class="foot">Lower is looser here, so ${ic('minus', 12)} waits for 06:00.</div>`;
+  };
+  const d1Settings = (sk) => {
+    const st = STATES[sk];
+    return phone(`<div class="scroll"><div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px"><span class="h1">Rules</span><span class="pill">${ic('lock', 11)} Enforcers: 2</span></div>
+      ${d1Steppers(sk)}
+      <div class="secthead">Distractions</div><div class="kv"><span>12 apps, 8 sites</span><span class="mut">Instagram, YouTube, Reddit, Steam, and more</span></div>
+    </div>${d1Tabbar('rules')}`, st.clock);
+  };
+
+  const d1Phone = (sk) => `<div class="row">
+      ${frame(d1Home(sk), '<b>Home.</b> The Bank is a stack of tickets. Drag the top one down across the tear line to Redeem; nothing else to tap.')}
+      ${frame(androidDialog(sk), sk === 'running' ? '<b>No dialog while an Unlock runs.</b> Instagram opens; our notification shows the countdown.' : '<b>Android system dialog</b>, drawn by Android. We control only the text. Open Voucher leads to our blocked screen.')}
+      ${frame(d1Blocked(sk), '<b>Our blocked screen</b> after Open Voucher. Same ticket, same tear, plus the attempt count.')}
+      ${frame(d1Settings(sk), '<b>Rules</b> as steppers. Minus applies now; plus waits for the 06:00 Morning boundary. Pending loosening shown in amber.')}
+    </div>`;
+
+  const d1Rail = (on) => `<div class="rail"><div class="logo">VOUCHER</div>
+      <div class="ri ${on === 'bank' ? 'on' : ''}">${ic('ticket', 20)}Bank</div><div class="ri ${on === 'earn' ? 'on' : ''}">${ic('bolt', 20)}Earn</div><div class="ri ${on === 'rules' ? 'on' : ''}">${ic('gear', 20)}Rules</div></div>`;
+  const d1TabletHome = (sk) => {
+    const st = STATES[sk];
+    return tablet(`${d1Rail('bank')}
+      <div style="width:470px;flex:none;padding:14px 26px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px">
+        ${d1BankRow(sk)}
+        <div>${ticketStack(sk, { mouse: false })}</div>
+        ${sk === 'running' ? runningCard(sk) : ''}
+        ${fullBanner(sk)}
+        <div class="card" style="margin-top:auto"><div class="eyebrow">Opened while locked today</div><div style="margin-top:10px">${openedRows()}</div></div>
+        <div class="card"><div class="eyebrow">This week</div><div style="margin-top:8px">${weekRow()}</div><div class="note" style="margin-top:10px">${STREAK} day streak of earning before Redeeming.</div></div>
+      </div>
+      <div style="flex:1;padding:14px 26px;display:flex;flex-direction:column;gap:18px">
+        <div class="card"><div class="eyebrow">Next Voucher</div><div style="margin-top:10px">${progRows(sk)}</div></div>
+        <div class="card"><div class="eyebrow">Today</div><div style="margin-top:6px">${histList(sk)}</div></div>
+      </div>`, st.clock);
+  };
+  const d1TabletSettings = (sk) => {
+    const st = STATES[sk];
+    return tablet(`${d1Rail('rules')}
+      <div style="width:300px;flex:none;border-right:1px solid var(--line);padding:18px 14px">
+        <div class="h1" style="padding:0 10px 12px">Rules</div>
+        ${['Limits and Curfew', 'Earning rates', 'Distractions', 'Tools', 'Activity sources', 'Enforcers', 'Break-glass code'].map((s, i) => `<div style="padding:10px 12px;border-radius:12px;font-size:14px;${i === 0 ? 'background:var(--accent-soft);color:var(--accent);font-weight:600' : ''}">${s}</div>`).join('')}
+      </div>
+      <div style="flex:1;padding:18px 34px;max-width:720px">
+        <div class="h2" style="margin-bottom:4px">Limits and Curfew</div><div class="mut" style="font-size:12px;margin-bottom:10px">Tightening applies now. Loosening waits for the next 06:00 Morning boundary.</div>
+        ${d1Steppers(sk)}
+      </div>`, st.clock);
+  };
+  const d1Tablet = (sk) => `<div class="col">
+      ${frame(d1TabletHome(sk), '<b>Tablet Home.</b> Rail on the left, the ticket stack and timer in a fixed pane, progress and history in cards on the right.', true)}
+      ${frame(d1TabletSettings(sk), '<b>Tablet Rules.</b> Section list plus a stepper pane; the same steppers as the phone, wider.', true)}
+    </div>`;
+
+  const d1MainWin = (sk) => {
+    const st = STATES[sk];
+    return win('Voucher', 400, 600, `<div class="scroll" style="padding:4px 18px 16px">
+      ${d1BankRow(sk)}${ticketStack(sk, { mouse: true })}
+      ${sk === 'running' ? runningCard(sk) : ''}${fullBanner(sk)}
+      ${sk === 'locked' || sk === 'full' ? `<div class="btn primary" style="width:100%;margin-top:12px">${ic('ticket', 14)} Redeem 1 Voucher, 10 min</div>` : ''}
+      <div class="secthead">Next Voucher</div>${progRows(sk)}
+      <div class="secthead">Enforcers</div><div class="kv"><span>Book360 (this PC)</span><span class="ok">Checked in ${st.clock}</span></div><div class="kv"><span>S24 Ultra</span><span class="ok">Checked in 19:40</span></div>
+    </div>`);
+  };
+  const d1Flyout = (sk) => {
+    const st = STATES[sk];
+    let body;
+    if (sk === 'running') body = `${ticket(st.bank, 'small dim')}<div class="glass" style="margin-top:10px;padding:10px 14px"><div class="eyebrow acc">Unlock running</div><div class="timer" style="font-size:30px;margin-top:4px">${st.left}</div><div class="bar" style="margin-top:6px"><i style="width:${elapsedPct}%"></i></div></div>`;
+    else if (sk === 'curfew') body = `${ticket(st.bank, 'small dim')}<div class="banner moon" style="margin-top:10px">${ic('moon', 16)}<span>Curfew until 06:00. Nothing can be Redeemed.</span></div>`;
+    else body = `${ticket(st.bank, 'small')}${sk === 'full' ? `<div class="banner bad" style="margin-top:10px;padding:8px 10px">${ic('warn', 16)}<span>Bank full. Earning forfeits until you Redeem.</span></div>` : ''}<div class="btn primary" style="width:100%;margin-top:10px">${ic('ticket', 14)} Redeem 1 Voucher, 10 min</div>`;
+    return `<div class="win" style="width:330px;padding:14px;border-radius:12px;background:rgba(20,20,26,.96)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span class="eyebrow acc">Voucher</span><span class="mut" style="font-size:11px">${st.bank} of ${LIMIT} banked</span></div>${body}<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mute);margin-top:10px"><span>${ic('flame', 11)} ${STREAK} day streak</span><span>Open Voucher</span></div></div>`;
+  };
+  const d1SteamWin = (sk) => {
+    const st = STATES[sk];
+    const body = sk === 'running'
+      ? `<div style="padding:16px 22px"><div class="h2">Steam is open</div><div class="mut" style="font-size:12px;margin-top:2px">Unlock running. Steam will be closed again at ${locksAt(sk)}.</div>${runningCard(sk, false)}</div>`
+      : `<div style="padding:18px 22px"><div style="display:flex;gap:12px;align-items:center"><span style="width:40px;height:40px;border-radius:10px;background:#1b2838;display:flex;align-items:center;justify-content:center;color:#c7d5e0">${ic('steam', 24)}</span><div><div class="h2">Steam was closed</div><div class="mut" style="font-size:12px">It is a Distraction. ${st.curfew ? 'Curfew until 06:00.' : `${st.bank} Vouchers banked.`}</div></div></div>
+        <div style="margin-top:14px">${ticket(st.bank, 'small' + (st.curfew ? ' dim' : ''))}</div>
+        <div style="display:flex;gap:8px;margin-top:14px"><span class="btn ghost" style="flex:1">Close</span><span class="btn primary ${st.curfew ? 'dis' : ''}" style="flex:1">${ic('ticket', 14)} Redeem, 10 min</span></div></div>`;
+    return win('Voucher', 460, 300, body);
+  };
+  const d1Windows = (sk) => {
+    const st = STATES[sk];
+    return `<div class="col"><div class="row">
+      ${frame(d1MainWin(sk), '<b>Main window.</b> Same stack; drag with the mouse or press Redeem.')}
+      ${frame(taskbarWith(d1Flyout(sk), st.clock), '<b>Tray flyout</b> above the Windows 11 taskbar. Redeeming happens here, without opening the main window.', true)}
+      ${frame(d1SteamWin(sk), '<b>Blocked game.</b> Our service closed Steam and our window appeared.')}
+    </div><div class="row">
+      ${frame(bravePage(), '<b>Brave\'s own page</b> for a blocked site. We cannot style it; only the policy decides.', true)}
+      ${frame(win('Voucher, Rules', 560, 430, `<div style="display:flex;height:100%"><div style="width:170px;border-right:1px solid var(--line);padding:12px 8px;font-size:13px">${['Limits and Curfew', 'Earning rates', 'Distractions', 'Tools', 'Enforcers'].map((s, i) => `<div style="padding:8px 10px;border-radius:10px;${i === 0 ? 'background:var(--accent-soft);color:var(--accent);font-weight:600' : ''}">${s}</div>`).join('')}</div><div class="scroll" style="padding:8px 18px 12px">${d1Steppers(sk)}</div></div>`), '<b>Settings window.</b> Steppers again, with a section list.', true)}
+    </div></div>`;
+  };
+
+  const d1Widgets = (sk) => {
+    const st = STATES[sk];
+    const small = `<div class="wgt" style="grid-column:span 2;grid-row:span 2;display:flex;flex-direction:column;justify-content:space-between"><span class="wsz">2x2</span>
+      <div><div class="wl">Bank</div><div class="big ${sk === 'full' ? 'bad' : 'acc'}">${st.bank}<span style="font-size:14px;color:var(--mute);font-weight:600">/${LIMIT}</span></div></div>
+      ${sk === 'running' ? `<div><div class="wl">Unlock</div><div class="mono acc" style="font-size:24px;font-weight:800">${st.left}</div></div>` : sk === 'curfew' ? `<div class="wl" style="color:#d7daff">${ic('moon', 12)} Curfew to 06:00</div>` : sk === 'full' ? `<div class="wl bad">Full, earning forfeits</div><div class="btnw" style="align-self:flex-start">Redeem</div>` : `<div class="btnw" style="align-self:flex-start">Redeem</div>`}</div>`;
+    const med = `<div class="wgt" style="grid-column:span 4;grid-row:span 2;display:flex;gap:12px"><span class="wsz">4x2</span>
+      <div style="width:110px;flex:none;display:flex;flex-direction:column;justify-content:space-between">
+        <div><div class="wl">Bank</div><div class="big ${sk === 'full' ? 'bad' : 'acc'}">${st.bank}<span style="font-size:14px;color:var(--mute);font-weight:600">/${LIMIT}</span></div></div>
+        ${sk === 'running' ? `<div class="mono acc" style="font-size:22px;font-weight:800">${st.left}</div>` : sk === 'curfew' ? `<div class="btnw off">${ic('moon', 12)}&nbsp;Curfew</div>` : `<div class="btnw">Redeem</div>`}</div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:7px">
+        ${sk === 'running' ? `<div class="wl acc">Locks at ${locksAt(sk)}</div><div class="bar"><i style="width:${elapsedPct}%"></i></div>` : sk === 'full' ? `<div class="wl bad">Full, earning forfeits</div>` : `<div class="wl">Next Voucher</div>`}
+        ${PROGRESS.slice(0, 3).map(p => `<div style="display:flex;align-items:center;gap:6px;font-size:10px"><span style="width:50px;color:var(--mute)">${p.n}</span><span class="bar" style="flex:1"><i style="width:${Math.round(100 * p.cur / p.max)}%"></i></span><span class="mono" style="width:34px;text-align:right;color:var(--mute)">${p.cur}/${p.max}</span></div>`).join('')}
+      </div></div>`;
+    const large = `<div class="wgt" style="grid-column:span 4;grid-row:span 4;display:flex;flex-direction:column;gap:10px"><span class="wsz">4x4</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="wl">Bank</div><div class="big ${sk === 'full' ? 'bad' : 'acc'}">${st.bank}<span style="font-size:14px;color:var(--mute);font-weight:600">/${LIMIT}</span></div></div>
+        <div style="text-align:right"><div class="wl">Streak</div><div style="font-size:18px;font-weight:800" class="warn">${ic('flame', 14)} ${STREAK} days</div></div></div>
+      ${sk === 'running' ? `<div class="glass" style="padding:10px 12px"><div class="wl acc">Unlock running</div><div class="mono" style="font-size:30px;font-weight:800">${st.left}</div><div class="bar"><i style="width:${elapsedPct}%"></i></div></div>`
+        : sk === 'curfew' ? `<div class="banner moon" style="padding:8px 10px">${ic('moon', 14)}<span>Curfew until 06:00. Nothing can be Redeemed.</span></div>`
+        : sk === 'full' ? `<div class="banner bad" style="padding:8px 10px">${ic('warn', 14)}<span>Bank full. New Vouchers forfeit. Redeem one.</span></div><div class="btnw" style="align-self:flex-start">Redeem 10 min</div>`
+        : `<div class="btnw" style="align-self:flex-start">Redeem 10 min</div>`}
+      <div class="wl">Next Voucher</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${PROGRESS.map(p => `<div style="display:flex;align-items:center;gap:8px;font-size:11px"><span style="width:60px;color:var(--mute)">${p.n}</span><span class="bar" style="flex:1"><i style="width:${Math.round(100 * p.cur / p.max)}%"></i></span><span class="mono" style="width:60px;text-align:right;color:var(--mute)">${p.cur}/${p.max} ${p.unit}</span></div>`).join('')}</div>
+      <div class="wl">Week: ${WEEK.earned} earned, ${WEEK.spent} spent, and ${WEEK.forfeited} forfeited</div>
+      <div style="display:flex;flex-direction:column;gap:5px">${histFor(sk).slice().reverse().slice(0, 3).map(h => `<div style="display:flex;gap:8px;font-size:11px"><span class="mono mut">${h.t}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.what}</span><span class="${h.forfeited ? 'bad' : h.d > 0 ? 'ok' : 'acc'}" style="font-weight:700">${h.forfeited ? '0' : h.d > 0 ? '+1' : '−1'}</span></div>`).join('')}</div></div>`;
+    const phoneHome = wallpaperPhone(`<div class="wgrid" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:72px">${small}<div class="wgt" style="grid-column:span 2;grid-row:span 2;background:transparent;border:0;box-shadow:none"></div>${med}</div>`, st.clock);
+    const tabHome = tablet(`<div class="wall"></div><div class="wgrid" style="grid-template-columns:repeat(8,1fr);grid-auto-rows:88px;left:40px;right:40px;top:60px">${small}${med}<div style="grid-column:span 2"></div>${large}<div style="grid-column:span 4;grid-row:span 4;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-content:start">${[...Array(8)].map((_, i) => `<span class="appic ${'abcd'[i % 4]}" style="width:56px;height:56px;justify-self:center"></span>`).join('')}</div></div><div class="dock" style="bottom:18px">${'<span class="appic"></span>'.repeat(6)}</div>`, st.clock);
+    return `<div class="col">${frame(phoneHome, '<b>Phone widgets</b> (RemoteViews): 2x2 with Bank count and a tap-to-Redeem button, 4x2 adding next-Voucher bars; the countdown is a Chronometer. No drag on widgets, so the ticket becomes a button.')}
+      ${frame(tabHome, '<b>Tablet widgets</b>: 2x2, 4x2, and 4x4 with week stats and the last three entries.', true)}</div>`;
+  };
+
+  // ------------------------------------------------------------ DESIGN 2: PUNCHCARD
+  const slots = (sk, cls = '') => {
+    const st = STATES[sk];
+    let s = '';
+    for (let i = 0; i < LIMIT; i++) s += `<div class="slot ${i < st.bank ? 'on' : (sk === 'running' && i === st.bank ? 'use' : '')}"></div>`;
+    return `<div class="slots ${cls} ${sk === 'full' ? 'full' : ''}">${s}</div>`;
+  };
+  const slotHead = (sk) => {
+    const st = STATES[sk];
+    const right = sk === 'full' ? `<span class="pill bad">${ic('warn', 11)} Full, earning forfeits</span>`
+      : sk === 'curfew' ? `<span class="pill" style="color:#d7daff">${ic('moon', 11)} Curfew to 06:00</span>`
+      : sk === 'running' ? `<span class="pill acc">${ic('clock', 11)} 1 in use</span>`
+      : `<span class="pill">${LIMIT - st.bank} open slots</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span><span class="h1">${st.bank}</span> <span class="mut">of ${LIMIT} banked</span></span>${right}</div>${slots(sk)}`;
+  };
+  const holdBtn = (sk, cls = '') => {
+    const st = STATES[sk];
+    if (sk === 'running') return `<div class="hold run ${cls}">${ring(1 - elapsedPct / 100, 160, 5, 'var(--accent)')}<span class="k">UNLOCKED</span><span class="v">${st.left}</span><span class="s">locks at ${locksAt(sk)}</span></div>`;
+    if (sk === 'curfew') return `<div class="hold off ${cls}">${ring(0, 160, 5, 'var(--accent)')}<span style="color:#d7daff">${ic('moon', 26)}</span><span class="v" style="font-size:16px;margin-top:4px">Curfew</span><span class="s">opens at 06:00</span></div>`;
+    return `<div class="hold ${cls}">${ring(0.12, 160, 5, 'var(--accent)')}<span class="k">HOLD</span><span class="v">${ic('hand', 30)}</span><span class="s">1 Voucher, 10 min</span></div>`;
+  };
+  const holdCaption = (sk) => sk === 'running' ? `<span class="mut" style="font-size:11px">One Unlock at a time. ${STATES[sk].bank} slots stay punched.</span>`
+    : sk === 'curfew' ? `<span class="mut" style="font-size:11px">Nothing can be Redeemed during Curfew.</span>`
+    : sk === 'full' ? `<span class="bad" style="font-size:11px">Hold 1.5 s. Redeeming frees a slot so earning counts again.</span>`
+    : `<span class="mut" style="font-size:11px">Hold 1.5 s to Redeem. Release early to cancel.</span>`;
+
+  const nowRow = (sk) => {
+    const st = STATES[sk];
+    return `<div class="tr now"><span class="t">${st.clock}</span><span class="dot now"></span><span class="w">
+      <span style="font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--ink)">NOW, TOWARD THE NEXT VOUCHER</span>
+      ${PROGRESS.map(p => `<span class="inprog"><span class="n">${ic(p.ic, 12)} ${p.n}</span><span class="bar"><i style="width:${Math.round(100 * p.cur / p.max)}%"></i></span><span class="v mono">${p.cur}/${p.max}</span></span>`).join('')}
+      <span class="inprog"><span class="n">${ic('check', 12)} Tasks</span><span class="mut">+1 each, ${tasksToday(sk)} done today</span></span>
+    </span></div>`;
+  };
+  const timeline = (sk, max = 99, withNow = true) => {
+    const rows = histFor(sk).slice().reverse().slice(0, max);
+    return `<div class="tl">${withNow ? nowRow(sk) : ''}${rows.map(h => `<div class="tr"><span class="t">${h.t}</span><span class="dot ${h.forfeited ? 'forf' : h.d > 0 ? 'earn' : 'red'}"></span><span class="w">${h.what}<small>${h.src}</small></span><span class="d ${h.forfeited ? 'bad' : h.d > 0 ? 'ok' : 'acc'}">${h.forfeited ? '0' : h.d > 0 ? '+1' : '−1'}</span></div>`).join('')}</div>`;
+  };
+  const d2Nav = (on = 'today') => `<div class="pillnav"><span class="${on === 'today' ? 'on' : ''}">${ic('dot', 10)} Today</span><span class="${on === 'week' ? 'on' : ''}">Week</span><span class="${on === 'rules' ? 'on' : ''}">Rules</span></div>`;
+
+  const d2Home = (sk) => {
+    const st = STATES[sk];
+    return phone(`<div class="scroll" style="padding-bottom:70px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 12px"><span class="eyebrow acc" style="font-size:12px;letter-spacing:.2em">VOUCHER</span><span class="pill warn">${ic('flame', 11)} ${STREAK} days</span></div>
+      ${slotHead(sk)}
+      <div class="holdwrap">${holdBtn(sk)}${holdCaption(sk)}</div>
+      ${sk === 'full' ? `<div class="banner bad" style="margin:4px 0 10px">${ic('warn', 16)}<span>Reader, 30 min was forfeited at 16:02. Nothing counts until a slot opens.</span></div>` : ''}
+      ${timeline(sk, 3)}
+    </div>${d2Nav('today')}`, st.clock);
+  };
+  const d2Blocked = (sk) => {
+    const st = STATES[sk];
+    const head = `<div style="text-align:center;padding-top:26px"><span style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#f9ce34,#ee2a7b 60%,#6228d7);display:inline-flex;align-items:center;justify-content:center;color:#fff">${ic('cam', 28)}</span>
+      <div class="h1" style="margin-top:12px">Instagram</div><div class="mut" style="font-size:13px;margin-top:2px">${sk === 'running' ? 'is open' : `${OPENED[0][1]}th open while locked today`}</div></div>`;
+    let mid;
+    if (sk === 'running') mid = `<div class="holdwrap">${holdBtn(sk)}<span class="mut" style="font-size:11px">Instagram should already be open.</span></div><div class="btn primary" style="width:100%">Open Instagram</div>`;
+    else mid = `<div style="margin:16px 0 10px">${slots(sk)}</div><div class="holdwrap">${holdBtn(sk)}${holdCaption(sk)}</div>`;
+    return phone(`<div class="scroll">${head}${mid}
+      ${sk !== 'running' ? `<div class="card" style="margin-top:6px;font-size:12px"><div style="display:flex;justify-content:space-between;gap:12px"><span class="mut" style="flex:none">Opens</span><span style="text-align:right">Instagram, YouTube, Reddit, and 9 more</span></div><div style="display:flex;justify-content:space-between;margin-top:6px"><span class="mut">Locks again at</span><span class="mono">${sk === 'curfew' ? '06:00 earliest' : '+10:00'}</span></div></div>` : ''}
+      <div style="margin-top:14px"><div class="eyebrow" style="margin-bottom:6px">Opened while locked today</div>${openedRows()}</div>
+      <div class="btn ghost" style="width:100%;margin-top:14px">${ic('x', 14)} Not now</div>
+    </div>`, st.clock);
+  };
+  const ruleCard = (title, sub, opts, on, pend, note) => `<div class="rule"><div class="rh"><span>${title}</span><small>${sub}</small></div>
+      <div class="chips">${opts.map(o => `<span class="chip ${o === on ? 'on' : ''} ${o === pend ? 'pend' : ''}">${o}</span>`).join('')}</div>
+      ${note ? `<div style="font-size:11px;color:var(--accent);margin-top:7px;display:flex;gap:5px;align-items:center">${ic('sunrise', 12)} ${note}</div>` : ''}</div>`;
+  const d2Rules = () => `
+      ${ruleCard('Unlock length', 'minutes per Voucher', ['5', '10', '15', '20'], '10', '15', 'Now 10 min, changing to 15 min at 06:00.')}
+      ${ruleCard('Bank limit', 'Vouchers', ['6', '8', '12', '16'], '12')}
+      ${ruleCard('Curfew', 'no Redeeming', ['21:00', '22:00', '23:00'], '22:00')}
+      ${ruleCard('Morning boundary', 'Curfew ends, loosenings apply', ['05:00', '06:00', '07:00'], '06:00')}
+      ${ruleCard('Focused time', 'minutes per Voucher', ['20', '30', '45'], '30')}
+      <div class="foot">Filled chip is live. Picking a tighter chip applies now; a looser one shows dashed until 06:00.</div>`;
+  const d2Settings = (sk) => {
+    const st = STATES[sk];
+    return phone(`<div class="scroll" style="padding-bottom:70px"><div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 4px"><span class="h1">Rules</span><span class="pill">${ic('lock', 11)} 2 Enforcers</span></div>${d2Rules()}</div>${d2Nav('rules')}`, st.clock);
+  };
+  const d2Phone = (sk) => `<div class="row">
+      ${frame(d2Home(sk), '<b>Home.</b> Twelve slots show the Bank and the limit at once. Hold the ring 1.5 s to Redeem. Below, the day runs as a rail with the next-Voucher bars pinned at now.')}
+      ${frame(androidDialog(sk), sk === 'running' ? '<b>No dialog while an Unlock runs.</b> Instagram opens; our notification shows the countdown.' : '<b>Android system dialog</b>, drawn by Android. We control only the text. Open Voucher leads to our blocked screen.')}
+      ${frame(d2Blocked(sk), '<b>Our blocked screen.</b> A one sec style pause: the app, the attempt count, the slots, and the same hold ring.')}
+      ${frame(d2Settings(sk), '<b>Rules</b> as chips. Filled is live; the dashed chip is a pending loosening that lands at 06:00.')}
+    </div>`;
+
+  const d2Rail = (on) => `<div class="rail"><div class="logo">VOUCHER</div>
+      <div class="ri ${on === 'today' ? 'on' : ''}">${ic('dot', 18)}Today</div><div class="ri ${on === 'week' ? 'on' : ''}">${ic('list', 20)}Week</div><div class="ri ${on === 'rules' ? 'on' : ''}">${ic('gear', 20)}Rules</div></div>`;
+  const d2TabletHome = (sk) => {
+    const st = STATES[sk];
+    return tablet(`${d2Rail('today')}
+      <div style="width:430px;flex:none;padding:18px 26px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span class="pill warn">${ic('flame', 11)} ${STREAK} day streak</span><span class="mut" style="font-size:11px">Curfew 22:00 to 06:00</span></div>
+        ${slotHead(sk).replace('class="slots', 'class="slots big')}
+        <div class="holdwrap" style="margin-top:6px">${holdBtn(sk)}${holdCaption(sk)}</div>
+        ${sk === 'full' ? `<div class="banner bad">${ic('warn', 16)}<span>Reader, 30 min forfeited at 16:02.</span></div>` : ''}
+        <div style="margin-top:auto"><div class="eyebrow" style="margin-bottom:8px">This week</div>${weekRow()}</div>
+      </div>
+      <div style="flex:1;padding:18px 28px;display:flex;gap:22px">
+        <div style="flex:1.2"><div class="eyebrow" style="margin-bottom:8px">Today</div>${timeline(sk)}</div>
+        <div style="width:250px;flex:none"><div class="card"><div class="eyebrow">Opened while locked</div><div style="margin-top:10px">${openedRows()}</div></div>
+          <div class="card" style="margin-top:14px"><div class="eyebrow">Enforcers</div><div class="kv"><span>S24 Ultra</span><span class="ok">OK</span></div><div class="kv"><span>Book360</span><span class="ok">OK</span></div><div class="kv"><span>Tab S10 Ultra</span><span class="ok">OK</span></div></div></div>
+      </div>`, st.clock);
+  };
+  const d2TabletSettings = (sk) => {
+    const st = STATES[sk];
+    return tablet(`${d2Rail('rules')}
+      <div style="flex:1;padding:18px 34px;display:grid;grid-template-columns:1fr 1fr;gap:0 40px;align-content:start">
+        <div style="grid-column:1/3;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="h1">Rules</span><span class="mut" style="font-size:12px">Tighter applies now. Looser lands at the 06:00 Morning boundary.</span></div>
+        <div>${ruleCard('Unlock length', 'minutes per Voucher', ['5', '10', '15', '20'], '10', '15', 'Now 10 min, changing to 15 min at 06:00.')}${ruleCard('Bank limit', 'Vouchers', ['6', '8', '12', '16'], '12')}${ruleCard('Curfew', 'no Redeeming', ['21:00', '22:00', '23:00'], '22:00')}${ruleCard('Morning boundary', 'Curfew ends, loosenings apply', ['05:00', '06:00', '07:00'], '06:00')}</div>
+        <div>${ruleCard('Focused time', 'minutes per Voucher', ['20', '30', '45'], '30')}${ruleCard('Workout', 'zone minutes per Voucher', ['10', '15', '20'], '15')}${ruleCard('Tasks', 'Vouchers per task', ['1', '2'], '1')}
+          <div class="rule"><div class="rh"><span>Distractions</span><small>12 apps, 8 sites</small></div><div class="chips"><span class="chip">Instagram</span><span class="chip">YouTube</span><span class="chip">Reddit</span><span class="chip">Steam</span><span class="chip">+16</span></div></div></div>
+      </div>`, st.clock);
+  };
+  const d2Tablet = (sk) => `<div class="col">
+      ${frame(d2TabletHome(sk), '<b>Tablet Home.</b> Rail, then slots and the hold ring in a fixed pane, then the full day rail with side cards.', true)}
+      ${frame(d2TabletSettings(sk), '<b>Tablet Rules.</b> Chips in two columns; the dashed chip is pending.', true)}
+    </div>`;
+
+  const d2MainWin = (sk) => {
+    const st = STATES[sk];
+    return win('Voucher', 400, 600, `<div class="scroll" style="padding:12px 18px 16px">${slotHead(sk)}<div class="holdwrap">${holdBtn(sk)}${holdCaption(sk)}</div>${timeline(sk, 3)}</div>`);
+  };
+  const d2Flyout = (sk) => {
+    const st = STATES[sk];
+    const btn = sk === 'running' ? `<div class="hold run sm">${ring(1 - elapsedPct / 100, 112, 4, 'var(--accent)')}<span class="k">UNLOCKED</span><span class="v mono">${st.left}</span></div>`
+      : sk === 'curfew' ? `<div class="hold off sm">${ring(0, 112, 4, 'var(--accent)')}<span style="color:#d7daff">${ic('moon', 20)}</span><span class="s">to 06:00</span></div>`
+      : `<div class="hold sm">${ring(0.12, 112, 4, 'var(--accent)')}<span class="k">HOLD</span><span class="v">${ic('hand', 22)}</span></div>`;
+    return `<div class="win" style="width:340px;padding:14px;border-radius:12px;background:rgba(21,20,42,.97)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span class="eyebrow acc">Voucher</span><span class="mut" style="font-size:11px">${sk === 'full' ? '<span class="bad">Bank full</span>' : sk === 'curfew' ? 'Curfew' : sk === 'running' ? 'Unlock running' : `${LIMIT - st.bank} open slots`}</span></div>
+      <div style="display:flex;gap:14px;align-items:center"><div style="flex:1">${slots(sk)}<div class="mut" style="font-size:11px;margin-top:8px">${st.bank} of ${LIMIT} banked. ${sk === 'running' ? `Locks at ${locksAt(sk)}.` : sk === 'curfew' ? 'Nothing can be Redeemed.' : 'Hold 1.5 s for 10 min.'}</div></div>${btn}</div></div>`;
+  };
+  const d2SteamWin = (sk) => {
+    const st = STATES[sk];
+    const body = sk === 'running'
+      ? `<div style="padding:18px 22px;display:flex;gap:18px;align-items:center"><div style="flex:1"><div class="h2">Steam is open</div><div class="mut" style="font-size:12px;margin-top:4px">Unlock running. Steam closes again at ${locksAt(sk)}.</div><div style="margin-top:14px">${slots(sk)}</div><div class="mut" style="font-size:11px;margin-top:8px">${st.bank} of ${LIMIT} banked, 1 in use.</div></div>${holdBtn(sk, 'sm')}</div>`
+      : `<div style="padding:18px 22px;display:flex;gap:18px;align-items:center"><div style="flex:1"><div style="display:flex;gap:12px;align-items:center"><span style="width:40px;height:40px;border-radius:10px;background:#1b2838;display:flex;align-items:center;justify-content:center;color:#c7d5e0">${ic('steam', 24)}</span><div><div class="h2">Steam was closed</div><div class="mut" style="font-size:12px">${OPENED[0][1] + 2}th Distraction opened while locked today</div></div></div>
+        <div style="margin-top:14px">${slots(sk)}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span class="mut" style="font-size:11px">${st.bank} of ${LIMIT} banked.</span><span class="btn ghost sm">Not now</span></div></div>${holdBtn(sk, 'sm')}</div>`;
+    return win('Voucher', 470, 300, body);
+  };
+  const d2Windows = (sk) => {
+    const st = STATES[sk];
+    return `<div class="col"><div class="row">
+      ${frame(d2MainWin(sk), '<b>Main window.</b> Slots, hold ring (mouse press and hold), and the day rail.')}
+      ${frame(taskbarWith(d2Flyout(sk), st.clock), '<b>Tray flyout.</b> Slots on the left, a small hold ring on the right; the countdown lives in the same ring.', true)}
+      ${frame(d2SteamWin(sk), '<b>Blocked game.</b> Our service closed Steam; hold to Redeem from here.')}
+    </div><div class="row">
+      ${frame(bravePage(), '<b>Brave\'s own page</b> for a blocked site. Unstylable; the Enforcer only sets the policy.', true)}
+      ${frame(win('Voucher, Rules', 560, 430, `<div class="scroll" style="padding:8px 18px 12px;display:grid;grid-template-columns:1fr 1fr;gap:0 28px;align-content:start">${d2Rules()}</div>`), '<b>Settings window.</b> The same chip rules, two columns.', true)}
+    </div></div>`;
+  };
+  const d2Widgets = (sk) => {
+    const st = STATES[sk];
+    const miniSlots = (cols) => `<div class="slots" style="grid-template-columns:repeat(${cols},minmax(0,30px));gap:5px">${[...Array(LIMIT)].map((_, i) => `<div class="slot ${i < st.bank ? 'on' : ''}" style="border-width:1.5px"></div>`).join('')}</div>`.replace('class="slots"', `class="slots ${sk === 'full' ? 'full' : ''}"`);
+    const small = `<div class="wgt" style="grid-column:span 2;grid-row:span 2;display:flex;flex-direction:column;justify-content:space-between"><span class="wsz">2x2</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="big ${sk === 'full' ? 'bad' : 'acc'}" style="font-size:30px">${st.bank}</span><span class="wl">of ${LIMIT}</span></div>
+      ${miniSlots(6)}
+      ${sk === 'running' ? `<div class="mono acc" style="font-size:22px;font-weight:800">${st.left}</div>` : sk === 'curfew' ? `<div class="wl" style="color:#d7daff">${ic('moon', 11)} Curfew to 06:00</div>` : sk === 'full' ? `<div class="wl bad">Full, forfeits</div>` : `<div class="btnw">Redeem</div>`}</div>`;
+    const med = `<div class="wgt" style="grid-column:span 4;grid-row:span 2;display:flex;gap:14px;align-items:center"><span class="wsz">4x2</span>
+      <div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="big ${sk === 'full' ? 'bad' : 'acc'}" style="font-size:28px">${st.bank} <span class="wl">of ${LIMIT}</span></span><span class="wl warn">${ic('flame', 10)} ${STREAK} d</span></div>${miniSlots(6)}
+        <div class="wl">${sk === 'full' ? '<span class="bad">Bank full, earning forfeits</span>' : sk === 'curfew' ? '<span style="color:#d7daff">Curfew to 06:00</span>' : sk === 'running' ? `<span class="acc">Locks at ${locksAt(sk)}</span>` : `Obsidian ${PROGRESS[0].cur}/${PROGRESS[0].max}, Workout ${PROGRESS[1].cur}/${PROGRESS[1].max}`}</div></div>
+      <div style="width:84px;flex:none;text-align:center">${sk === 'running' ? `<div class="mono acc" style="font-size:22px;font-weight:800">${st.left}</div><div class="wl">left</div>` : sk === 'curfew' ? `<div class="btnw off">${ic('moon', 12)}</div>` : `<div class="btnw">Redeem</div><div class="wl" style="margin-top:4px">tap twice</div>`}</div></div>`;
+    const large = `<div class="wgt" style="grid-column:span 4;grid-row:span 4;display:flex;flex-direction:column;gap:10px"><span class="wsz">4x4</span>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="big ${sk === 'full' ? 'bad' : 'acc'}">${st.bank} <span class="wl">of ${LIMIT}</span></span><span class="wl warn">${ic('flame', 10)} ${STREAK} day streak</span></div>${miniSlots(12)}
+      ${sk === 'running' ? `<div style="display:flex;align-items:center;gap:12px"><span class="mono acc" style="font-size:30px;font-weight:800">${st.left}</span><span class="bar" style="flex:1"><i style="width:${100 - elapsedPct}%"></i></span><span class="wl">locks ${locksAt(sk)}</span></div>` : sk === 'curfew' ? `<div class="banner moon" style="padding:8px 10px">${ic('moon', 14)}<span>Curfew until 06:00. Nothing can be Redeemed.</span></div>` : sk === 'full' ? `<div style="display:flex;gap:10px;align-items:center"><div class="banner bad" style="padding:8px 10px;flex:1">${ic('warn', 14)}<span>Bank full. Redeem to make earning count.</span></div><div class="btnw">Redeem, tap twice</div></div>` : `<div class="btnw" style="align-self:flex-start">Redeem, tap twice</div>`}
+      <div class="wl">Next Voucher</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${PROGRESS.map(p => `<div style="display:flex;align-items:center;gap:8px;font-size:11px"><span style="width:60px;color:var(--mute)">${p.n}</span><span class="bar" style="flex:1"><i style="width:${Math.round(100 * p.cur / p.max)}%"></i></span><span class="mono" style="width:60px;text-align:right;color:var(--mute)">${p.cur}/${p.max} ${p.unit}</span></div>`).join('')}</div>
+      <div class="wl">Week: ${WEEK.earned} earned, ${WEEK.spent} spent, and ${WEEK.forfeited} forfeited</div>
+      <div class="tl" style="margin:0">${histFor(sk).slice().reverse().slice(0, 3).map(h => `<div class="tr" style="padding:3px 0;font-size:11px"><span class="t">${h.t}</span><span class="dot ${h.forfeited ? 'forf' : h.d > 0 ? 'earn' : 'red'}" style="width:10px;height:10px"></span><span class="w" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${h.what}</span><span class="d ${h.forfeited ? 'bad' : h.d > 0 ? 'ok' : 'acc'}">${h.forfeited ? '0' : h.d > 0 ? '+1' : '−1'}</span></div>`).join('')}</div></div>`;
+    const phoneHome = wallpaperPhone(`<div class="wgrid" style="grid-template-columns:repeat(4,1fr);grid-auto-rows:72px">${small}<div style="grid-column:span 2;grid-row:span 2"></div>${med}</div>`, st.clock);
+    const tabHome = tablet(`<div class="wall"></div><div class="wgrid" style="grid-template-columns:repeat(8,1fr);grid-auto-rows:88px;left:40px;right:40px;top:60px">${small}${med}<div style="grid-column:span 2"></div>${large}<div style="grid-column:span 4;grid-row:span 4;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-content:start">${[...Array(8)].map((_, i) => `<span class="appic ${'abcd'[i % 4]}" style="width:56px;height:56px;justify-self:center"></span>`).join('')}</div></div><div class="dock" style="bottom:18px">${'<span class="appic"></span>'.repeat(6)}</div>`, st.clock);
+    return `<div class="col">${frame(phoneHome, '<b>Phone widgets</b> (RemoteViews): the slot grid scales to every size. No hold gesture on widgets, so Redeem is a button that asks for a second tap within 5 s; the countdown is a Chronometer.')}
+      ${frame(tabHome, '<b>Tablet widgets</b>: 2x2, 4x2, and 4x4 with the week line and the last three entries.', true)}</div>`;
+  };
+
+  // ------------------------------------------------------------ render + switcher
+  const q = new URLSearchParams(location.search);
+  let variant = VARIANTS.some(v => v.key === q.get('variant')) ? q.get('variant') : 'fable-1';
+  let state = STATES[q.get('state')] ? q.get('state') : 'locked';
+  let device = DEVICES.includes(q.get('device')) ? q.get('device') : 'phone';
+
+  const BUILD = {
+    'fable-1': { phone: d1Phone, tablet: d1Tablet, windows: d1Windows, widgets: d1Widgets },
+    'fable-2': { phone: d2Phone, tablet: d2Tablet, windows: d2Windows, widgets: d2Widgets },
+  };
+  const render = () => {
+    const v = VARIANTS.find(x => x.key === variant);
+    const stage = document.getElementById('stage');
+    stage.className = `v-${variant}`;
+    stage.innerHTML = `<div class="stagehead"><span class="tag proto">PROTOTYPE</span><b>${v.key} ${v.name}</b><span>${v.tag}</span><span class="tag">${device}</span><span class="tag">${STATES[state].label}, ${STATES[state].clock}</span></div>${BUILD[variant][device](state)}`;
+    const sw = document.getElementById('switcher');
+    sw.innerHTML = `<span class="proto">PROTOTYPE</span>
+      <span class="grp"><button data-v="-1">&larr;</button><span class="vname"><b>${v.key}, ${v.name}</b><small>${v.tag}</small></span><button data-v="1">&rarr;</button></span>
+      <span class="grp"><span class="lab">State</span>${Object.keys(STATES).map(k => `<button data-s="${k}" class="${k === state ? 'on' : ''}">${k}</button>`).join('')}</span>
+      <span class="grp"><span class="lab">Device</span>${DEVICES.map(k => `<button data-d="${k}" class="${k === device ? 'on' : ''}">${k}</button>`).join('')}</span>`;
+    const u = new URL(location.href);
+    u.searchParams.set('variant', variant); u.searchParams.set('state', state); u.searchParams.set('device', device);
+    history.replaceState(null, '', u);
+    document.title = `Voucher prototype, ${v.name}, ${device}, ${state}`;
+  };
+  const stepVariant = (d) => { const i = VARIANTS.findIndex(x => x.key === variant); variant = VARIANTS[(i + d + VARIANTS.length) % VARIANTS.length].key; render(); };
+  document.getElementById('switcher').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.v) stepVariant(+b.dataset.v);
+    if (b.dataset.s) { state = b.dataset.s; render(); }
+    if (b.dataset.d) { device = b.dataset.d; render(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') stepVariant(-1);
+    if (e.key === 'ArrowRight') stepVariant(1);
+  });
+  render();
+})();
+</script>
+</body>
+</html>

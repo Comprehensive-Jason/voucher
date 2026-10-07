@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voucher UI Prototype</title>
+<!--
+  PROTOTYPE, throwaway. Claude, 2026-10-06.
+  Question: what should the Android app look like?
+  Three structurally different variants (?variant=A|B|C), each showing the three screens the
+  Enforcer app needs: Home (Bank and Redeem), Blocked, and Settings. A state switcher (?state=)
+  shows each in the situations that matter: locked, Unlock running, Curfew, Bank full.
+  Mock data only; nothing talks to the Ledger.
+-->
+<style>
+:root {
+  --bg: #f4f2ee; --panel: #ffffff; --ink: #1d1b18; --muted: #6b665e; --line: #ddd8cf;
+  --accent: #1f6f5c; --accent-ink: #ffffff; --warn: #b5541c; --night: #2b3a67;
+  --paper: #fbf8f1; --paper-line: #e7dfcf; --gold: #b8892b;
+  --phone: #111; --screen: #ffffff; --shadow: 0 10px 30px rgba(0,0,0,.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121314; --panel: #1b1d1f; --ink: #ecebe8; --muted: #a29d94; --line: #33363a;
+    --accent: #4fbf9f; --accent-ink: #0d1412; --warn: #e3874e; --night: #8ea2e6;
+    --paper: #1f1d19; --paper-line: #3a352c; --gold: #d9ad55;
+    --phone: #000; --screen: #16181a; --shadow: 0 10px 30px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121314; --panel: #1b1d1f; --ink: #ecebe8; --muted: #a29d94; --line: #33363a;
+  --accent: #4fbf9f; --accent-ink: #0d1412; --warn: #e3874e; --night: #8ea2e6;
+  --paper: #1f1d19; --paper-line: #3a352c; --gold: #d9ad55;
+  --phone: #000; --screen: #16181a; --shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 16px 16px 96px; }
+header.page { max-width: 1200px; margin: 0 auto 16px; }
+header.page h1 { font-size: 20px; margin: 0 0 4px; }
+header.page p { margin: 0; color: var(--muted); font-size: 13px; }
+.states { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.states button { border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.states button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.screens { max-width: 1440px; margin: 0 auto; display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+.col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.col h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0; text-transform: uppercase; letter-spacing: .06em; }
+.phone { width: 320px; max-width: calc(100vw - 32px); height: 660px; background: var(--phone); border-radius: 34px;
+  padding: 10px; box-shadow: var(--shadow); }
+.screen { position: relative; height: 100%; background: var(--screen); border-radius: 26px; overflow: hidden;
+  display: flex; flex-direction: column; }
+.wrap > * { flex-shrink: 0; } /* long histories scroll instead of squashing the layout */
+.statusbar { display: flex; justify-content: space-between; font-size: 12px; padding: 8px 18px 4px; color: var(--muted); }
+.note { max-width: 320px; font-size: 12px; color: var(--muted); text-align: center; }
+button.primary { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 14px; padding: 14px;
+  font: inherit; font-weight: 600; width: 100%; cursor: pointer; }
+button.primary[disabled] { background: var(--line); color: var(--muted); cursor: not-allowed; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pending { border-left: 3px solid var(--gold); padding: 6px 10px; background: color-mix(in srgb, var(--gold) 10%, transparent); font-size: 12px; border-radius: 4px; }
+
+/* System dialog Android shows for a suspended app; shared by all variants (Android draws it, not us). */
+.sysdim { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.sysdialog { background: var(--panel); border-radius: 22px; padding: 20px; width: 100%; }
+.sysdialog .icon { width: 36px; height: 36px; border-radius: 10px; background: #e1306c; margin-bottom: 10px; }
+.sysdialog h3 { margin: 0 0 6px; font-size: 18px; font-weight: 500; }
+.sysdialog p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.sysdialog .btns { display: flex; justify-content: flex-end; gap: 16px; color: var(--accent); font-weight: 600; font-size: 14px; }
+
+/* ---------- Variant A: Tickets ---------- */
+.A .wrap { padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; overflow: auto; }
+.A .title { font-size: 22px; font-weight: 700; }
+.A .stack { position: relative; height: 128px; margin: 4px 0 6px; }
+.A .ticket { position: absolute; left: 0; right: 0; height: 96px; border-radius: 12px; background: var(--accent); color: var(--accent-ink);
+  display: flex; align-items: center; padding: 0 18px; justify-content: space-between;
+  -webkit-mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+                radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+        radial-gradient(circle 9px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat; }
+.A .layer { position: absolute; height: 96px; border-radius: 12px; background: var(--accent); }
+.A .ticket .big { font-size: 34px; font-weight: 800; }
+.A .ticket .perf { border-left: 2px dashed color-mix(in srgb, var(--accent-ink) 50%, transparent); height: 64px; margin: 0 12px; }
+.A .stubs { display: flex; flex-direction: column; gap: 6px; }
+.A .stub { display: flex; justify-content: space-between; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.A .stub b { color: var(--accent); }
+.A .banner { border-radius: 12px; padding: 12px; font-size: 13px; }
+.A .banner.night { background: color-mix(in srgb, var(--night) 18%, transparent); color: var(--ink); }
+.A .banner.full { background: color-mix(in srgb, var(--warn) 16%, transparent); }
+.A .countdown { font-size: 44px; font-weight: 800; letter-spacing: -1px; }
+.A .field { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.A .field .label { font-size: 12px; color: var(--muted); }
+.A .field .val { font-size: 18px; font-weight: 700; }
+
+/* ---------- Variant B: Dial ---------- */
+.B .wrap { padding: 8px 20px 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; flex: 1; overflow: auto; text-align: center; }
+.B .dial { width: 240px; height: 240px; position: relative; margin-top: 8px; }
+.B .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.B .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.B .center .n { font-size: 64px; font-weight: 800; line-height: 1; }
+.B .center .u { font-size: 13px; color: var(--muted); }
+.B .sheet { width: 100%; margin-top: auto; border-top: 1px solid var(--line); padding-top: 10px; text-align: left; font-size: 13px; }
+.B .chip { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; margin: 3px 4px 0 0; font-size: 12px; }
+.B .bigq { font-size: 22px; font-weight: 700; margin-top: 18px; }
+.B .stepper { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.B .stepper .ctl { display: flex; align-items: center; gap: 12px; }
+.B .stepper .ctl span { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; }
+.B .stepper .ctl b { min-width: 48px; font-size: 18px; }
+
+/* ---------- Variant C: Ledger book ---------- */
+.C .screen { background: var(--paper); }
+.C .wrap { padding: 6px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; overflow: auto;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; }
+.C .head { border-bottom: 2px solid var(--ink); padding-bottom: 6px; }
+.C .head .t { font-size: 24px; font-weight: 700; letter-spacing: .02em; }
+.C .head .s { font-size: 12px; color: var(--muted); font-style: italic; }
+.C table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.C td { padding: 5px 2px; border-bottom: 1px solid var(--paper-line); vertical-align: top; }
+.C td.num { width: 34px; padding-left: 8px; text-align: right; font-family: ui-monospace, "SF Mono", Consolas, monospace; white-space: nowrap; }
+.C td.time { font-family: ui-monospace, "SF Mono", Consolas, monospace; color: var(--muted); width: 44px; }
+.C tr.total td { border-top: 2px solid var(--ink); border-bottom: 3px double var(--ink); font-weight: 700; }
+.C .plus { color: var(--accent); } .C .minus { color: var(--warn); } .C .lost { color: var(--muted); text-decoration: line-through; }
+.C .stamp { align-self: center; border: 3px solid var(--warn); color: var(--warn); padding: 6px 14px; transform: rotate(-6deg);
+  font: 700 18px ui-monospace, Consolas, monospace; letter-spacing: .1em; border-radius: 6px; }
+.C .stamp.ok { border-color: var(--accent); color: var(--accent); }
+.C .stamp.night { border-color: var(--night); color: var(--night); }
+.C button.primary { font-family: inherit; border-radius: 4px; }
+.C .term { font-size: 13px; padding: 6px 0; border-bottom: 1px dotted var(--paper-line); }
+.C .term ins { text-decoration: none; border-bottom: 2px solid var(--gold); }
+.C .term del { color: var(--muted); }
+
+/* Floating variant switcher: not part of the design. */
+.switcher { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px;
+  background: #111; color: #fff; border-radius: 999px; padding: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.35); z-index: 10; font-size: 13px; }
+.switcher button { background: #2a2a2a; color: #fff; border: 0; border-radius: 999px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; }
+.switcher .lbl { padding: 0 12px; white-space: nowrap; }
+.switcher .tag { background: #f5c542; color: #111; border-radius: 999px; padding: 2px 8px; font-weight: 700; font-size: 11px; margin-right: 6px; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Voucher: Android app, UI prototype</h1>
+  <p>Throwaway mockups, mock data. Flip designs with the bar at the bottom (or the ← → keys); flip situations with the buttons below.</p>
+  <div class="states" id="states"></div>
+</header>
+<main class="screens" id="screens"></main>
+<div class="switcher" role="navigation" aria-label="Prototype variant switcher">
+  <button id="prev" aria-label="Previous variant">←</button>
+  <span class="lbl"><span class="tag">PROTOTYPE</span><span id="vlabel"></span></span>
+  <button id="next" aria-label="Next variant">→</button>
+</div>
+<script>
+// ---- Mock data (the shape the Ledger's /status already returns, plus today's history) ----
+const STATES = {
+  locked:  { label: "Locked, 5 banked", bank: 5, unlockLeft: null, curfew: false, now: "19:42" },
+  running: { label: "Unlock running",   bank: 4, unlockLeft: "07:12", curfew: false, now: "19:45" },
+  curfew:  { label: "Curfew",           bank: 4, unlockLeft: null, curfew: true,  now: "22:31" },
+  full:    { label: "Bank full",        bank: 12, unlockLeft: null, curfew: false, now: "16:05" },
+};
+const LIMIT = 12, UNLOCK_MIN = 10;
+const TODAY = [
+  { t: "08:10", what: "Stretch 10 min", src: "Todoist", v: +1 },
+  { t: "11:32", what: "Finish the problem set", src: "Todoist", v: +1 },
+  { t: "13:05", what: "Draft the budget", src: "ClickUp", v: +1 },
+  { t: "14:40", what: "Fitbod: upper body, 22 zone min", src: "Health Connect", v: +1 },
+  { t: "15:20", what: "Obsidian, 30 min focused", src: "Focused time", v: +1 },
+  { t: "17:55", what: "Redeemed", src: "", v: -1 },
+];
+// Only entries before the screen's clock; a full Bank adds a forfeited entry.
+const historyFor = s => {
+  const h = TODAY.filter(e => e.t < s.now);
+  if (s.bank >= LIMIT) h.push({ t: "16:02", what: "Reader, 30 min focused", src: "Focused time", v: +1, lost: true });
+  return h;
+};
+const carried = s => s.bank - historyFor(s).filter(e => !e.lost).reduce((a, e) => a + e.v, 0);
+const NEXT = [
+  ["Finish any task", "+1"], ["30 min in Obsidian, Reader, Moon+, or Anki", "+1"], ["15 heart-rate zone minutes", "+1"],
+];
+const PENDING = { what: "Unlock length", from: "10 min", to: "15 min", at: "06:00" };
+
+const statusBar = s => `<div class="statusbar"><span>${s.now}</span><span>●●● 5G 82%</span></div>`;
+const sysDialog = s => `<div class="sysdim"><div class="sysdialog"><div class="icon"></div>
+  <h3>Instagram is paused</h3>
+  <p>${s.curfew ? "It's Curfew. Distractions open again at 06:00." : s.bank ? `You have ${s.bank} voucher${s.bank>1?"s":""}. Redeem one for ${UNLOCK_MIN} minutes.` : "No vouchers yet. Finish a task to earn one."}</p>
+  <div class="btns"><span>Close</span><span>Open Voucher</span></div></div></div>`;
+
+// ---------- Variant A: Tickets. Vouchers as a physical stack you tear from; history as stubs. ----------
+const A = {
+  name: "Tickets",
+  home(s) {
+    const top = s.unlockLeft
+      ? `<div class="banner" style="background:color-mix(in srgb,var(--accent) 14%,transparent)"><div class="small muted">Unlocked</div><div class="countdown">${s.unlockLeft}</div><div class="small">Social media and games are open. Everything locks when this hits zero.</div></div>`
+      : `<div class="stack">${s.bank>1?`<div class="layer" style="top:0;left:16px;right:16px;opacity:.35"></div><div class="layer" style="top:8px;left:8px;right:8px;opacity:.6"></div>`:""}<div class="ticket" style="top:16px"><span><span class="big">${s.bank}</span> <span class="small">of ${LIMIT}</span></span><span class="perf"></span><span class="small">${UNLOCK_MIN} min each</span></div></div>`;
+    const banner = s.curfew ? `<div class="banner night">Curfew until 06:00. Your ${s.bank} vouchers keep until morning.</div>`
+      : s.bank >= LIMIT ? `<div class="banner full">Bank full. New work earns nothing until you redeem one: good moment for a break.</div>` : "";
+    return `${statusBar(s)}<div class="wrap"><div class="title">Voucher</div>${top}${banner}
+      <button class="primary" ${s.curfew||s.unlockLeft||!s.bank?"disabled":""}>${s.unlockLeft?"Unlock running":s.curfew?"Redeem opens 06:00":`Tear off a voucher · ${UNLOCK_MIN} min`}</button>
+      <div class="small muted" style="margin-top:4px">Today's stubs</div>
+      <div class="stubs">${historyFor(s).slice().reverse().map(e=>`<div class="stub" style="${e.lost?"opacity:.55":""}"><span>${e.lost?`<s>${e.what}</s>`:e.what}<br><span class="muted small">${e.t}${e.src?" · "+e.src:""}${e.lost?" · forfeited, bank full":""}</span></span><b style="${e.v<0?"color:var(--warn)":""}">${e.lost?"0":e.v>0?"+1":"−1"}</b></div>`).join("")}<div class="stub" style="border-style:solid"><span class="muted">Carried over from yesterday</span><b>${carried(s)}</b></div></div></div>`;
+  },
+  blocked(s) {
+    return `${statusBar(s)}<div class="wrap" style="justify-content:center;text-align:center">
+      <div class="small muted">Instagram is paused</div>
+      <div class="stack" style="height:110px">${s.bank?`<div class="ticket" style="top:0"><span><span class="big">${s.bank}</span> <span class="small">banked</span></span><span class="perf"></span><span class="small">${UNLOCK_MIN} min each</span></div>`:""}</div>
+      ${s.curfew?`<div class="banner night">Curfew until 06:00</div>`:`<button class="primary" ${s.unlockLeft||!s.bank?"disabled":""}>Tear one off and open Instagram</button>`}
+      <div class="small muted" style="margin-top:10px">Quickest ways to earn the next one</div>
+      <div class="stubs">${NEXT.map(([w,v])=>`<div class="stub"><span>${w}</span><b>${v}</b></div>`).join("")}</div></div>
+      `;
+  },
+  settings(s) {
+    const f = (l,v,p) => `<div class="field"><div class="label">${l}</div><div class="val">${v}</div>${p?`<div class="pending" style="margin-top:6px">${p}</div>`:""}</div>`;
+    return `${statusBar(s)}<div class="wrap"><div class="title">Rules</div>
+      <div class="small muted">Making things stricter applies now. Making them looser waits until 06:00.</div>
+      ${f("Unlock length", "10 min", `Changing to 15 min at 06:00 · <u>Cancel</u>`)}
+      ${f("Bank limit", "12 vouchers")}
+      ${f("Curfew", "22:00 to 06:00")}
+      ${f("Earning", "1 per task · 1 per 15 zone min · 1 per 30 min focused")}
+      ${f("Distractions", "Instagram, YouTube, Reddit, 4 games, 9 sites")}</div>`;
+  },
+};
+
+// ---------- Variant B: Dial. One glanceable gauge; everything else hides in a sheet. ----------
+function ring(filled, total, mode) {
+  const r = 100, c = 2*Math.PI*r, gap = 6, seg = c/total - gap;
+  let arcs = "";
+  for (let i=0;i<total;i++) {
+    const on = i < filled;
+    const col = mode==="night" ? (on?"var(--night)":"var(--line)") : mode==="full" ? "var(--warn)" : on ? "var(--accent)" : "var(--line)";
+    arcs += `<circle r="${r}" cx="120" cy="120" fill="none" stroke="${col}" stroke-width="18" stroke-dasharray="${seg} ${c-seg}" stroke-dashoffset="${-i*(seg+gap)}" stroke-linecap="butt"/>`;
+  }
+  return `<svg viewBox="0 0 240 240">${arcs}</svg>`;
+}
+const B = {
+  name: "Dial",
+  home(s) {
+    const running = !!s.unlockLeft;
+    const dial = running
+      ? `<svg viewBox="0 0 240 240"><circle r="100" cx="120" cy="120" fill="none" stroke="var(--line)" stroke-width="18"/><circle r="100" cx="120" cy="120" fill="none" stroke="var(--accent)" stroke-width="18" stroke-dasharray="${2*Math.PI*100*0.72} 999"/></svg>`
+      : ring(s.bank, LIMIT, s.curfew?"night":s.bank>=LIMIT?"full":"");
+    const center = running ? `<div class="n" style="font-size:52px">${s.unlockLeft}</div><div class="u">left of ${UNLOCK_MIN} min</div>`
+      : `<div class="n">${s.bank}</div><div class="u">of ${LIMIT} banked</div>`;
+    const btn = running ? `<button class="primary" disabled>Open for ${s.unlockLeft}</button>`
+      : s.curfew ? `<button class="primary" disabled>Back at 06:00</button>`
+      : `<button class="primary" ${!s.bank?"disabled":""}>Redeem · ${UNLOCK_MIN} min</button>`;
+    const hint = s.bank>=LIMIT ? `<div class="small" style="color:var(--warn)">Full. Anything you earn now is lost: take a break.</div>` : "";
+    return `${statusBar(s)}<div class="wrap"><div class="dial">${dial}<div class="center">${center}</div></div>${btn}${hint}
+      <div class="sheet"><div class="row"><b>Today</b><span class="muted">+${historyFor(s).filter(e=>e.v>0&&!e.lost).length} earned · ${historyFor(s).filter(e=>e.v<0).length} used${s.bank>=LIMIT?" · 1 lost":""}</span></div>
+      <div>${NEXT.map(([w,v])=>`<span class="chip">${v} ${w}</span>`).join("")}</div></div></div>`;
+  },
+  blocked(s) {
+    return `${statusBar(s)}<div class="wrap" style="justify-content:center">
+      <div class="bigq">Spend 1 of ${s.bank} on Instagram?</div>
+      <div class="dial" style="width:170px;height:170px">${ring(s.bank, LIMIT, s.curfew?"night":"")}<div class="center"><div class="n" style="font-size:44px">${s.bank}</div></div></div>
+      ${s.curfew?`<button class="primary" disabled>Curfew until 06:00</button>`:`<button class="primary" ${!s.bank||s.unlockLeft?"disabled":""}>Yes, ${UNLOCK_MIN} minutes</button>`}
+      <div class="small muted">Not now. Finish a task first.</div></div>`;
+  },
+  settings(s) {
+    const st = (l,v,p) => `<div class="stepper"><span style="text-align:left">${l}${p?`<br><span class="small" style="color:var(--gold)">${p}</span>`:""}</span><span class="ctl"><span>−</span><b>${v}</b><span>+</span></span></div>`;
+    return `${statusBar(s)}<div class="wrap" style="align-items:stretch;text-align:left"><b style="font-size:20px">Settings</b>
+      ${st("Unlock length", "10m", "15m from 06:00")}${st("Bank limit", "12")}${st("Curfew starts", "22:00")}${st("Curfew ends", "06:00")}
+      ${st("Vouchers per task", "1")}${st("Focused min per voucher", "30")}
+      <div class="small muted" style="margin-top:8px">− applies now. + waits for 06:00.</div></div>`;
+  },
+};
+
+// ---------- Variant C: Ledger book. An account book: every entry, a running balance, the rules as terms. ----------
+const C = {
+  name: "Ledger book",
+  home(s) {
+    let bal = carried(s);
+    const rows = `<tr><td class="time"></td><td class="muted"><i>Carried over</i></td><td class="num"></td><td class="num">${bal}</td></tr>` + historyFor(s).map(e => {
+      if (e.lost) return `<tr><td class="time">${e.t}</td><td class="lost">${e.what}</td><td class="num lost">+1</td><td class="num muted">forfeit</td></tr>`;
+      bal += e.v; return `<tr><td class="time">${e.t}</td><td>${e.what}${e.src?`<br><span class="muted small">${e.src}</span>`:""}</td><td class="num ${e.v>0?"plus":"minus"}">${e.v>0?"+1":"−1"}</td><td class="num">${bal}</td></tr>`; }).join("");
+    const extra = "";
+    const stamp = s.unlockLeft ? `<div class="stamp ok">OPEN ${s.unlockLeft}</div>` : s.curfew ? `<div class="stamp night">CURFEW · 06:00</div>` : s.bank>=LIMIT ? `<div class="stamp">BANK FULL</div>` : "";
+    return `${statusBar(s)}<div class="wrap"><div class="head"><div class="t">Voucher</div><div class="s">Account of labour, ${new Date().toISOString().slice(0,10)}</div></div>
+      ${stamp}<table>${rows}${extra}<tr class="total"><td></td><td>Balance</td><td></td><td class="num">${s.bank}</td></tr></table>
+      <button class="primary" ${s.curfew||s.unlockLeft||!s.bank?"disabled":""}>Redeem 1 voucher for ${UNLOCK_MIN} min</button>
+      <div class="small muted">Limit ${LIMIT}. Each voucher is ${UNLOCK_MIN} minutes of Distractions.</div></div>`;
+  },
+  blocked(s) {
+    return `${statusBar(s)}<div class="wrap"><div class="head"><div class="t">Instagram</div><div class="s">withheld pending payment</div></div>
+      <table><tr><td>Price</td><td class="num">1 voucher</td></tr><tr><td>Grants</td><td class="num">${UNLOCK_MIN} minutes</td></tr><tr><td>Your balance</td><td class="num">${s.bank}</td></tr>${s.bank?`<tr class="total"><td>After</td><td class="num">${s.bank-1}</td></tr>`:""}</table>
+      ${s.curfew?`<div class="stamp night">CURFEW · 06:00</div>`:`<button class="primary" ${!s.bank||s.unlockLeft?"disabled":""}>Pay 1 voucher</button>`}
+      <div class="small muted" style="margin-top:6px">Or earn one: ${NEXT.map(([w])=>w).join("; ")}.</div></div>`;
+  },
+  settings(s) {
+    const t = (n, body) => `<div class="term"><b>§${n}.</b> ${body}</div>`;
+    return `${statusBar(s)}<div class="wrap"><div class="head"><div class="t">Terms</div><div class="s">Stricter terms take effect at once; looser terms at the next 06:00.</div></div>
+      ${t(1, `One voucher grants <del>10</del> <ins>15</ins> minutes of Distractions. <span class="small" style="color:var(--gold)">Amendment effective 06:00.</span>`)}
+      ${t(2, `The bank holds at most 12 vouchers; anything earned beyond is forfeit.`)}
+      ${t(3, `No voucher may be redeemed between 22:00 and 06:00.`)}
+      ${t(4, `One voucher per finished task, per 15 heart-rate zone minutes, and per 30 focused minutes.`)}
+      ${t(5, `Only one Unlock at a time.`)}
+      <button class="primary" style="background:transparent;color:var(--accent);border:1px solid var(--accent)">Propose an amendment</button></div>`;
+  },
+};
+
+const VARIANTS = { A, B, C };
+const KEYS = Object.keys(VARIANTS);
+const params = new URLSearchParams(location.search);
+let variant = KEYS.includes(params.get("variant")) ? params.get("variant") : "A";
+let state = STATES[params.get("state")] ? params.get("state") : "locked";
+
+function render() {
+  const v = VARIANTS[variant], s = STATES[state];
+  const sys = `<div class="col"><h2>Opening Instagram</h2><div class="phone"><div class="screen">${statusBar(s)}${sysDialog(s)}</div></div><div class="note">Drawn by Android, same for every design. We set the text; "Open Voucher" leads to the next screen.</div></div>`;
+  document.getElementById("screens").innerHTML = ["home","sys","blocked","settings"].map(k => k==="sys" ? sys :
+    `<div class="col ${variant}"><h2>${{home:"Home",blocked:"After “Open Voucher”",settings:"Settings"}[k]}</h2><div class="phone"><div class="screen">${v[k](s)}</div></div></div>`).join("");
+  document.getElementById("vlabel").textContent = `${variant} (${v.name})`;
+  document.getElementById("states").innerHTML = Object.entries(STATES).map(([k,x]) =>
+    `<button data-state="${k}" aria-pressed="${k===state}">${x.label}</button>`).join("");
+  const p = new URLSearchParams(location.search); p.set("variant", variant); p.set("state", state);
+  history.replaceState(null, "", "?" + p.toString());
+}
+function cycle(d) { variant = KEYS[(KEYS.indexOf(variant)+d+KEYS.length)%KEYS.length]; render(); }
+document.getElementById("prev").onclick = () => cycle(-1);
+document.getElementById("next").onclick = () => cycle(1);
+document.getElementById("states").onclick = e => { const k = e.target.dataset.state; if (k) { state = k; render(); } };
+addEventListener("keydown", e => {
+  if (e.target.closest("input,textarea,[contenteditable]")) return;
+  if (e.key === "ArrowLeft") cycle(-1);
+  if (e.key === "ArrowRight") cycle(1);
+});
+render();
+</script>
+</body>
+</html>

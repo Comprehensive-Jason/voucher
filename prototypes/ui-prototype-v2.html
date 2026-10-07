@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voucher UI Prototype 2b</title>
+<!--
+  PROTOTYPE, throwaway. Claude, 2026-10-06. Round 2 after Jason's feedback on round 1:
+  - Tickets (round-1 A) kept, now torn by dragging the ticket; the countdown sits below it.
+  - Round-1 B's stepper Settings page is shared by every design.
+  - Round-1 C (Ledger book) dropped.
+  - Three new designs modelled on apps in this space: Habits First, Opal, and one sec + ScreenZen.
+  Each design renders for Phone (S24 Ultra), Tablet (Tab S10 Ultra, landscape), and Windows (Tauri window,
+  tray flyout, and overlays). ?variant=, ?state=, ?device= are shareable. Mock data only.
+  Round 2b: dark only, and a Widgets device (Android home-screen widgets, small, medium, and large).
+-->
+<style>
+* { box-sizing: border-box; }
+:root { --page: #111213; --page-ink: #ecebe8; --page-muted: #9d988f; color-scheme: dark; } /* dark only, per Jason */
+body { margin: 0; background: var(--page); color: var(--page-ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 16px 16px 96px; }
+header.page { max-width: 1440px; margin: 0 auto 14px; }
+header.page h1 { font-size: 20px; margin: 0 0 4px; }
+header.page p { margin: 0; color: var(--page-muted); font-size: 13px; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.pills button { border: 1px solid color-mix(in srgb, var(--page-ink) 20%, transparent); background: transparent; color: var(--page-ink);
+  border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.pills button[aria-pressed="true"] { background: var(--page-ink); color: var(--page); }
+.stage { max-width: 1440px; margin: 0 auto; display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+.col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.col > h2 { font-size: 12px; font-weight: 600; color: var(--page-muted); margin: 0; text-transform: uppercase; letter-spacing: .06em; }
+.note { max-width: 340px; font-size: 12px; color: var(--page-muted); text-align: center; }
+
+/* ---------- Theme tokens, one set per design ---------- */
+.t-tickets { --bg: #16181a; --surface: #1e2124; --ink: #ecebe8; --muted: #a29d94; --line: #34383c; --accent: #4fbf9f; --accent-ink: #0d1412;
+  --warn: #e3874e; --night: #8ea2e6; --gold: #d9ad55; --font: system-ui, "Segoe UI", Roboto, sans-serif; --radius: 14px; }
+.t-habits { --bg: #0f1012; --surface: #1a1c1f; --ink: #f1f1f1; --muted: #8c9096; --line: #2a2d31; --accent: #3ddc84; --accent-ink: #07170d;
+  --warn: #ff6b4a; --night: #7d8cff; --gold: #f5c542; --font: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace; --radius: 12px; }
+.t-glass { --bg: linear-gradient(160deg, #c9d6e3 0%, #8fa5bd 45%, #253447 100%); --surface: rgba(255,255,255,.16); --ink: #f6f9fc; --muted: rgba(240,246,252,.72);
+  --line: rgba(255,255,255,.24); --accent: #e9f2ff; --accent-ink: #1b2a3c; --warn: #ffb37a; --night: #c5d3ff; --gold: #ffe08a;
+  --font: system-ui, "Segoe UI Variable Display", "Segoe UI", Roboto, sans-serif; --radius: 22px; }
+.t-pause { --bg: linear-gradient(180deg, #6b6ff2 0%, #4b3fbf 100%); --surface: rgba(20,18,48,.55); --ink: #ffffff; --muted: rgba(255,255,255,.72);
+  --line: rgba(255,255,255,.18); --accent: #ffffff; --accent-ink: #3b2fa8; --warn: #ffb4a8; --night: #c9c4ff; --gold: #ffd37a;
+  --font: ui-rounded, "SF Pro Rounded", system-ui, "Segoe UI", sans-serif; --radius: 20px; }
+.theme { background: var(--bg); color: var(--ink); font-family: var(--font); }
+.muted { color: var(--muted); } .small { font-size: 12px; }
+.btn { display: block; width: 100%; border: 0; border-radius: var(--radius); padding: 14px; font: inherit; font-weight: 700; text-align: center;
+  background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.btn.off { background: var(--line); color: var(--muted); cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.t-glass .card, .t-pause .card { backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.banner { border-radius: var(--radius); padding: 12px 14px; font-size: 13px; }
+.banner.night { background: color-mix(in srgb, var(--night) 22%, transparent); }
+.banner.full { background: color-mix(in srgb, var(--warn) 20%, transparent); }
+
+/* ---------- Device frames ---------- */
+.phone { width: 330px; height: 690px; background: #0b0b0b; border-radius: 36px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.tablet { width: 1180px; max-width: calc(100vw - 32px); height: 740px; background: #0b0b0b; border-radius: 26px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.screen { position: relative; height: 100%; border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; container-type: inline-size; }
+.tablet .screen { border-radius: 14px; flex-direction: row; }
+.statusbar { display: flex; justify-content: space-between; font: 12px system-ui, sans-serif; padding: 9px 18px 4px; color: var(--muted); flex-shrink: 0; }
+.scroll { flex: 1; overflow: auto; display: flex; flex-direction: column; }
+.scroll > * { flex-shrink: 0; }
+.rail { width: 84px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 22px; padding-top: 34px; border-right: 1px solid var(--line); }
+.rail .ri { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); font-family: system-ui, sans-serif; }
+.rail .ri i { width: 48px; height: 30px; border-radius: 15px; display: block; border: 2px solid var(--muted); }
+.rail .ri.on { color: var(--ink); } .rail .ri.on i { background: color-mix(in srgb, var(--accent) 35%, transparent); border-color: transparent; }
+.tablet .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* Home layout: one column on a phone, two panes on a tablet or desktop window (Android "expanded" width class). */
+.home { padding: 6px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+.home .title { font-size: 22px; font-weight: 800; }
+@container (min-width: 700px) {
+  .home { display: grid; grid-template-columns: minmax(340px, 440px) 1fr; grid-template-rows: auto 1fr; gap: 18px 32px; padding: 16px 32px 28px; align-items: start; }
+  .home .title { grid-column: 1 / -1; font-size: 26px; }
+  .home .pane-side { max-height: 100%; }
+  .settings .rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 40px; }
+  .blockedpage { max-width: 520px; margin: 0 auto; justify-content: center; }
+}
+
+/* ---------- Shared: B-style stepper Settings, themed per design ---------- */
+.settings { padding: 6px 18px 18px; }
+.settings h3 { font-size: 22px; margin: 4px 0 6px; }
+.step { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); gap: 10px; }
+.step .lbl { font-size: 14px; }
+.step .pend { display: block; font-size: 12px; color: var(--gold); }
+.step .ctl { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.step .ctl span { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; }
+.step .ctl b { min-width: 52px; text-align: center; font-size: 17px; }
+.settings .foot { font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+/* ---------- Tickets ---------- */
+.tk-stack { position: relative; height: 120px; margin-top: 4px; touch-action: none; overflow: visible; }
+.tk-body .min { white-space: nowrap; }
+.tk-layer { position: absolute; height: 98px; border-radius: 12px; background: var(--accent); }
+.tk-ticket { position: absolute; left: 0; right: 0; top: 16px; height: 98px; display: flex; }
+.tk-stub, .tk-body { background: var(--accent); color: var(--accent-ink); height: 100%; display: flex; align-items: center; }
+.tk-stub { width: 42%; border-radius: 12px 0 0 12px; padding-left: 18px; gap: 6px;
+  -webkit-mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000); mask: radial-gradient(circle 9px at 0 50%, transparent 98%, #000); }
+.tk-stub b { font-size: 40px; font-weight: 800; line-height: 1; }
+.tk-body { flex: 1; border-radius: 0 12px 12px 0; border-left: 2px dashed color-mix(in srgb, var(--accent-ink) 55%, transparent); padding: 0 18px;
+  justify-content: space-between; cursor: grab; transition: transform .25s ease, opacity .25s ease; transform-origin: 0 100%;
+  -webkit-mask: radial-gradient(circle 9px at 100% 50%, transparent 98%, #000); mask: radial-gradient(circle 9px at 100% 50%, transparent 98%, #000); }
+.tk-body .min { font-size: 20px; font-weight: 800; } .tk-body .hint { font-size: 12px; opacity: .85; }
+.tk-ticket.dragging .tk-body { transition: none; cursor: grabbing; }
+.tk-ticket.gone .tk-body { transform: translate(260px, -40px) rotate(18deg); opacity: 0; }
+.tk-ticket.torn .tk-body { visibility: hidden; }
+.tk-ticket.torn .tk-stub { border-radius: 12px 0 0 12px; -webkit-mask: none; mask: none;
+  clip-path: polygon(0 0,100% 0,96% 8%,100% 16%,96% 24%,100% 32%,96% 40%,100% 48%,96% 56%,100% 64%,96% 72%,100% 80%,96% 88%,100% 96%,96% 100%,0 100%); }
+.tk-ticket.resting { opacity: .55; } .tk-ticket.resting .tk-body { cursor: default; }
+.tk-ticket.asleep { filter: saturate(.2) brightness(.85); } .tk-ticket.asleep .tk-body { cursor: not-allowed; }
+.tk-below { min-height: 110px; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.tk-count { font-size: 52px; font-weight: 800; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; }
+.tk-stubs { display: flex; flex-direction: column; gap: 6px; }
+.tk-st { display: flex; justify-content: space-between; border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; font-size: 13px; background: var(--surface); }
+.tk-st b { color: var(--accent); }
+
+/* ---------- Habits (Habits First style) ---------- */
+.hb-count { display: flex; align-items: baseline; gap: 10px; } .hb-count .big { font-size: 56px; font-weight: 800; line-height: 1; }
+.hb-cells { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; margin-top: 8px; }
+.hb-cells i { aspect-ratio: 1; border-radius: 3px; background: var(--line); } .hb-cells i.on { background: var(--accent); }
+.hb-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 13px; margin-top: 10px; }
+.hb-bar { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; } .hb-bar i { display: block; height: 100%; }
+.hb-hold { position: relative; overflow: hidden; } .hb-hold .fill { position: absolute; inset: 0 auto 0 0; width: 38%; background: rgba(0,0,0,.18); }
+.hb-heat { display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: 3px; }
+.hb-heat i { aspect-ratio: 1; border-radius: 2px; }
+.hb-tab { display: flex; justify-content: space-around; padding: 10px 0 14px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.hb-tab .on { color: var(--accent); }
+
+/* ---------- Glass (Opal style) ---------- */
+.gl-lcd { font: 700 64px/1 ui-monospace, "SF Mono", Consolas, monospace; letter-spacing: 4px; text-align: center; padding: 18px 0 6px;
+  background: rgba(10,20,32,.35); border-radius: 18px; border: 1px solid var(--line); text-shadow: 0 0 18px rgba(200,225,255,.45); }
+.gl-slider { position: relative; height: 56px; border-radius: 28px; background: rgba(255,255,255,.18); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
+.gl-slider .knob { position: absolute; left: 4px; top: 4px; width: 48px; height: 48px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.gl-apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.gl-app { aspect-ratio: 1; border-radius: 16px; position: relative; display: flex; align-items: flex-end; justify-content: center; font-size: 10px; padding-bottom: 4px; color: #fff; }
+.gl-app .lock { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-62%); }
+
+/* ---------- Pause (one sec + ScreenZen style) ---------- */
+.pz-glass { width: 86px; height: 110px; margin: 0 auto; position: relative; }
+.pz-big { font-size: 76px; font-weight: 800; line-height: 1; text-align: center; }
+.pz-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pz-chip { border-radius: 999px; padding: 7px 14px; background: rgba(255,255,255,.16); font-size: 13px; font-weight: 600; }
+.pz-week { display: flex; justify-content: space-between; margin-top: 8px; }
+.pz-week span { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.pz-week i { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--line); }
+.pz-week i.ok { border-color: #8ef0c4; } .pz-week i.over { border-color: var(--warn); }
+
+/* ---------- Android system dialog (not ours) ---------- */
+.sysdim { position: absolute; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.sysdialog { background: #fff; color: #1d1b18; border-radius: 22px; padding: 20px; width: 100%; max-width: 330px; font-family: Roboto, system-ui, sans-serif; }
+.sysdialog .icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(45deg,#f9a825,#e1306c,#7b1fa2); margin-bottom: 10px; }
+.sysdialog h4 { margin: 0 0 6px; font-size: 18px; font-weight: 500; } .sysdialog p { margin: 0 0 14px; color: #5f6368; font-size: 14px; }
+.sysdialog .btns { display: flex; justify-content: flex-end; gap: 16px; color: #1f6f5c; font-weight: 600; font-size: 14px; }
+
+/* ---------- Windows ---------- */
+.desk { background: linear-gradient(135deg, #2c4f7c, #8aa9c9); border-radius: 12px; position: relative; overflow: hidden; }
+.win { border-radius: 8px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.35); border: 1px solid rgba(0,0,0,.25); display: flex; flex-direction: column; container-type: inline-size; }
+.win-title { height: 34px; display: flex; align-items: center; gap: 8px; padding-left: 12px; font: 12px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg)); border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.t-glass .win-title, .t-pause .win-title { background: rgba(0,0,0,.18); }
+.win-title .ic { width: 14px; height: 14px; border-radius: 3px; background: var(--accent); }
+.win-title .ctl { margin-left: auto; display: flex; } .win-title .ctl span { width: 46px; text-align: center; color: var(--muted); }
+.win-body { flex: 1; overflow: auto; }
+.taskbar { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: rgba(32,32,32,.85); display: flex; align-items: center; justify-content: flex-end;
+  gap: 14px; padding: 0 14px; color: #fff; font: 12px "Segoe UI", system-ui, sans-serif; }
+.taskbar .tray-ic { width: 18px; height: 18px; border-radius: 4px; outline: 2px solid #fff; outline-offset: 3px; }
+.flyout { position: absolute; right: 12px; bottom: 56px; width: 340px; border-radius: 10px; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.1); }
+.chromium { background: #fff; color: #202124; font-family: system-ui, "Segoe UI", sans-serif; height: 100%; display: flex; flex-direction: column; }
+.chromium .bar { background: #dfe1e5; padding: 8px 10px; display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.chromium .url { background: #fff; border-radius: 14px; padding: 5px 12px; flex: 1; color: #5f6368; }
+.chromium .err { padding: 48px 40px; } .chromium .err h5 { font-size: 20px; font-weight: 400; margin: 18px 0 10px; } .chromium .err p { color: #5f6368; font-size: 13px; margin: 0 0 6px; }
+.chromium .err .code { font-size: 11px; color: #9aa0a6; margin-top: 18px; }
+
+/* ---------- Android home-screen widgets ---------- */
+.wall { background: radial-gradient(120% 80% at 20% 0%, #283548 0%, #12161d 55%, #08090b 100%); }
+.hs { padding: 10px 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-content: start; }
+.tablet .hs { grid-template-columns: repeat(12, 1fr); padding: 20px 28px; gap: 16px; }
+.wg.s .n { font-size: 34px; }
+.wg { border-radius: 24px; overflow: hidden; padding: 14px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.wg.s { grid-column: span 2; aspect-ratio: 1; } .wg.m { grid-column: span 4; aspect-ratio: 2 / 1; } .wg.l { grid-column: span 4; aspect-ratio: 1; }
+.tablet .wg.s { grid-column: span 2; } .tablet .wg.m, .tablet .wg.l { grid-column: span 4; }
+.wg .k { font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.wg .n { font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.wg .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+.wg .bar { height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; } .wg .bar i { display: block; height: 100%; }
+.wg .tap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 999px; padding: 8px 10px; text-align: center; font-weight: 700; font-size: 13px; background: var(--accent); color: var(--accent-ink); margin-top: auto; }
+.wg .tap.off { background: var(--line); color: var(--muted); }
+.wg .cells { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; } .wg .cells i { aspect-ratio: 1; border-radius: 2px; background: var(--line); } .wg .cells i.on { background: var(--accent); }
+.apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 6px 14px 14px; margin-top: auto; }
+.tablet .apps { grid-template-columns: repeat(10, 60px); justify-content: space-between; padding: 10px 40px 24px; }
+.apps i { aspect-ratio: 1; border-radius: 30%; display: block; opacity: .9; }
+.tk-mini { height: 44px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; padding: 0 12px; gap: 8px; font-weight: 800;
+  -webkit-mask: radial-gradient(circle 6px at 0 50%, transparent 98%, #000) left/51% 100% no-repeat, radial-gradient(circle 6px at 100% 50%, transparent 98%, #000) right/51% 100% no-repeat;
+  mask: radial-gradient(circle 6px at 0 50%, transparent 98%, #000) left/51% 100% no-repeat, radial-gradient(circle 6px at 100% 50%, transparent 98%, #000) right/51% 100% no-repeat; }
+
+/* Floating switcher: not part of the design. */
+.switcher { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; background: #111; color: #fff;
+  border-radius: 999px; padding: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.35); z-index: 10; font-size: 13px; }
+.switcher button { background: #2a2a2a; color: #fff; border: 0; border-radius: 999px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; }
+.switcher .lbl { padding: 0 12px; white-space: nowrap; }
+.switcher .tag { background: #f5c542; color: #111; border-radius: 999px; padding: 2px 8px; font-weight: 700; font-size: 11px; margin-right: 6px; }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Voucher UI prototype, round 2</h1>
+  <p>Throwaway mockups with mock data. Design: the bar at the bottom or ← →. Situation and device: the buttons below. In Tickets, drag the ticket to the right to tear one off.</p>
+  <div class="pills" id="states"></div>
+  <div class="pills" id="devices"></div>
+</header>
+<main class="stage" id="stage"></main>
+<div class="switcher" role="navigation" aria-label="Prototype variant switcher">
+  <button id="prev" aria-label="Previous design">←</button>
+  <span class="lbl"><span class="tag">PROTOTYPE</span><span id="vlabel"></span></span>
+  <button id="next" aria-label="Next design">→</button>
+</div>
+<script>
+// ---------------- Mock data ----------------
+const STATES = {
+  locked:  { label: "Locked, 5 banked", bank: 5,  left: null,    curfew: false, now: "19:42" },
+  running: { label: "Unlock running",   bank: 4,  left: "07:12", curfew: false, now: "19:45" },
+  curfew:  { label: "Curfew",           bank: 4,  left: null,    curfew: true,  now: "22:31" },
+  full:    { label: "Bank full",        bank: 12, left: null,    curfew: false, now: "16:05" },
+};
+const DEVICES = { phone: "Phone (S24 Ultra)", tablet: "Tablet (Tab S10 Ultra)", windows: "Windows", widgets: "Widgets" };
+const LIMIT = 12, MIN = 10;
+const TODAY = [
+  { t: "08:10", what: "Stretch 10 min", src: "Todoist" },
+  { t: "11:32", what: "Finish the problem set", src: "Todoist" },
+  { t: "13:05", what: "Draft the budget", src: "ClickUp" },
+  { t: "14:40", what: "Fitbod upper body, 22 zone min", src: "Health Connect" },
+  { t: "15:20", what: "Obsidian, 30 min focused", src: "Focused time" },
+  { t: "17:55", what: "Redeemed", src: "", spent: true },
+];
+const hist = s => { const h = TODAY.filter(e => e.t < s.now);
+  if (s.bank >= LIMIT) h.push({ t: "16:02", what: "Reader, 30 min focused", src: "Focused time", lost: true }); return h; };
+// Progress toward the next Voucher from each source, as the Ledger would report it.
+const PROGRESS = [
+  { name: "Tasks", detail: "every finished task", n: 1, of: 1, unit: "", color: "#3ddc84" },
+  { name: "Obsidian", detail: "focused", n: 18, of: 30, unit: "min", color: "#a78bfa" },
+  { name: "Workout", detail: "zone minutes", n: 9, of: 15, unit: "min", color: "#ff6b4a" },
+  { name: "Anki", detail: "focused", n: 6, of: 30, unit: "min", color: "#60a5fa" },
+];
+const nearest = "12 more min in Obsidian, or finish any task";
+const APPS = [["Instagram","#e1306c"],["YouTube","#e62117"],["Reddit","#ff4500"],["Steam","#1b2838"]];
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const HEAT = Array.from({ length: 84 }, (_, i) => i > 80 ? 0 : Math.floor(rnd() * rnd() * 9));
+const can = s => !s.curfew && !s.left && s.bank > 0;
+const status = s => `<div class="statusbar"><span>${s.now}</span><span>●●● 5G 82%</span></div>`;
+
+// ---------------- Shared: B-style stepper Settings ----------------
+function settings() {
+  const row = (l, v, p) => `<div class="step"><span class="lbl">${l}${p ? `<span class="pend">${p}</span>` : ""}</span><span class="ctl"><span>−</span><b>${v}</b><span>+</span></span></div>`;
+  return `<div class="settings"><h3>Settings</h3><div class="rows">
+    ${row("Unlock length", "10m", "15m from 06:00 · tap to cancel")}${row("Bank limit", "12")}
+    ${row("Curfew starts", "22:00")}${row("Curfew ends", "06:00")}
+    ${row("Vouchers per task", "1")}${row("Focused min per voucher", "30")}
+    ${row("Zone min per voucher", "15")}${row("Distractions", "16")}</div>
+    <div class="foot">− applies now. + waits for 06:00.</div></div>`;
+}
+
+// ---------------- Design: Tickets ----------------
+const tickets = {
+  name: "Tickets", from: "round-1 A, now torn by dragging",
+  hero(s, tearing) {
+    const cls = s.left ? "resting" : s.curfew ? "asleep" : "";
+    const layers = s.bank > 1 ? `<div class="tk-layer" style="top:0;left:18px;right:18px;opacity:.3"></div><div class="tk-layer" style="top:8px;left:9px;right:9px;opacity:.55"></div>` : "";
+    const body = `<div class="tk-body" data-tear style="${tearing ? "transform:translate(34px,-4px) rotate(6deg)" : ""}"><span class="min">${MIN} min</span><span class="hint">${s.curfew ? "Curfew" : s.left ? "next one" : "tear →"}</span></div>`;
+    const below = s.left ? `<div class="small muted">Unlocked, everything locks at zero</div><div class="tk-count">${s.left}</div><div class="small muted">${s.bank} vouchers left</div>`
+      : s.curfew ? `<div class="banner night">Curfew until 06:00. Your ${s.bank} vouchers keep until morning.</div>`
+      : s.bank >= LIMIT ? `<div class="banner full">Bank full. New work earns nothing until you tear one off: a good moment for a break.</div>`
+      : `<div class="small muted">Tear one off for ${MIN} minutes of social media and games.</div><div class="small muted">Next one: ${nearest}.</div>`;
+    return `<div class="tk-stack">${layers}<div class="tk-ticket ${cls}" ${can(s) ? "data-live" : ""}><div class="tk-stub"><b>${s.bank}</b><span class="small">of ${LIMIT}</span></div>${body}</div></div><div class="tk-below">${below}</div>`;
+  },
+  side(s) {
+    return `<div class="small muted">Today's stubs</div><div class="tk-stubs">${hist(s).slice().reverse().map(e => `<div class="tk-st" style="${e.lost ? "opacity:.55" : ""}"><span>${e.lost ? `<s>${e.what}</s>` : e.what}<br><span class="muted small">${e.t}${e.src ? " · " + e.src : ""}${e.lost ? " · forfeited, bank full" : ""}</span></span><b style="${e.spent ? "color:var(--warn)" : ""}">${e.lost ? "0" : e.spent ? "−1" : "+1"}</b></div>`).join("")}</div>`;
+  },
+  blocked(s, app) {
+    return `<div class="small muted" style="text-align:center">${app} is paused</div>${this.hero(s)}`;
+  },
+};
+
+// ---------------- Design: Habits (Habits First) ----------------
+const habits = {
+  name: "Habits", from: "Habits First",
+  hero(s) {
+    const cells = Array.from({ length: LIMIT }, (_, i) => `<i class="${i < s.bank ? "on" : ""}"></i>`).join("");
+    const btn = s.left ? `<div class="btn hb-hold" style="background:var(--surface);color:var(--ink);border:1px solid var(--line)">unlocked · ${s.left} left</div>`
+      : s.curfew ? `<div class="btn off">curfew · back at 06:00</div>`
+      : `<div class="btn hb-hold"><span class="fill"></span>hold to spend 1 · ${MIN} min</div>`;
+    const warn = s.bank >= LIMIT ? `<div class="small" style="color:var(--warn)">bank full: anything you finish now is lost</div>` : "";
+    return `<div class="card"><div class="hb-count"><span class="big">${s.bank}</span><span class="muted">vouchers · max ${LIMIT}</span></div><div class="hb-cells">${cells}</div></div>${btn}${warn}
+      <div class="card"><div class="small muted">next voucher</div>${PROGRESS.map(p => `<div class="hb-row"><span>${p.name} <span class="muted">${p.detail}</span></span><span class="muted">${p.unit ? `${p.n}/${p.of} ${p.unit}` : "+1 each"}</span><div class="hb-bar"><i style="width:${p.n / p.of * 100}%;background:${p.color}"></i></div></div>`).join("")}</div>`;
+  },
+  side(s) {
+    const shade = v => v === 0 ? "var(--line)" : `color-mix(in srgb, var(--accent) ${20 + v * 10}%, var(--bg))`;
+    return `<div class="card"><div class="small muted" style="margin-bottom:8px">vouchers earned, last 12 weeks</div><div class="hb-heat">${HEAT.map(v => `<i style="background:${shade(v)}"></i>`).join("")}</div></div>
+      <div class="card"><div class="small muted">today</div>${hist(s).map(e => `<div class="hb-row" style="${e.lost ? "opacity:.5" : ""}"><span>${e.t} ${e.what}</span><span style="color:${e.spent ? "var(--warn)" : e.lost ? "var(--muted)" : "var(--accent)"}">${e.lost ? "lost" : e.spent ? "−1" : "+1"}</span></div>`).join("")}</div>`;
+  },
+  blocked(s, app) {
+    const msg = s.curfew ? `It's Curfew. ${app} opens again at 06:00.` : s.bank ? `${app} costs 1 voucher. You have ${s.bank}.` : `To open ${app}, earn a voucher first.`;
+    return `<div style="text-align:center">${icon.flame(48)}</div><div style="text-align:center;font-size:20px;font-weight:800">${msg}</div>
+      <div class="small muted" style="text-align:center">fastest next voucher: ${nearest}</div>
+      ${s.curfew ? "" : `<div class="btn hb-hold"><span class="fill"></span>hold to spend 1 · ${MIN} min</div>`}`;
+  },
+  tab: `<div class="hb-tab"><span class="on">■ bank</span><span>▦ insights</span><span>⚙ settings</span></div>`,
+};
+
+// ---------------- Design: Glass (Opal) ----------------
+const glass = {
+  name: "Glass", from: "Opal",
+  hero(s) {
+    const lcd = s.left ? s.left : String(s.bank).padStart(2, "0");
+    const sub = s.left ? "left of this Unlock" : `vouchers banked · ${MIN} min each`;
+    const action = s.left ? `<div class="gl-slider" style="opacity:.6">Open until ${s.left === "07:12" ? "19:52" : "?"}</div>`
+      : s.curfew ? `<div class="gl-slider" style="opacity:.6">Sleeping until 06:00</div>`
+      : `<div class="gl-slider"><span class="knob">→</span>Slide to unlock ${MIN} min</div>`;
+    const note = s.bank >= LIMIT && !s.left ? `<div class="small" style="color:var(--warn);text-align:center">Bank full. Take a break before you earn more.</div>`
+      : s.curfew ? `<div class="small muted" style="text-align:center">Past you set the 22:00 Curfew. Past you was right.</div>` : "";
+    return `<div class="gl-lcd">${lcd}<div class="small muted" style="letter-spacing:0;font:12px system-ui;margin-top:6px">${sub}</div></div>${action}${note}
+      <div class="gl-apps">${APPS.map(([n, c]) => `<div class="gl-app" style="background:${c}">${s.left ? "" : `<span class="lock">${icon.lock(20)}</span>`}${n}</div>`).join("")}</div>`;
+  },
+  side(s) {
+    return `<div class="card"><div class="small muted">This week</div><div style="display:flex;gap:18px;margin-top:6px"><div><b style="font-size:26px">31</b><div class="small muted">earned</div></div><div><b style="font-size:26px">24</b><div class="small muted">spent</div></div><div><b style="font-size:26px">2</b><div class="small muted">forfeited</div></div></div></div>
+      <div class="card"><div class="small muted">Opened while locked, today</div>${APPS.slice(0, 3).map(([n], i) => `<div style="display:flex;justify-content:space-between;margin-top:6px"><span>${n}</span><span class="muted">${[14, 6, 3][i]}×</span></div>`).join("")}</div>
+      <div class="card"><div class="small muted">Today</div>${hist(s).map(e => `<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:13px;${e.lost ? "opacity:.5" : ""}"><span>${e.what}</span><span class="muted">${e.lost ? "lost" : e.spent ? "−1" : "+1"}</span></div>`).join("")}</div>`;
+  },
+  blocked(s, app) {
+    const c = (APPS.find(a => a[0] === app) || ["", "#888"])[1];
+    return `<div style="width:96px;height:96px;border-radius:24px;margin:0 auto;background:${c};filter:blur(2px)"></div>
+      <div style="text-align:center;font-size:22px;font-weight:700">${app} is locked by Voucher</div>
+      <div class="small muted" style="text-align:center">${s.curfew ? "Past you set the 22:00 Curfew. Past you was right." : `You have ${s.bank} vouchers. One opens it for ${MIN} minutes.`}</div>
+      ${s.curfew ? "" : `<div class="gl-slider"><span class="knob">→</span>Slide to spend 1</div>`}`;
+  },
+};
+
+// ---------------- Design: Pause (one sec + ScreenZen) ----------------
+const pause = {
+  name: "Pause", from: "one sec + ScreenZen",
+  hero(s) {
+    const big = s.left ? s.left : s.bank;
+    const sub = s.left ? "left, then everything locks" : `vouchers · ${MIN} min each`;
+    const btn = s.left ? "" : s.curfew ? `<div class="btn off">Rest. Back at 06:00</div>` : `<div class="btn">Redeem · starts with a 5 s breath</div>`;
+    const full = s.bank >= LIMIT && !s.left ? `<div class="banner full">Your bank is full. Step away for a bit: nothing more can be earned until you spend one.</div>` : "";
+    return `<div class="card" style="text-align:center"><div class="pz-big">${big}</div><div class="muted">${sub}</div></div>${btn}${full}
+      <div><div class="small muted" style="margin-bottom:6px">Earn the next one</div><div class="pz-chips"><span class="pz-chip">Finish a task</span><span class="pz-chip">Read 30</span><span class="pz-chip">Notes 30</span><span class="pz-chip">Work out 15</span><span class="pz-chip">Anki 30</span></div></div>`;
+  },
+  side(s) {
+    const days = [["W", "ok"], ["Th", "ok"], ["F", "over"], ["Sa", "ok"], ["Su", "ok"], ["M", "ok"], ["T", ""]];
+    return `<div class="card"><div style="display:flex;justify-content:space-between"><b>${icon.flame(18)} 4d</b><span class="muted small">days under 6 redeems</span></div><div class="pz-week">${days.map(([d, c]) => `<span><i class="${c}"></i>${d}</span>`).join("")}</div></div>
+      <div class="card"><div class="small muted">Attempts to open while locked, today</div><div style="font-size:34px;font-weight:800">8</div><div class="small muted">Instagram 5 · YouTube 2 · Reddit 1</div></div>`;
+  },
+  blocked(s, app) {
+    return `<div class="pz-glass">${hourglass()}</div><div class="pz-big" style="font-size:56px">8th</div><div style="text-align:center" class="muted">time opening ${app} today</div>
+      <div style="text-align:center;font-size:24px;font-weight:800">${s.curfew ? `${app} is asleep until 06:00.` : `Do you still need ${app}?`}</div>
+      ${s.curfew ? `<div class="btn">Close</div>` : `<div class="btn">No, close it</div><div class="btn ghost">Spend 1 of ${s.bank} (in 3 s)</div>`}`;
+  },
+};
+const icon = {
+  flame: n => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" style="vertical-align:-3px"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-4-1-6 1-9z" fill="#ff7a3d"/><path d="M12 13c1 2 3 3 3 5a3 3 0 0 1-6 0c0-1 1-2 1-3 0 1 1 1 1 1 0-1 0-2 1-3z" fill="#ffd37a"/></svg>`,
+  lock: n => `<svg width="${n}" height="${n}" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2.5" fill="#fff"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="#fff" stroke-width="2.4" fill="none"/></svg>`,
+  blocked: n => `<svg width="${n}" height="${n}" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="#d93025" stroke-width="2.4" fill="none"/><path d="M6 18 18 6" stroke="#d93025" stroke-width="2.4"/></svg>`,
+};
+function hourglass() {
+  return `<svg viewBox="0 0 86 110" width="86" height="110"><path d="M10 4h66M10 106h66" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+    <path d="M16 8c0 26 22 32 22 47S16 76 16 102h54c0-26-22-32-22-47S70 34 70 8z" fill="rgba(255,255,255,.18)" stroke="#fff" stroke-width="3"/>
+    <path d="M24 92c6-10 14-14 19-14s13 4 19 14z" fill="#ffd37a"/><path d="M28 22h30c-4 8-10 12-15 14-5-2-11-6-15-14z" fill="#ffd37a"/></svg>`;
+}
+
+const DESIGNS = { tickets, habits, glass, pause };
+const KEYS = Object.keys(DESIGNS);
+
+// ---------------- Screens ----------------
+const home = (d, s, opts = {}) => `<div class="home"><div class="title">Voucher</div><section class="pane-main" style="display:flex;flex-direction:column;gap:14px">${d.hero(s, opts.tearing)}</section><section class="pane-side" style="display:flex;flex-direction:column;gap:12px">${d.side(s)}</section></div>`;
+const blockedPage = (d, s, app) => `<div class="home blockedpage" style="display:flex;flex-direction:column;gap:14px;padding-top:30px">${d.blocked(s, app)}</div>`;
+const sysDialog = s => `<div class="sysdim"><div class="sysdialog"><div class="icon"></div><h4>Instagram is paused</h4>
+  <p>${s.curfew ? "It's Curfew. Distractions open again at 06:00." : `You have ${s.bank} vouchers. Redeem one for ${MIN} minutes.`}</p><div class="btns"><span>Close</span><span>Open Voucher</span></div></div></div>`;
+
+function phoneView(k, d, s) {
+  const frame = (title, inner, note) => `<div class="col"><h2>${title}</h2><div class="phone"><div class="screen theme t-${k}">${inner}</div></div>${note ? `<div class="note">${note}</div>` : ""}</div>`;
+  const tab = d.tab || "";
+  return frame("Home", `${status(s)}<div class="scroll">${home(d, s)}</div>${tab}`)
+    + frame("Opening Instagram", `${status(s)}<div class="scroll"></div>${sysDialog(s)}`, `Drawn by Android, the same for every design. We set the text; "Open Voucher" leads to the next screen.`)
+    + frame("After “Open Voucher”", `${status(s)}<div class="scroll">${blockedPage(d, s, "Instagram")}</div>`)
+    + frame("Settings", `${status(s)}<div class="scroll">${settings()}</div>${tab}`);
+}
+function tabletView(k, d, s) {
+  const rail = on => `<nav class="rail">${["Home", "History", "Settings"].map(n => `<div class="ri ${n === on ? "on" : ""}"><i></i>${n}</div>`).join("")}</nav>`;
+  const frame = (title, on, inner) => `<div class="col"><h2>${title}</h2><div class="tablet"><div class="screen theme t-${k}">${rail(on)}<div class="main">${status(s)}<div class="scroll">${inner}</div></div></div></div></div>`;
+  return frame("Home, landscape", "Home", home(d, s)) + frame("Settings, landscape", "Settings", settings());
+}
+function windowsView(k, d, s) {
+  const win = (w, h, title, inner, extra = "") => `<div class="win theme t-${k}" style="width:${w}px;height:${h}px;${extra}"><div class="win-title"><span class="ic"></span>${title}<span class="ctl"><span>–</span><span>□</span><span>✕</span></span></div><div class="win-body">${inner}</div></div>`;
+  const col = (title, inner, note) => `<div class="col"><h2>${title}</h2>${inner}${note ? `<div class="note">${note}</div>` : ""}</div>`;
+  const tray = `<div class="desk" style="width:400px;height:560px"><div class="flyout theme t-${k}"><div style="padding:14px;display:flex;flex-direction:column;gap:12px;container-type:inline-size">${d.hero(s)}</div></div><div class="taskbar"><span class="tray-ic" style="background:#4fbf9f"></span><span>ENG</span><span>${s.now}<br>2026-10-06</span></div></div>`;
+  const steam = `<div class="desk" style="width:520px;height:560px;padding:30px">${win(460, 470, "Voucher · Steam is paused", `<div style="padding:8px 4px">${blockedPage(d, s, "Steam")}</div>`)}</div>`;
+  const brave = `<div class="desk" style="width:520px;height:560px;padding:30px"><div class="win" style="width:460px;height:470px"><div class="chromium"><div class="bar"><span>◀ ▶ ⟳</span><span class="url">reddit.com</span></div><div class="err">${icon.blocked(44)}<h5>reddit.com is blocked</h5><p>Your organization doesn't allow you to view this site.</p><div class="code">ERR_BLOCKED_BY_ADMINISTRATOR</div></div></div></div></div>`;
+  return col("Main window", win(1040, 640, "Voucher", home(d, s)))
+    + col("Tray flyout", tray, "Click the tray icon: the bank and the redeem, nothing else.")
+    + col("Opening a blocked game", steam, "Our window, drawn over the app the service just closed.")
+    + col("Opening a blocked site in Brave", brave, "Drawn by Brave for the URLBlocklist policy. We can't style it; the tray icon is how you redeem.")
+    + col("Settings window", win(560, 640, "Voucher · Settings", settings()));
+}
+
+// ---------------- Widgets ----------------
+// What each size shows, per design. RemoteViews limits: live countdown (Chronometer) and tap targets, no drag.
+function widgetParts(k, s) {
+  const big = s.left ? s.left : `${s.bank}<span style="font-size:18px;color:var(--muted)">/${LIMIT}</span>`;
+  const label = s.left ? "unlocked, left" : s.curfew ? "curfew until 06:00" : s.bank >= LIMIT ? "bank full, take a break" : "vouchers banked";
+  const tapText = { tickets: "Tear one off", habits: "spend 1", glass: "Unlock 10 min", pause: "Redeem, with a breath" }[k];
+  const tap = s.left ? `<div class="tap off">${s.bank} left after this</div>` : s.curfew ? `<div class="tap off">back at 06:00</div>` : `<div class="tap">${tapText}</div>`;
+  const cells = `<div class="cells">${Array.from({ length: LIMIT }, (_, i) => `<i class="${i < s.bank ? "on" : ""}"></i>`).join("")}</div>`;
+  const bars = PROGRESS.slice(1, 3).map(p => `<div class="row"><span>${p.name}</span><span class="muted">${p.n}/${p.of}</span></div><div class="bar"><i style="width:${p.n / p.of * 100}%;background:${p.color}"></i></div>`).join("");
+  const head = k === "tickets" && !s.left ? `<div class="tk-mini" style="${s.curfew ? "filter:saturate(.2) brightness(.8)" : ""}"><span style="font-size:24px">${s.bank}</span><span style="font-size:11px;font-weight:600">of ${LIMIT} · 10 min each</span></div>`
+    : k === "glass" ? `<div class="n" style="font-family:ui-monospace,Consolas,monospace;letter-spacing:3px;text-shadow:0 0 14px rgba(200,225,255,.5)">${s.left ? s.left : String(s.bank).padStart(2, "0")}</div>`
+    : `<div class="n">${big}</div>`;
+  const streak = `<div class="row"><span>${icon.flame(14)} 4-day streak</span></div>`;
+  const week = `<div class="row"><span class="muted">This week</span><span>+31 earned · 24 spent</span></div>`;
+  return { head, label, tap, cells, bars, streak, week };
+}
+function widgetsView(k, d, s) {
+  const w = widgetParts(k, s);
+  const small = `<div class="wg s theme t-${k}">${w.head}<div class="k">${w.label}</div>${k === "habits" ? w.cells : ""}${s.left ? "" : `<div class="k" style="margin-top:auto">next: Obsidian 18/30</div>`}</div>`;
+  const medium = `<div class="wg m theme t-${k}"><div style="display:flex;gap:14px;flex:1"><div style="flex:1;display:flex;flex-direction:column;gap:6px">${w.head}<div class="k">${w.label}</div>${w.tap}</div><div style="flex:1;display:flex;flex-direction:column;gap:5px;justify-content:center">${w.bars}${w.streak}</div></div></div>`;
+  const large = `<div class="wg l theme t-${k}">${w.head}<div class="k">${w.label}</div>${w.cells}${w.bars}${w.streak}${w.week}${w.tap}</div>`;
+  // Second small widget: progress toward the next voucher, for people who want motivation over the count.
+  const small2 = `<div class="wg s theme t-${k}"><div class="k">next voucher</div>${PROGRESS.slice(1, 4).map(p => `<div class="row"><span>${p.name}</span><span class="muted">${p.n}/${p.of}</span></div><div class="bar"><i style="width:${p.n / p.of * 100}%;background:${p.color}"></i></div>`).join("")}<div class="row" style="margin-top:auto">${icon.flame(14)} 4 days</div></div>`;
+  const apps = n => `<div class="apps">${Array.from({ length: n }, (_, i) => `<i style="background:${["#3ddc84", "#4285f4", "#ea4335", "#fbbc05", "#7b61ff", "#00a884", "#e1306c", "#ff6d00"][i % 8]}"></i>`).join("")}</div>`;
+  const phone = (title, inner) => `<div class="col"><h2>${title}</h2><div class="phone"><div class="screen wall" style="--muted:#9aa4b2">${status(s)}<div class="hs">${inner}</div>${apps(8)}</div></div></div>`;
+  return phone("Phone: small + medium", small + small2 + medium)
+    + phone("Phone: large", large)
+    + `<div class="col"><h2>Tablet home screen</h2><div class="tablet"><div class="screen wall" style="flex-direction:column;--muted:#9aa4b2">${status(s)}<div class="hs">${small}${small2}${medium}${large}</div>${apps(10)}</div></div></div>`
+    + `<div class="note" style="max-width:900px">Widgets are Android RemoteViews: the countdown ticks live (a Chronometer counting down), the button is a tap target that redeems or opens Voucher, and dragging is not possible, so Tickets' widget uses a tap.</div>`;
+}
+
+// ---------------- Wiring ----------------
+const params = new URLSearchParams(location.search);
+let variant = KEYS.includes(params.get("variant")) ? params.get("variant") : "tickets";
+let state = STATES[params.get("state")] ? params.get("state") : "locked";
+let device = DEVICES[params.get("device")] ? params.get("device") : "phone";
+const tearingDemo = params.get("tearing") === "1";
+
+function render() {
+  const d = DESIGNS[variant], s = STATES[state];
+  const html = device === "phone" ? phoneView(variant, d, s) : device === "tablet" ? tabletView(variant, d, s) : device === "widgets" ? widgetsView(variant, d, s) : windowsView(variant, d, s);
+  document.getElementById("stage").innerHTML = html;
+  if (tearingDemo) document.querySelectorAll(".tk-body").forEach(b => { b.style.transform = "translate(34px,-4px) rotate(6deg)"; });
+  document.getElementById("vlabel").textContent = `${d.name} (after ${d.from})`;
+  document.getElementById("states").innerHTML = Object.entries(STATES).map(([k, x]) => `<button data-state="${k}" aria-pressed="${k === state}">${x.label}</button>`).join("");
+  document.getElementById("devices").innerHTML = Object.entries(DEVICES).map(([k, x]) => `<button data-device="${k}" aria-pressed="${k === device}">${x}</button>`).join("");
+  const p = new URLSearchParams(location.search); p.set("variant", variant); p.set("state", state); p.set("device", device);
+  history.replaceState(null, "", "?" + p.toString());
+  wireTear();
+}
+// Tear: drag the right half of the ticket; past the threshold it flies off and the Unlock starts.
+function wireTear() {
+  document.querySelectorAll(".tk-ticket[data-live] .tk-body").forEach(body => {
+    const ticket = body.parentElement; let x0 = null, dx = 0;
+    body.onpointerdown = e => { x0 = e.clientX; dx = 0; ticket.classList.add("dragging"); body.setPointerCapture(e.pointerId); };
+    body.onpointermove = e => { if (x0 === null) return; dx = Math.max(0, e.clientX - x0);
+      body.style.transform = `translate(${dx}px, ${-dx / 12}px) rotate(${dx / 10}deg)`; };
+    body.onpointerup = () => { ticket.classList.remove("dragging"); body.style.transform = "";
+      if (dx > 110) { ticket.classList.add("gone"); setTimeout(() => { state = "running"; render(); }, 260); }
+      x0 = null; };
+  });
+}
+function cycle(n) { variant = KEYS[(KEYS.indexOf(variant) + n + KEYS.length) % KEYS.length]; render(); }
+document.getElementById("prev").onclick = () => cycle(-1);
+document.getElementById("next").onclick = () => cycle(1);
+document.getElementById("states").onclick = e => { const k = e.target.dataset.state; if (k) { state = k; render(); } };
+document.getElementById("devices").onclick = e => { const k = e.target.dataset.device; if (k) { device = k; render(); } };
+addEventListener("keydown", e => { if (e.target.closest("input,textarea,[contenteditable]")) return;
+  if (e.key === "ArrowLeft") cycle(-1); if (e.key === "ArrowRight") cycle(1); });
+render();
+</script>
+</body>
+</html>
