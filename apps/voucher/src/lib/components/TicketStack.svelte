@@ -15,7 +15,7 @@
   let dragging = $state(false);
   let torn = $state(false);
   let startX = 0;
-  let body: HTMLDivElement;
+  let body = $state<HTMLDivElement>();
 
   const tearable = $derived(mode !== "curfew" && mode !== "empty" && bank > 0);
   const running = $derived(mode === "running");
@@ -26,7 +26,7 @@
     if (!tearable) return;
     dragging = true;
     startX = e.clientX;
-    body.setPointerCapture(e.pointerId);
+    body?.setPointerCapture(e.pointerId);
   }
   function move(e: PointerEvent) {
     if (dragging) dx = Math.max(0, e.clientX - startX);
@@ -35,7 +35,7 @@
     if (!dragging) return;
     dragging = false;
     // Past 40% of the ticket's width counts as a tear; anything less springs back.
-    if (dx > body.offsetWidth * 0.4) {
+    if (body && dx > body.offsetWidth * 0.4) {
       torn = true;
       setTimeout(() => { ontear(count); torn = false; dx = 0; count = 1; }, 260);
     } else {
@@ -45,11 +45,17 @@
 </script>
 
 <div class="stack">
+  {#if mode === "empty"}
+    <div class="none">
+      <div class="nonetitle">No tickets to tear</div>
+      <div class="nonesub">The next one you earn lands here</div>
+    </div>
+  {:else}
   {#if bank > 1}
     <div class="layer far" class:night={mode === "curfew"}></div>
     <div class="layer near" class:night={mode === "curfew"}></div>
   {/if}
-  <div class="ticket" class:night={mode === "curfew"} class:dim={mode === "empty"}>
+  <div class="ticket" class:night={mode === "curfew"}>
     <div class="stub">
       {#if mode === "curfew"}
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
@@ -86,8 +92,6 @@
       <div class="hint">
         {#if mode === "curfew"}
           <span>Can't be torn tonight</span>
-        {:else if mode === "empty"}
-          <span>Earn a Voucher first</span>
         {:else}
           <span>{running ? "Drag right to tear another" : "Drag right to tear"}</span>
           <svg aria-hidden="true" width="36" height="16" viewBox="0 0 36 16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2l6 6-6 6" opacity=".3" /><path d="M15 2l6 6-6 6" opacity=".6" /><path d="M27 2l6 6-6 6" /></svg>
@@ -95,10 +99,14 @@
       </div>
     </div>
   </div>
+  {/if}
 </div>
 
 <style>
   .stack { position: relative; height: 140px; touch-action: pan-y; }
+  .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed #3a3f45; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+  .nonetitle { font-size: 17px; font-weight: 700; }
+  .nonesub { font-size: 13px; color: var(--muted); }
   .layer { position: absolute; height: 116px; border-radius: 16px; }
   .far { left: 24px; right: 24px; top: 0; background: var(--voucher-deeper); }
   .near { left: 12px; right: 12px; top: 10px; background: var(--voucher-deep); }
@@ -107,7 +115,6 @@
   .ticket {
     position: absolute; left: 0; right: 0; top: 22px; height: 116px; display: flex; color: var(--voucher-ink);
   }
-  .ticket.dim { opacity: .35; }
   .stub, .body { background: var(--voucher); height: 100%; }
   .night .stub, .night .body { background: var(--night-ticket); color: #e8ebff; }
   .stub {

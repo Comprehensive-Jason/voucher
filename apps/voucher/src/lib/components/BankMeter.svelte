@@ -9,7 +9,7 @@
 
 <section>
   <div class="count">
-    <span class="mono big" class:full={mode === "full"} class:night={mode === "curfew"}>{bank}</span>
+    <span class="mono big" class:full={mode === "full"} class:night={mode === "curfew"} class:empty={mode === "empty"}>{bank}</span>
     <span class="of">of {limit} in the Bank{mode === "full" ? ": full" : ""}</span>
   </div>
   <div class="cells" style="grid-template-columns: repeat({limit}, minmax(0, 1fr))">
@@ -32,6 +32,7 @@
   .big { font-size: 56px; font-weight: 700; line-height: 1; }
   .big.full { color: var(--goal); }
   .big.night { color: var(--night-ink); }
+  .big.empty { color: var(--muted); }
   .of { font-size: 15px; color: var(--muted); }
   .cells { display: grid; gap: 3px; }
   .cells i { height: 14px; border-radius: 3px; background: var(--line); }

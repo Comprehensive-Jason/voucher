@@ -1,50 +1,62 @@
 <script lang="ts">
+  // Today. On a phone: one column, with the tab bar below. On a wide screen:
+  // the tablet's three columns, Today | Trends | Log and Distraction time.
   import { onMount } from "svelte";
-  import { today, tear } from "$lib/api";
-  import { modeOf, type Today } from "$lib/types";
-  import Header from "$lib/components/Header.svelte";
-  import BankMeter from "$lib/components/BankMeter.svelte";
-  import TicketStack from "$lib/components/TicketStack.svelte";
-  import StatusCard from "$lib/components/StatusCard.svelte";
-  import NextVoucher from "$lib/components/NextVoucher.svelte";
+  import { deviceUsage, ledger } from "$lib/api";
+  import { Live } from "$lib/live.svelte";
+  import { wide } from "$lib/wide.svelte";
+  import { twelveWeeks } from "$lib/time";
+  import TodayColumn from "$lib/panels/TodayColumn.svelte";
+  import HourChart from "$lib/panels/HourChart.svelte";
+  import Heatmap from "$lib/panels/Heatmap.svelte";
+  import LogPanel from "$lib/panels/LogPanel.svelte";
+  import DistractionUsage from "$lib/panels/DistractionUsage.svelte";
+  import type { DayTotal, DeviceUsage, Status } from "$lib/types";
 
-  let data = $state<Today | null>(null);
-  let error = $state<string | null>(null);
-  let now = $state(Math.floor(Date.now() / 1000));
-  const mode = $derived(data ? modeOf(data, now) : "locked");
+  const live = new Live();
+  let status = $state<Status | null>(null);
+  let history = $state<DayTotal[]>([]);
+  let usage = $state<DeviceUsage | null>(null);
 
-  async function refresh() {
-    try { data = await today(); error = null; } catch (e) { error = String(e); }
+  // The tablet's other columns refresh less often than the ticket.
+  async function loadWide() {
+    try {
+      status = await ledger<Status>("GET", "/status");
+      history = await ledger<DayTotal[]>("GET", `/history?days=${twelveWeeks(status.today.day)}`);
+      usage = await deviceUsage();
+    } catch { /* the Today column shows the error */ }
   }
-  async function onTear(count: number) {
-    try { data = await tear(count); error = null; } catch (e) { error = String(e); }
-  }
 
-  onMount(() => {
-    refresh();
-    // Tick the countdown every second; ask the Ledger again every 30 s and when an Unlock ends.
-    const tick = setInterval(() => {
-      now = Math.floor(Date.now() / 1000);
-      if (data?.unlockEndsAt && now === data.unlockEndsAt) refresh();
-    }, 1000);
-    const poll = setInterval(refresh, 30_000);
-    return () => { clearInterval(tick); clearInterval(poll); };
+  onMount(() => live.start());
+  $effect(() => {
+    if (!wide.on) return;
+    loadWide();
+    const timer = setInterval(loadWide, 60_000);
+    return () => clearInterval(timer);
   });
 </script>
 
-<main>
-    {#if data}
-      <Header streakDays={data.streakDays} />
-      <BankMeter {mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} />
-      <TicketStack {mode} bank={data.bank} unlockMinutes={data.unlockMinutes} ontear={onTear} />
-      <StatusCard {mode} {now} unlockEndsAt={data.unlockEndsAt} curfewStart={data.curfewStart} curfewEnd={data.curfewEnd} />
-      <NextVoucher sources={data.sources} />
-    {:else if error}
-      <p class="error">{error}</p>
-    {/if}
-</main>
+{#if wide.on}
+  <div class="grid">
+    <section class="col"><TodayColumn {live} wide /></section>
+    <section class="col">
+      {#if status}
+        <HourChart today={status.today} timeZone={status.settings.time_zone} tall />
+        <Heatmap {history} goal={status.today.goal} keyBelow={false} />
+      {/if}
+    </section>
+    <section class="col">
+      <div class="logcard"><LogPanel compact /></div>
+      {#if status}<DistractionUsage {usage} unlockedMinutes={status.today.unlocked_minutes} />{/if}
+    </section>
+  </div>
+{:else}
+  <main><TodayColumn {live} /></main>
+{/if}
 
 <style>
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
-  .error { color: var(--goal); }
+  .grid { height: 100%; display: grid; grid-template-columns: 380px minmax(0, 1fr) 340px; gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 28px 28px; }
+  .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
+  .logcard { flex: 1; min-height: 0; overflow: hidden; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 18px; }
 </style>

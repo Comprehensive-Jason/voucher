@@ -27,3 +27,9 @@ export function dayLabel(day: string, today: string): string {
   const weekday = new Date(`${day}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
   return `${weekday} ${day}`;
 }
+
+/** Days to fetch so twelve week-columns start on a Monday and end with `today`. */
+export function twelveWeeks(today: string): number {
+  const weekday = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;
+  return 77 + weekday + 1;
+}

@@ -13,6 +13,13 @@ export interface Today {
   goalTarget: number;
   streakDays: number;
   sources: SourceProgress[];
+  /** Today's log, newest first. */
+  log: Entry[];
+  /** When the running Unlock's tickets began (Unix seconds), and how many were torn. */
+  unlockStartedAt: number | null;
+  unlockTickets: number;
+  /** Names of the switched-on blocklists. */
+  blocklists: string[];
 }
 
 export type SourceKind = "tasks" | "workout" | "focus";

@@ -32,11 +32,16 @@ struct Score {
     goal: u32,
     streak: u32,
     sources: serde_json::Value,
+    log: serde_json::Value,
 }
 
 #[derive(Deserialize)]
 struct Redeemed {
     wire: String,
+    /// When this run of stacked tickets began, and how many it has used.
+    started_at: Timestamp,
+    #[serde(default)]
+    tickets: u32,
 }
 
 #[derive(Deserialize)]
@@ -45,6 +50,13 @@ struct Settings {
     unlock_minutes: u32,
     curfew_start: String,
     curfew_end: String,
+    blocklists: std::collections::BTreeMap<String, BlocklistName>,
+}
+
+#[derive(Deserialize)]
+struct BlocklistName {
+    name: String,
+    on: bool,
 }
 
 impl Client {
@@ -81,10 +93,10 @@ impl Client {
         let status: Status = serde_json::from_str(&body).map_err(|e| format!("Unexpected Ledger reply: {e}"))?;
         let now = Timestamp::now().as_second();
         // Trust an Unlock only if its signature is the Ledger's and it hasn't ended.
-        let unlock_ends_at = status
+        let unlock = status
             .unlock
-            .and_then(|u| voucher_protocol::verify(&u.wire, &self.key, now).ok())
-            .map(|u| u.ends_at);
+            .and_then(|u| Some((voucher_protocol::verify(&u.wire, &self.key, now).ok()?, u)));
+        let unlock_ends_at = unlock.as_ref().map(|(verified, _)| verified.ends_at);
         Ok(Today {
             bank: status.bank,
             bank_limit: status.settings.bank_limit,
@@ -97,6 +109,16 @@ impl Client {
             goal_target: status.today.goal,
             streak_days: status.today.streak,
             sources: status.today.sources,
+            log: status.today.log,
+            unlock_started_at: unlock.as_ref().map(|(_, u)| u.started_at.as_second()),
+            unlock_tickets: unlock.as_ref().map_or(0, |(_, u)| u.tickets),
+            blocklists: status
+                .settings
+                .blocklists
+                .into_values()
+                .filter(|l| l.on)
+                .map(|l| l.name)
+                .collect(),
         })
     }
 

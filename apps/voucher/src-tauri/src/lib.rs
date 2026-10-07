@@ -40,6 +40,13 @@ pub struct Today {
     pub streak_days: u32,
     /// Each source's progress toward its next Voucher, as the Ledger sends it.
     pub sources: serde_json::Value,
+    /// Today's log, newest first, as the Ledger sends it.
+    pub log: serde_json::Value,
+    /// When the running Unlock's tickets began, and how many were torn.
+    pub unlock_started_at: Option<i64>,
+    pub unlock_tickets: u32,
+    /// Names of the switched-on blocklists.
+    pub blocklists: Vec<String>,
 }
 
 #[tauri::command]
