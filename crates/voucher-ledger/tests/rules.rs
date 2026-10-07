@@ -81,25 +81,35 @@ fn an_empty_bank_cannot_be_redeemed() {
     );
 }
 
-#[test]
-fn only_one_unlock_runs_at_a_time() {
-    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
-    ledger.credit(3, at("2026-10-06T15:00-07:00"));
-    ledger.redeem(at("2026-10-06T19:00-07:00")).unwrap();
-
-    assert_eq!(
-        ledger.redeem(at("2026-10-06T19:09-07:00")),
-        Err(Refusal::UnlockActive)
-    );
-    assert_eq!(ledger.bank(), 2);
-    assert!(ledger.redeem(at("2026-10-06T19:10-07:00")).is_ok());
-}
-
 /// A Ledger with a full Bank, earned the morning before.
 fn stocked() -> Ledger {
     let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
     ledger.credit(12, at("2026-10-06T09:00-07:00"));
     ledger
+}
+
+#[test]
+fn redeeming_during_an_unlock_stacks_another_unlock_length() {
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
+    ledger.credit(3, at("2026-10-06T15:00-07:00"));
+    ledger.redeem(at("2026-10-06T19:00-07:00")).unwrap();
+
+    let stacked = ledger.redeem(at("2026-10-06T19:05-07:00")).unwrap();
+
+    assert_eq!(stacked.ends_at, at("2026-10-06T19:20-07:00"));
+    assert_eq!(ledger.bank(), 1);
+}
+
+#[test]
+fn a_ticket_that_would_add_no_time_before_curfew_is_refused() {
+    let mut ledger = stocked();
+    ledger.redeem(at("2026-10-06T21:55-07:00")).unwrap();
+
+    assert_eq!(
+        ledger.redeem(at("2026-10-06T21:57-07:00")),
+        Err(Refusal::Curfew)
+    );
+    assert_eq!(ledger.bank(), 11);
 }
 
 #[test]
@@ -273,17 +283,20 @@ fn a_saved_ledger_reloads_exactly_as_it_was() {
     let mut reloaded = Ledger::load(&original.save(), ledger_key()).unwrap();
 
     assert_eq!(reloaded.bank(), 4);
-    // The running Unlock survived the restart.
+    // The running Unlock survived the restart: stacking extends it.
     assert_eq!(
-        reloaded.redeem(at("2026-10-06T19:05-07:00")),
-        Err(Refusal::UnlockActive)
+        reloaded
+            .redeem(at("2026-10-06T19:05-07:00"))
+            .unwrap()
+            .ends_at,
+        at("2026-10-06T19:20-07:00")
     );
     // The habit is still remembered as having earned today.
     reloaded.record(
         &[done("todoist:habit", "2026-10-06T08:00-07:00")],
         at("2026-10-06T19:06-07:00"),
     );
-    assert_eq!(reloaded.bank(), 4);
+    assert_eq!(reloaded.bank(), 3);
     // The queued Loosening still lands at 06:00.
     let redeemed = reloaded.redeem(at("2026-10-07T06:00-07:00")).unwrap();
     assert_eq!(redeemed.ends_at, at("2026-10-07T06:30-07:00"));

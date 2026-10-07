@@ -55,9 +55,7 @@ pub struct Redeemed {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Refusal {
     EmptyBank,
-    /// An Unlock is still running; Unlocks never stack.
-    UnlockActive,
-    /// It is Curfew; nothing can be Redeemed until it ends.
+    /// It is Curfew, or the Unlock already runs up to Curfew's start.
     Curfew,
 }
 
@@ -197,29 +195,30 @@ impl Ledger {
         self.credit(fresh, now)
     }
 
-    /// Spends one Voucher and signs an Unlock starting now.
+    /// Spends one Voucher and signs an Unlock: starting now, or stacked onto
+    /// the end of the Unlock that is already running.
     pub fn redeem(&mut self, now: Timestamp) -> Result<Redeemed, Refusal> {
         self.settle(now);
         if self.in_curfew(now) {
             return Err(Refusal::Curfew);
         }
-        if self
-            .state
-            .unlock
-            .as_ref()
-            .is_some_and(|unlock| now < unlock.ends_at)
-        {
-            return Err(Refusal::UnlockActive);
-        }
         if self.state.bank == 0 {
             return Err(Refusal::EmptyBank);
         }
+        // Tickets stack: redeeming during an Unlock extends it from its current end.
+        let starts_from = match &self.state.unlock {
+            Some(unlock) if now < unlock.ends_at => unlock.ends_at,
+            _ => now,
+        };
         let length = SignedDuration::from_mins(i64::from(self.state.settings.unlock_minutes));
-        let full_length = now
+        let full_length = starts_from
             .checked_add(length)
             .expect("an Unlock never ends past the year 9999");
-        // Never let an Unlock run into Curfew.
+        // Never let an Unlock run into Curfew, and never spend a Voucher that adds no time.
         let ends_at = full_length.min(self.next_local(now, self.state.settings.curfew_start));
+        if ends_at <= starts_from {
+            return Err(Refusal::Curfew);
+        }
         self.state.bank -= 1;
         let wire = sign(
             &Unlock {
