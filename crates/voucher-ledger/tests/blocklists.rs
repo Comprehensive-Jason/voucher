@@ -16,6 +16,7 @@ fn settings() -> Settings {
         daily_goal: 16,
         sources: default_sources(),
         blocklists: default_blocklists(),
+        released_devices: Default::default(),
     }
 }
 

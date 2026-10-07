@@ -31,9 +31,9 @@ struct Config {
     data_dir: PathBuf,
     listen: String,
     poll_minutes: u64,
-    todoist_token_file: Option<PathBuf>,
+    todoist_token_file: PathBuf,
     todoist_excluded_projects: Vec<String>,
-    clickup_token_file: Option<PathBuf>,
+    clickup_token_file: PathBuf,
     clickup_team_id: Option<String>,
     clickup_user_id: Option<u64>,
 }
@@ -41,16 +41,22 @@ struct Config {
 impl Config {
     fn from_env() -> Config {
         let var = |name: &str| env::var(name).ok().filter(|v| !v.is_empty());
+        let data_dir: PathBuf = var("VOUCHER_DATA_DIR").unwrap_or("data".into()).into();
+        // Tokens live in the data folder unless set elsewhere, so the app's
+        // Reconnect can save one without any server configuration.
+        let token_file = |name: &str, default: &str| {
+            var(name).map_or_else(|| data_dir.join(default), PathBuf::from)
+        };
         Config {
-            data_dir: var("VOUCHER_DATA_DIR").unwrap_or("data".into()).into(),
+            todoist_token_file: token_file("VOUCHER_TODOIST_TOKEN_FILE", "todoist.token"),
+            clickup_token_file: token_file("VOUCHER_CLICKUP_TOKEN_FILE", "clickup.token"),
+            data_dir,
             listen: var("VOUCHER_LISTEN").unwrap_or("127.0.0.1:8787".into()),
             poll_minutes: var("VOUCHER_POLL_MINUTES")
                 .map_or(5, |m| m.parse().expect("VOUCHER_POLL_MINUTES")),
-            todoist_token_file: var("VOUCHER_TODOIST_TOKEN_FILE").map(PathBuf::from),
             todoist_excluded_projects: var("VOUCHER_TODOIST_EXCLUDED_PROJECTS")
                 .map(|list| list.split(',').map(|p| p.trim().to_string()).collect())
                 .unwrap_or_default(),
-            clickup_token_file: var("VOUCHER_CLICKUP_TOKEN_FILE").map(PathBuf::from),
             clickup_team_id: var("VOUCHER_CLICKUP_TEAM_ID"),
             clickup_user_id: var("VOUCHER_CLICKUP_USER_ID")
                 .map(|id| id.parse().expect("VOUCHER_CLICKUP_USER_ID")),
@@ -71,6 +77,7 @@ fn first_run_settings() -> Settings {
         daily_goal: DEFAULT_DAILY_GOAL,
         sources: default_sources(),
         blocklists: default_blocklists(),
+        released_devices: Default::default(),
     }
 }
 
@@ -116,7 +123,7 @@ fn describe_poll_error(error: &(dyn std::error::Error + 'static)) -> String {
         Some(ureq::Error::StatusCode(401 | 403)) => "sign-in expired".into(),
         Some(ureq::Error::StatusCode(code)) => format!("the service answered {code}"),
         Some(_) => "can't reach the service".into(),
-        None if error.is::<std::io::Error>() => "no token saved".into(),
+        None if error.is::<NotConnected>() => "not connected".into(),
         None => "unexpected reply".into(),
     }
 }
@@ -211,12 +218,15 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 .ok()
                 .and_then(|_| serde_json::from_str::<NewToken>(&body).ok());
             let file = parsed.as_ref().and_then(|t| match t.source.as_str() {
-                "todoist" => config.todoist_token_file.as_ref(),
-                "clickup" => config.clickup_token_file.as_ref(),
+                "todoist" => Some(&config.todoist_token_file),
+                "clickup" => Some(&config.clickup_token_file),
                 _ => None,
             });
             match (parsed, file) {
                 (Some(new), Some(file)) if !new.token.trim().is_empty() => {
+                    if let Some(folder) = file.parent() {
+                        fs::create_dir_all(folder).expect("create the token folder");
+                    }
                     fs::write(file, new.token.trim()).expect("write the token file");
                     restrict_to_owner(file);
                     SOURCE_ERRORS.lock().unwrap().remove(&new.source);
@@ -235,6 +245,32 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 ),
             }
         }
+        // First-run setup: changes apply at once until `finish` closes setup.
+        (Method::Post, "/setup") => {
+            let mut body = String::new();
+            let parsed = request
+                .as_reader()
+                .read_to_string(&mut body)
+                .ok()
+                .and_then(|_| serde_json::from_str::<Setup>(&body).ok());
+            match parsed.map(|s| ledger.setup(s.changes, s.finish, now)) {
+                Some(true) => (200, status_json(&mut ledger, now)),
+                Some(false) => (
+                    409,
+                    json(&Message {
+                        message: "setup is finished; changes now go through /change",
+                    }),
+                ),
+                None => (
+                    400,
+                    json(&Message {
+                        message: "body is not a setup",
+                    }),
+                ),
+            }
+        }
+        // The public key, for a device connecting for the first time.
+        (Method::Get, "/key") => (200, json(&ledger.public_key())),
         (Method::Post, "/change") => {
             let mut body = String::new();
             let parsed = request
@@ -282,6 +318,14 @@ fn param<'a>(query: &'a str, name: &str) -> Option<&'a str> {
 }
 
 #[derive(serde::Deserialize)]
+struct Setup {
+    #[serde(default)]
+    changes: Vec<Change>,
+    #[serde(default)]
+    finish: bool,
+}
+
+#[derive(serde::Deserialize)]
 struct NewToken {
     source: String,
     token: String,
@@ -313,6 +357,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         source_errors: BTreeMap<String, String>,
         /// What Enforcers block outside an Unlock.
         blocked: voucher_ledger::Blocked,
+        setup_complete: bool,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -320,6 +365,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let curfew_active = ledger.curfew_active(now);
     let today = ledger.today(now);
     let blocked = ledger.blocked(now);
+    let setup_complete = ledger.setup_complete();
     json(&Status {
         bank,
         curfew_active,
@@ -329,6 +375,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         today,
         source_errors: SOURCE_ERRORS.lock().unwrap().clone(),
         blocked,
+        setup_complete,
     })
 }
 
@@ -412,11 +459,36 @@ const LOOK_BACK: Duration = Duration::from_secs(3 * 24 * 60 * 60);
 
 type Polled = Result<Vec<voucher_ledger::Completion>, Box<dyn std::error::Error>>;
 
+/// A source with no token saved yet.
+#[derive(Debug)]
+struct NotConnected;
+
+impl std::fmt::Display for NotConnected {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("no token saved")
+    }
+}
+
+impl std::error::Error for NotConnected {}
+
+fn read_token(file: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    match fs::read_to_string(file) {
+        Ok(token) if !token.trim().is_empty() => Ok(token.trim().to_string()),
+        _ => Err(Box::new(NotConnected)),
+    }
+}
+
+fn clickup_get(token: &str, path: &str) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    let body = ureq::get(format!("https://api.clickup.com/api/v2/{path}"))
+        .header("Authorization", token)
+        .call()?
+        .body_mut()
+        .read_to_string()?;
+    Ok(serde_json::from_str(&body)?)
+}
+
 fn poll_todoist(config: &Config, now: Timestamp) -> Polled {
-    let Some(token_file) = &config.todoist_token_file else {
-        return Ok(Vec::new());
-    };
-    let token = fs::read_to_string(token_file)?.trim().to_string();
+    let token = read_token(&config.todoist_token_file)?;
     let since = now.checked_sub(LOOK_BACK)?.to_string();
     let excluded: Vec<&str> = config
         .todoist_excluded_projects
@@ -447,14 +519,21 @@ fn poll_todoist(config: &Config, now: Timestamp) -> Polled {
 }
 
 fn poll_clickup(config: &Config, now: Timestamp) -> Polled {
-    let (Some(token_file), Some(team_id), Some(user_id)) = (
-        &config.clickup_token_file,
-        &config.clickup_team_id,
-        config.clickup_user_id,
-    ) else {
-        return Ok(Vec::new());
+    let token = read_token(&config.clickup_token_file)?;
+    // Without configured IDs, use the token's own user and first workspace.
+    let user_id = match config.clickup_user_id {
+        Some(id) => id,
+        None => clickup_get(&token, "user")?["user"]["id"]
+            .as_u64()
+            .ok_or("no user id")?,
     };
-    let token = fs::read_to_string(token_file)?.trim().to_string();
+    let team_id = match &config.clickup_team_id {
+        Some(id) => id.clone(),
+        None => clickup_get(&token, "team")?["teams"][0]["id"]
+            .as_str()
+            .ok_or("no workspace")?
+            .to_string(),
+    };
     let since_ms = now.checked_sub(LOOK_BACK)?.as_millisecond().to_string();
     let mut completions = Vec::new();
     for page in 0.. {

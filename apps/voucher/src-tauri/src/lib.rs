@@ -6,18 +6,19 @@
 //! checked against the Ledger's public key before the app trusts it, the same
 //! rule every Enforcer follows (ADR 0001).
 
+mod connection;
 mod ledger;
 
 use serde::Serialize;
 
-/// Where the Ledger lives and how to recognise its signature, set when the app
-/// is built (`VOUCHER_LEDGER_URL`, `VOUCHER_LEDGER_PUBLIC_KEY`) so no address is
-/// committed. First-run setup will store these per device instead.
-const LEDGER_URL: &str = match option_env!("VOUCHER_LEDGER_URL") {
+/// A development build's Ledger, set when the app is built
+/// (`VOUCHER_LEDGER_URL`, `VOUCHER_LEDGER_PUBLIC_KEY`) so no address is
+/// committed. Setup saves each device's own connection, which wins.
+pub(crate) const LEDGER_URL: &str = match option_env!("VOUCHER_LEDGER_URL") {
     Some(url) => url,
     None => "",
 };
-const LEDGER_PUBLIC_KEY: &str = match option_env!("VOUCHER_LEDGER_PUBLIC_KEY") {
+pub(crate) const LEDGER_PUBLIC_KEY: &str = match option_env!("VOUCHER_LEDGER_PUBLIC_KEY") {
     Some(key) => key,
     None => "",
 };
@@ -34,6 +35,8 @@ pub struct Today {
     pub curfew_active: bool,
     pub curfew_start: String,
     pub curfew_end: String,
+    /// The current Day, "2026-10-07"; it starts when Curfew ends.
+    pub day: String,
     /// Vouchers earned this Day, toward the Daily goal.
     pub goal_done: u32,
     pub goal_target: u32,
@@ -49,39 +52,63 @@ pub struct Today {
     pub blocklists: Vec<String>,
 }
 
+fn client(app: &tauri::AppHandle) -> Result<ledger::Client, String> {
+    let c = connection::load(app).ok_or("Not connected to a Ledger yet.")?;
+    ledger::Client::new(&c.url, &c.key)
+}
+
+/// Runs blocking Ledger work off the interface's thread.
+async fn blocking<T: Send + 'static>(work: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(work).await.map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
-async fn today() -> Result<Today, String> {
-    tauri::async_runtime::spawn_blocking(|| ledger::Client::new(LEDGER_URL, LEDGER_PUBLIC_KEY)?.today())
-        .await
-        .map_err(|e| e.to_string())?
+async fn today(app: tauri::AppHandle) -> Result<Today, String> {
+    blocking(move || client(&app)?.today()).await
 }
 
 /// Redeems `count` tickets at once; together they extend the Unlock.
 #[tauri::command]
-async fn tear(count: u32) -> Result<Today, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let client = ledger::Client::new(LEDGER_URL, LEDGER_PUBLIC_KEY)?;
+async fn tear(app: tauri::AppHandle, count: u32) -> Result<Today, String> {
+    blocking(move || {
+        let client = client(&app)?;
         client.redeem(count)?;
         client.today()
     })
     .await
-    .map_err(|e| e.to_string())?
 }
 
 /// Any other Ledger request: a Day's log, the history, a settings change.
 #[tauri::command]
-async fn ledger(method: String, path: String, body: Option<String>) -> Result<serde_json::Value, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        ledger::Client::new(LEDGER_URL, LEDGER_PUBLIC_KEY)?.call(&method, &path, body.as_deref())
+async fn ledger(app: tauri::AppHandle, method: String, path: String, body: Option<String>) -> Result<serde_json::Value, String> {
+    blocking(move || client(&app)?.call(&method, &path, body.as_deref())).await
+}
+
+/// The Ledger this device uses, if any.
+#[tauri::command]
+fn connection(app: tauri::AppHandle) -> Option<String> {
+    connection::load(&app).map(|c| c.url)
+}
+
+/// Connects to a Ledger: fetches its public key and saves both on this
+/// device. Returns the key's first characters so they can be compared with
+/// the Ledger's own `public.key`.
+#[tauri::command]
+async fn connect(app: tauri::AppHandle, url: String) -> Result<String, String> {
+    blocking(move || {
+        let url = url.trim().trim_end_matches('/').to_string();
+        let key = ledger::Client::fetch_key(&url)?;
+        ledger::Client::new(&url, &key)?;
+        connection::save(&app, &connection::Connection { url, key: key.clone() })?;
+        Ok(key.chars().take(8).collect())
     })
     .await
-    .map_err(|e| e.to_string())?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![today, tear, ledger])
+        .invoke_handler(tauri::generate_handler![today, tear, ledger, connection, connect])
         .run(tauri::generate_context!())
         .expect("error while running the Voucher app");
 }

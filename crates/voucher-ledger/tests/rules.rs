@@ -18,6 +18,7 @@ fn settings() -> Settings {
         daily_goal: 16,
         sources: voucher_ledger::default_sources(),
         blocklists: voucher_ledger::default_blocklists(),
+        released_devices: Default::default(),
     }
 }
 
@@ -394,4 +395,65 @@ fn a_state_saved_before_daily_goals_existed_still_loads() {
 
     assert_eq!(ledger.settings(at("2026-10-06T09:00-07:00")).daily_goal, 16);
     assert_eq!(ledger.bank(), 12);
+}
+
+#[test]
+fn during_setup_loosenings_apply_at_once_and_setup_never_reopens() {
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
+    let noon = at("2026-10-06T12:00-07:00");
+
+    assert!(ledger.setup(
+        vec![Change::UnlockMinutes(15), Change::BankLimit(30)],
+        false,
+        noon
+    ));
+    assert_eq!(ledger.settings(noon).unlock_minutes, 15);
+
+    assert!(ledger.setup(vec![], true, noon));
+    assert!(!ledger.setup(vec![Change::UnlockMinutes(30)], false, noon));
+    assert_eq!(ledger.settings(noon).unlock_minutes, 15);
+}
+
+#[test]
+fn a_ledger_saved_before_setup_existed_counts_as_set_up() {
+    let mut saved: serde_json::Value = serde_json::from_str(&stocked().save()).unwrap();
+    saved.as_object_mut().unwrap().remove("setup_complete");
+
+    let mut ledger = Ledger::load(&saved.to_string(), ledger_key()).unwrap();
+
+    assert!(!ledger.setup(
+        vec![Change::UnlockMinutes(30)],
+        false,
+        at("2026-10-06T12:00-07:00")
+    ));
+}
+
+#[test]
+fn releasing_a_device_waits_for_morning_and_keeping_it_is_immediate() {
+    let mut ledger = stocked();
+    let evening = at("2026-10-06T21:00-07:00");
+
+    let release = ledger.request(Change::ReleaseDevice("tablet".into()), evening);
+
+    assert!(matches!(release, Effect::At(_)));
+    assert!(!ledger.settings(evening).released_devices.contains("tablet"));
+    assert!(
+        ledger
+            .settings(at("2026-10-07T06:00-07:00"))
+            .released_devices
+            .contains("tablet")
+    );
+    assert_eq!(
+        ledger.request(
+            Change::KeepDevice("tablet".into()),
+            at("2026-10-07T07:00-07:00")
+        ),
+        Effect::Now
+    );
+    assert!(
+        !ledger
+            .settings(at("2026-10-07T07:00-07:00"))
+            .released_devices
+            .contains("tablet")
+    );
 }

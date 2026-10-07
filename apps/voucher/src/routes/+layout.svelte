@@ -3,14 +3,22 @@
   import { page } from "$app/state";
   import NavTabs from "$lib/components/NavTabs.svelte";
   import { wide } from "$lib/wide.svelte";
+  import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
+  import { connection } from "$lib/api";
 
   let { children } = $props();
+  const setup = $derived(page.url.pathname.startsWith("/setup"));
+  // A device that hasn't connected to a Ledger starts with setup.
+  onMount(async () => {
+    if (!setup && !(await connection())) goto("/setup", { replaceState: true });
+  });
   const active = $derived((page.url.pathname.split("/")[1] || "today") as "today" | "trends" | "log" | "rules");
 </script>
 
 <div class="screen" class:wide={wide.on}>
   <div class="body">{@render children()}</div>
-  {#if !wide.on}<NavTabs {active} />{/if}
+  {#if !wide.on && !setup}<NavTabs {active} />{/if}
 </div>
 
 <style>

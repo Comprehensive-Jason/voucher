@@ -28,6 +28,7 @@ struct Status {
 /// The current Day's score.
 #[derive(Deserialize)]
 struct Score {
+    day: String,
     earned: u32,
     goal: u32,
     streak: u32,
@@ -60,6 +61,22 @@ struct BlocklistName {
 }
 
 impl Client {
+    /// Asks a Ledger for its public key (`GET /key`).
+    pub fn fetch_key(base: &str) -> Result<String, String> {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(5)))
+            .build()
+            .into();
+        let text = agent
+            .get(format!("{base}/key"))
+            .call()
+            .map_err(|e| format!("Can't reach a Ledger there: {e}"))?
+            .body_mut()
+            .read_to_string()
+            .map_err(|e| e.to_string())?;
+        serde_json::from_str::<String>(&text).map_err(|_| "That address answered, but not like a Ledger.".to_string())
+    }
+
     pub fn new(base: &str, public_key: &str) -> Result<Self, String> {
         if base.is_empty() || public_key.is_empty() {
             return Err("Not connected to a Ledger yet: this build has no Ledger address.".into());
@@ -105,6 +122,7 @@ impl Client {
             curfew_active: status.curfew_active,
             curfew_start: hhmm(&status.settings.curfew_start),
             curfew_end: hhmm(&status.settings.curfew_end),
+            day: status.today.day,
             goal_done: status.today.earned,
             goal_target: status.today.goal,
             streak_days: status.today.streak,

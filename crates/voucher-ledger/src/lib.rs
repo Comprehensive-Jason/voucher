@@ -39,6 +39,9 @@ pub struct Settings {
     /// Every blocklist, by id. What they block, merged, is the Distractions.
     #[serde(default = "default_blocklists")]
     pub blocklists: BTreeMap<String, Blocklist>,
+    /// Devices whose Enforcer may stop blocking and give up Device Owner.
+    #[serde(default)]
+    pub released_devices: std::collections::BTreeSet<String>,
 }
 
 /// A named set of apps and sites that stay blocked outside an Unlock.
@@ -317,6 +320,11 @@ pub enum Change {
     /// Puts a premade blocklist back to its shipped entries.
     ResetBlocklist(String),
     DeleteBlocklist(String),
+    /// Lets one device stop enforcing, so Voucher can be removed from it.
+    /// Always a Loosening.
+    ReleaseDevice(String),
+    /// Withdraws a release. Always a Tightening.
+    KeepDevice(String),
 }
 
 /// One line of the log.
@@ -462,6 +470,14 @@ struct State {
     /// The last month of entries, oldest first.
     #[serde(default)]
     log: Vec<Entry>,
+    /// Until first-run setup finishes, changes apply at once, Loosenings
+    /// included. Ledgers saved before setup existed count as set up.
+    #[serde(default = "set_up_already")]
+    setup_complete: bool,
+}
+
+fn set_up_already() -> bool {
+    true
 }
 
 impl Ledger {
@@ -477,6 +493,7 @@ impl Ledger {
                 earned: HashSet::new(),
                 days: BTreeMap::new(),
                 log: Vec::new(),
+                setup_complete: false,
             },
         }
     }
@@ -492,6 +509,12 @@ impl Ledger {
             key,
             state: serde_json::from_str(saved)?,
         })
+    }
+
+    /// The public half of the signing key, base64url, for Enforcers to check Unlocks with.
+    pub fn public_key(&self) -> String {
+        use base64::Engine;
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(self.key.verifying_key().to_bytes())
     }
 
     /// Vouchers currently held.
@@ -960,6 +983,10 @@ impl Ledger {
                 None => false,
             },
             Change::AddSource { .. } => true,
+            Change::ReleaseDevice(ref device) => {
+                !self.state.settings.released_devices.contains(device)
+            }
+            Change::KeepDevice(_) => false,
             // Blocklist changes: try it on a copy and see if anything stops being blocked.
             ref blocklist_change => {
                 let mut after = self.state.settings.clone();
@@ -979,6 +1006,26 @@ impl Ledger {
     pub fn blocked(&mut self, now: Timestamp) -> Blocked {
         self.settle(now);
         blocked_by(&self.state.settings)
+    }
+
+    /// First-run setup: applies `changes` at once, Loosenings included, and
+    /// with `finish` closes setup for good. Returns false, changing nothing,
+    /// once setup is closed.
+    pub fn setup(&mut self, changes: Vec<Change>, finish: bool, now: Timestamp) -> bool {
+        self.settle(now);
+        if self.state.setup_complete {
+            return false;
+        }
+        for change in changes {
+            self.apply(change);
+        }
+        self.state.setup_complete = finish;
+        true
+    }
+
+    /// Whether first-run setup has finished.
+    pub fn setup_complete(&self) -> bool {
+        self.state.setup_complete
     }
 
     /// Withdraws a pending change before it takes effect. Withdrawing a
@@ -1027,6 +1074,7 @@ fn setting_key(change: &Change) -> Option<String> {
         | Change::ResetBlocklist(id)
         | Change::DeleteBlocklist(id) => format!("list {id}"),
         Change::BlocklistOn { id, .. } => format!("list-on {id}"),
+        Change::ReleaseDevice(device) | Change::KeepDevice(device) => format!("device {device}"),
         Change::RenameBlocklist { id, .. } => format!("list-name {id}"),
         Change::BlockApp { list, app } => format!("app {list} {}", app.package),
         Change::RemoveApp { list, package } => format!("app {list} {package}"),
@@ -1104,6 +1152,12 @@ fn apply_to(settings: &mut Settings, change: Change) {
         }
         Change::DeleteBlocklist(id) => {
             settings.blocklists.remove(&id);
+        }
+        Change::ReleaseDevice(device) => {
+            settings.released_devices.insert(device);
+        }
+        Change::KeepDevice(device) => {
+            settings.released_devices.remove(&device);
         }
     }
 }

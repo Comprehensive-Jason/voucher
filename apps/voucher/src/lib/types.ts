@@ -8,6 +8,8 @@ export interface Today {
   curfewActive: boolean;
   curfewStart: string;
   curfewEnd: string;
+  /** The current Day, "2026-10-07"; it starts when Curfew ends. */
+  day: string;
   /** Vouchers earned this Day, forfeited ones included. */
   goalDone: number;
   goalTarget: number;
@@ -103,6 +105,7 @@ export interface Settings {
   daily_goal: number;
   sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[] }>;
   blocklists: Record<string, Blocklist>;
+  released_devices: string[];
 }
 
 export interface Status {
@@ -113,6 +116,8 @@ export interface Status {
   today: DaySummary;
   /** What went wrong with each polled source's last check, such as "sign-in expired". */
   source_errors: Record<string, string>;
+  /** False until first-run setup finishes; until then changes apply at once. */
+  setup_complete: boolean;
 }
 
 export interface BlockedApp { package: string; label: string; note: string | null; on: boolean; added: boolean }

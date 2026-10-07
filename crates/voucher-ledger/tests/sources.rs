@@ -13,6 +13,7 @@ fn settings() -> Settings {
         daily_goal: 16,
         sources: default_sources(),
         blocklists: voucher_ledger::default_blocklists(),
+        released_devices: Default::default(),
     }
 }
 

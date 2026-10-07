@@ -35,7 +35,7 @@ function sampleToday(): Today {
   const base: Today = {
     bank: 9, bankLimit: 24, unlockMinutes: 10, unlockEndsAt: null,
     curfewActive: false, curfewStart: "22:00", curfewEnd: "06:00",
-    goalDone: 11, goalTarget: 16, streakDays: 4,
+    day: "2026-10-07", goalDone: 11, goalTarget: 16, streakDays: 4,
     sources: sampleSources(),
     log: [
       { kind: "earned", at: new Date(Date.now() - 3 * 3600_000).toISOString(), task: "todoist:1", title: "Weekly review", kept: false },
@@ -47,6 +47,8 @@ function sampleToday(): Today {
     case "running": return { ...base, bank: 7, unlockEndsAt: now + 17 * 60 + 12, unlockStartedAt: now - 2 * 60 - 48, unlockTickets: 2 };
     case "curfew": return { ...base, bank: 8, curfewActive: true };
     case "full": return { ...base, bank: 24 };
+    case "goalmet": return { ...base, goalDone: 16, streakDays: 5 };
+    case "streaklost": return { ...base, goalDone: 0, streakDays: 0 };
     case "empty": return { ...base, bank: 0 };
     default: return base;
   }
@@ -107,4 +109,31 @@ export async function launchableApps(): Promise<{ package: string; label: string
   } catch {
     return [];
   }
+}
+
+/** The Ledger address this device uses, or null before setup. */
+export async function connection(): Promise<string | null> {
+  if (!inTauri) return new URLSearchParams(location.search).get("fresh") ? null : "http://sample-ledger:8787";
+  return invoke<string | null>("connection");
+}
+
+/** Connects this device to a Ledger; returns its key's first characters. */
+export async function connect(url: string): Promise<string> {
+  if (!inTauri) return "sikFbkXq";
+  return invoke<string>("connect", { url });
+}
+
+/** Asks for Health Connect access to exercise and heart rate. */
+export async function requestHealth(): Promise<boolean> {
+  if (!inTauri) return true;
+  try { return await invoke<boolean>("plugin:voucher|request_health"); } catch { return false; }
+}
+
+/** The ADB command that makes Voucher Device Owner on this phone. */
+export const DEVICE_OWNER_COMMAND = "adb shell dpm set-device-owner io.github.comprehensivejason.voucher/.VoucherAdminReceiver";
+
+/** This device's name for the Ledger, such as "SM-S928U-4f2a". */
+export async function deviceId(): Promise<string> {
+  if (!inTauri) return "sample-phone";
+  try { return await invoke<string>("plugin:voucher|device_id"); } catch { return "unknown-device"; }
 }

@@ -9,12 +9,10 @@
     <span class="mono word">VOUCHER</span>
   </div>
   <div class="right">
-    {#if streakDays > 0}
-      <div class="streak">
+    <div class="streak">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-5 1-8z" /></svg>
-        {streakDays} day streak
+        {streakDays > 0 ? `${streakDays} day streak` : "No streak"}
       </div>
-    {/if}
     {#if rules}
       <a class="rules" href="/rules" aria-label="Rules">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>

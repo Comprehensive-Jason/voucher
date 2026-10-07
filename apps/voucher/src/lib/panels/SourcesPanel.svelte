@@ -6,6 +6,7 @@
   import RuleSlider from "../components/RuleSlider.svelte";
   import Switch from "../components/Switch.svelte";
   import Sheet from "../components/Sheet.svelte";
+  import TokenSheet from "../components/TokenSheet.svelte";
   import { serviceOf } from "../sources";
   import { hhmm, until } from "../rules";
   import type { SourceKind, Status } from "../types";
@@ -13,7 +14,6 @@
   let status = $state<Status | null>(null);
   let error = $state<string | null>(null);
   let reconnecting = $state<string | null>(null);
-  let token = $state("");
   let adding = $state(false);
   let apps = $state<{ package: string; label: string }[]>([]);
   let note = $state<string | null>(null);
@@ -54,14 +54,6 @@
     try {
       const effect = await ledger<"Now" | { At: string }>("POST", "/change", { Source: { id, on, every } });
       note = effect === "Now" ? "Applied now." : `Waits for ${hhmm(status!.settings.morning_boundary)}.`;
-      await load();
-    } catch (e) { error = String(e); }
-  }
-  async function saveToken() {
-    try {
-      await ledger("POST", "/token", { source: reconnecting, token });
-      note = "Token saved. It counts again from the next check, within 5 minutes.";
-      reconnecting = null; token = "";
       await load();
     } catch (e) { error = String(e); }
   }
@@ -135,15 +127,8 @@
 </div>
 
 {#if reconnecting}
-  <Sheet onclose={() => (reconnecting = null)}>
-    <h2>Reconnect {serviceOf(reconnecting).name}</h2>
-    <p class="body">
-      {#if reconnecting === "todoist"}Paste a Todoist API token: in Todoist, Settings, Integrations, Developer.{:else}Paste a ClickUp personal API token: in ClickUp, Settings, Apps.{/if}
-      It goes straight to your Ledger and is never shown again.
-    </p>
-    <input class="mono" type="password" autocomplete="off" placeholder="API token" bind:value={token} />
-    <button class="primary" disabled={!token.trim()} onclick={saveToken}>Save token</button>
-  </Sheet>
+  <TokenSheet source={reconnecting} onclose={() => (reconnecting = null)}
+    onsaved={() => { note = "Token saved. It counts again from the next check, within 5 minutes."; reconnecting = null; load(); }} />
 {/if}
 
 {#if adding}
@@ -181,9 +166,6 @@
   .foot { font-size: 12px; color: var(--muted); line-height: 1.4; }
   h2 { margin: 0; font-size: 22px; }
   .body { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
-  input { height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); padding: 0 14px; font-size: 14px; }
-  .primary { min-height: 52px; border-radius: 14px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 16px var(--font); }
-  .primary:disabled { background: var(--line); color: var(--muted); }
   .pick { min-height: 52px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: none; color: var(--ink); text-align: left; }
   .pkg { font-size: 11px; color: var(--muted); }
   .error { color: var(--goal); }

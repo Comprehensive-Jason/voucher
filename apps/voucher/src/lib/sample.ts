@@ -34,7 +34,7 @@ const days: Record<string, DaySummary> = {
     ],
   },
   "2026-10-06": {
-    day: "2026-10-06", earned: 17, redeemed: 4, unlocked_minutes: 40, goal: 16, goal_met: true,
+    day: "2026-10-06", earned: new URLSearchParams(location.search).get("state") === "streaklost" ? 9 : 17, redeemed: 4, unlocked_minutes: 40, goal: 16, goal_met: new URLSearchParams(location.search).get("state") !== "streaklost",
     goal_met_at: "2026-10-06T17:30:00-07:00", streak: 4, by_source: { todoist: 11, obsidian: 3, workout: 1, readwise: 1, moonreader: 1 }, sources: [],
     log: [
       redeemed("21:10", 1, "2026-10-06"),
@@ -54,7 +54,7 @@ const days: Record<string, DaySummary> = {
 
 function blankDay(day: string): DaySummary {
   return { day, earned: 16, redeemed: 6, unlocked_minutes: 60, goal: 16, goal_met: true, goal_met_at: null,
-    streak: 3, by_source: {}, log: [], sources: [] };
+    streak: 4, by_source: {}, log: [], sources: [] };
 }
 
 function history(n: number): DayTotal[] {
@@ -97,6 +97,7 @@ const settings = {
       apps: [app("com.example.chess", "Chess", null, true), app("com.example.puzzle", "Puzzle", null, true),
         app("com.example.cards", "Cards", null, true), app("com.example.words", "Words", null, true)], sites: [] },
   } as Record<string, Blocklist>,
+  released_devices: [] as string[],
 };
 /** The next 06:00 in Los Angeles (13:00 UTC while on daylight time). */
 function nextMorning(): string {
@@ -113,7 +114,9 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
   if (route === "/status") {
     const expired = new URLSearchParams(location.search).get("expired");
     return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: days[TODAY],
-      source_errors: expired ? { [expired]: "sign-in expired" } : {} };
+      source_errors: expired ? { [expired]: "sign-in expired" } : {},
+      setup_complete: !new URLSearchParams(location.search).get("fresh"),
+      blocked: { apps: [], sites: [] } };
   }
   if (route === "/day") {
     const d = params.get("date") ?? TODAY;
@@ -124,6 +127,7 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     pending = pending.filter((_, i) => i !== Number(params.get("index")));
     return sampleLedger("GET", "/status", null);
   }
+  if (route === "/setup") return sampleLedger("GET", "/status", null);
   if (route === "/token") return { message: "saved; it is used from the next check" };
   if (route === "/change" && method === "POST") {
     pending = [...pending, [body as Record<string, unknown>, nextMorning()]];

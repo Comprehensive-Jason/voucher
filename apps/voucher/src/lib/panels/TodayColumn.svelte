@@ -7,6 +7,7 @@
   import TicketStack from "../components/TicketStack.svelte";
   import StatusCard from "../components/StatusCard.svelte";
   import NextVoucher from "../components/NextVoucher.svelte";
+  import MomentSheet from "../components/MomentSheet.svelte";
   import type { Live } from "../live.svelte";
 
   let { live, wide = false }: { live: Live; wide?: boolean } = $props();
@@ -19,6 +20,7 @@
   <TicketStack mode={live.mode} bank={data.bank} unlockMinutes={data.unlockMinutes} ontear={live.tear} />
   <StatusCard mode={live.mode} now={live.now} {data} />
   <NextVoucher sources={data.sources} />
+  <MomentSheet {data} />
 {:else if live.error}
   <p class="error">{live.error}</p>
 {/if}
