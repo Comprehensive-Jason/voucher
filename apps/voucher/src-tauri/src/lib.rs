@@ -56,7 +56,7 @@ pub struct Today {
 
 fn client(app: &tauri::AppHandle) -> Result<ledger::Client, String> {
     let c = connection::load(app).ok_or("Not connected to a Ledger yet.")?;
-    ledger::Client::new(&c.url, &c.key)
+    ledger::Client::new(&c.url, &c.key, c.code.as_deref())
 }
 
 /// Runs blocking Ledger work off the interface's thread.
@@ -92,19 +92,22 @@ fn connection(app: tauri::AppHandle) -> Option<String> {
     connection::load(&app).map(|c| c.url)
 }
 
-/// Connects to a Ledger: fetches its public key and saves both on this
-/// device. Returns the key's first characters so they can be compared with
-/// the Ledger's own `public.key`.
+/// Connects to a Ledger: fetches its public key, checks the access code by
+/// reading its status, and saves all three on this device. Returns the key's
+/// first characters so they can be compared with the Ledger's `public.key`.
 #[tauri::command]
-async fn connect(app: tauri::AppHandle, url: String) -> Result<String, String> {
+async fn connect(app: tauri::AppHandle, url: String, code: Option<String>) -> Result<String, String> {
     blocking(move || {
         let url = url.trim().trim_end_matches('/').to_string();
+        let code = code.map(|c| c.trim().to_uppercase()).filter(|c| !c.is_empty());
         let key = ledger::Client::fetch_key(&url)?;
-        ledger::Client::new(&url, &key)?;
-        connection::save(&app, &connection::Connection { url: url.clone(), key: key.clone() })?;
+        ledger::Client::new(&url, &key, code.as_deref())?
+            .call("GET", "/status", None)
+            .map_err(|e| if e.contains("access code") { "That access code isn't right.".to_string() } else { e })?;
+        connection::save(&app, &connection::Connection { url: url.clone(), key: key.clone(), code: code.clone() })?;
         // On Windows the guard service gets the same Ledger, once.
         #[cfg(desktop)]
-        desktop::connect_guard(&url, &key);
+        desktop::connect_guard(&url, &key, code.as_deref());
         Ok(key.chars().take(8).collect())
     })
     .await
@@ -170,7 +173,7 @@ pub fn run() {
             if let Some(c) = connection::load(app.handle()) {
                 let _ = connection::save(app.handle(), &c);
                 #[cfg(desktop)]
-                desktop::connect_guard(&c.url, &c.key);
+                desktop::connect_guard(&c.url, &c.key, c.code.as_deref());
             }
             #[cfg(desktop)]
             desktop::setup(app.handle())?;

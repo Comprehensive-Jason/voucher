@@ -21,6 +21,7 @@
   let guard = $state<Protection | null>(null);
   let health = $state(false);
   let url = $state("");
+  let code = $state("");
   let keyStart = $state<string | null>(null);
   let error = $state<string | null>(null);
   let busy = $state(false);
@@ -52,7 +53,7 @@
 
   async function doConnect() {
     busy = true;
-    try { keyStart = await connect(url); await load(); } catch (e) { error = String(e); }
+    try { keyStart = await connect(url, code); await load(); } catch (e) { error = String(e); }
     busy = false;
   }
 
@@ -125,6 +126,11 @@
     <label class="field">
       <span class="cap">Ledger address</span>
       <input class="mono" placeholder="http://100.x.y.z:8787" autocapitalize="off" autocomplete="off" bind:value={url} />
+    </label>
+    <label class="field">
+      <span class="cap">Access code</span>
+      <input class="mono" placeholder="VCHR-XXXX-XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off" bind:value={code} />
+      <span class="fieldhint">In the Ledger's data folder as access.code, or its first-run log. Leave empty if your Ledger has none.</span>
     </label>
     {#if keyStart}
       <div class="okline"><span class="ok">Connected</span><span class="muted">Key starts <span class="mono">{keyStart}</span>: it should match the start of the Ledger's public.key.</span></div>
@@ -279,6 +285,7 @@
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field input { height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 14px; font-size: 15px; }
   .field input:focus { outline: none; border-color: var(--voucher); }
+  .fieldhint { font-size: 12px; color: var(--muted); line-height: 1.4; }
   .okline { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
   .muted { color: var(--muted); }
   .error { margin: 0; color: var(--goal); font-size: 13px; }

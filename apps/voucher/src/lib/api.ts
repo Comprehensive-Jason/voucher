@@ -124,9 +124,9 @@ export async function connection(): Promise<string | null> {
 }
 
 /** Connects this device to a Ledger; returns its key's first characters. */
-export async function connect(url: string): Promise<string> {
+export async function connect(url: string, code: string): Promise<string> {
   if (!inTauri) return "sikFbkXq";
-  return invoke<string>("connect", { url });
+  return invoke<string>("connect", { url, code: code.trim() || null });
 }
 
 /** Asks for Health Connect access to exercise and heart rate. */

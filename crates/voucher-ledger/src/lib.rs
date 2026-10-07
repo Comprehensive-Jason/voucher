@@ -3,6 +3,7 @@
 //! keeping score of each Day (the Daily goal, the Streak, and the log).
 //! Pure logic: every method takes the current time, so tests can control it.
 
+pub mod access;
 pub mod clickup;
 pub mod instances;
 pub mod todoist;

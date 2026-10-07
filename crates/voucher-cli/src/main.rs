@@ -58,6 +58,16 @@ fn agent() -> ureq::Agent {
         .into()
 }
 
+/// Adds the Ledger's access code from VOUCHER_ACCESS_CODE, if set.
+fn authed<B>(request: ureq::RequestBuilder<B>) -> ureq::RequestBuilder<B> {
+    match env::var("VOUCHER_ACCESS_CODE") {
+        Ok(code) if !code.trim().is_empty() => {
+            request.header("Authorization", &format!("Bearer {}", code.trim()))
+        }
+        _ => request,
+    }
+}
+
 fn local(seconds: i64) -> String {
     Timestamp::from_second(seconds)
         .map(|t| t.to_zoned(TimeZone::system()).strftime("%H:%M").to_string())
@@ -65,8 +75,7 @@ fn local(seconds: i64) -> String {
 }
 
 fn status() -> Outcome {
-    let body = agent()
-        .get(ledger_url("/status"))
+    let body = authed(agent().get(ledger_url("/status")))
         .call()?
         .body_mut()
         .read_to_string()?;
@@ -101,7 +110,7 @@ fn status() -> Outcome {
 }
 
 fn redeem() -> Outcome {
-    let mut response = agent().post(ledger_url("/redeem")).send_empty()?;
+    let mut response = authed(agent().post(ledger_url("/redeem"))).send_empty()?;
     let ok = response.status().is_success();
     let body: Value = serde_json::from_str(&response.body_mut().read_to_string()?)?;
     if ok {
@@ -114,7 +123,7 @@ fn redeem() -> Outcome {
 }
 
 fn change(change: Value) -> Outcome {
-    let mut response = agent().post(ledger_url("/change")).send_json(&change)?;
+    let mut response = authed(agent().post(ledger_url("/change"))).send_json(&change)?;
     let effect: Value = serde_json::from_str(&response.body_mut().read_to_string()?)?;
     match effect["At"].as_str() {
         Some(at) => println!(
@@ -149,7 +158,7 @@ fn check() -> Outcome {
     let key = VerifyingKey::from_bytes(&key_bytes)?;
     let cache = cache_path();
 
-    let (wire, source) = match agent().get(ledger_url("/unlock")).call() {
+    let (wire, source) = match authed(agent().get(ledger_url("/unlock"))).call() {
         Ok(mut response) if response.status().is_success() => {
             let body: Value = serde_json::from_str(&response.body_mut().read_to_string()?)?;
             let wire = body["wire"].as_str().unwrap_or_default().to_string();

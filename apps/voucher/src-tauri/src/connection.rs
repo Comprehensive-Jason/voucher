@@ -11,6 +11,9 @@ pub struct Connection {
     pub url: String,
     /// The Ledger's public key, base64url, learned when first connecting.
     pub key: String,
+    /// The Ledger's access code, if it has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
 }
 
 fn file(app: &AppHandle) -> Option<PathBuf> {
@@ -27,6 +30,7 @@ pub fn load(app: &AppHandle) -> Option<Connection> {
         (!url.is_empty() && !key.is_empty()).then(|| Connection {
             url: url.into(),
             key: key.into(),
+            code: option_env!("VOUCHER_ACCESS_CODE").map(String::from),
         })
     })
 }

@@ -36,10 +36,27 @@ pub fn guard_state() -> Option<Value> {
 }
 
 /// Hands the Ledger connection to the guard; it accepts only the first one.
-pub fn connect_guard(url: &str, key: &str) {
+pub fn connect_guard(url: &str, key: &str, code: Option<&str>) {
     let _ = agent()
         .post(format!("{GUARD}/connect"))
-        .send(json!({ "url": url, "key": key }).to_string());
+        .send(json!({ "url": url, "key": key, "code": code }).to_string());
+}
+
+/// A GET or POST to the Ledger, with its access code when it has one.
+fn ledger_request(c: &crate::connection::Connection, method: &str, path: &str, body: Option<Value>) -> Option<Value> {
+    let url = format!("{}{path}", c.url);
+    let auth = c.code.as_ref().map(|code| format!("Bearer {code}"));
+    let reply = if method == "GET" {
+        let mut r = agent().get(&url);
+        if let Some(a) = &auth { r = r.header("Authorization", a); }
+        r.call()
+    } else {
+        let mut r = agent().post(&url).header("Content-Type", "application/json");
+        if let Some(a) = &auth { r = r.header("Authorization", a); }
+        r.send(body.unwrap_or(Value::Null).to_string())
+    };
+    let text = reply.ok()?.body_mut().read_to_string().ok()?;
+    serde_json::from_str(&text).ok()
 }
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
@@ -250,13 +267,13 @@ fn report_focus_forever(app: AppHandle) {
 /// user was not away, since the current Day began. None without ActivityWatch.
 fn minutes_by_app(app: &AppHandle) -> Option<Vec<(String, f64)>> {
     let connection = crate::connection::load(app)?;
-    let status = get_json(&format!("{}/status", connection.url))?;
+    let status = ledger_request(&connection, "GET", "/status", None)?;
     activitywatch_since_day_start(&status)
 }
 
 fn report_focus(app: &AppHandle) -> Option<()> {
     let connection = crate::connection::load(app)?;
-    let status = get_json(&format!("{}/status", connection.url))?;
+    let status = ledger_request(&connection, "GET", "/status", None)?;
     let settings = &status["settings"];
     let day = status["today"]["day"].as_str()?.to_string();
     let seconds_by_app = activitywatch_since_day_start(&status)?;
@@ -278,7 +295,7 @@ fn report_focus(app: &AppHandle) -> Option<()> {
         let minutes = (seconds / 60.0).floor() as u32;
         if minutes > 0 {
             let body = json!({ "source": id, "day": day, "minutes": minutes, "device": device });
-            let _ = agent().post(format!("{}/report", connection.url)).header("Content-Type", "application/json").send(body.to_string());
+            let _ = ledger_request(&connection, "POST", "/report", Some(body));
         }
     }
     Some(())

@@ -7,7 +7,7 @@ import org.json.JSONObject
 import java.io.File
 
 /** Which Ledger this device uses: written by the app's Rust side during setup. */
-data class Connection(val url: String, val key: String)
+data class Connection(val url: String, val key: String, val code: String? = null)
 
 /**
  * What the Android side remembers between runs: the Ledger connection, the
@@ -23,7 +23,7 @@ object Store {
         val file = File(ctx.dataDir, "ledger.json")
         return try {
             val json = JSONObject(file.readText())
-            Connection(json.getString("url").trimEnd('/'), json.getString("key"))
+            Connection(json.getString("url").trimEnd('/'), json.getString("key"), json.optString("code").ifEmpty { null })
         } catch (e: Exception) {
             null
         }

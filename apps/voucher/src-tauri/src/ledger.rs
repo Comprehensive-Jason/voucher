@@ -13,6 +13,8 @@ pub struct Client {
     base: String,
     key: VerifyingKey,
     agent: ureq::Agent,
+    /// "Bearer <code>" when the Ledger has an access code.
+    auth: Option<String>,
 }
 
 /// The parts of the Ledger's `GET /status` the app reads.
@@ -77,7 +79,7 @@ impl Client {
         serde_json::from_str::<String>(&text).map_err(|_| "That address answered, but not like a Ledger.".to_string())
     }
 
-    pub fn new(base: &str, public_key: &str) -> Result<Self, String> {
+    pub fn new(base: &str, public_key: &str, code: Option<&str>) -> Result<Self, String> {
         if base.is_empty() || public_key.is_empty() {
             return Err("Not connected to a Ledger yet: this build has no Ledger address.".into());
         }
@@ -95,15 +97,34 @@ impl Client {
             base: base.trim_end_matches('/').to_string(),
             key,
             agent,
+            auth: code.filter(|c| !c.is_empty()).map(|c| format!("Bearer {}", c.trim())),
         })
+    }
+
+    fn get(&self, path: &str) -> ureq::RequestBuilder<ureq::typestate::WithoutBody> {
+        let request = self.agent.get(format!("{}{path}", self.base));
+        match &self.auth {
+            Some(auth) => request.header("Authorization", auth),
+            None => request,
+        }
+    }
+
+    fn post(&self, path: &str) -> ureq::RequestBuilder<ureq::typestate::WithBody> {
+        let request = self.agent.post(format!("{}{path}", self.base));
+        match &self.auth {
+            Some(auth) => request.header("Authorization", auth),
+            None => request,
+        }
     }
 
     pub fn today(&self) -> Result<Today, String> {
         let body = self
-            .agent
-            .get(format!("{}/status", self.base))
+            .get("/status")
             .call()
-            .map_err(|e| format!("Can't reach the Ledger: {e}"))?
+            .map_err(|e| match e {
+                ureq::Error::StatusCode(401) => "The Ledger wants its access code: reconnect in Setup.".to_string(),
+                e => format!("Can't reach the Ledger: {e}"),
+            })?
             .body_mut()
             .read_to_string()
             .map_err(|e| e.to_string())?;
@@ -143,19 +164,15 @@ impl Client {
     /// Sends any other request to the Ledger and returns its JSON reply. Used
     /// for reads and setting changes, where there is no Unlock to verify.
     pub fn call(&self, method: &str, path: &str, body: Option<&str>) -> Result<serde_json::Value, String> {
-        let url = format!("{}{path}", self.base);
         let reply = match (method, body) {
-            ("GET", _) => self.agent.get(&url).call(),
-            ("POST", Some(body)) => self
-                .agent
-                .post(&url)
-                .header("Content-Type", "application/json")
-                .send(body),
-            ("POST", None) => self.agent.post(&url).send_empty(),
+            ("GET", _) => self.get(path).call(),
+            ("POST", Some(body)) => self.post(path).header("Content-Type", "application/json").send(body),
+            ("POST", None) => self.post(path).send_empty(),
             _ => return Err(format!("unsupported method {method}")),
         };
         let text = reply
             .map_err(|e| match e {
+                ureq::Error::StatusCode(401) => "The Ledger wants its access code: reconnect in Setup.".to_string(),
                 ureq::Error::StatusCode(code) => format!("The Ledger refused this ({code})"),
                 e => format!("Can't reach the Ledger: {e}"),
             })?
@@ -168,8 +185,7 @@ impl Client {
     /// Tears `count` tickets in one go: all of them, or none if the Bank is short.
     pub fn redeem(&self, count: u32) -> Result<(), String> {
         let mut response = self
-            .agent
-            .post(format!("{}/redeem?count={count}", self.base))
+            .post(&format!("/redeem?count={count}"))
             .send_empty()
             .map_err(|e| match e {
                 ureq::Error::StatusCode(409) => "Refused by the Ledger".to_string(),

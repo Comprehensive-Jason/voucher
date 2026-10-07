@@ -28,6 +28,8 @@ use voucher_ledger::{
 };
 
 struct Config {
+    /// Required on every request but `GET /key`, when set.
+    access_code: Option<String>,
     data_dir: PathBuf,
     listen: String,
     poll_minutes: u64,
@@ -48,6 +50,7 @@ impl Config {
             var(name).map_or_else(|| data_dir.join(default), PathBuf::from)
         };
         Config {
+            access_code: None,
             todoist_token_file: token_file("VOUCHER_TODOIST_TOKEN_FILE", "todoist.token"),
             clickup_token_file: token_file("VOUCHER_CLICKUP_TOKEN_FILE", "clickup.token"),
             data_dir,
@@ -82,8 +85,9 @@ fn first_run_settings() -> Settings {
 }
 
 fn main() {
-    let config = Config::from_env();
+    let mut config = Config::from_env();
     fs::create_dir_all(&config.data_dir).expect("create the data directory");
+    config.access_code = load_or_create_access_code(&config.data_dir);
     let key = load_or_create_key(&config.data_dir);
     let state_path = config.data_dir.join("state.json");
     let ledger = match fs::read_to_string(&state_path) {
@@ -161,8 +165,55 @@ fn describe_poll_error(error: &(dyn std::error::Error + 'static)) -> String {
     }
 }
 
+/// The access code: from VOUCHER_ACCESS_CODE, or the data folder's
+/// access.code. A brand-new Ledger creates one; a Ledger set up before codes
+/// existed keeps running without one until a code is put there.
+fn load_or_create_access_code(data_dir: &Path) -> Option<String> {
+    if let Some(code) = env::var("VOUCHER_ACCESS_CODE")
+        .ok()
+        .filter(|c| !c.trim().is_empty())
+    {
+        return Some(code.trim().to_string());
+    }
+    let file = data_dir.join("access.code");
+    if let Ok(code) = fs::read_to_string(&file) {
+        return Some(code.trim().to_string()).filter(|c| !c.is_empty());
+    }
+    if data_dir.join("state.json").exists() {
+        eprintln!(
+            "warning: no access code; anyone who can reach this Ledger can use it. Put one in {}",
+            file.display()
+        );
+        return None;
+    }
+    let code = voucher_ledger::access::new_code();
+    fs::write(&file, format!("{code}\n")).expect("write access.code");
+    restrict_to_owner(&file);
+    eprintln!(
+        "created access code {code} (also in {}); enter it when connecting a device",
+        file.display()
+    );
+    Some(code)
+}
+
 fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, config: &Config) {
     let now = Timestamp::now();
+    let header = request
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Authorization"))
+        .map(|h| h.value.as_str().to_string());
+    if request.url() != "/key"
+        && !voucher_ledger::access::authorized(config.access_code.as_deref(), header.as_deref())
+    {
+        let reply = Response::from_string(json(&Message {
+            message: "access code missing or wrong",
+        }))
+        .with_status_code(401)
+        .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+        let _ = request.respond(reply);
+        return;
+    }
     let mut ledger = ledger.lock().unwrap();
     let url = request.url().to_string();
     let (path, query) = url.split_once('?').unwrap_or((&url, ""));
@@ -486,7 +537,8 @@ fn load_or_create_key(data_dir: &Path) -> SigningKey {
 #[cfg(unix)]
 fn restrict_to_owner(path: &Path) {
     use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).expect("chmod signing.key");
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .expect("restrict a secret file to its owner");
 }
 
 #[cfg(not(unix))]

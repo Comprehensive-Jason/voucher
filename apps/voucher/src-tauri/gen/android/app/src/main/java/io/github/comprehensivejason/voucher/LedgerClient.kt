@@ -10,15 +10,16 @@ import java.net.URL
  * without the interface, so it can't borrow the Rust client.
  */
 object LedgerClient {
-    private fun open(url: String, method: String): HttpURLConnection =
-        (URL(url).openConnection() as HttpURLConnection).apply {
+    private fun open(c: Connection, path: String, method: String): HttpURLConnection =
+        (URL(c.url + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 5000
             readTimeout = 5000
+            c.code?.let { setRequestProperty("Authorization", "Bearer $it") }
         }
 
     fun get(c: Connection, path: String): JSONObject {
-        val conn = open(c.url + path, "GET")
+        val conn = open(c, path, "GET")
         try {
             if (conn.responseCode != 200) throw IllegalStateException("Ledger answered ${conn.responseCode}")
             return JSONObject(conn.inputStream.bufferedReader().readText())
@@ -29,7 +30,7 @@ object LedgerClient {
 
     /** POSTs and returns the status code, so refusals (409) can be told apart. */
     fun post(c: Connection, path: String, body: JSONObject? = null): Int {
-        val conn = open(c.url + path, "POST")
+        val conn = open(c, path, "POST")
         try {
             if (body != null) {
                 conn.doOutput = true

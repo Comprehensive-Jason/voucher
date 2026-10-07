@@ -202,7 +202,11 @@ fn each_device_reports_its_own_running_total_and_they_add_up() {
 #[test]
 fn adding_an_app_to_a_source_waits_for_morning_and_removing_one_applies_now() {
     let mut ledger = fresh();
-    let more = vec!["md.obsidian".to_string(), "win:Obsidian.exe".to_string(), "win:ObsidianPortable.exe".to_string()];
+    let more = vec![
+        "md.obsidian".to_string(),
+        "win:Obsidian.exe".to_string(),
+        "win:ObsidianPortable.exe".to_string(),
+    ];
 
     let effect = ledger.request(
         Change::SourceApps {

@@ -158,6 +158,7 @@ object Week {
                 runCatching {
                     val conn = java.net.URL("${c.url}/history?days=7").openConnection() as java.net.HttpURLConnection
                     conn.connectTimeout = 5000; conn.readTimeout = 5000
+                    c.code?.let { conn.setRequestProperty("Authorization", "Bearer $it") }
                     val days = org.json.JSONArray(conn.inputStream.bufferedReader().readText())
                     var earned = 0; var redeemed = 0
                     for (i in 0 until days.length()) {

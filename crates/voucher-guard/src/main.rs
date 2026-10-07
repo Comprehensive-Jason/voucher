@@ -35,6 +35,27 @@ use voucher_guard::{Decision, decide, is_distraction, label_for};
 struct Connection {
     url: String,
     key: String,
+    /// The Ledger's access code, if it has one.
+    #[serde(default)]
+    code: Option<String>,
+}
+
+impl Connection {
+    fn get(&self, path: &str) -> ureq::RequestBuilder<ureq::typestate::WithoutBody> {
+        let request = agent().get(format!("{}{path}", self.url));
+        match &self.code {
+            Some(code) => request.header("Authorization", &format!("Bearer {code}")),
+            None => request,
+        }
+    }
+
+    fn post(&self, path: &str) -> ureq::RequestBuilder<ureq::typestate::WithBody> {
+        let request = agent().post(format!("{}{path}", self.url));
+        match &self.code {
+            Some(code) => request.header("Authorization", &format!("Bearer {code}")),
+            None => request,
+        }
+    }
 }
 
 /// The last program closed, for the app's "Steam is paused" window.
@@ -111,8 +132,8 @@ pub fn run(stop: Arc<Mutex<bool>>) {
         let now = Timestamp::now();
         let mut fresh = None;
         if let Some(c) = &connection {
-            fresh = agent()
-                .get(format!("{}/status", c.url))
+            fresh = c
+                .get("/status")
                 .call()
                 .ok()
                 .and_then(|mut r| r.body_mut().read_to_string().ok())
@@ -122,9 +143,7 @@ pub fn run(stop: Arc<Mutex<bool>>) {
             }
             if fresh.is_some() && last_check_in.elapsed() > Duration::from_secs(60) {
                 let device = device_name();
-                let _ = agent()
-                    .post(format!("{}/check-in?device={device}", c.url))
-                    .send_empty();
+                let _ = c.post(&format!("/check-in?device={device}")).send_empty();
                 last_check_in = Instant::now();
             }
         }
