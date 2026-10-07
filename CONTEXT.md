@@ -75,6 +75,10 @@ _Avoid_: scoped pass, exception, override
 An app or site, such as social media or games, that is blocked unless an Unlock is active.
 _Avoid_: blocked app, blacklist entry
 
+**Blocklist**:
+A named set of Distractions (apps, sites, or a maintained list such as the public Invidious instances) that can be switched on or off as one. Premade blocklists ship with Voucher and can be reset; the user's own are "Yours". A blocklist change is a Tightening when everything blocked before is still blocked after it.
+_Avoid_: filter, group
+
 **Tool**:
 An app or site, such as system settings or admin pages, that is never blocked by default.
 _Avoid_: whitelist entry, exception
@@ -87,6 +91,10 @@ A rule change that reduces access. It takes effect immediately.
 **Loosening**:
 A rule change that increases access, including pausing, moving the Curfew, raising an Earning rate, the Bank limit, or the Unlock length, and removing an Enforcer's protections. It never takes effect immediately.
 _Avoid_: unlock, edit
+
+**Release**:
+Letting one device's Enforcer stop enforcing so Voucher can be removed from it. Always a Loosening.
+_Avoid_: uninstall, disable
 
 **Morning boundary**:
 The daily moment when every pending Loosening takes effect.
