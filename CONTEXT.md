@@ -40,12 +40,16 @@ _Avoid_: balance, wallet
 The most Vouchers the Bank can hold. Vouchers earned while the Bank is full are forfeited.
 _Avoid_: cap, max balance
 
+**Day**:
+The span from one Curfew's end to the next (06:00 to 06:00 by default), not the calendar day. Goals, the Streak, the Log, and "today" all use it.
+_Avoid_: calendar day, date
+
 **Daily goal**:
-The number of Vouchers to earn in one local day for that day to count toward the Streak. It motivates; it never changes access.
+The number of Vouchers to earn in one Day for that Day to count toward the Streak. It motivates; it never changes access.
 _Avoid_: target, quota
 
 **Streak**:
-The run of consecutive days, up to yesterday, on which the Daily goal was met.
+The run of consecutive Days on which the Daily goal was met. Today joins it the moment its goal is met.
 _Avoid_: chain, combo
 
 ### Spending
