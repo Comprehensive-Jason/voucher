@@ -2,9 +2,17 @@
 
 > Claude: written from 2026-10-05 as a starting point. The Ledger and the Android app work; Windows is not started.
 
+![Voucher: screen time you earn. Three phone screens: the Log, Today with a ticket to tear, and a running Unlock.](docs/images/hero.png)
+
 An app and website blocker for Android and Windows where free time is **earned**, not requested. Finished tasks, workouts, and focused time reading or taking notes earn Vouchers into your Bank. Redeem one and social media and games open for a fixed Unlock; when it ends, everything locks again.
 
 It exists because existing blockers let you switch them off whenever you like, protect themselves by blocking your own settings, and feel like punishment rather than reward.
+
+## Screens
+
+![Five phone screens: Today, Trends, Log, Rules, and the screen shown when a paused app is opened.](docs/images/screens.png)
+
+![On a tablet or desktop: Today, Trends, and the Log side by side; the Windows tray pop-up; and a paused app.](docs/images/devices.png)
 
 ## How it works
 

@@ -21,6 +21,11 @@
 
   const mode = $derived(data ? modeOf(data, Math.floor(Date.now() / 1000)) : "locked");
   const ATTEMPT_COLORS = ["#e5609b", "#ff6b5b", "#ff8a3d", "#c9cdd1"];
+  /** A tile colour when the app's own icon can't be read: brand colours for the usual ones. */
+  function tileColor(name: string): string {
+    const known: Record<string, string> = { instagram: "#c13584", youtube: "#e62117", reddit: "#ff4500", tiktok: "#25f4ee" };
+    return known[name.toLowerCase()] ?? ["#5b6cff", "#c13584", "#2f9e6b", "#d9822b", "#7d8cff"][[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % 5];
+  }
   const most = $derived(Math.max(1, ...(usage?.attempts ?? []).map((a) => a.count)));
   // Fastest ways to earn: each switched-on source, by what it still needs.
   const fastest = $derived.by(() => (data?.sources ?? [])
@@ -63,7 +68,7 @@
 {:else}
   <main>
     <div class="head">
-      <div class="tile">
+      <div class="tile" style={!icon && named ? `background: ${tileColor(named)}` : ""}>
         {#if icon}<img src={icon} alt="" />
         {:else if named}<span>{named.slice(0, 1)}</span>
         {:else}<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6v12M15 6v12" /></svg>{/if}

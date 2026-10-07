@@ -30,7 +30,7 @@ const days: Record<string, DaySummary> = {
       earned("09:40", "obsidian:1", "30 min focused"),
       earned("08:30", "todoist:4", "Stretch 10 min"),
       earned("08:10", "todoist:5", "Make bed"),
-      earned("07:20", "todoist:6", "Take medication"),
+      earned("07:20", "todoist:6", "Water the plants"),
     ],
   },
   "2026-10-06": {
