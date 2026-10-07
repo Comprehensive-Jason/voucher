@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Device Owner spike</title>
+<style>
+body{margin:0;background:#0e0f11;color:#f2f2f0;font:16px system-ui,sans-serif;padding:24px}
+button{display:block;width:100%;min-height:52px;margin:10px 0;border:0;border-radius:14px;font:700 16px system-ui;background:#3ddc84;color:#07170d}
+button.alt{background:#2a2e33;color:#f2f2f0}
+pre{background:#16181b;border-radius:12px;padding:12px;white-space:pre-wrap;word-break:break-all;min-height:120px}
+</style></head>
+<body>
+<h1>Device Owner spike</h1>
+<button id="status">Status</button>
+<button id="suspend">Suspend Chrome</button>
+<button id="unsuspend" class="alt">Unsuspend Chrome</button>
+<button id="msg" class="alt">Set support message</button>
+<pre id="out">Tap Status.</pre>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

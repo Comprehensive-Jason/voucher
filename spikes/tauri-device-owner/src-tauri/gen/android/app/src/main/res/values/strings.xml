@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">"tauri-device-owner"</string>
+    <string name="main_activity_title">"tauri-device-owner"</string>
+</resources>
