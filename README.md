@@ -1,6 +1,6 @@
 # Voucher
 
-> Claude: written from 2026-10-05 as a starting point. Step 1 works; the Enforcers do not exist yet.
+> Claude: written from 2026-10-05 as a starting point. The Ledger and the Android app work; Windows is not started.
 
 An app and website blocker for Android and Windows where free time is **earned**, not requested. Finished tasks, workouts, and focused time reading or taking notes earn Vouchers into your Bank. Redeem one and social media and games open for a fixed Unlock; when it ends, everything locks again.
 
@@ -18,11 +18,28 @@ The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [
 
 | Step | What | State |
 | --- | --- | --- |
-| 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Running on sprout; awaiting a live check against real accounts |
-| 2 | Android app (Tauri v2 with Kotlin plugins, Device Owner) | Spike next: Tauri + Device Owner on an emulator |
+| 1 | Ledger, Todoist and ClickUp Activity sources, manual CLI Enforcer | Running on sprout against real accounts |
+| 2 | Android app (Tauri v2 with Kotlin plugins, Device Owner): phone and tablet layouts, blocked-app screen, notification, tile, widgets | Working on an emulator; first real device next |
 | 3 | Windows app (same Tauri project) and Enforcer service | Not started |
-| 4 | Focused time (Moon+ Reader, Readwise Reader, Obsidian) and exercise (Health Connect) Activity sources | Not started |
-| 5 | Tamper-hardening | Not started |
+| 4 | Focused time (usage stats) and exercise (Health Connect) Activity sources | Built; Focused time checked on an emulator |
+| 5 | Tamper-hardening | Device Owner suspension, no force-stop or data clearing, fail-closed |
+
+## Installing on Android
+
+Voucher needs Android 13 or later, a Ledger reachable over Tailscale, and a computer with ADB for one step.
+
+1. Install the APK and open Voucher. Setup starts by itself.
+2. **Connect to your Ledger.** Enter its address (`http://<tailscale-ip>:8787`). Voucher fetches the Ledger's public key; check that its first characters match the start of the Ledger's `public.key`.
+3. **App blocking (Device Owner).** Android allows this only while no accounts and no other users exist, but nothing is erased:
+   1. Turn on USB debugging. On Samsung, turn off Auto Blocker first.
+   2. `adb shell pm list users` must list only user 0. Delete Secure Folder, Dual Messenger, and any work profile or private space first.
+   3. `adb shell dumpsys account | grep "Account {"` lists the accounts. Freeze each account's app with `adb shell pm disable-user --user 0 <package>`; remove a Google account in Settings instead. Don't sign out of a Samsung account: that deletes Samsung Wallet cards. Wait ten seconds.
+   4. `adb shell dpm set-device-owner io.github.comprehensivejason.voucher/.VoucherAdminReceiver`
+   5. `adb shell pm enable <package>` for each app you froze, and add back any account you removed.
+4. **Usage access** and the **blocked-app screen** (an accessibility service) are switched on from Setup's buttons. Health Connect is optional, for the Workout source.
+5. Pick sources, blocklists, and starting limits. Until "Start Voucher", changes apply at once; after it, anything that loosens a rule waits for 06:00.
+
+To leave, release the device in Rules, Protection. Like any Loosening it waits for 06:00; then Voucher lifts every block, gives up Device Owner, and can be uninstalled.
 
 ## Layout
 

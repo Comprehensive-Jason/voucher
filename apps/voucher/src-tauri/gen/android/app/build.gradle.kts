@@ -18,7 +18,9 @@ android {
     compileSdk = 37
     namespace = "io.github.comprehensivejason.voucher"
     defaultConfig {
-        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        // The Ledger is plain HTTP inside Tailscale, which already encrypts the
+        // link (ADR 0006), so release builds allow it too.
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
         applicationId = "io.github.comprehensivejason.voucher"
         minSdk = 33
         targetSdk = 37

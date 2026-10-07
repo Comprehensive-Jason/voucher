@@ -11,4 +11,6 @@ Enforcers block websites by writing the Chromium `URLBlocklist` policy (registry
 ## Consequences
 
 - Links opened in other apps' built-in browsers are not covered.
-- Brave on Android accepting managed configuration is unverified; Chrome is the fallback.
+- Brave on Android honours the managed URLBlocklist (checked on an emulator, 2026-10-07: "This page is blocked"). Every Chrome and Brave release channel receives it.
+- Browsers that ignore it (Samsung Internet, Firefox, DuckDuckGo, Opera, Edge) are a premade blocklist, "Other browsers", so they stay suspended outside Unlocks.
+- Maintained lists such as the public Invidious and Piped instances are named in blocklists (`list:invidious`); the Ledger fetches them daily and sends their domains to Enforcers.

@@ -19,3 +19,8 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# Voucher: the Kotlin plugin is found and called by name from Rust, so the
+# optimiser must keep its class, its @Command methods, and its argument classes.
+-keep @app.tauri.annotation.TauriPlugin class * { *; }
+-keep @app.tauri.annotation.InvokeArg class * { *; }
+-keepclassmembers class * { @app.tauri.annotation.Command *; }
