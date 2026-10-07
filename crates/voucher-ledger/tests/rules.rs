@@ -16,6 +16,7 @@ fn settings() -> Settings {
         curfew_end: time(6, 0, 0, 0),
         morning_boundary: time(6, 0, 0, 0),
         daily_goal: 16,
+        sources: voucher_ledger::default_sources(),
     }
 }
 
@@ -383,7 +384,10 @@ fn a_state_saved_before_daily_goals_existed_still_loads() {
     let state = saved.as_object_mut().unwrap();
     state.remove("days");
     state.remove("log");
-    state["settings"].as_object_mut().unwrap().remove("daily_goal");
+    state["settings"]
+        .as_object_mut()
+        .unwrap()
+        .remove("daily_goal");
 
     let mut ledger = Ledger::load(&saved.to_string(), ledger_key()).unwrap();
 

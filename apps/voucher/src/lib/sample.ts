@@ -12,7 +12,7 @@ const redeemed = (time: string, tickets: number, day = TODAY): Entry =>
 const days: Record<string, DaySummary> = {
   [TODAY]: {
     day: TODAY, earned: 11, redeemed: 3, unlocked_minutes: 30, goal: 16, goal_met: false, goal_met_at: null,
-    streak: 4, by_source: { todoist: 7, obsidian: 2, workout: 1, readwise: 1 },
+    streak: 4, by_source: { todoist: 7, obsidian: 2, workout: 1, readwise: 1 }, sources: [],
     log: [
       redeemed("19:42", 2),
       earned("16:40", "todoist:1", "Weekly review"),
@@ -31,7 +31,7 @@ const days: Record<string, DaySummary> = {
   },
   "2026-10-06": {
     day: "2026-10-06", earned: 17, redeemed: 4, unlocked_minutes: 40, goal: 16, goal_met: true,
-    goal_met_at: "2026-10-06T17:30:00-07:00", streak: 4, by_source: { todoist: 11, obsidian: 3, workout: 1, readwise: 1, moonreader: 1 },
+    goal_met_at: "2026-10-06T17:30:00-07:00", streak: 4, by_source: { todoist: 11, obsidian: 3, workout: 1, readwise: 1, moonreader: 1 }, sources: [],
     log: [
       redeemed("21:10", 1, "2026-10-06"),
       earned("19:05", "obsidian:3", "30 min focused", "2026-10-06"),
@@ -50,7 +50,7 @@ const days: Record<string, DaySummary> = {
 
 function blankDay(day: string): DaySummary {
   return { day, earned: 16, redeemed: 6, unlocked_minutes: 60, goal: 16, goal_met: true, goal_met_at: null,
-    streak: 3, by_source: {}, log: [] };
+    streak: 3, by_source: {}, log: [], sources: [] };
 }
 
 function history(n: number): DayTotal[] {
@@ -70,14 +70,32 @@ function history(n: number): DayTotal[] {
 const settings = {
   time_zone: "America/Los_Angeles", bank_limit: 24, unlock_minutes: 10,
   curfew_start: "22:00:00", curfew_end: "06:00:00", morning_boundary: "06:00:00", daily_goal: 16,
+  sources: {
+    todoist: { kind: "tasks", on: true, every: 1, packages: [] },
+    clickup: { kind: "tasks", on: true, every: 1, packages: [] },
+    workout: { kind: "workout", on: true, every: 15, packages: [] },
+    obsidian: { kind: "focus", on: true, every: 30, packages: ["md.obsidian"] },
+    readwise: { kind: "focus", on: true, every: 30, packages: ["com.readermobile"] },
+    moonreader: { kind: "focus", on: true, every: 30, packages: ["com.flyersoft.moonreaderp"] },
+    anki: { kind: "focus", on: false, every: 30, packages: ["com.ichi2.anki"] },
+  } as Record<string, { kind: "tasks" | "workout" | "focus"; on: boolean; every: number; packages: string[] }>,
 };
-let pending: [Record<string, unknown>, string][] = [[{ UnlockMinutes: 15 }, "2026-10-08T13:00:00Z"]];
+/** The next 06:00 in Los Angeles (13:00 UTC while on daylight time). */
+function nextMorning(): string {
+  const d = new Date();
+  d.setUTCHours(13, 0, 0, 0);
+  if (d.getTime() <= Date.now()) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+}
+let pending: [Record<string, unknown>, string][] = [[{ UnlockMinutes: 15 }, nextMorning()]];
 
 export function sampleLedger(method: string, path: string, body: unknown): unknown {
   const [route, query = ""] = path.split("?");
   const params = new URLSearchParams(query);
   if (route === "/status") {
-    return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: days[TODAY] };
+    const expired = new URLSearchParams(location.search).get("expired");
+    return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: days[TODAY],
+      source_errors: expired ? { [expired]: "sign-in expired" } : {} };
   }
   if (route === "/day") {
     const d = params.get("date") ?? TODAY;
@@ -88,9 +106,10 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     pending = pending.filter((_, i) => i !== Number(params.get("index")));
     return sampleLedger("GET", "/status", null);
   }
+  if (route === "/token") return { message: "saved; it is used from the next check" };
   if (route === "/change" && method === "POST") {
-    pending = [...pending, [body as Record<string, unknown>, "2026-10-08T13:00:00Z"]];
-    return { At: "2026-10-08T13:00:00Z" };
+    pending = [...pending, [body as Record<string, unknown>, nextMorning()]];
+    return { At: nextMorning() };
   }
   throw new Error(`no sample for ${method} ${path}`);
 }

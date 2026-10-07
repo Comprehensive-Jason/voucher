@@ -12,17 +12,22 @@ export interface Today {
   goalDone: number;
   goalTarget: number;
   streakDays: number;
-  sources: Source[];
+  sources: SourceProgress[];
 }
 
-export interface Source {
-  name: string;
-  detail: string;
-  /** 0 to 1 toward the next Voucher. */
+export type SourceKind = "tasks" | "workout" | "focus";
+
+/** One source's standing today, from the Ledger. */
+export interface SourceProgress {
+  id: string;
+  kind: SourceKind;
+  on: boolean;
+  /** One Voucher per this many tasks or minutes. */
+  every: number;
+  /** Tasks or minutes toward the next Voucher. */
   progress: number;
-  color: string;
-  /** The Ledger can't measure this source yet, so these numbers are made up. */
-  sample: boolean;
+  /** Vouchers earned today. */
+  earned: number;
 }
 
 export type Mode = "locked" | "running" | "curfew" | "full" | "empty";
@@ -53,7 +58,51 @@ export interface DaySummary {
   by_source: Record<string, number>;
   /** Newest first. */
   log: Entry[];
+  sources: SourceProgress[];
 }
 
 /** One Day in the Ledger's `GET /history`. */
 export interface DayTotal { day: string; earned: number; redeemed: number; goal_met: boolean }
+
+/** What the phone itself measured today, from the Android side. */
+export interface DeviceUsage {
+  /** Minutes in foreground per Distraction app today, most first. */
+  apps: { label: string; minutes: number }[];
+  /** Times a paused app was opened today, and how many of those ended without a tear. */
+  blockedOpens: number;
+  closedWithoutTearing: number;
+}
+
+/** The phone's protection parts, from the Android side. */
+export interface Protection {
+  /** Voucher is Device Owner: it can pause apps, and can't be uninstalled. */
+  deviceOwner: boolean;
+  /** Usage access: Focused time and Distraction minutes can be measured. */
+  usageAccess: boolean;
+  /** The Accessibility service that draws the blocked-app screen. */
+  overlay: boolean;
+}
+
+/** A pending change as the Ledger sends it: `[change, effective_at]`. */
+export type Pending = [Record<string, unknown>, string];
+
+export interface Settings {
+  time_zone: string;
+  bank_limit: number;
+  unlock_minutes: number;
+  curfew_start: string;
+  curfew_end: string;
+  morning_boundary: string;
+  daily_goal: number;
+  sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[] }>;
+}
+
+export interface Status {
+  bank: number;
+  curfew_active: boolean;
+  settings: Settings;
+  pending: Pending[];
+  today: DaySummary;
+  /** What went wrong with each polled source's last check, such as "sign-in expired". */
+  source_errors: Record<string, string>;
+}

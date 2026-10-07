@@ -7,7 +7,7 @@ use ed25519_dalek::VerifyingKey;
 use jiff::Timestamp;
 use serde::Deserialize;
 
-use crate::{Today, sources};
+use crate::Today;
 
 pub struct Client {
     base: String,
@@ -31,7 +31,7 @@ struct Score {
     earned: u32,
     goal: u32,
     streak: u32,
-    by_source: std::collections::BTreeMap<String, u32>,
+    sources: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -96,7 +96,7 @@ impl Client {
             goal_done: status.today.earned,
             goal_target: status.today.goal,
             streak_days: status.today.streak,
-            sources: sources(status.today.by_source.values().sum()),
+            sources: status.today.sources,
         })
     }
 

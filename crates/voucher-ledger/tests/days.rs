@@ -11,6 +11,7 @@ fn settings() -> Settings {
         curfew_end: time(6, 0, 0, 0),
         morning_boundary: time(6, 0, 0, 0),
         daily_goal: 3,
+        sources: voucher_ledger::default_sources(),
     }
 }
 
@@ -19,7 +20,11 @@ fn at(moment: &str) -> Timestamp {
 }
 
 fn fresh() -> Ledger {
-    Ledger::new(settings(), SigningKey::from_bytes(&[7; 32]), at("2026-10-01T00:00-07:00"))
+    Ledger::new(
+        settings(),
+        SigningKey::from_bytes(&[7; 32]),
+        at("2026-10-01T00:00-07:00"),
+    )
 }
 
 fn done(task: &str, moment: &str) -> Completion {
@@ -32,7 +37,9 @@ fn done(task: &str, moment: &str) -> Completion {
 
 /// Earns `n` distinct tasks at `moment`, as one poll would report them.
 fn earn(ledger: &mut Ledger, prefix: &str, n: u32, moment: &str) {
-    let batch: Vec<Completion> = (0..n).map(|i| done(&format!("todoist:{prefix}{i}"), moment)).collect();
+    let batch: Vec<Completion> = (0..n)
+        .map(|i| done(&format!("todoist:{prefix}{i}"), moment))
+        .collect();
     ledger.record(&batch, at(moment));
 }
 
@@ -51,7 +58,14 @@ fn a_day_runs_from_curfews_end_not_midnight() {
 
 #[test]
 fn work_counts_toward_the_goal_even_when_the_bank_is_full() {
-    let mut ledger = Ledger::new(Settings { bank_limit: 1, ..settings() }, SigningKey::from_bytes(&[7; 32]), at("2026-10-01T00:00-07:00"));
+    let mut ledger = Ledger::new(
+        Settings {
+            bank_limit: 1,
+            ..settings()
+        },
+        SigningKey::from_bytes(&[7; 32]),
+        at("2026-10-01T00:00-07:00"),
+    );
 
     earn(&mut ledger, "t", 3, "2026-10-07T10:00-07:00");
 
@@ -99,8 +113,14 @@ fn a_daily_goal_change_applies_from_the_next_day() {
 #[test]
 fn todays_log_lists_earnings_and_redemptions_newest_first() {
     let mut ledger = fresh();
-    ledger.record(&[done("todoist:a", "2026-10-07T08:10-07:00")], at("2026-10-07T08:15-07:00"));
-    ledger.record(&[done("clickup:b", "2026-10-07T09:00-07:00")], at("2026-10-07T09:05-07:00"));
+    ledger.record(
+        &[done("todoist:a", "2026-10-07T08:10-07:00")],
+        at("2026-10-07T08:15-07:00"),
+    );
+    ledger.record(
+        &[done("clickup:b", "2026-10-07T09:00-07:00")],
+        at("2026-10-07T09:05-07:00"),
+    );
     ledger.redeem(at("2026-10-07T12:00-07:00")).unwrap();
 
     let log = ledger.today(at("2026-10-07T13:00-07:00")).log;
@@ -108,7 +128,11 @@ fn todays_log_lists_earnings_and_redemptions_newest_first() {
     assert_eq!(
         log,
         vec![
-            Entry::Redeemed { at: at("2026-10-07T12:00-07:00"), tickets: 1, minutes: 10 },
+            Entry::Redeemed {
+                at: at("2026-10-07T12:00-07:00"),
+                tickets: 1,
+                minutes: 10
+            },
             Entry::Earned {
                 at: at("2026-10-07T09:00-07:00"),
                 task: "clickup:b".into(),
@@ -124,7 +148,6 @@ fn todays_log_lists_earnings_and_redemptions_newest_first() {
         ]
     );
 }
-
 
 #[test]
 fn a_past_day_keeps_its_totals_and_when_its_goal_was_met() {
@@ -152,8 +175,10 @@ fn history_lists_each_day_oldest_first_including_empty_ones() {
 
     let history = ledger.history(4, at("2026-10-07T12:00-07:00"));
 
-    let summary: Vec<(String, u32, bool)> =
-        history.iter().map(|d| (d.day.to_string(), d.earned, d.goal_met)).collect();
+    let summary: Vec<(String, u32, bool)> = history
+        .iter()
+        .map(|d| (d.day.to_string(), d.earned, d.goal_met))
+        .collect();
     assert_eq!(
         summary,
         vec![

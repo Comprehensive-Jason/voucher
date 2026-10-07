@@ -9,6 +9,7 @@
 //! never logged.
 
 use std::{
+    collections::BTreeMap,
     env, fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -21,7 +22,9 @@ use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
-use voucher_ledger::{Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, clickup, todoist};
+use voucher_ledger::{
+    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, clickup, default_sources, todoist,
+};
 
 struct Config {
     data_dir: PathBuf,
@@ -65,6 +68,7 @@ fn first_run_settings() -> Settings {
         curfew_end: time(6, 0, 0, 0),
         morning_boundary: time(6, 0, 0, 0),
         daily_goal: DEFAULT_DAILY_GOAL,
+        sources: default_sources(),
     }
 }
 
@@ -80,18 +84,42 @@ fn main() {
     let ledger = Arc::new(Mutex::new(ledger));
     save(&ledger.lock().unwrap(), &state_path);
 
-    let listen = config.listen.clone();
-    let (poll_ledger, poll_state_path) = (Arc::clone(&ledger), state_path.clone());
-    thread::spawn(move || poll_forever(&config, &poll_ledger, &poll_state_path));
+    let config = Arc::new(config);
+    let (poll_config, poll_ledger, poll_state_path) =
+        (Arc::clone(&config), Arc::clone(&ledger), state_path.clone());
+    thread::spawn(move || poll_forever(&poll_config, &poll_ledger, &poll_state_path));
 
-    let server = Server::http(&listen).expect("bind the listen address");
-    eprintln!("voucher-ledger listening on {listen}");
+    let server = Server::http(&config.listen).expect("bind the listen address");
+    eprintln!("voucher-ledger listening on {}", config.listen);
     for request in server.incoming_requests() {
-        handle(request, &ledger, &state_path);
+        handle(request, &ledger, &state_path, &config);
     }
 }
 
-fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path) {
+/// The last thing that went wrong with each polled source, cleared when a
+/// poll succeeds. Shown in the app as "sign-in expired" and the like.
+static SOURCE_ERRORS: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
+
+fn note_poll(source: &str, result: &Result<(), String>) {
+    let mut errors = SOURCE_ERRORS.lock().unwrap();
+    match result {
+        Ok(()) => errors.remove(source),
+        Err(problem) => errors.insert(source.to_string(), problem.clone()),
+    };
+}
+
+/// A short, user-facing name for a polling failure.
+fn describe_poll_error(error: &(dyn std::error::Error + 'static)) -> String {
+    match error.downcast_ref::<ureq::Error>() {
+        Some(ureq::Error::StatusCode(401 | 403)) => "sign-in expired".into(),
+        Some(ureq::Error::StatusCode(code)) => format!("the service answered {code}"),
+        Some(_) => "can't reach the service".into(),
+        None if error.is::<std::io::Error>() => "no token saved".into(),
+        None => "unexpected reply".into(),
+    }
+}
+
+fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, config: &Config) {
     let now = Timestamp::now();
     let mut ledger = ledger.lock().unwrap();
     let url = request.url().to_string();
@@ -151,6 +179,60 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path) {
                 }),
             ),
         },
+        // The phone's running total of minutes for a Workout or Focus source.
+        (Method::Post, "/report") => {
+            let mut body = String::new();
+            let parsed = request
+                .as_reader()
+                .read_to_string(&mut body)
+                .ok()
+                .and_then(|_| serde_json::from_str::<Report>(&body).ok());
+            match parsed {
+                Some(r) => (
+                    200,
+                    json(&ledger.report(&r.source, r.day, r.minutes, r.title.as_deref(), now)),
+                ),
+                None => (
+                    400,
+                    json(&Message {
+                        message: "body is not a report",
+                    }),
+                ),
+            }
+        }
+        // A new API token for a task source, from the app's Reconnect button.
+        (Method::Post, "/token") => {
+            let mut body = String::new();
+            let parsed = request
+                .as_reader()
+                .read_to_string(&mut body)
+                .ok()
+                .and_then(|_| serde_json::from_str::<NewToken>(&body).ok());
+            let file = parsed.as_ref().and_then(|t| match t.source.as_str() {
+                "todoist" => config.todoist_token_file.as_ref(),
+                "clickup" => config.clickup_token_file.as_ref(),
+                _ => None,
+            });
+            match (parsed, file) {
+                (Some(new), Some(file)) if !new.token.trim().is_empty() => {
+                    fs::write(file, new.token.trim()).expect("write the token file");
+                    restrict_to_owner(file);
+                    SOURCE_ERRORS.lock().unwrap().remove(&new.source);
+                    (
+                        200,
+                        json(&Message {
+                            message: "saved; it is used from the next check",
+                        }),
+                    )
+                }
+                _ => (
+                    400,
+                    json(&Message {
+                        message: "body must name todoist or clickup and carry a token",
+                    }),
+                ),
+            }
+        }
         (Method::Post, "/change") => {
             let mut body = String::new();
             let parsed = request
@@ -197,6 +279,21 @@ fn param<'a>(query: &'a str, name: &str) -> Option<&'a str> {
         .find_map(|pair| pair.strip_prefix(name)?.strip_prefix('='))
 }
 
+#[derive(serde::Deserialize)]
+struct NewToken {
+    source: String,
+    token: String,
+}
+
+#[derive(serde::Deserialize)]
+struct Report {
+    source: String,
+    day: jiff::civil::Date,
+    minutes: u32,
+    #[serde(default)]
+    title: Option<String>,
+}
+
 #[derive(Serialize)]
 struct Message {
     message: &'static str,
@@ -211,6 +308,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         settings: Settings,
         pending: &'a [(Change, Timestamp)],
         today: DaySummary,
+        source_errors: BTreeMap<String, String>,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -224,6 +322,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         settings,
         pending: ledger.pending(now),
         today,
+        source_errors: SOURCE_ERRORS.lock().unwrap().clone(),
     })
 }
 
@@ -271,13 +370,21 @@ fn poll_forever(config: &Config, ledger: &Mutex<Ledger>, state_path: &Path) {
     loop {
         let now = Timestamp::now();
         let mut completions = Vec::new();
-        match poll_todoist(config, now) {
-            Ok(found) => completions.extend(found),
-            Err(error) => eprintln!("todoist: {error}"),
-        }
-        match poll_clickup(config, now) {
-            Ok(found) => completions.extend(found),
-            Err(error) => eprintln!("clickup: {error}"),
+        for (source, polled) in [
+            ("todoist", poll_todoist(config, now)),
+            ("clickup", poll_clickup(config, now)),
+        ] {
+            let outcome = match polled {
+                Ok(found) => {
+                    completions.extend(found);
+                    Ok(())
+                }
+                Err(error) => {
+                    eprintln!("{source}: {error}");
+                    Err(describe_poll_error(error.as_ref()))
+                }
+            };
+            note_poll(source, &outcome);
         }
         if !completions.is_empty() {
             let mut ledger = ledger.lock().unwrap();

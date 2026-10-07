@@ -38,34 +38,8 @@ pub struct Today {
     pub goal_done: u32,
     pub goal_target: u32,
     pub streak_days: u32,
-    pub sources: Vec<SourceProgress>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SourceProgress {
-    pub name: &'static str,
-    pub detail: String,
-    /// 0.0 to 1.0 toward the next Voucher.
-    pub progress: f32,
-    pub color: &'static str,
-    /// True while the Ledger can't measure this source yet; the interface
-    /// tags these rows so sample numbers are never mistaken for real ones.
-    pub sample: bool,
-}
-
-/// The "Toward the next Voucher" rows. Tasks are real; the Focused-time and
-/// exercise sources are samples until the Ledger can measure them.
-fn sources(tasks_today: u32) -> Vec<SourceProgress> {
-    let s = |name, detail: String, progress, color, sample| SourceProgress { name, detail, progress, color, sample };
-    vec![
-        s("Tasks", format!("+1 each · {tasks_today} today"), 1.0, "#5b9cff", false),
-        s("Obsidian", "18 / 30 min".into(), 0.6, "#b08cff", true),
-        s("Workout", "9 / 15 zone min".into(), 0.6, "#ff8a5c", true),
-        s("Readwise Reader", "22 / 30 min".into(), 0.73, "#ffd166", true),
-        s("Moon+ Reader", "9 / 30 min".into(), 0.3, "#e0a82e", true),
-        s("Anki", "6 / 30 min".into(), 0.2, "#ff6fa8", true),
-    ]
+    /// Each source's progress toward its next Voucher, as the Ledger sends it.
+    pub sources: serde_json::Value,
 }
 
 #[tauri::command]

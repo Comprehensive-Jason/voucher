@@ -33,6 +33,69 @@ pub struct Settings {
     /// Vouchers to earn in a Day for it to count toward the Streak.
     #[serde(default = "default_daily_goal")]
     pub daily_goal: u32,
+    /// Every Activity source, by id (`todoist`, `obsidian`, …).
+    #[serde(default = "default_sources")]
+    pub sources: BTreeMap<String, Source>,
+}
+
+/// How one Activity source earns.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Source {
+    pub kind: SourceKind,
+    pub on: bool,
+    /// One Voucher per this many tasks (Tasks) or minutes (Workout, Focus):
+    /// the Earning rate. Bigger is slower, so stricter.
+    pub every: u32,
+    /// The Android apps whose on-screen time counts (Focus only); several
+    /// when an app comes in editions, such as a free and a paid one.
+    #[serde(default)]
+    pub packages: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceKind {
+    /// Finished tasks, polled from an API by the Ledger.
+    Tasks,
+    /// Heart-rate zone minutes, reported by the phone from Health Connect.
+    Workout,
+    /// Minutes an app is on screen and in use, reported by the phone.
+    Focus,
+}
+
+/// The sources a new Ledger starts with.
+pub fn default_sources() -> BTreeMap<String, Source> {
+    let source = |kind, every, packages: &[&str]| Source {
+        kind,
+        on: true,
+        every,
+        packages: packages.iter().map(|p| p.to_string()).collect(),
+    };
+    BTreeMap::from([
+        ("todoist".into(), source(SourceKind::Tasks, 1, &[])),
+        ("clickup".into(), source(SourceKind::Tasks, 1, &[])),
+        ("workout".into(), source(SourceKind::Workout, 15, &[])),
+        (
+            "obsidian".into(),
+            source(SourceKind::Focus, 30, &["md.obsidian"]),
+        ),
+        (
+            "readwise".into(),
+            source(SourceKind::Focus, 30, &["com.readermobile"]),
+        ),
+        (
+            "moonreader".into(),
+            source(
+                SourceKind::Focus,
+                30,
+                &["com.flyersoft.moonreaderp", "com.flyersoft.moonreader"],
+            ),
+        ),
+        (
+            "anki".into(),
+            source(SourceKind::Focus, 30, &["com.ichi2.anki"]),
+        ),
+    ])
 }
 
 pub const DEFAULT_DAILY_GOAL: u32 = 16;
@@ -52,7 +115,7 @@ pub struct Completion {
 }
 
 /// What happened to a batch of earned Vouchers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Credited {
     pub kept: u32,
     /// Lost because the Bank was full.
@@ -84,13 +147,27 @@ pub enum Refusal {
 }
 
 /// A requested change to one setting.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Change {
     UnlockMinutes(u32),
     BankLimit(u32),
-    Curfew { start: Time, end: Time },
+    Curfew {
+        start: Time,
+        end: Time,
+    },
     /// Always waits for the next Day: a Day's goal is fixed once it starts.
     DailyGoal(u32),
+    /// Switches an existing source on or off and sets its Earning rate.
+    Source {
+        id: String,
+        on: bool,
+        every: u32,
+    },
+    /// A new source. Always a Loosening.
+    AddSource {
+        id: String,
+        source: Source,
+    },
 }
 
 /// One line of the log.
@@ -143,6 +220,21 @@ pub struct DaySummary {
     pub by_source: BTreeMap<String, u32>,
     /// This Day's entries, newest first.
     pub log: Vec<Entry>,
+    /// Each source's progress toward its next Voucher this Day.
+    pub sources: Vec<SourceProgress>,
+}
+
+/// One source's standing for a Day.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SourceProgress {
+    pub id: String,
+    pub kind: SourceKind,
+    pub on: bool,
+    pub every: u32,
+    /// Tasks or minutes counted toward the next Voucher.
+    pub progress: u32,
+    /// Vouchers this source earned this Day.
+    pub earned: u32,
 }
 
 /// One Day in the history, for Trends.
@@ -155,7 +247,7 @@ pub struct DayTotal {
 }
 
 /// What one Day earned, and the goal it had.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct DayScore {
     earned: u32,
     goal: u32,
@@ -163,6 +255,12 @@ struct DayScore {
     redeemed: u32,
     #[serde(default)]
     unlocked_minutes: u32,
+    /// Tasks or minutes counted toward each source's next Voucher.
+    #[serde(default)]
+    progress: BTreeMap<String, u32>,
+    /// The last running total of minutes the phone reported, per source.
+    #[serde(default)]
+    reported: BTreeMap<String, u32>,
 }
 
 impl DayScore {
@@ -172,6 +270,8 @@ impl DayScore {
             goal,
             redeemed: 0,
             unlocked_minutes: 0,
+            progress: BTreeMap::new(),
+            reported: BTreeMap::new(),
         }
     }
 }
@@ -286,13 +386,15 @@ impl Ledger {
         }
     }
 
-    /// Credits one Voucher per Completion, but each task earns at most once
-    /// per Day. Re-polling, or ticking a task off, on, and off again, earns
-    /// nothing extra; a recurring habit done again tomorrow earns again.
+    /// Counts finished tasks toward their sources, but each task counts at
+    /// most once per Day. Re-polling, or ticking a task off, on, and off
+    /// again, counts nothing extra; a recurring habit done again tomorrow
+    /// counts again. A source pays one Voucher per `every` tasks; a switched
+    /// off source counts nothing, and its tasks never count later.
     ///
     /// Only today and the two Days before count. Older Completions are
-    /// ignored and forgotten, which keeps the memory of what has earned from
-    /// growing forever without ever letting an old Completion earn twice.
+    /// ignored and forgotten, which keeps the memory of what has counted from
+    /// growing forever without ever letting an old Completion count twice.
     pub fn record(&mut self, completions: &[Completion], now: Timestamp) -> Credited {
         self.settle(now);
         let today = day_of(&self.state.settings, now);
@@ -308,6 +410,95 @@ impl Ledger {
             if !counts || !self.state.earned.insert((completion.task.clone(), day)) {
                 continue;
             }
+            let source = source_of(&completion.task).to_string();
+            let paid = self.count(&source, day, 1, completion.at, now, |_| {
+                (completion.task.clone(), completion.title.clone())
+            });
+            credited.kept += paid.kept;
+            credited.forfeited += paid.forfeited;
+        }
+        self.forget_old_entries(today);
+        credited
+    }
+
+    /// Takes the phone's running total of minutes for a Workout or Focus
+    /// source on `day`, and pays one Voucher per `every` new minutes. Sending
+    /// the same total again pays nothing. Only today and yesterday (for a
+    /// report sent just after the Day turned) are accepted. `title` names
+    /// the session for the log, such as a workout's name.
+    pub fn report(
+        &mut self,
+        source: &str,
+        day: Date,
+        minutes: u32,
+        title: Option<&str>,
+        now: Timestamp,
+    ) -> Credited {
+        self.settle(now);
+        let nothing = Credited {
+            kept: 0,
+            forfeited: 0,
+        };
+        let today = day_of(&self.state.settings, now);
+        let fresh_day = day == today || Some(day) == today.yesterday().ok();
+        let Some(kind) = self.state.settings.sources.get(source).map(|s| s.kind) else {
+            return nothing;
+        };
+        if !fresh_day || kind == SourceKind::Tasks {
+            return nothing;
+        }
+        let goal = self.state.settings.daily_goal;
+        let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
+        let before = score
+            .reported
+            .insert(source.to_string(), minutes)
+            .unwrap_or(0);
+        if minutes <= before {
+            score.reported.insert(source.to_string(), before);
+            return nothing;
+        }
+        let paid = self.count(source, day, minutes - before, now, now, |n| {
+            let label = match (title, kind) {
+                (Some(title), _) => title.to_string(),
+                (None, SourceKind::Workout) => format!("{n} zone min"),
+                (None, _) => format!("{n} min focused"),
+            };
+            (format!("{source}:{day}#{}", now.as_second()), label)
+        });
+        self.forget_old_entries(today);
+        paid
+    }
+
+    /// Adds `units` (tasks or minutes) to a source's progress on `day`,
+    /// paying a Voucher each time it reaches the source's `every`. Each
+    /// Voucher is logged under the name `entry` gives it.
+    fn count(
+        &mut self,
+        source: &str,
+        day: Date,
+        units: u32,
+        at: Timestamp,
+        now: Timestamp,
+        entry: impl Fn(u32) -> (String, String),
+    ) -> Credited {
+        let mut credited = Credited {
+            kept: 0,
+            forfeited: 0,
+        };
+        let Some(config) = self.state.settings.sources.get(source).cloned() else {
+            return credited;
+        };
+        if !config.on {
+            return credited;
+        }
+        let every = config.every.max(1);
+        let goal = self.state.settings.daily_goal;
+        let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
+        let progress = score.progress.entry(source.to_string()).or_insert(0);
+        *progress += units;
+        let vouchers = *progress / every;
+        *progress %= every;
+        for _ in 0..vouchers {
             // One at a time, so the log can say which ones the full Bank lost.
             let kept = self.credit(1, now).kept == 1;
             if kept {
@@ -315,20 +506,15 @@ impl Ledger {
             } else {
                 credited.forfeited += 1;
             }
-            let goal = self.state.settings.daily_goal;
-            self.state
-                .days
-                .entry(day)
-                .or_insert(DayScore::new(goal))
-                .earned += 1;
+            self.state.days.get_mut(&day).expect("created above").earned += 1;
+            let (task, title) = entry(every);
             self.state.log.push(Entry::Earned {
-                at: completion.at,
-                task: completion.task.clone(),
-                title: completion.title.clone(),
+                at,
+                task,
+                title,
                 kept,
             });
         }
-        self.forget_old_entries(today);
         credited
     }
 
@@ -423,10 +609,14 @@ impl Ledger {
             .state
             .days
             .get(&day)
-            .copied()
+            .cloned()
             // Today's goal is the one in force; a Day that earned nothing never stored one.
             .unwrap_or(DayScore::new(settings.daily_goal));
-        let goal = if is_today { settings.daily_goal } else { score.goal };
+        let goal = if is_today {
+            settings.daily_goal
+        } else {
+            score.goal
+        };
         let goal_met = score.earned >= goal;
         let before = self.streak_ending(day.yesterday().expect("not the year -9999"));
         let streak = match (goal_met, is_today) {
@@ -450,16 +640,29 @@ impl Ledger {
         let mut goal_met_at = None;
         for entry in log.iter().rev() {
             if let Entry::Earned { task, at, .. } = entry {
-                let source = task.split_once(':').map_or(task.as_str(), |(s, _)| s);
-                *by_source.entry(source.to_string()).or_insert(0) += 1;
+                *by_source.entry(source_of(task).to_string()).or_insert(0) += 1;
                 so_far += 1;
                 if so_far == goal && goal > 0 {
                     goal_met_at = Some(*at);
                 }
             }
         }
+        let sources = settings
+            .sources
+            .iter()
+            .map(|(id, source)| SourceProgress {
+                id: id.clone(),
+                kind: source.kind,
+                on: source.on,
+                every: source.every,
+                progress: score.progress.get(id).copied().unwrap_or(0),
+                // Task sources share their earnings through their own prefix.
+                earned: by_source.get(id).copied().unwrap_or(0),
+            })
+            .collect();
         DaySummary {
             day,
+            sources,
             earned: score.earned,
             redeemed: score.redeemed,
             unlocked_minutes: score.unlocked_minutes,
@@ -481,18 +684,19 @@ impl Ledger {
             .rev()
             .map(|back| {
                 let day = days_before(today, back);
-                let score = self.state.days.get(&day).copied();
+                let score = self.state.days.get(&day);
                 let goal = if back == 0 {
                     goal_today
                 } else {
                     score.map_or(goal_today, |s| s.goal)
                 };
-                let score = score.unwrap_or(DayScore::new(goal));
+                let earned = score.map_or(0, |s| s.earned);
+                let redeemed = score.map_or(0, |s| s.redeemed);
                 DayTotal {
                     day,
-                    earned: score.earned,
-                    redeemed: score.redeemed,
-                    goal_met: score.earned >= goal,
+                    earned,
+                    redeemed,
+                    goal_met: earned >= goal,
                 }
             })
             .collect()
@@ -573,23 +777,23 @@ impl Ledger {
             self.state.pending.push((change, effective_at));
             return Effect::At(effective_at);
         }
-        if self.loosens(change) {
+        if self.loosens(&change) {
             let effective_at = self.next_local(now, self.state.settings.morning_boundary);
             self.state.pending.push((change, effective_at));
             Effect::At(effective_at)
         } else {
             // Whatever is queued for this setting would undo this decision.
-            self.state.pending.retain(|(queued, _)| {
-                std::mem::discriminant(queued) != std::mem::discriminant(&change)
-            });
+            self.state
+                .pending
+                .retain(|(queued, _)| !same_setting(queued, &change));
             self.apply(change);
             Effect::Now
         }
     }
 
     /// Whether a change would increase access compared with current settings.
-    fn loosens(&self, change: Change) -> bool {
-        match change {
+    fn loosens(&self, change: &Change) -> bool {
+        match *change {
             Change::UnlockMinutes(minutes) => minutes > self.state.settings.unlock_minutes,
             Change::BankLimit(limit) => limit > self.state.settings.bank_limit,
             Change::Curfew { start, end } => {
@@ -601,6 +805,12 @@ impl Ledger {
                 from_noon(start) > from_noon(old_start) || from_noon(end) < from_noon(old_end)
             }
             Change::DailyGoal(goal) => goal < self.state.settings.daily_goal,
+            Change::Source { ref id, on, every } => match self.state.settings.sources.get(id) {
+                // Switching on, or earning faster, frees time.
+                Some(old) => on && (!old.on || every < old.every),
+                None => false,
+            },
+            Change::AddSource { .. } => true,
         }
     }
 
@@ -614,6 +824,15 @@ impl Ledger {
                 self.state.settings.curfew_end = end;
             }
             Change::DailyGoal(goal) => self.state.settings.daily_goal = goal,
+            Change::Source { id, on, every } => {
+                if let Some(source) = self.state.settings.sources.get_mut(&id) {
+                    source.on = on;
+                    source.every = every.max(1);
+                }
+            }
+            Change::AddSource { id, source } => {
+                self.state.settings.sources.entry(id).or_insert(source);
+            }
         }
     }
 
@@ -638,6 +857,19 @@ impl Ledger {
         for (change, _) in due {
             self.apply(change);
         }
+    }
+}
+
+/// The source an earning came from: the prefix of `todoist:123`.
+fn source_of(task: &str) -> &str {
+    task.split_once(':').map_or(task, |(source, _)| source)
+}
+
+/// Whether two changes set the same thing, so one replaces the other.
+fn same_setting(a: &Change, b: &Change) -> bool {
+    match (a, b) {
+        (Change::Source { id: x, .. }, Change::Source { id: y, .. }) => x == y,
+        _ => std::mem::discriminant(a) == std::mem::discriminant(b),
     }
 }
 
