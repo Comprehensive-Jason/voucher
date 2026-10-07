@@ -4,3 +4,7 @@
 *.key
 *.pem
 secrets/
+
+# Throwaway work lives on spike/* and prototype/* branches; build leftovers stay out of main.
+/spikes/
+/prototypes/
