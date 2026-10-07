@@ -246,38 +246,20 @@ fn report_focus_forever(app: AppHandle) {
     }
 }
 
+/// Seconds each program (lowercased file name) was in front, while the
+/// user was not away, since the current Day began. None without ActivityWatch.
+fn minutes_by_app(app: &AppHandle) -> Option<Vec<(String, f64)>> {
+    let connection = crate::connection::load(app)?;
+    let status = get_json(&format!("{}/status", connection.url))?;
+    activitywatch_since_day_start(&status)
+}
+
 fn report_focus(app: &AppHandle) -> Option<()> {
     let connection = crate::connection::load(app)?;
     let status = get_json(&format!("{}/status", connection.url))?;
     let settings = &status["settings"];
     let day = status["today"]["day"].as_str()?.to_string();
-    let zone = jiff::tz::TimeZone::get(settings["time_zone"].as_str()?).ok()?;
-    let end: jiff::civil::Time = settings["curfew_end"].as_str()?.parse().ok()?;
-    let start = day.parse::<jiff::civil::Date>().ok()?.to_datetime(end).to_zoned(zone).ok()?;
-    let period = format!("{}/{}", start.timestamp(), jiff::Timestamp::now());
-    let query = json!({
-        "timeperiods": [period],
-        "query": [
-            "afk = flood(query_bucket(find_bucket(\"aw-watcher-afk_\")));",
-            "window = flood(query_bucket(find_bucket(\"aw-watcher-window_\")));",
-            "window = filter_period_intersect(window, filter_keyvals(afk, \"status\", [\"not-afk\"]));",
-            "RETURN = merge_events_by_keys(window, [\"app\"]);"
-        ]
-    });
-    let text = agent()
-        .post(format!("{ACTIVITYWATCH}/api/0/query/"))
-        .header("Content-Type", "application/json")
-        .send(query.to_string())
-        .ok()?
-        .body_mut()
-        .read_to_string()
-        .ok()?;
-    let result: Value = serde_json::from_str(&text).ok()?;
-    let seconds_by_app: Vec<(String, f64)> = result[0]
-        .as_array()?
-        .iter()
-        .filter_map(|e| Some((e["data"]["app"].as_str()?.to_lowercase(), e["duration"].as_f64()?)))
-        .collect();
+    let seconds_by_app = activitywatch_since_day_start(&status)?;
     let device = device_id();
     for (id, source) in settings["sources"].as_object()? {
         if source["kind"] != "focus" || source["on"] != true {
@@ -302,6 +284,40 @@ fn report_focus(app: &AppHandle) -> Option<()> {
     Some(())
 }
 
+fn activitywatch_since_day_start(status: &Value) -> Option<Vec<(String, f64)>> {
+    let settings = &status["settings"];
+    let day = status["today"]["day"].as_str()?.to_string();
+    let zone = jiff::tz::TimeZone::get(settings["time_zone"].as_str()?).ok()?;
+    let end: jiff::civil::Time = settings["curfew_end"].as_str()?.parse().ok()?;
+    let start = day.parse::<jiff::civil::Date>().ok()?.to_datetime(end).to_zoned(zone).ok()?;
+    let period = format!("{}/{}", start.timestamp(), jiff::Timestamp::now());
+    let query = json!({
+        "timeperiods": [period],
+        "query": [
+            "afk = flood(query_bucket(find_bucket(\"aw-watcher-afk_\")));",
+            "window = flood(query_bucket(find_bucket(\"aw-watcher-window_\")));",
+            "window = filter_period_intersect(window, filter_keyvals(afk, \"status\", [\"not-afk\"]));",
+            "RETURN = merge_events_by_keys(window, [\"app\"]);"
+        ]
+    });
+    let text = agent()
+        .post(format!("{ACTIVITYWATCH}/api/0/query/"))
+        .header("Content-Type", "application/json")
+        .send(query.to_string())
+        .ok()?
+        .body_mut()
+        .read_to_string()
+        .ok()?;
+    let result: Value = serde_json::from_str(&text).ok()?;
+    Some(
+        result[0]
+            .as_array()?
+            .iter()
+            .filter_map(|e| Some((e["data"]["app"].as_str()?.to_lowercase(), e["duration"].as_f64()?)))
+            .collect(),
+    )
+}
+
 pub fn device_id() -> String {
     std::env::var("COMPUTERNAME").unwrap_or_else(|_| "windows".into())
 }
@@ -319,7 +335,7 @@ pub fn device(app: &AppHandle, command: &str, args: &Value) -> Result<Value, Str
             })
         }
         "deviceId" => json!(device_id()),
-        "usage" => usage(),
+        "usage" => usage(app),
         "apps" => running_programs(),
         "pendingRoute" => Value::Null,
         "openSettings" => {
@@ -365,10 +381,41 @@ pub fn device(app: &AppHandle, command: &str, args: &Value) -> Result<Value, Str
     })
 }
 
-/// Today's Distraction minutes from ActivityWatch, and the guard's closes.
-fn usage() -> Value {
-    let measured = get_json(&format!("{ACTIVITYWATCH}/api/0/info")).is_some();
-    json!({ "measured": measured, "apps": [], "blockedOpens": 0, "closedWithoutTearing": 0, "attempts": [] })
+/// Today's Distraction minutes from ActivityWatch, and how often the guard
+/// closed each program.
+fn usage(app: &AppHandle) -> Value {
+    let guard = guard_state().unwrap_or(Value::Null);
+    let mut attempts: Vec<(String, u64)> = guard["closes"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(label, n)| (label.clone(), n.as_u64().unwrap_or(0)))
+        .collect();
+    attempts.sort_by_key(|a| std::cmp::Reverse(a.1));
+    let opens: u64 = attempts.iter().map(|(_, n)| n).sum();
+    let programs: Vec<String> = guard["decision"]["programs"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|p| p.as_str().map(String::from))
+        .collect();
+    let minutes = minutes_by_app(app).map(|by_app| {
+        let mut apps: Vec<(String, u32)> = by_app
+            .into_iter()
+            .filter(|(app, _)| programs.contains(app))
+            .map(|(app, seconds)| (app.trim_end_matches(".exe").to_string(), (seconds / 60.0) as u32))
+            .filter(|(_, m)| *m > 0)
+            .collect();
+        apps.sort_by_key(|a| std::cmp::Reverse(a.1));
+        apps
+    });
+    json!({
+        "measured": minutes.is_some(),
+        "apps": minutes.unwrap_or_default().into_iter().map(|(label, minutes)| json!({ "label": label, "minutes": minutes })).collect::<Vec<_>>(),
+        "blockedOpens": opens,
+        "closedWithoutTearing": 0,
+        "attempts": attempts.into_iter().map(|(label, count)| json!({ "label": label, "count": count })).collect::<Vec<_>>(),
+    })
 }
 
 /// Programs running now, for adding to a blocklist or a source.

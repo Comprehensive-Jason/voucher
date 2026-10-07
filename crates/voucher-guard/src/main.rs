@@ -53,6 +53,9 @@ struct State {
     last_closed: Option<Closed>,
     /// When the guard last heard from the Ledger, Unix seconds.
     ledger_seen: Option<i64>,
+    /// The Ledger's current Day, and how many times each program was closed in it.
+    day: String,
+    closes: std::collections::BTreeMap<String, u32>,
 }
 
 fn data_dir() -> PathBuf {
@@ -140,13 +143,25 @@ pub fn run(stop: Arc<Mutex<bool>>) {
             if !d.allowed
                 && let Some(closed) = close_distractions(&mut system, d)
             {
-                state.lock().unwrap().last_closed = Some(closed);
+                let mut s = state.lock().unwrap();
+                *s.closes.entry(closed.label.clone()).or_insert(0) += 1;
+                s.last_closed = Some(closed);
             }
             #[cfg(windows)]
             windows::write_policies(&voucher_guard::policies(d));
         }
         {
             let mut s = state.lock().unwrap();
+            // A new Day starts the counts again.
+            let day = status
+                .as_ref()
+                .and_then(|st| st["today"]["day"].as_str())
+                .unwrap_or_default()
+                .to_string();
+            if !day.is_empty() && day != s.day {
+                s.day = day;
+                s.closes.clear();
+            }
             s.connected = connection.is_some();
             s.decision = decision;
             if fresh.is_some() {
