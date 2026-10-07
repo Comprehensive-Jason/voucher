@@ -18,17 +18,19 @@
   <h2>Turn on app blocking</h2>
   <p class="body">This is done once per device, from a computer with ADB, in about 20 minutes. Nothing is erased.</p>
   <ol>
-    <li><b>Turn on USB debugging.</b> Settings, About phone, Software information: tap Build number 7 times. Then Developer options, USB debugging. On Samsung, turn off Auto Blocker first.</li>
+    <li><b>Turn on USB debugging.</b> Settings, About phone, Software information: tap Build number 7 times. Then Developer options, USB debugging. On Samsung, turn off Auto Blocker first. Don't remove the screen lock: that deletes wallet cards.</li>
     <li><b>Check for extra users.</b> Run <code>adb shell pm list users</code>. Only user 0 may be listed: delete Secure Folder, Dual Messenger, and any work profile or private space first.</li>
-    <li><b>List the accounts.</b> Run <code>adb shell dumpsys account | grep "Account &#123;"</code>.</li>
-    <li><b>Freeze, don't sign out.</b> For each account's app, run <code>adb shell pm disable-user --user 0 &lt;package&gt;</code> (Google: com.google.android.gms is not frozen; remove the Google account in Settings, Accounts instead and add it back after). Wait 10 seconds.</li>
+    <li><b>Find the apps that hold accounts.</b> Run <code>adb shell dumpsys account | grep -E "Account &#123;|AuthenticatorDescription"</code>. Google accounts live in com.google.android.gms; the Samsung account in com.osp.app.signin.</li>
+    <li><b>Freeze them, don't sign out.</b> For each, run <code>adb shell pm disable-user --user 0 &lt;package&gt;</code>. The accounts are hidden, not removed.</li>
+    <li><b>Reboot</b> with them still frozen. Android only recounts accounts at boot, so without this the next step is refused.</li>
     <li><b>Make Voucher Device Owner.</b> Run:
       <button class="cmd mono" onclick={() => copy(DEVICE_OWNER_COMMAND)}>{DEVICE_OWNER_COMMAND}</button>
       {#if copied}<span class="copied">Copied</span>{/if}
     </li>
-    <li><b>Thaw and sign back in.</b> Run <code>adb shell pm enable &lt;package&gt;</code> for each app you froze, and add back any account you removed.</li>
-    <li><b>Turn USB debugging off</b>, so ADB can't be used to undo blocking.</li>
+    <li><b>Unfreeze</b> each app: <code>adb shell pm enable &lt;package&gt;</code>. Your accounts come back as they were.</li>
+    <li><b>Turn USB debugging off</b> if you don't use it.</li>
   </ol>
+  <p class="body">If an app refuses to freeze, sign out of that account in Settings instead and back in after step 6. That costs more: wallets drop their payment cards, which need re-adding with your bank.</p>
   <p class="body">While Voucher is Device Owner, Secure Folder, Samsung Pass, Smart Switch, and Samsung Kids don't work. Releasing it from Rules waits for 06:00 like any Loosening.</p>
   <button class="primary" onclick={onclose}>Done</button>
 </Sheet>

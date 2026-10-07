@@ -4,7 +4,7 @@ The Android Enforcer is set as Device Owner once over ADB and blocks apps by sus
 
 ## Consequences
 
-- No factory reset is needed: over ADB, Android only requires that no accounts and no other users or profiles exist at that moment. Setup freezes the apps that hold accounts (`pm disable-user`) instead of signing out, because signing out of a Samsung account deletes Samsung Wallet cards, then thaws them. Secure Folder, Dual Messenger, and app clones must be deleted first.
+- No factory reset is needed: over ADB, Android only requires that no accounts and no other users or profiles exist at that moment. Setup freezes the apps that hold accounts (`pm disable-user`) instead of signing out, because signing out of a Samsung account deletes Samsung Wallet cards, then reboots before setting Device Owner (Android recounts accounts only at boot or when one is added or removed; tested on an emulator, 2026-10-07, with a fake account: refused after freezing, accepted after the reboot, account intact after unfreezing), then thaws them. Secure Folder, Dual Messenger, and app clones must be deleted first.
 - While Voucher is Device Owner, Secure Folder, Samsung Pass, Smart Switch, and Samsung Kids stop working. Samsung Wallet is unverified, so the tablet is set up before the phone.
 - A factory reset from recovery mode is the one exit that cannot be blocked; that is accepted.
 - Debugging stays on by choice (2026-10-07). ADB cannot lift Device Owner suspensions (`pm unsuspend` is refused, checked on an emulator), so the remaining ADB exits are small. Updates install as signed APKs.

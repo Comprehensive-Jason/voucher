@@ -30,12 +30,15 @@ Voucher needs Android 13 or later, a Ledger reachable over Tailscale, and a comp
 
 1. Install the APK and open Voucher. Setup starts by itself.
 2. **Connect to your Ledger.** Enter its address (`http://<tailscale-ip>:8787`). Voucher fetches the Ledger's public key; check that its first characters match the start of the Ledger's `public.key`.
-3. **App blocking (Device Owner).** Android allows this only while no accounts and no other users exist, but nothing is erased:
-   1. Turn on USB debugging. On Samsung, turn off Auto Blocker first.
+3. **App blocking (Device Owner).** Android allows this only while no accounts and no other users exist, but nothing is erased. Freezing the apps that hold accounts hides the accounts without signing out; tested on an emulator, they come back unchanged when unfrozen.
+   1. Turn on USB debugging. On Samsung, turn off Auto Blocker first. Don't remove the screen lock: that deletes wallet cards.
    2. `adb shell pm list users` must list only user 0. Delete Secure Folder, Dual Messenger, and any work profile or private space first.
-   3. `adb shell dumpsys account | grep "Account {"` lists the accounts. Freeze each account's app with `adb shell pm disable-user --user 0 <package>`; remove a Google account in Settings instead. Don't sign out of a Samsung account: that deletes Samsung Wallet cards. Wait ten seconds.
-   4. `adb shell dpm set-device-owner io.github.comprehensivejason.voucher/.VoucherAdminReceiver`
-   5. `adb shell pm enable <package>` for each app you froze, and add back any account you removed.
+   3. `adb shell dumpsys account | grep -E "Account \{|AuthenticatorDescription"` lists the accounts and, for each account type, the app that holds it (Google accounts: `com.google.android.gms`; Samsung account: `com.osp.app.signin`).
+   4. Freeze each of those apps: `adb shell pm disable-user --user 0 <package>`.
+   5. Reboot with them still frozen. Android only recounts accounts at boot or when one is added or removed, so without the reboot the next command is refused.
+   6. `adb shell dpm set-device-owner io.github.comprehensivejason.voucher/.VoucherAdminReceiver`
+   7. Unfreeze every app you froze: `adb shell pm enable <package>`.
+   If an app refuses to freeze, sign out of that account in Settings instead and sign back in after step 6. Signing out costs more: Google and Samsung wallets drop their payment cards, which then need re-adding and bank verification.
 4. **Usage access** and the **blocked-app screen** (an accessibility service) are switched on from Setup's buttons. Health Connect is optional, for the Workout source.
 5. Pick sources, blocklists, and starting limits. Until "Start Voucher", changes apply at once; after it, anything that loosens a rule waits for 06:00.
 
