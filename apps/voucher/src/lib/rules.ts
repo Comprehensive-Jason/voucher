@@ -14,6 +14,18 @@ export function describe([change]: Pending, s: Settings): string {
     case "BankLimit": return `Bank limit ${s.bank_limit} to ${v}`;
     case "DailyGoal": return `Daily goal ${s.daily_goal} to ${v}`;
     case "Curfew": return `Curfew becomes ${hhmm(v.start)} to ${hhmm(v.end)}`;
+    case "Source": return v.on ? `${v.id}: 1 Voucher per ${v.every}` : `${v.id} off`;
+    case "AddSource": return `Add ${v.id} as a source`;
+    case "SourceApps": return `${v.id} counts ${v.packages.length} app${v.packages.length === 1 ? "" : "s"}`;
+    case "MaxHeartRate": return `Maximum heart rate ${v}`;
+    case "BlocklistOn": return `${s.blocklists[v.id]?.name ?? v.id} blocklist off`;
+    case "BlockApp": return `${v.app.label} off in ${s.blocklists[v.list]?.name ?? v.list}`;
+    case "BlockSite": return `${v.site.site} off in ${s.blocklists[v.list]?.name ?? v.list}`;
+    case "RemoveApp": return `Remove ${v.package.replace(/^win:/, "")} from ${s.blocklists[v.list]?.name ?? v.list}`;
+    case "RemoveSite": return `Remove ${v.site} from ${s.blocklists[v.list]?.name ?? v.list}`;
+    case "ResetBlocklist": return `Reset ${s.blocklists[v]?.name ?? v}`;
+    case "DeleteBlocklist": return `Delete ${s.blocklists[v]?.name ?? v}`;
+    case "ReleaseDevice": return `Release ${v}`;
     default: return kind;
   }
 }

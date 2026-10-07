@@ -232,7 +232,14 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
             match parsed {
                 Some(r) => (
                     200,
-                    json(&ledger.report(&r.source, r.day, r.minutes, r.title.as_deref(), now)),
+                    json(&ledger.report_from(
+                        r.device.as_deref().unwrap_or(""),
+                        &r.source,
+                        r.day,
+                        r.minutes,
+                        r.title.as_deref(),
+                        now,
+                    )),
                 ),
                 None => (
                     400,
@@ -302,6 +309,19 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 ),
             }
         }
+        // An Enforcer saying it is running: `?device=`. Silences become Gaps.
+        (Method::Post, "/check-in") => match param(query, "device") {
+            Some(device) if !device.is_empty() => {
+                ledger.check_in(device, now);
+                (200, json(&Message { message: "seen" }))
+            }
+            _ => (
+                400,
+                json(&Message {
+                    message: "device is missing",
+                }),
+            ),
+        },
         // The public key, for a device connecting for the first time.
         (Method::Get, "/key") => (200, json(&ledger.public_key())),
         (Method::Post, "/change") => {
@@ -366,6 +386,9 @@ struct NewToken {
 
 #[derive(serde::Deserialize)]
 struct Report {
+    /// Which device measured this; each keeps its own running total.
+    #[serde(default)]
+    device: Option<String>,
     source: String,
     day: jiff::civil::Date,
     minutes: u32,
@@ -391,6 +414,8 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         /// What Enforcers block outside an Unlock.
         blocked: voucher_ledger::Blocked,
         setup_complete: bool,
+        /// When each Enforcer last checked in.
+        last_seen: BTreeMap<String, Timestamp>,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -412,6 +437,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     }
     drop(lists);
     let setup_complete = ledger.setup_complete();
+    let last_seen = ledger.last_seen().clone();
     json(&Status {
         bank,
         curfew_active,
@@ -422,6 +448,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         source_errors: SOURCE_ERRORS.lock().unwrap().clone(),
         blocked,
         setup_complete,
+        last_seen,
     })
 }
 

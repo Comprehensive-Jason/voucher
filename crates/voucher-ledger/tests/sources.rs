@@ -162,3 +162,72 @@ fn a_workout_report_carries_its_session_name_into_the_log() {
         matches!(&today.log[0], voucher_ledger::Entry::Earned { title, .. } if title == "Fitbod upper body")
     );
 }
+
+#[test]
+fn each_device_reports_its_own_running_total_and_they_add_up() {
+    let mut ledger = fresh();
+    let day = "2026-10-07".parse().unwrap();
+
+    ledger.report_from(
+        "phone",
+        "obsidian",
+        day,
+        20,
+        None,
+        at("2026-10-07T10:00-07:00"),
+    );
+    ledger.report_from(
+        "laptop",
+        "obsidian",
+        day,
+        15,
+        None,
+        at("2026-10-07T10:05-07:00"),
+    );
+    ledger.report_from(
+        "phone",
+        "obsidian",
+        day,
+        25,
+        None,
+        at("2026-10-07T11:00-07:00"),
+    );
+
+    // 25 + 15 = 40 minutes: one Voucher at 30, 10 toward the next.
+    let today = ledger.today(at("2026-10-07T11:05-07:00"));
+    let obsidian = today.sources.iter().find(|s| s.id == "obsidian").unwrap();
+    assert_eq!((obsidian.earned, obsidian.progress), (1, 10));
+}
+
+#[test]
+fn adding_an_app_to_a_source_waits_for_morning_and_removing_one_applies_now() {
+    let mut ledger = fresh();
+    let more = vec!["md.obsidian".to_string(), "win:Obsidian.exe".to_string(), "win:ObsidianPortable.exe".to_string()];
+
+    let effect = ledger.request(
+        Change::SourceApps {
+            id: "obsidian".into(),
+            packages: more.clone(),
+        },
+        at("2026-10-07T10:00-07:00"),
+    );
+    assert!(matches!(effect, Effect::At(_)));
+    assert_eq!(
+        ledger.settings(at("2026-10-08T06:00-07:00")).sources["obsidian"].packages,
+        more
+    );
+
+    let fewer = vec!["win:Obsidian.exe".to_string()];
+    let effect = ledger.request(
+        Change::SourceApps {
+            id: "obsidian".into(),
+            packages: fewer.clone(),
+        },
+        at("2026-10-08T07:00-07:00"),
+    );
+    assert_eq!(effect, Effect::Now);
+    assert_eq!(
+        ledger.settings(at("2026-10-08T07:00-07:00")).sources["obsidian"].packages,
+        fewer
+    );
+}

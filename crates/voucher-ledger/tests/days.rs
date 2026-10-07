@@ -191,3 +191,31 @@ fn history_lists_each_day_oldest_first_including_empty_ones() {
         ]
     );
 }
+
+#[test]
+fn an_enforcer_that_stops_checking_in_leaves_a_gap_in_the_log() {
+    let mut ledger = fresh();
+    ledger.check_in("laptop", at("2026-10-07T09:00-07:00"));
+    ledger.check_in("laptop", at("2026-10-07T09:01-07:00"));
+    ledger.check_in("laptop", at("2026-10-07T09:40-07:00"));
+
+    let log = ledger.today(at("2026-10-07T10:00-07:00")).log;
+
+    assert_eq!(
+        log,
+        vec![Entry::Gap {
+            at: at("2026-10-07T09:01-07:00"),
+            device: "laptop".into(),
+            until: at("2026-10-07T09:40-07:00"),
+        }]
+    );
+}
+
+#[test]
+fn a_short_pause_between_check_ins_is_not_a_gap() {
+    let mut ledger = fresh();
+    ledger.check_in("laptop", at("2026-10-07T09:00-07:00"));
+    ledger.check_in("laptop", at("2026-10-07T09:08-07:00"));
+
+    assert!(ledger.today(at("2026-10-07T10:00-07:00")).log.is_empty());
+}

@@ -52,7 +52,9 @@ export function modeOf(t: Today, nowSeconds: number): Mode {
 /** One line of the Ledger's log. */
 export type Entry =
   | { kind: "earned"; at: string; task: string; title: string; kept: boolean }
-  | { kind: "redeemed"; at: string; tickets: number; minutes: number };
+  | { kind: "redeemed"; at: string; tickets: number; minutes: number }
+  /** An Enforcer stopped checking in from `at` until `until`. */
+  | { kind: "gap"; at: string; device: string; until: string };
 
 /** One Day's score and log, from the Ledger's `GET /day`. */
 export interface DaySummary {

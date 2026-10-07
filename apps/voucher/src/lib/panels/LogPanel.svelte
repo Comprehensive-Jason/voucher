@@ -38,6 +38,10 @@
           ? `${s.name}, ${e.title}` : e.title || "A task";
         out.push({ time: clock(e.at, timeZone), title, source: e.kept ? s.name : `${s.name} · Bank full, lost`,
           color: s.color, value: e.kept ? "+1" : "+0", tone: e.kept ? "earn" : "lost" });
+      } else if (e.kind === "gap") {
+        const mins = Math.round((new Date(e.until).getTime() - new Date(e.at).getTime()) / 60000);
+        out.push({ time: clock(e.at, timeZone), title: `Voucher was off for ${mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`}`,
+          source: e.device, color: "#ff8a7a", value: "", tone: "lost" });
       } else {
         out.push({ time: clock(e.at, timeZone), title: `Redeemed ${e.tickets}, ${e.minutes} min`, source: "All distractions",
           color: "var(--ink)", value: `−${e.tickets}`, tone: "spend" });

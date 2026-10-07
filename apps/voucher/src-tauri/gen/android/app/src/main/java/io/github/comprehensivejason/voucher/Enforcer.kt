@@ -70,7 +70,11 @@ object Enforcer {
         if (isOwner(ctx)) {
             if (released) release(ctx) else apply(ctx, decision)
         }
-        if (connection != null && status != null && fresh != null) report(ctx, connection, status, zone, end, day)
+        if (connection != null && status != null && fresh != null) {
+            report(ctx, connection, status, zone, end, day)
+            // Silences between check-ins show in the Log as Gaps.
+            runCatching { LedgerClient.post(connection, "/check-in?device=${android.net.Uri.encode(Store.deviceId(ctx))}") }
+        }
         Moments.check(ctx, decision)
         Surfaces.refresh(ctx, decision)
         return decision
@@ -161,6 +165,7 @@ object Enforcer {
             Health.since(ctx, java.time.Instant.ofEpochMilli(dayStart), maxHeartRate)?.let { w ->
                 if (w.zoneMinutes > Store.reported(ctx, "workout", day)) {
                     val body = JSONObject().put("source", "workout").put("day", day).put("minutes", w.zoneMinutes)
+                        .put("device", Store.deviceId(ctx))
                     w.title?.let { body.put("title", it) }
                     if (runCatching { LedgerClient.post(c, "/report", body) }.getOrNull() == 200) Store.setReported(ctx, "workout", day, w.zoneMinutes)
                 }
@@ -177,6 +182,7 @@ object Enforcer {
             val total = packages.sumOf { minutes[it] ?: 0 }
             if (total <= Store.reported(ctx, id, day)) continue
             val body = JSONObject().put("source", id).put("day", day).put("minutes", total)
+                .put("device", Store.deviceId(ctx))
             if (runCatching { LedgerClient.post(c, "/report", body) }.getOrNull() == 200) Store.setReported(ctx, id, day, total)
         }
     }

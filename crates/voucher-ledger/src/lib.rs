@@ -145,11 +145,19 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
         "games" => (
             "Games",
             "#7d8cff",
-            vec![app(
-                "category:game",
-                "Every game",
-                Some("Apps marked as games"),
-            )],
+            vec![
+                app("category:game", "Every game", Some("Apps marked as games")),
+                // Windows: launchers, since games start from them.
+                app("win:steam.exe", "Steam", Some("Windows")),
+                app(
+                    "win:EpicGamesLauncher.exe",
+                    "Epic Games Launcher",
+                    Some("Windows"),
+                ),
+                app("win:GalaxyClient.exe", "GOG Galaxy", Some("Windows")),
+                app("win:Battle.net.exe", "Battle.net", Some("Windows")),
+                app("win:EADesktop.exe", "EA app", Some("Windows")),
+            ],
             vec![],
         ),
         // Browsers that ignore the site blocklist would get around it, so
@@ -188,6 +196,11 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
                     "Edge",
                     Some("Ignores the site blocklist"),
                 ),
+                // Windows: Chrome, Brave, Edge, and Firefox all read policy; these don't.
+                app("win:opera.exe", "Opera", Some("Windows")),
+                app("win:vivaldi.exe", "Vivaldi", Some("Windows")),
+                app("win:waterfox.exe", "Waterfox", Some("Windows")),
+                app("win:librewolf.exe", "LibreWolf", Some("Windows")),
             ],
             vec![],
         ),
@@ -253,7 +266,7 @@ pub fn default_sources() -> BTreeMap<String, Source> {
         ("workout".into(), source(SourceKind::Workout, 15, &[])),
         (
             "obsidian".into(),
-            source(SourceKind::Focus, 30, &["md.obsidian"]),
+            source(SourceKind::Focus, 30, &["md.obsidian", "win:Obsidian.exe"]),
         ),
         (
             "readwise".into(),
@@ -269,7 +282,7 @@ pub fn default_sources() -> BTreeMap<String, Source> {
         ),
         (
             "anki".into(),
-            source(SourceKind::Focus, 30, &["com.ichi2.anki"]),
+            source(SourceKind::Focus, 30, &["com.ichi2.anki", "win:anki.exe"]),
         ),
     ])
 }
@@ -378,6 +391,12 @@ pub enum Change {
     /// Puts a premade blocklist back to its shipped entries.
     ResetBlocklist(String),
     DeleteBlocklist(String),
+    /// Replaces the apps a Focused time source measures. Adding an app is a
+    /// Loosening (more ways to earn); only removing is a Tightening.
+    SourceApps {
+        id: String,
+        packages: Vec<String>,
+    },
     /// The maximum heart rate Workout zone minutes are measured against.
     /// Lower makes zone minutes easier, so it is a Loosening.
     MaxHeartRate(u32),
@@ -400,6 +419,12 @@ pub enum Entry {
         title: String,
         kept: bool,
     },
+    /// An Enforcer stopped checking in from `at` until `until`.
+    Gap {
+        at: Timestamp,
+        device: String,
+        until: Timestamp,
+    },
     Redeemed {
         at: Timestamp,
         tickets: u32,
@@ -412,7 +437,7 @@ pub enum Entry {
 impl Entry {
     pub fn at(&self) -> Timestamp {
         match self {
-            Entry::Earned { at, .. } | Entry::Redeemed { at, .. } => *at,
+            Entry::Earned { at, .. } | Entry::Redeemed { at, .. } | Entry::Gap { at, .. } => *at,
         }
     }
 }
@@ -535,6 +560,9 @@ struct State {
     /// included. Ledgers saved before setup existed count as set up.
     #[serde(default = "set_up_already")]
     setup_complete: bool,
+    /// When each Enforcer last checked in.
+    #[serde(default)]
+    last_seen: BTreeMap<String, Timestamp>,
 }
 
 fn set_up_already() -> bool {
@@ -555,6 +583,7 @@ impl Ledger {
                 days: BTreeMap::new(),
                 log: Vec::new(),
                 setup_complete: false,
+                last_seen: BTreeMap::new(),
             },
         }
     }
@@ -667,6 +696,21 @@ impl Ledger {
         title: Option<&str>,
         now: Timestamp,
     ) -> Credited {
+        self.report_from("", source, day, minutes, title, now)
+    }
+
+    /// As `report`, from one named device. Each device keeps its own running
+    /// total, so a phone and a laptop both measuring Obsidian add up rather
+    /// than overwrite each other.
+    pub fn report_from(
+        &mut self,
+        device: &str,
+        source: &str,
+        day: Date,
+        minutes: u32,
+        title: Option<&str>,
+        now: Timestamp,
+    ) -> Credited {
         self.settle(now);
         let nothing = Credited {
             kept: 0,
@@ -682,12 +726,14 @@ impl Ledger {
         }
         let goal = self.state.settings.daily_goal;
         let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
-        let before = score
-            .reported
-            .insert(source.to_string(), minutes)
-            .unwrap_or(0);
+        let key = if device.is_empty() {
+            source.to_string()
+        } else {
+            format!("{source}@{device}")
+        };
+        let before = score.reported.insert(key.clone(), minutes).unwrap_or(0);
         if minutes <= before {
-            score.reported.insert(source.to_string(), before);
+            score.reported.insert(key, before);
             return nothing;
         }
         let paid = self.count(source, day, minutes - before, now, now, |n| {
@@ -1048,6 +1094,15 @@ impl Ledger {
                 !self.state.settings.released_devices.contains(device)
             }
             Change::KeepDevice(_) => false,
+            Change::SourceApps {
+                ref id,
+                ref packages,
+            } => {
+                let old = self.state.settings.sources.get(id).map(|s| &s.packages);
+                packages
+                    .iter()
+                    .any(|p| !old.is_some_and(|old| old.contains(p)))
+            }
             Change::MaxHeartRate(bpm) => {
                 let current = self
                     .state
@@ -1093,6 +1148,30 @@ impl Ledger {
         true
     }
 
+    /// An Enforcer saying it is running. A silence longer than
+    /// `GAP_MINUTES` before this check-in is logged as a Gap, unless the
+    /// device has been released.
+    pub fn check_in(&mut self, device: &str, now: Timestamp) {
+        self.settle(now);
+        let previous = self.state.last_seen.insert(device.to_string(), now);
+        let released = self.state.settings.released_devices.contains(device);
+        if let Some(previous) = previous {
+            let silence = previous.duration_until(now);
+            if silence > SignedDuration::from_mins(GAP_MINUTES) && !released {
+                self.state.log.push(Entry::Gap {
+                    at: previous,
+                    device: device.to_string(),
+                    until: now,
+                });
+            }
+        }
+    }
+
+    /// When each Enforcer last checked in.
+    pub fn last_seen(&self) -> &BTreeMap<String, Timestamp> {
+        &self.state.last_seen
+    }
+
     /// Whether first-run setup has finished.
     pub fn setup_complete(&self) -> bool {
         self.state.setup_complete
@@ -1122,6 +1201,10 @@ impl Ledger {
     }
 }
 
+/// How long an Enforcer can stay silent before the silence is a Gap. It
+/// checks in every minute, so this allows for a restart or a short outage.
+const GAP_MINUTES: i64 = 10;
+
 /// What the phone assumes when the Workout source has no maximum heart rate.
 pub const DEFAULT_MAX_HEART_RATE: u32 = 195;
 
@@ -1143,6 +1226,7 @@ fn same_setting(a: &Change, b: &Change) -> bool {
 fn setting_key(change: &Change) -> Option<String> {
     Some(match change {
         Change::Source { id, .. } | Change::AddSource { id, .. } => format!("source {id}"),
+        Change::SourceApps { id, .. } => format!("source-apps {id}"),
         Change::NewBlocklist { id, .. }
         | Change::ResetBlocklist(id)
         | Change::DeleteBlocklist(id) => format!("list {id}"),
@@ -1232,6 +1316,11 @@ fn apply_to(settings: &mut Settings, change: Change) {
         }
         Change::KeepDevice(device) => {
             settings.released_devices.remove(&device);
+        }
+        Change::SourceApps { id, packages } => {
+            if let Some(source) = settings.sources.get_mut(&id) {
+                source.packages = packages;
+            }
         }
         Change::MaxHeartRate(bpm) => {
             if let Some(workout) = settings.sources.get_mut("workout") {

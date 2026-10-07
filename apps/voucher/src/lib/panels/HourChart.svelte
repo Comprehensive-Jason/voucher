@@ -18,7 +18,7 @@
       const h = hourOf(e.at, timeZone);
       const col = h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1;
       if (e.kind === "earned") cols[col].blocks.push(sourceOf(e.task).color);
-      else cols[col].redeemed = true;
+      else if (e.kind === "redeemed") cols[col].redeemed = true;
     }
     return cols;
   });
