@@ -1,0 +1,22 @@
+[package]
+name = "voucher-guard"
+version = "0.1.0"
+edition.workspace = true
+repository.workspace = true
+description = "Voucher's Windows Enforcer: a service that closes blocked programs and writes browser policy unless an Unlock is running"
+license.workspace = true
+
+[dependencies]
+base64 = "0.23.1"
+ed25519-dalek = "3.0.0"
+jiff = { version = "0.2.37", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
+tiny_http = "0.12.0"
+ureq = { version = "3.4.2", default-features = false }
+voucher-protocol = { path = "../voucher-protocol" }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.8.1"
+winreg = "0.56.0"
