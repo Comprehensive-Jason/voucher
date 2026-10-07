@@ -45,6 +45,48 @@ jobs:
           npm ci
           npx tauri build --bundles nsis
 
+      - name: Install, and check the guard end to end
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList '/S' -Wait
+          Start-Sleep 5
+          if ((Get-Service VoucherGuard).Status -ne 'Running') { throw 'the guard service is not running' }
+
+          # A throwaway Ledger: fresh, so Steam is on its Games list and no Unlock is running.
+          cargo build --release -p voucher-ledger
+          $data = Join-Path $env:RUNNER_TEMP 'ledger'
+          New-Item -ItemType Directory $data | Out-Null
+          $env:VOUCHER_DATA_DIR = $data; $env:VOUCHER_LISTEN = '127.0.0.1:8788'; $env:VOUCHER_POLL_MINUTES = '600'
+          Start-Process target/release/voucher-ledger.exe -WindowStyle Hidden
+          Start-Sleep 3
+          $code = (Get-Content "$data/access.code").Trim()
+          $key = (Get-Content "$data/public.key").Trim()
+          $connect = @{ url = 'http://127.0.0.1:8788'; key = $key; code = $code } | ConvertTo-Json
+          Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8790/connect -Body $connect
+
+          # A stand-in for Steam: ping, renamed.
+          New-Item -ItemType Directory C:\fake | Out-Null
+          Copy-Item C:\Windows\System32\PING.EXE C:\fake\steam.exe
+          $steam = Start-Process C:\fake\steam.exe -ArgumentList '-n 600 127.0.0.1' -PassThru -WindowStyle Hidden
+          Start-Sleep 20
+          $state = Invoke-RestMethod http://127.0.0.1:8790/state
+          $state | ConvertTo-Json -Depth 6
+          if (-not $steam.HasExited) { throw 'the guard did not close steam.exe' }
+          $chrome = Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Google\Chrome\URLBlocklist'
+          if (-not $chrome.'1') { throw 'no Chrome URLBlocklist was written' }
+          "Chrome blocklist starts with: $($chrome.'1')"
+          $status = Invoke-RestMethod -Uri http://127.0.0.1:8788/status -Headers @{ Authorization = "Bearer $code" }
+          if (-not $status.last_seen.$($env:COMPUTERNAME)) { throw 'the guard never checked in with the Ledger' }
+
+          # Uninstalling stops the guard and clears the policy it wrote.
+          Start-Process 'C:\Program Files\Voucher\uninstall.exe' -ArgumentList '/S', '_?=C:\Program Files\Voucher' -Wait
+          Start-Sleep 3
+          if (Get-Service VoucherGuard -ErrorAction SilentlyContinue) { throw 'the guard service is still installed' }
+          if (Test-Path 'HKLM:\SOFTWARE\Policies\Google\Chrome\URLBlocklist') { throw 'the Chrome blocklist was left behind' }
+          'Guard end to end: OK'
+
       - uses: actions/upload-artifact@v5
         with:
           name: voucher-windows-installer

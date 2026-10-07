@@ -67,11 +67,21 @@ impl Config {
     }
 }
 
+/// A new Ledger's time zone: VOUCHER_TIME_ZONE, else TZ (as containers set
+/// it), else the machine's own, else UTC. Days and Curfew run on it.
+fn first_run_time_zone() -> TimeZone {
+    ["VOUCHER_TIME_ZONE", "TZ"]
+        .iter()
+        .filter_map(|name| env::var(name).ok())
+        .find_map(|zone| TimeZone::get(zone.trim()).ok())
+        .unwrap_or_else(|| TimeZone::try_system().unwrap_or(TimeZone::UTC))
+}
+
 /// The starting settings for a brand-new Ledger. After the first run they
 /// live in the saved state and change only through `POST /change`.
 fn first_run_settings() -> Settings {
     Settings {
-        time_zone: TimeZone::get("America/Los_Angeles").expect("tzdb has Los Angeles"),
+        time_zone: first_run_time_zone(),
         bank_limit: 12,
         unlock_minutes: 10,
         curfew_start: time(22, 0, 0, 0),

@@ -1,0 +1,12 @@
+# Only the Rust workspace is needed to build the Ledger.
+target
+**/node_modules
+apps/voucher/build
+apps/voucher/.svelte-kit
+apps/voucher/src-tauri/gen/android/app/build
+apps/voucher/src-tauri/gen/android/.gradle
+design
+spikes
+prototypes
+docs/images
+.git

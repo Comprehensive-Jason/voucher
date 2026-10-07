@@ -1,0 +1,28 @@
+# The Voucher Ledger with Docker Compose (also works as a TrueNAS SCALE
+# custom app, Portainer stack, or Unraid compose stack).
+#
+# Keep it off the open internet: reach it over Tailscale or your LAN. On
+# first run it prints an access code and saves it as /data/access.code;
+# enter it when connecting a device.
+services:
+  ledger:
+    image: ghcr.io/comprehensive-jason/voucher-ledger:latest
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    volumes:
+      # A folder that the container's user can write. With a host folder,
+      # either chown it to 65532 or set `user:` to its owner (TrueNAS apps: 568:568).
+      - voucher-data:/data
+    # user: "568:568"
+    environment:
+      # Your time zone and starting rules apply on the first run only;
+      # after that, change rules in the app.
+      TZ: America/Los_Angeles
+      # How often to check Todoist and ClickUp, in minutes.
+      VOUCHER_POLL_MINUTES: "5"
+      # Todoist projects that never earn, by id (comma-separated), such as a Leisure project.
+      # VOUCHER_TODOIST_EXCLUDED_PROJECTS: ""
+
+volumes:
+  voucher-data:

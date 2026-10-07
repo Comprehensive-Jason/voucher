@@ -1,0 +1,66 @@
+# On a version tag (v0.1.0 and so on), attaches ready-to-run downloads to a
+# GitHub Release: the Ledger for Linux on x86-64 and ARM64, and the Windows
+# installer. Nothing runs until someone pushes such a tag.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  ledger:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            name: voucher-ledger-linux-x86_64
+          - runner: ubuntu-24.04-arm
+            name: voucher-ledger-linux-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked -p voucher-ledger
+      - run: cp target/release/voucher-ledger ${{ matrix.name }}
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@stable
+      - shell: bash
+        run: |
+          cargo build --release --locked -p voucher-guard
+          mkdir -p apps/voucher/src-tauri/binaries
+          cp target/release/voucher-guard.exe apps/voucher/src-tauri/binaries/voucher-guard-x86_64-pc-windows-msvc.exe
+      - working-directory: apps/voucher
+        run: |
+          npm ci
+          npx tauri build --bundles nsis
+      - uses: actions/upload-artifact@v5
+        with:
+          name: voucher-windows-installer
+          path: target/release/bundle/nsis/*.exe
+
+  publish:
+    needs: [ledger, windows]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: downloads
+          merge-multiple: true
+      - name: Create the release with the downloads attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" downloads/* --repo "$GITHUB_REPOSITORY" --generate-notes

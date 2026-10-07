@@ -84,22 +84,47 @@ cargo build --release
 
 ## Running the Ledger
 
-`voucher-ledger` is configured with environment variables:
+The Ledger is one small program that keeps your Bank and signs Unlocks. Run it on an always-on machine (a home server, NAS, or Raspberry Pi) and reach it over Tailscale or your LAN. Don't expose it to the open internet.
+
+### With Docker (TrueNAS, Unraid, Synology, or any Docker host)
+
+Use [`deploy/compose.yaml`](deploy/compose.yaml) (on TrueNAS SCALE: Apps, Discover Apps, Install via YAML), or:
+
+```sh
+docker run -d --name voucher-ledger --restart unless-stopped \
+  -p 8787:8787 -v voucher-data:/data -e TZ=America/Los_Angeles \
+  ghcr.io/comprehensive-jason/voucher-ledger:latest
+docker logs voucher-ledger   # shows the access code on first run
+```
+
+The image is built for x86-64 and ARM64.
+
+### Without Docker
+
+Download `voucher-ledger` for your platform from the [releases](https://github.com/Comprehensive-Jason/voucher/releases), or build it (`cargo build --release -p voucher-ledger`), and run it as a service (systemd, for example).
+
+### Connecting
+
+On first run the Ledger creates `signing.key` (readable only by its owner), `public.key`, and an access code in `access.code`, and prints the code. Every device asks for the Ledger's address and that code when it connects. `signing.key` never leaves the server.
+
+In the app, Rules, Sources, Reconnect takes a Todoist or ClickUp API token and stores it on the Ledger.
+
+### Settings
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `VOUCHER_DATA_DIR` | Where `state.json`, `signing.key`, and `public.key` live | `data` |
-| `VOUCHER_LISTEN` | Address to listen on; use the machine's Tailscale IP | `127.0.0.1:8787` |
-| `VOUCHER_POLL_MINUTES` | How often to check Activity sources | `5` |
-| `VOUCHER_TODOIST_TOKEN_FILE` | File holding a Todoist API token | Todoist off |
+| `VOUCHER_DATA_DIR` | Where the state, keys, access code, and tokens live | `data` (`/data` in the image) |
+| `VOUCHER_LISTEN` | Address to listen on, such as the machine's Tailscale IP | `127.0.0.1:8787` (`0.0.0.0:8787` in the image) |
+| `VOUCHER_TIME_ZONE` or `TZ` | Time zone for a new Ledger's Days and Curfew | the machine's |
+| `VOUCHER_ACCESS_CODE` | Use this access code instead of `access.code` | created on first run |
+| `VOUCHER_POLL_MINUTES` | How often to check Todoist and ClickUp | `5` |
 | `VOUCHER_TODOIST_EXCLUDED_PROJECTS` | Comma-separated project IDs that never earn (Leisure) | none |
-| `VOUCHER_CLICKUP_TOKEN_FILE` | File holding a ClickUp personal API token | ClickUp off |
-| `VOUCHER_CLICKUP_TEAM_ID` | ClickUp Workspace ID | ClickUp off |
-| `VOUCHER_CLICKUP_USER_ID` | Your ClickUp user ID; only tasks assigned to it earn | ClickUp off |
+| `VOUCHER_TODOIST_TOKEN_FILE`, `VOUCHER_CLICKUP_TOKEN_FILE` | Where the API tokens are kept | `todoist.token`, `clickup.token` in the data folder |
+| `VOUCHER_CLICKUP_TEAM_ID`, `VOUCHER_CLICKUP_USER_ID` | Which ClickUp Workspace and user | found from the token |
 
-On first run it creates `signing.key` (readable only by its owner) and `public.key`. Copy `public.key` to every Enforcer; `signing.key` never leaves the server. Keep token files private too (`chmod 600`).
+A Ledger set up before access codes existed keeps running without one; put a code in its `access.code` and reconnect each device to switch it on.
 
-Endpoints: `GET /status`, `GET /unlock`, `POST /redeem`, and `POST /change` (body is a Change, e.g. `{"UnlockMinutes": 15}`). Tightenings apply at once; Loosenings wait for the Morning boundary.
+Every request carries the code as `Authorization: Bearer <code>` except `GET /key`. Endpoints include `GET /status`, `POST /redeem?count=`, `POST /change` (a Change, such as `{"UnlockMinutes": 15}`), `GET /day?date=`, `GET /history?days=`, `POST /report`, and `POST /check-in?device=`. Tightenings apply at once; Loosenings wait for the Morning boundary.
 
 ## The CLI
 
