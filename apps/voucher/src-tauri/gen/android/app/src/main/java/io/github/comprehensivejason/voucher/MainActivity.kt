@@ -26,5 +26,12 @@ class MainActivity : TauriActivity() {
   /** A screen asked for by the blocked-app watcher; the interface picks it up when it becomes visible. */
   private fun remember(intent: Intent?) {
     intent?.getStringExtra("route")?.let { Store.setPendingRoute(this, it) }
+    // `--ez pinWidget true` asks the launcher to add Voucher's widget (it asks the user first).
+    if (intent?.getBooleanExtra("pinWidget", false) == true) {
+      val manager = android.appwidget.AppWidgetManager.getInstance(this)
+      if (manager.isRequestPinAppWidgetSupported) {
+        manager.requestPinAppWidget(android.content.ComponentName(this, VoucherWidget::class.java), null, null)
+      }
+    }
   }
 }

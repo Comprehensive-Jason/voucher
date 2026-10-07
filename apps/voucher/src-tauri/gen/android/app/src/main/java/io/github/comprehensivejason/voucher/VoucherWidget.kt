@@ -92,6 +92,8 @@ class VoucherWidget : AppWidgetProvider() {
             for (i in 0 until 24) {
                 val id = ctx.resources.getIdentifier("cell$i", "id", ctx.packageName)
                 if (id == 0) continue
+                // Only as many cells as the Bank holds; a limit of 12 leaves one row.
+                v.setViewVisibility(id, if (i < d.bankLimit.coerceAtLeast(1)) android.view.View.VISIBLE else android.view.View.GONE)
                 v.setColorStateList(id, "setImageTintList", ColorStateList.valueOf(if (i < d.bank) accent else 0xFF2A2E33.toInt()))
             }
             v.setTextViewText(R.id.goal, "Today ${d.earned} of ${d.goal}")
