@@ -12,7 +12,6 @@
   let today = $state<DaySummary | null>(null);
   let timeZone = $state("UTC");
   let firstDay = $state<string | undefined>();
-  let logFirstDay = $state<string | undefined>();
   // Tapping a Day in the history grid scrolls the hour chart to it.
   let focus = $state<{ day: string; at: number } | null>(null);
   let shownDay = $state<string | undefined>();
@@ -28,7 +27,6 @@
       today = status.today;
       timeZone = status.settings.time_zone;
       firstDay = status.first_day;
-      logFirstDay = status.log_first_day;
       history = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(today.day, firstDay)}`);
       usage = await deviceUsage();
       error = null;
@@ -52,7 +50,7 @@
   {#if error}
     <p class="error">{error}</p>
   {:else if today}
-    <HourChart {today} {timeZone} firstDay={logFirstDay} {focus} bind:shownDay />
+    <HourChart {today} {timeZone} {firstDay} {focus} bind:shownDay />
     <Heatmap {history} goal={today.goal} {firstDay} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} />
     <DistractionUsage {usage} unlockedMinutes={today.unlocked_minutes} {blocklists} />
   {/if}

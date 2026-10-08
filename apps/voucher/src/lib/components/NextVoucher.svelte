@@ -33,8 +33,10 @@
   });
 </script>
 
-<section>
+<section class="next">
   <div class="cap">Toward the next Voucher</div>
+  <!-- On the tablet only this list scrolls; the heading above it stays put. -->
+  <div class="list">
   {#each rows as s (s.key)}
     <div class="src">
       <span class="mk"><Marker kind="source" color={s.color} /></span>
@@ -50,10 +52,11 @@
       {/if}
     </div>
   {/each}
+  </div>
 </section>
 
 <style>
-  section { display: flex; flex-direction: column; gap: 10px; }
+  section, .list { display: flex; flex-direction: column; gap: 10px; }
   .mk { display: flex; align-items: center; justify-content: center; }
   .src { display: grid; grid-template-columns: 22px 1fr auto; column-gap: 10px; row-gap: 5px; align-items: center; }
   .name { font-size: 14px; font-weight: 500; }

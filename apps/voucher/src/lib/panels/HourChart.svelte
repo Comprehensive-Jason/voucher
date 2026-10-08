@@ -27,11 +27,13 @@
   const HOURS = 18; // 06 to 23; anything after midnight joins the last column
   const chart = $derived(tall ? 150 : 84);
 
-  /** Every Day from the oldest kept to today, oldest first. */
+  /** Every Day from the Ledger's first to today, oldest first, so any Day the
+   *  history grid offers can be shown. Days older than the kept log show their
+   *  total without the hour-by-hour detail. */
   const days = $derived.by(() => {
     const out: string[] = [];
     if (firstDay && firstDay < today.day) {
-      for (let d = firstDay; d < today.day && out.length < 60; d = shiftDay(d, 1)) out.push(d);
+      for (let d = firstDay; d < today.day && out.length < 3650; d = shiftDay(d, 1)) out.push(d);
     }
     out.push(today.day);
     return out;

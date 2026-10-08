@@ -34,12 +34,16 @@ const TOTALS = path.join(DATA, "portal-totals.json");
 const USAGE = path.join(DATA, "portal-usage.json");
 // Apps from Jason's own blocklists, named as the blocklists name them so the
 // app can colour each one by its list.
-const USAGE_APPS = ["Instagram", "YouTube", "X", "rednote", "Mihon", "Reddit", "bilibili", "HoYoLAB", "Samsung Internet"];
+const USAGE_APPS = ["Instagram", "YouTube", "X", "rednote", "Mihon", "Reddit", "bilibili", "HoYoLAB", "Samsung Internet",
+  // More, to make the list long enough to scroll.
+  "Genshin Impact", "WoT Blitz", "Mindustry", "Plague Inc.", "After Inc.", "pixiv", "AniList", "Discord", "Grayjay", "Patreon"];
 function placeholderUsage() {
   return {
-    minutes: { Instagram: 14, YouTube: 8, X: 11, rednote: 6, Mihon: 9, Reddit: 4, bilibili: 5, HoYoLAB: 2, "Samsung Internet": 1 },
-    opens: { Instagram: 14, YouTube: 6, X: 9, rednote: 4, Mihon: 5, Reddit: 3, bilibili: 2, HoYoLAB: 1, "Samsung Internet": 1 },
-    closedWithoutTearing: 33,
+    minutes: { Instagram: 14, YouTube: 8, X: 11, rednote: 6, Mihon: 9, Reddit: 4, bilibili: 5, HoYoLAB: 2, "Samsung Internet": 1,
+      "Genshin Impact": 22, "WoT Blitz": 7, Mindustry: 12, "Plague Inc.": 3, "After Inc.": 2, pixiv: 5, AniList: 3, Discord: 10, Grayjay: 6, Patreon: 1 },
+    opens: { Instagram: 14, YouTube: 6, X: 9, rednote: 4, Mihon: 5, Reddit: 3, bilibili: 2, HoYoLAB: 1, "Samsung Internet": 1,
+      "Genshin Impact": 4, "WoT Blitz": 2, Mindustry: 3, "Plague Inc.": 1, "After Inc.": 1, pixiv: 2, AniList: 1, Discord: 5, Grayjay: 2, Patreon: 1 },
+    closedWithoutTearing: 49,
   };
 }
 const readUsage = () => { try { return JSON.parse(readFileSync(USAGE, "utf8")); } catch { return placeholderUsage(); } };

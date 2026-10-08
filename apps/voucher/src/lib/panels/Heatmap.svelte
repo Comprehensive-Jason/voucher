@@ -61,10 +61,14 @@
     <span class="cap">Vouchers earned, 12 weeks</span>
     {#if !keyBelow}<span class="cap earn">Brightest: {goal}+ (goal met)</span>{/if}
   </div>
+  <div class="grid">
+  <!-- Outside the scroller, so the weekday labels never move or bounce. -->
+  <div class="labels" aria-hidden="true">
+    <span class="corner"></span>
+    {#each WEEKDAYS as w}<span class="weekday">{w}</span>{/each}
+  </div>
   <div class="scroller" bind:this={scroller} onscroll={onScroll}>
     <div class="heat">
-      <span class="corner"></span>
-      {#each WEEKDAYS as w}<span class="weekday">{w}</span>{/each}
       {#each weeks as week}
         <span class="month">{week.month}</span>
         {#each week.days as c}
@@ -76,6 +80,7 @@
         {/each}
       {/each}
     </div>
+  </div>
   </div>
   {#if keyBelow}
     <div class="heatkey">
@@ -89,18 +94,19 @@
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .earn { color: var(--voucher); }
-  /* A pinned weekday column, then twelve week-columns filling the visible
-     width; earlier weeks sit off to the left. Columns are sized against the
-     scroller (a size container): 100cqw less the labels and twelve gaps. */
-  .scroller { --labels: 26px; container-type: inline-size; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: calc(var(--labels) + 4px); overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  /* A fixed weekday column beside a scroller of week-columns: twelve fill the
+     visible width, and earlier weeks sit off to the left. Cells are sized
+     against the whole grid (a size container): 100cqw less the labels (26),
+     the gap after them (4), the outline room (3 + 3), and 11 gaps (44). */
+  .grid { --labels: 26px; --cell: calc((100cqw - 80px) / 12); container-type: inline-size; display: flex; gap: 4px; }
+  .labels { flex: none; width: var(--labels); display: grid; grid-template-rows: 14px repeat(7, var(--cell)); gap: 4px; padding-top: 3px; }
+  .scroller { flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: 3px; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   .heat {
-    display: grid; grid-template-rows: 14px repeat(7, auto); grid-auto-flow: column; gap: 4px;
-    grid-template-columns: var(--labels); grid-auto-columns: calc((100cqw - var(--labels) - 51px) / 12); width: max-content;
-    /* Room for the picked Day's outline, which the scroller would clip. Not
-       on the left, where the weekday labels stay put over the weeks. */
-    padding: 3px 3px 3px 0;
+    display: grid; grid-template-rows: 14px repeat(7, var(--cell)); grid-auto-flow: column; gap: 4px;
+    grid-auto-columns: var(--cell); width: max-content;
+    /* Room for the picked Day's outline, which the scroller would clip. */
+    padding: 3px;
   }
-  .corner, .weekday { position: sticky; left: 0; z-index: 1; background: var(--surface); }
   .weekday, .month { font: 500 10px/1 var(--mono); color: var(--muted); display: flex; align-items: center; white-space: nowrap; }
   .month { scroll-snap-align: start; align-items: flex-end; overflow: visible; }
   .h { aspect-ratio: 1; border-radius: 4px; background: #22262a; padding: 0; border: 0; display: block; width: 100%; }

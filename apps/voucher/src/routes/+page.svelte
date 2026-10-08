@@ -46,7 +46,7 @@
   <div class="grid">
     <section class="col today"><TodayColumn {live} wide /></section>
     {#if status}
-      <div class="cell hour"><HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.log_first_day} {focus} bind:shownDay tall /></div>
+      <div class="cell hour"><HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} {focus} bind:shownDay tall /></div>
       <div class="cell heat"><Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} keyBelow={false} /></div>
       <div class="cell usage"><DistractionUsage {usage} unlockedMinutes={status.today.unlocked_minutes} blocklists={status.settings.blocklists} /></div>
     {/if}
@@ -66,6 +66,11 @@
   }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
   .today { grid-area: today; }
+  /* Everything in the Today column keeps its size; the list of sources takes
+     what's left and scrolls under its fixed heading when it's long. */
+  .today > :global(*) { flex: none; }
+  .today > :global(section.next) { flex: 1 1 0; min-height: 0; }
+  .today :global(section.next .list) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 4px; }
   .cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .hour { grid-area: hour; }
   .heat { grid-area: heat; }
