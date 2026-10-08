@@ -107,7 +107,7 @@
             {/each}
           </div>
         {:else}
-          <VoucherStack {mode} bank={data.bank} unlockMinutes={data.unlockMinutes} ontear={onTear} />
+          <VoucherStack {mode} bank={data.bank} unlockMinutes={data.unlockMinutes} room={data.curfewRoomMinutes} curfewStart={data.curfewStart} ontear={onTear} />
         {/if}
       </div>
     {/if}

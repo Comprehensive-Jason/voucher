@@ -518,6 +518,8 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         first_day: jiff::civil::Date,
         /// The oldest Day whose hour-by-hour log is still kept.
         log_first_day: jiff::civil::Date,
+        /// Minutes a tear now could still add before Curfew starts.
+        room_before_curfew: u32,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -542,6 +544,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let last_seen = ledger.last_seen().clone();
     let first_day = ledger.first_day(now);
     let log_first_day = ledger.log_first_day(now);
+    let room_before_curfew = ledger.room_before_curfew(now);
     json(&Status {
         bank,
         curfew_active,
@@ -555,6 +558,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         last_seen,
         first_day,
         log_first_day,
+        room_before_curfew,
     })
 }
 

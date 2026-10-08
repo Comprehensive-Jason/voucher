@@ -249,7 +249,8 @@
 {/if}
 
 <style>
-  main { min-height: 100%; padding: calc(28px + env(safe-area-inset-top)) 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  /* A phone-width column, centred on tablets and desktops. */
+  main { min-height: 100%; width: 100%; max-width: 560px; margin: 0 auto; padding: calc(28px + env(safe-area-inset-top)) 20px 24px; display: flex; flex-direction: column; gap: 16px; }
   header { display: flex; align-items: center; justify-content: space-between; }
   .brand { display: flex; align-items: center; gap: 8px; }
   .word { font-size: 15px; font-weight: 700; letter-spacing: .2em; }

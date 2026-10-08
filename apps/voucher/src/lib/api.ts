@@ -45,7 +45,7 @@ function sampleToday(): Today {
     log: [
       { kind: "earned", at: new Date(Date.now() - 3 * 3600_000).toISOString(), task: "todoist:1", title: "Weekly review", kept: false },
     ],
-    unlockStartedAt: null, unlockVouchers: 0,
+    unlockStartedAt: null, unlockVouchers: 0, curfewRoomMinutes: null,
     blocklists: ["Instagram", "YouTube", "Reddit", "Games"],
   };
   switch (state) {

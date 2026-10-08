@@ -20,6 +20,8 @@ export interface Today {
   /** When the running Unlock's Vouchers began (Unix seconds), and how many were torn. */
   unlockStartedAt: number | null;
   unlockVouchers: number;
+  /** Minutes a tear could still add before Curfew; null from older Ledgers. */
+  curfewRoomMinutes: number | null;
   /** Names of the switched-on blocklists. */
   blocklists: string[];
 }

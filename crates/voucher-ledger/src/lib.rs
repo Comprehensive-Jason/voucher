@@ -830,7 +830,7 @@ impl Ledger {
             .filter(|unlock| now < unlock.ends_at);
         let starts_from = running.as_ref().map_or(now, |unlock| unlock.ends_at);
         let curfew = self.next_local(now, self.state.settings.curfew_start);
-        let room = starts_from.duration_until(curfew).as_secs();
+        let room = self.curfew_room(now).as_secs();
         if room <= 0 {
             return Err(Refusal::Curfew);
         }
@@ -1017,6 +1017,28 @@ impl Ledger {
     pub fn log_first_day(&self, now: Timestamp) -> Date {
         let today = day_of(&self.state.settings, now);
         self.first_day(now).max(days_before(today, LOG_DAYS))
+    }
+
+    /// How long an Unlock torn now could still run before Curfew starts:
+    /// from the end of the running Unlock (or now) to the next Curfew.
+    fn curfew_room(&self, now: Timestamp) -> SignedDuration {
+        let starts_from = self
+            .state
+            .unlock
+            .as_ref()
+            .filter(|unlock| now < unlock.ends_at)
+            .map_or(now, |unlock| unlock.ends_at);
+        let curfew = self.next_local(now, self.state.settings.curfew_start);
+        starts_from.duration_until(curfew)
+    }
+
+    /// Whole minutes a tear now could still add before Curfew; zero during
+    /// Curfew or once the running Unlock already reaches it.
+    pub fn room_before_curfew(&self, now: Timestamp) -> u32 {
+        if self.in_curfew(now) {
+            return 0;
+        }
+        u32::try_from(self.curfew_room(now).as_secs().max(0) / 60).unwrap_or(u32::MAX)
     }
 
     /// Keeps a month of log entries; the Day scores keep the longer history.

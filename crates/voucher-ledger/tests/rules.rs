@@ -457,3 +457,16 @@ fn releasing_a_device_waits_for_morning_and_keeping_it_is_immediate() {
             .contains("tablet")
     );
 }
+
+#[test]
+fn room_before_curfew_shrinks_as_unlocks_stack_and_is_zero_once_they_reach_it() {
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
+    ledger.credit(5, at("2026-10-07T15:00-07:00"));
+    // 21:30 with Curfew at 22:00: thirty minutes of room.
+    assert_eq!(ledger.room_before_curfew(at("2026-10-07T21:30-07:00")), 30);
+    ledger.redeem_many(2, at("2026-10-07T21:30-07:00")).unwrap();
+    assert_eq!(ledger.room_before_curfew(at("2026-10-07T21:31-07:00")), 10);
+    ledger.redeem(at("2026-10-07T21:32-07:00")).unwrap();
+    assert_eq!(ledger.room_before_curfew(at("2026-10-07T21:33-07:00")), 0);
+    assert_eq!(ledger.room_before_curfew(at("2026-10-07T23:00-07:00")), 0);
+}

@@ -1,6 +1,7 @@
 <script lang="ts">
-  // Each Day's earnings hour by hour, one block per Voucher coloured by source,
-  // with a dot under each hour that had a Redemption. Today shows first;
+  // Each Day's earnings hour by hour: a bar per hour, split into a segment per
+  // source and topped with its count, with a dot under each hour that had a
+  // Redemption. Today shows first;
   // swipe (or the arrows) back through earlier Days, as far as the Ledger
   // keeps their logs. Past Days load as they come near the screen.
   import { onMount, untrack } from "svelte";
@@ -36,20 +37,33 @@
   const summaryOf = (day: string) => (day === today.day ? today : past[day]);
   const current = $derived(summaryOf(days[shown]));
 
+  // Segments stack in the legend's order, so a source sits at the same
+  // place in every bar.
+  const ORDER = Object.values(SOURCES).map((s) => s.color);
   function columnsOf(summary: DaySummary | undefined) {
-    const cols = Array.from({ length: HOURS }, () => ({ blocks: [] as string[], redeemed: false }));
-    for (const e of [...(summary?.log ?? [])].reverse()) {
+    const cols = Array.from({ length: HOURS }, () => ({ counts: new Map<string, number>(), total: 0, redeemed: false }));
+    for (const e of summary?.log ?? []) {
       const h = hourOf(e.at, timeZone);
       const col = h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1;
-      if (e.kind === "earned") cols[col].blocks.push(sourceOf(e.task).color);
-      else if (e.kind === "redeemed") cols[col].redeemed = true;
+      if (e.kind === "earned") {
+        const color = sourceOf(e.task).color;
+        cols[col].counts.set(color, (cols[col].counts.get(color) ?? 0) + 1);
+        cols[col].total++;
+      } else if (e.kind === "redeemed") cols[col].redeemed = true;
     }
-    return cols;
+    return cols.map((c) => ({
+      ...c,
+      segments: [...c.counts].sort((a, b) => ORDER.indexOf(b[0]) - ORDER.indexOf(a[0])).map(([color, n]) => ({ color, n })),
+    }));
   }
-  // Blocks keep their full height until a busy hour needs them smaller to fit.
-  function blockOf(cols: ReturnType<typeof columnsOf>) {
-    const n = Math.max(1, ...cols.map((c) => c.blocks.length));
-    return Math.min(most, (chart - (n - 1) * 2) / n);
+  // A Voucher is a full block's height until a busy hour needs a smaller
+  // scale to fit; segments never drop below MIN_SEGMENT, and the count on top
+  // says exactly how many.
+  const LABEL = 14;
+  const MIN_SEGMENT = 3;
+  function unitOf(cols: ReturnType<typeof columnsOf>) {
+    const n = Math.max(1, ...cols.map((c) => c.total));
+    return Math.min(most, (chart - LABEL) / n);
   }
 
   async function load(index: number) {
@@ -110,12 +124,17 @@
   <div class="days" bind:this={scroller} onscroll={onScroll}>
     {#each days as day (day)}
       {@const cols = columnsOf(summaryOf(day))}
-      {@const block = blockOf(cols)}
+      {@const unit = unitOf(cols)}
       <div class="day">
         <div class="chart" style="height: {chart}px">
           {#each cols as c}
             <div class="col">
-              {#each c.blocks as color}<div class="block" style="height: {block}px; background: {color}"></div>{/each}
+              {#if c.total}
+                <span class="mono n">{c.total}</span>
+                <div class="bar" style="height: {Math.max(c.total * unit, c.segments.length * MIN_SEGMENT)}px">
+                  {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
+                </div>
+              {/if}
             </div>
           {/each}
         </div>
@@ -146,8 +165,10 @@
   .days::-webkit-scrollbar { display: none; }
   .day { flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
   .chart { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid #3a3f45; }
-  .col { display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; height: 100%; }
-  .block { border-radius: 3px; }
+  .col { display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 3px; height: 100%; min-width: 0; }
+  .n { font-size: 10px; line-height: 11px; text-align: center; color: var(--muted); }
+  .bar { display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; }
+  .bar i { min-height: 0; }
   .dots { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; height: 10px; }
   .dots div { display: flex; justify-content: center; }
   .dots i { width: 8px; height: 8px; border-radius: 50%; }
@@ -162,5 +183,5 @@
   .tall .day { gap: 14px; }
   .tall .dots { height: 18px; }
   .tall .dots i { width: 10px; height: 10px; }
-  .tall .block { border-radius: 4px; }
+  .tall .n { font-size: 11px; }
 </style>

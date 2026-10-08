@@ -50,6 +50,8 @@ pub struct Today {
     /// When the running Unlock's Vouchers began, and how many were torn.
     pub unlock_started_at: Option<i64>,
     pub unlock_vouchers: u32,
+    /// Minutes a tear could still add before Curfew; none from older Ledgers.
+    pub curfew_room_minutes: Option<u32>,
     /// Names of the switched-on blocklists.
     pub blocklists: Vec<String>,
 }

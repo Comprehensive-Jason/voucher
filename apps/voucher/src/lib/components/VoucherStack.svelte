@@ -3,10 +3,13 @@
   // to the right to tear off `count` Vouchers; the stub's + and − set `count`.
   import type { Mode } from "../types";
 
-  let { mode, bank, unlockMinutes, ontear }: {
+  let { mode, bank, unlockMinutes, room = null, curfewStart = "22:00", ontear }: {
     mode: Mode;
     bank: number;
     unlockMinutes: number;
+    /** Minutes a tear could still add before Curfew (null: no limit known). */
+    room?: number | null;
+    curfewStart?: string;
     ontear: (count: number) => void;
   } = $props();
 
@@ -46,10 +49,17 @@
   let phase = $state<"rest" | "rising" | "settling">("rest");
   let behindBefore = $state(0);
 
-  const tearable = $derived(mode !== "curfew" && !empty);
+  // An Unlock never runs into Curfew: tears stop at what fits before it, and
+  // once the running Unlock reaches it the Voucher says so instead of
+  // pretending to tear. The last Voucher that fits may buy fewer minutes.
+  const fits = $derived(room == null ? Infinity : Math.ceil(room / unlockMinutes));
+  const capped = $derived(mode !== "curfew" && !empty && fits === 0);
+  const minutes = $derived(room == null ? count * unlockMinutes : Math.min(count * unlockMinutes, room));
+
+  const tearable = $derived(mode !== "curfew" && !empty && !capped);
   const running = $derived(mode === "running");
   // Keep the chosen count within what the Bank holds.
-  $effect(() => { if (count > Math.max(1, shown)) count = Math.max(1, shown); });
+  $effect(() => { const most = Math.max(1, Math.min(shown, fits)); if (count > most) count = most; });
 
   function down(e: PointerEvent) {
     if (!tearable) return;
@@ -112,7 +122,7 @@
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
         <span class="cap stubcap">Curfew</span>
       {:else}
-        <button class="step" aria-label="One Voucher more" disabled={!tearable || count >= shown} onclick={() => count++}>
+        <button class="step" aria-label="One Voucher more" disabled={!tearable || count >= Math.min(shown, fits)} onclick={() => count++}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6v12M6 12h12" /></svg>
         </button>
         <div class="mono count">{tearable ? count : 0}</div>
@@ -143,8 +153,13 @@
       aria-valuenow={Math.round(dx)}
       tabindex="0"
     >
+      {#if capped}
+        <div class="cap bodycap">This Unlock runs to Curfew</div>
+        <div class="mono minutes">{curfewStart}</div>
+        <div class="hint"><span>Your Vouchers stay in the Bank</span></div>
+      {:else}
       <div class="cap bodycap">{running ? "Extend this Unlock" : "All distractions"}</div>
-      <div class="mono minutes">{running ? "+" : ""}{count * unlockMinutes} min</div>
+      <div class="mono minutes">{running ? "+" : ""}{minutes} min</div>
       <div class="hint">
         {#if mode === "curfew"}
           <span>Can't be torn tonight</span>
@@ -153,6 +168,7 @@
           <svg aria-hidden="true" width="36" height="16" viewBox="0 0 36 16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2l6 6-6 6" opacity=".3" /><path d="M15 2l6 6-6 6" opacity=".6" /><path d="M27 2l6 6-6 6" /></svg>
         {/if}
       </div>
+      {/if}
     </div>
   </div>
   {/if}

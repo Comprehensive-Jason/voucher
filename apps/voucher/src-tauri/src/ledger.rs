@@ -25,6 +25,9 @@ struct Status {
     unlock: Option<Redeemed>,
     settings: Settings,
     today: Score,
+    /// Minutes a tear could still add before Curfew; older Ledgers omit it.
+    #[serde(default)]
+    room_before_curfew: Option<u32>,
 }
 
 /// The current Day's score.
@@ -152,6 +155,7 @@ impl Client {
             log: status.today.log,
             unlock_started_at: unlock.as_ref().map(|(_, u)| u.started_at.as_second()),
             unlock_vouchers: unlock.as_ref().map_or(0, |(_, u)| u.vouchers),
+            curfew_room_minutes: status.room_before_curfew,
             blocklists: status
                 .settings
                 .blocklists
