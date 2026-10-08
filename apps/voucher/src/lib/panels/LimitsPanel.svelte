@@ -36,22 +36,33 @@
   async function cancel(index: number) {
     try {
       status = await ledger<Status>("POST", `/cancel?index=${index}`);
-      if (status.pending.length < 2) reviewing = false;
     } catch (e) {
       error = String(e);
     }
   }
-  /** Cancels every waiting change, oldest first (each cancel renumbers the rest). */
-  async function cancelAll() {
-    while (status && status.pending.length) {
-      const before = status.pending.length;
-      await cancel(0);
-      if (!status || status.pending.length >= before) break;
-    }
-    reviewing = false;
-  }
   // Several waiting changes show as one card that opens a list of them all.
+  // The list is a snapshot taken when it opens: cancelling one greys its card
+  // in place instead of removing it, so nothing moves under a finger. It
+  // reflows only when closed and opened again.
   let reviewing = $state(false);
+  let reviewList = $state<Status["pending"]>([]);
+  let cancelled = $state<boolean[]>([]);
+  function openReview() {
+    reviewList = [...(status?.pending ?? [])];
+    cancelled = reviewList.map(() => false);
+    reviewing = true;
+  }
+  /** Cancels one listed change, wherever it now sits among the waiting ones. */
+  async function cancelListed(j: number) {
+    const want = JSON.stringify(reviewList[j]);
+    const index = status?.pending.findIndex((p) => JSON.stringify(p) === want) ?? -1;
+    if (index < 0) { cancelled[j] = true; return; }
+    await cancel(index);
+    if (!error) cancelled[j] = true;
+  }
+  async function cancelAll() {
+    for (let j = 0; j < reviewList.length; j++) if (!cancelled[j]) await cancelListed(j);
+  }
 
   const curfewPending = $derived.by(() => {
     const v = status ? pendingValue(status.pending, "Curfew") : null;
@@ -117,23 +128,32 @@
         <button class="link" onclick={() => cancel(0)}>Cancel</button>
       </div>
     {:else if status.pending.length > 1}
-      <button class="pending all" onclick={() => (reviewing = true)}>
+      <div class="pending">
         <div class="ptext">
           <span class="cap">Waiting for {hhmm(s.morning_boundary)}, {until(status.pending[0][1])}</span>
           <span>{status.pending.length} looser rules</span>
         </div>
-        <span class="link">Review</span>
-      </button>
+        <button class="review" onclick={openReview}>Review</button>
+      </div>
     {/if}
-    {#if reviewing && status.pending.length > 1}
+    {#if reviewing}
+      {@const left = cancelled.filter((c) => !c).length}
       <Sheet onclose={() => (reviewing = false)}>
-        <div class="shead"><h2>Waiting for {hhmm(s.morning_boundary)}</h2><span class="cap">{until(status.pending[0][1])}</span></div>
+        <div class="shead">
+          <div class="stitle"><h2>Looser rules</h2><span class="cap">Waiting for {hhmm(s.morning_boundary)}{reviewList.length ? `, ${until(reviewList[0][1])}` : ""}</span></div>
+          <div class="sactions">
+            {#if left > 1}<button class="cancelall" onclick={cancelAll}>Cancel all {left}</button>{/if}
+            <button class="done" onclick={() => (reviewing = false)}>Done</button>
+          </div>
+        </div>
         <div class="plist">
-          {#each status.pending as p, i (i)}
-            <div class="prow"><span>{describe(p, s)}</span><button class="link" onclick={() => cancel(i)}>Cancel</button></div>
+          {#each reviewList as p, j (j)}
+            <div class="pcard" class:gone={cancelled[j]}>
+              <span class="pdesc">{describe(p, s)}</span>
+              {#if cancelled[j]}<span class="cap gonelabel">Cancelled</span>{:else}<button class="pcancel" onclick={() => cancelListed(j)}>Cancel</button>{/if}
+            </div>
           {/each}
         </div>
-        <button class="cancelall" onclick={cancelAll}>Cancel all {status.pending.length}</button>
       </Sheet>
     {/if}
 
@@ -188,13 +208,20 @@
   .val.preview { color: var(--muted); }
   .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
   .pending { border-radius: 16px; background: var(--goal-bg); border: 1px solid var(--goal-line); padding: 10px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .pending.all { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .shead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; max-width: 560px; }
-  .shead h2 { margin: 0; font-size: 18px; }
-  .plist { display: flex; flex-direction: column; max-width: 560px; }
-  .prow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; border-top: 1px solid var(--divider); font-size: 14px; }
-  .prow:first-child { border-top: 0; }
-  .cancelall { align-self: flex-start; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--goal-line); background: var(--goal-bg); color: var(--goal); font: 700 14px var(--font); cursor: pointer; }
+  .review { flex: none; min-height: 40px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--goal); color: #2a1a04; font: 700 14px var(--font); cursor: pointer; }
+  .shead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .stitle { display: flex; flex-direction: column; gap: 4px; }
+  .stitle h2 { margin: 0; font-size: 18px; }
+  .sactions { display: flex; gap: 8px; }
+  /* Cards across the sheet's width: one column on a phone, several on a tablet. */
+  .plist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 10px; }
+  .pcard { min-height: 64px; border-radius: 14px; background: var(--goal-bg); border: 1px solid var(--goal-line); padding: 10px 10px 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
+  .pcard.gone { background: transparent; border-color: var(--line); color: var(--muted); }
+  .pcard.gone .pdesc { text-decoration: line-through; }
+  .gonelabel { color: var(--muted); padding-right: 6px; }
+  .pcancel { flex: none; min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--goal-line); background: transparent; color: var(--goal); font: 700 13px var(--font); cursor: pointer; }
+  .cancelall { min-height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--goal-line); background: var(--goal-bg); color: var(--goal); font: 700 14px var(--font); cursor: pointer; }
+  .done { min-height: 40px; padding: 0 18px; border-radius: 12px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 14px var(--font); cursor: pointer; }
   .ptext { display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
   .ptext .cap { color: var(--goal); letter-spacing: .06em; }
   .link { background: none; border: 0; color: var(--goal); font: 700 13px var(--font); text-decoration: underline; min-height: 44px; padding: 0 4px; }

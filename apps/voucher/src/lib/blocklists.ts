@@ -24,3 +24,10 @@ export function siteName(site: string): string {
 }
 
 export const LIST_COLORS = ["#e5609b", "#ff6b5b", "#ff8a3d", "#7d8cff", "#5bc8ff", "#9be36d", "#c3a6ff"];
+
+/** The colour of the blocklist an app is on, matched by its name, or grey
+ *  when it's on none (Distraction time and the blocked-app screen use it). */
+export function blocklistColorOf(label: string, blocklists: Record<string, Blocklist>): string {
+  const list = Object.values(blocklists).find((l) => l.apps.some((a) => a.label.toLowerCase() === label.toLowerCase()));
+  return list?.color ?? "#9aa0a6";
+}

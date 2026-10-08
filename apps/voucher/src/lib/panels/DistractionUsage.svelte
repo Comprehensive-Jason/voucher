@@ -1,6 +1,7 @@
 <script lang="ts">
   // Time in Distractions today, measured on this device.
   import type { Blocklist, DeviceUsage } from "../types";
+  import { blocklistColorOf } from "../blocklists";
 
   let { usage, unlockedMinutes, blocklists = {} }: {
     usage: DeviceUsage | null; unlockedMinutes: number;
@@ -9,11 +10,7 @@
   } = $props();
 
   const used = $derived(usage ? usage.apps.reduce((n, a) => n + a.minutes, 0) : 0);
-  /** The colour of the blocklist an app is on (matched by its name), or grey. */
-  function colorOf(label: string): string {
-    const list = Object.values(blocklists).find((l) => l.apps.some((a) => a.label.toLowerCase() === label.toLowerCase()));
-    return list?.color ?? "#9aa0a6";
-  }
+  const colorOf = (label: string) => blocklistColorOf(label, blocklists);
 </script>
 
 <section class="card">

@@ -1,6 +1,6 @@
 <script lang="ts">
   // Each Day's earnings hour by hour (its totals are in the list below): a bar per hour, split into a segment per
-  // source and topped with its count, over faint tick lines, with a dot under
+  // source and topped with its count, over faint tick lines, with a triangle under
   // each hour that had a Redemption. Tap a bar to pick that hour: the others
   // fade and the line below lists its count per source (otherwise it lists
   // the whole Day's). Today shows first; swipe (or the arrows) back through
@@ -200,7 +200,7 @@
           {/each}
         </div>
         <div class="dots">
-          {#each cols as c}<div><i class:on={c.redeemed}></i></div>{/each}
+          {#each cols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={tall ? 10 : 8} />{/if}</div>{/each}
         </div>
         <div class="mono axis"><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>23</span></div>
       </div>
@@ -255,9 +255,7 @@
   .bar { display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; }
   .bar i { min-height: 0; }
   .dots { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; height: 10px; }
-  .dots div { display: flex; justify-content: center; }
-  .dots i { width: 8px; height: 8px; border-radius: 50%; }
-  .dots i.on { background: var(--ink); }
+  .dots div { display: flex; justify-content: center; align-items: center; }
   .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
@@ -286,6 +284,5 @@
   .tall .chart, .tall .dots { gap: 6px; }
   .tall .day { gap: 14px; }
   .tall .dots { height: 18px; }
-  .tall .dots i { width: 10px; height: 10px; }
   .tall .n { font-size: 11px; }
 </style>

@@ -5,7 +5,7 @@
   import { page } from "$app/state";
   import { device } from "$lib/api";
   import { Live } from "$lib/live.svelte";
-  import DesktopVoucher from "$lib/components/DesktopVoucher.svelte";
+  import VoucherStack from "$lib/components/VoucherStack.svelte";
 
   const label = $derived(page.url.searchParams.get("label") ?? "This program");
   const path = $derived(page.url.searchParams.get("path") ?? "");
@@ -33,7 +33,7 @@
         ? `The Bank is empty. Earn a Voucher to open it, or close ${site ? "this tab" : "it"} and keep going.`
         : `Tear a Voucher to open every Distraction for ${d.unlockMinutes} minutes, or close ${site ? "this tab" : "it"} and keep going.`}</p>
     <div class="bankline"><span>{d.bank} of {d.bankLimit} in the Bank</span><span>Curfew at {d.curfewStart}</span></div>
-    <div class="voucher"><DesktopVoucher mode={live.mode} bank={d.bank} unlockMinutes={d.unlockMinutes} curfewEnd={d.curfewEnd} ontear={onTear} /></div>
+    <div class="voucher"><VoucherStack mode={live.mode} bank={d.bank} unlockMinutes={d.unlockMinutes} room={d.curfewRoomMinutes} curfewStart={d.curfewStart} ontear={onTear} /></div>
   {/if}
   {#if live.error}<p class="error">{live.error}</p>{/if}
   <button class="close" onclick={() => device("goHome", { closed: true, closeTab: site })}>{site ? "Close this tab" : `Close ${label}`}</button>

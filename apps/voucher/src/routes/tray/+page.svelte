@@ -4,7 +4,7 @@
   import { onMount } from "svelte";
   import { device } from "$lib/api";
   import { Live } from "$lib/live.svelte";
-  import DesktopVoucher from "$lib/components/DesktopVoucher.svelte";
+  import VoucherStack from "$lib/components/VoucherStack.svelte";
   import { styleOf } from "$lib/sources";
 
   const live = new Live();
@@ -59,7 +59,8 @@
       <div class="cells" style="grid-template-columns: repeat({cells.length}, minmax(0, 1fr))">{#each cells as c}<i class={c}></i>{/each}</div>
     </div>
 
-    <DesktopVoucher {mode} bank={d.bank} unlockMinutes={d.unlockMinutes} curfewEnd={d.curfewEnd} ontear={live.tear} />
+    <!-- The same stack as the phone and tablet: drag to tear, or Enter. -->
+    <VoucherStack {mode} bank={d.bank} unlockMinutes={d.unlockMinutes} room={d.curfewRoomMinutes} curfewStart={d.curfewStart} ontear={live.tear} />
 
     <div class="status"><span class="cap {status.tone}">{status.label}</span><span class="mono right">{status.right}</span></div>
 

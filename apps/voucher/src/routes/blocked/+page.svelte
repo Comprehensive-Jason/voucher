@@ -4,10 +4,11 @@
   // here opens the app straight away.
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { appIcon, device, deviceUsage, tear, today } from "$lib/api";
+  import { appIcon, device, deviceUsage, ledger, tear, today } from "$lib/api";
+  import { blocklistColorOf } from "$lib/blocklists";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
   import { styleOf } from "$lib/sources";
-  import { modeOf, type DeviceUsage, type Today } from "$lib/types";
+  import { modeOf, type Blocklist, type DeviceUsage, type Status, type Today } from "$lib/types";
 
   const pkg = page.url.searchParams.get("pkg");
   // Known when the app was opened from its icon; otherwise it is "This app".
@@ -20,7 +21,8 @@
   let clock = $state(new Date().toTimeString().slice(0, 5));
 
   const mode = $derived(data ? modeOf(data, Math.floor(Date.now() / 1000)) : "locked");
-  const ATTEMPT_COLORS = ["#e5609b", "#ff6b5b", "#ff8a3d", "#c9cdd1"];
+  // Each app's bar takes its blocklist's colour, as everywhere else.
+  let blocklists = $state<Record<string, Blocklist>>({});
   /** A tile colour when the app's own icon can't be read: brand colours for the usual ones. */
   function tileColor(name: string): string {
     const known: Record<string, string> = { instagram: "#c13584", youtube: "#e62117", reddit: "#ff4500", tiktok: "#25f4ee" };
@@ -50,6 +52,7 @@
 
   onMount(() => {
     today().then((t) => (data = t)).catch((e) => (error = String(e)));
+    ledger<Status>("GET", "/status").then((s) => (blocklists = s.settings.blocklists)).catch(() => {});
     deviceUsage().then((u) => (usage = u));
     if (pkg) appIcon(pkg).then((i) => (icon = i));
     const tick = setInterval(() => (clock = new Date().toTimeString().slice(0, 5)), 5000);
@@ -85,7 +88,7 @@
         {#each usage.attempts.slice(0, 4) as a, i}
           <div class="row">
             <div class="name">{a.label}</div>
-            <div class="bar"><i style="width: {(a.count / most) * 100}%; background: {ATTEMPT_COLORS[i]}"></i></div>
+            <div class="bar"><i style="width: {(a.count / most) * 100}%; background: {blocklistColorOf(a.label, blocklists)}"></i></div>
             <div class="mono n">{a.count}</div>
           </div>
         {/each}
