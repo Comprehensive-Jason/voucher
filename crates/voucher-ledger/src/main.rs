@@ -38,7 +38,7 @@ struct Config {
     clickup_token_file: PathBuf,
     clickup_team_id: Option<String>,
     clickup_user_id: Option<u64>,
-    /// `POST /test/complete` records a finished task, for test Ledgers only.
+    /// `POST /test/complete` and `/test/credit`, for test Ledgers only.
     test_tasks: bool,
 }
 
@@ -408,6 +408,17 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
         // Off unless VOUCHER_TEST_TASKS=1: lets a test Ledger earn task
         // Vouchers without Todoist or ClickUp. It grants nothing `/report`
         // can't already, to anyone holding the access code.
+        // Also test-only: Vouchers straight into the Bank, with no earning
+        // behind them (no Log entry, no Day score), e.g. to try a Redemption
+        // in an hour that earned nothing.
+        (Method::Post, "/test/credit") if config.test_tasks => {
+            let count = query
+                .split('&')
+                .find_map(|p| p.strip_prefix("count="))
+                .and_then(|n| n.parse().ok())
+                .unwrap_or(1);
+            (200, json(&ledger.credit(count, now)))
+        }
         (Method::Post, "/test/complete") if config.test_tasks => {
             let mut body = String::new();
             let parsed = request

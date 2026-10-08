@@ -184,6 +184,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, "application/json", JSON.stringify(usageReply()));
     }
     if (req.method === "POST" && req.url === "/api/minutes") return send(res, 200, "application/json", JSON.stringify(await addMinutes(input.source, Number(input.add))));
+    if (req.method === "POST" && req.url === "/api/credit") return send(res, 200, "application/json", JSON.stringify(await call("POST", `/test/credit?count=${Number(input.count) || 1}`)));
     if (req.method === "POST" && req.url === "/api/task") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/complete", { source: input.source, title: input.title })));
     if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
     if (req.method === "POST" && req.url === "/api/reset") { await reset(); return send(res, 200, "application/json", "{}"); }
@@ -240,6 +241,7 @@ const PAGE = String.raw`<!doctype html>
   </header>
   <div class="facts" id="facts"></div>
   <div id="toast" role="status"></div>
+  <div class="buttons"><button data-credit="1">+1 Voucher to the Bank</button><button data-credit="5">+5 Vouchers</button><span class="note">Straight into the Bank: no task, no Log entry, nothing in the hour chart.</span></div>
   <div class="grid" id="sources"></div>
   <h2>Distraction time on this device (made up)</h2>
   <span class="note">What a dev build shows under "In Distractions today" and on the blocked-app screen, instead of what Android measures.</span>
@@ -337,6 +339,7 @@ document.addEventListener("click", (e) => {
   if (b.dataset.uclosed) act(() => api("POST", "/api/usage", { closed: true }), () => "One more closed without tearing");
   if (b.dataset.ureset) act(() => api("POST", "/api/usage", { reset: true }), () => "Placeholder Distraction time back");
   if (b.dataset.uclear) act(() => api("POST", "/api/usage", { clear: true }), () => "Distraction time cleared");
+  if (b.dataset.credit) act(() => api("POST", "/api/credit", { count: Number(b.dataset.credit) }), (c) => "+" + c.kept + " in the Bank" + (c.forfeited ? ", " + c.forfeited + " over the limit" : ""));
   if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added made-up Days for the last 4 weeks");
   if (b.id === "reset") act(() => api("POST", "/api/reset"), () => "Fresh test Ledger: Bank and Day emptied");
 });

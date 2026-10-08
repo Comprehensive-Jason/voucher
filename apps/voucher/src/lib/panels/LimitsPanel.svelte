@@ -125,7 +125,7 @@
           <span class="cap">Waiting for {hhmm(s.morning_boundary)}, {until(p[1])}</span>
           <span>{describe(p, s)}</span>
         </div>
-        <button class="link" onclick={() => cancel(0)}>Cancel</button>
+        <button class="pcancel" onclick={() => cancel(0)}>Cancel</button>
       </div>
     {:else if status.pending.length > 1}
       <div class="pending">
