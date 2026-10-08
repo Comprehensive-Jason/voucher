@@ -17,6 +17,16 @@
   let startX = 0;
   let body = $state<HTMLDivElement>();
 
+  // The tear line is a row of holes cut out of the ticket, like the notches,
+  // so whatever is behind (the next ticket, or the page) shows through. The
+  // notches end at y 11 and 105: eight 7.25 px dashes leave nine equal 4 px
+  // gaps, one at each notch and seven between dashes. Each half cuts its own
+  // half of every hole, so a torn-off body carries its half away.
+  const holes = Array.from({ length: 8 }, (_, i) =>
+    `<rect x='.75' y='${15 + i * 11.25}' width='2.5' height='7.25' rx='1.25'/>`).join("");
+  const perforation = `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='4' height='116'>${holes}</svg>`)}")`;
+
   const tearable = $derived(mode !== "curfew" && mode !== "empty" && bank > 0);
   const running = $derived(mode === "running");
   // Keep the chosen count within what the Bank holds.
@@ -55,7 +65,7 @@
     <div class="layer far" class:night={mode === "curfew"}></div>
     <div class="layer near" class:night={mode === "curfew"}></div>
   {/if}
-  <div class="ticket" class:night={mode === "curfew"}>
+  <div class="ticket" class:night={mode === "curfew"} style="--perforation: {perforation}">
     <div class="stub">
       {#if mode === "curfew"}
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
@@ -70,6 +80,10 @@
         </button>
       {/if}
     </div>
+    <!-- Where the seam falls between pixels, the two halves' soft edges leave a
+         faint hairline. This strip, holed like the ticket, covers it while the
+         ticket is at rest, and gets out of the way once a drag begins. -->
+    <div class="bridge" class:away={dragging || torn || dx > 0}></div>
     <div
       class="body"
       class:dragging
@@ -98,10 +112,6 @@
         {/if}
       </div>
     </div>
-    <!-- The tear line, drawn over the seam so it sits on the notches' centre.
-         Seven 5 px dashes and six 7 px gaps fill y 19.5 to 96.5 exactly, so the
-         line ends the same distance from each notch. -->
-    <svg class="perf" aria-hidden="true" width="4" height="116" viewBox="0 0 4 116"><line x1="2" y1="19.5" x2="2" y2="96.5" /></svg>
   </div>
   {/if}
 </div>
@@ -124,13 +134,25 @@
   .stub {
     width: 30%; border-radius: 16px 0 0 16px; padding: 6px 8px; display: flex; flex-direction: column;
     align-items: stretch; justify-content: center; gap: 2px;
-    -webkit-mask: radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
-    mask: radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    /* Mask layers: the holes, cut (exclude) from the two notched halves, which
+       overlap and add up so no hairline shows where they meet. */
+    -webkit-mask: var(--perforation) calc(100% + 2px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    -webkit-mask-composite: xor, source-over;
+    mask: var(--perforation) calc(100% + 2px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    mask-composite: exclude, add;
   }
   .night .stub { align-items: center; gap: 8px; }
-  .perf { position: absolute; top: 0; left: calc(30% - 2px); pointer-events: none; overflow: visible; }
-  .perf line { stroke: rgba(7, 23, 13, .45); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 5 7; }
-  .night .perf line { stroke: rgba(232, 235, 255, .35); }
+  .bridge {
+    position: absolute; top: 0; left: calc(30% - 1px); width: 2px; height: 100%; background: var(--voucher);
+    pointer-events: none; transition: visibility 0s .25s;
+    -webkit-mask: var(--perforation) -1px 0/4px 116px no-repeat, radial-gradient(circle 11px at 1px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 1px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    -webkit-mask-composite: xor, source-over;
+    mask: var(--perforation) -1px 0/4px 116px no-repeat, radial-gradient(circle 11px at 1px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 1px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    mask-composite: exclude, add;
+  }
+  .night .bridge { background: var(--night-ticket); }
+  /* Gone at once when a drag starts; back only after the body springs home. */
+  .bridge.away { visibility: hidden; transition: none; }
   .stubcap { color: var(--night-ink); }
   .step {
     height: 34px; padding: 0; border: 0; border-radius: 10px; background: rgba(7, 23, 13, .14);
@@ -139,11 +161,17 @@
   .step:disabled { opacity: .35; cursor: default; }
   .count { font-size: 22px; font-weight: 700; line-height: 28px; text-align: center; }
   .body {
-    flex: 1; border-radius: 0 16px 16px 0; padding: 16px 18px; display: flex; flex-direction: column;
+    /* The body starts 2 px left of the seam behind a transparent border, so its
+       visible edge and half-holes come from the mask. A tilted box edge is
+       smoothed from the raw fill, ignoring the mask, and left a faint line. */
+    flex: 1; margin-left: -2px; border-left: 2px solid transparent; background-clip: padding-box;
+    border-radius: 0 16px 16px 0; padding: 16px 18px; display: flex; flex-direction: column;
     justify-content: space-between; cursor: grab; touch-action: none; transform-origin: 0 100%;
     transition: transform .25s ease, opacity .25s ease;
-    -webkit-mask: radial-gradient(circle 11px at 0 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 0 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
-    mask: radial-gradient(circle 11px at 0 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 0 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    -webkit-mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    -webkit-mask-composite: xor, source-over;
+    mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    mask-composite: exclude, add;
   }
   .body.dragging { transition: none; cursor: grabbing; }
   .body.torn { opacity: 0; }
