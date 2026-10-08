@@ -5,7 +5,7 @@
   import { deviceUsage, ledger } from "$lib/api";
   import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$lib/wide.svelte";
-  import { twelveWeeks } from "$lib/time";
+  import { historyDays } from "$lib/time";
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
@@ -22,7 +22,7 @@
   async function loadWide() {
     try {
       status = await ledger<Status>("GET", "/status");
-      history = await ledger<DayTotal[]>("GET", `/history?days=${twelveWeeks(status.today.day)}`);
+      history = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(status.today.day, status.first_day)}`);
       usage = await deviceUsage();
     } catch { /* the Today column shows the error */ }
   }
@@ -41,8 +41,8 @@
     <section class="col"><TodayColumn {live} wide /></section>
     <section class="col">
       {#if status}
-        <HourChart today={status.today} timeZone={status.settings.time_zone} tall />
-        <Heatmap {history} goal={status.today.goal} keyBelow={false} />
+        <HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.log_first_day} tall />
+        <Heatmap {history} goal={status.today.goal} firstDay={status.first_day} keyBelow={false} />
       {/if}
     </section>
     <section class="col">

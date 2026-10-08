@@ -28,6 +28,17 @@ export function dayLabel(day: string, today: string): string {
   return `${weekday} ${day}`;
 }
 
+/** Days to fetch so the history grid's week-columns start on a Monday and end
+ *  with `today`: back to the week of `firstDay`, and never fewer than twelve
+ *  weeks (or more than about three years). */
+export function historyDays(today: string, firstDay?: string): number {
+  const twelve = twelveWeeks(today);
+  if (!firstDay || firstDay >= today) return twelve;
+  const weekday = (new Date(`${firstDay}T12:00:00Z`).getUTCDay() + 6) % 7;
+  const span = Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${firstDay}T12:00:00Z`)) / 86_400_000);
+  return Math.min(1100, Math.max(twelve, span + weekday + 1));
+}
+
 /** Days to fetch so twelve week-columns start on a Monday and end with `today`. */
 export function twelveWeeks(today: string): number {
   const weekday = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;

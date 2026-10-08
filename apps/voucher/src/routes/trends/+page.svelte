@@ -6,11 +6,13 @@
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import DistractionUsage from "$lib/panels/DistractionUsage.svelte";
-  import { twelveWeeks } from "$lib/time";
+  import { historyDays } from "$lib/time";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$lib/types";
 
   let today = $state<DaySummary | null>(null);
   let timeZone = $state("UTC");
+  let firstDay = $state<string | undefined>();
+  let logFirstDay = $state<string | undefined>();
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
   let error = $state<string | null>(null);
@@ -20,7 +22,9 @@
       const status = await ledger<Status>("GET", "/status");
       today = status.today;
       timeZone = status.settings.time_zone;
-      history = await ledger<DayTotal[]>("GET", `/history?days=${twelveWeeks(today.day)}`);
+      firstDay = status.first_day;
+      logFirstDay = status.log_first_day;
+      history = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(today.day, firstDay)}`);
       usage = await deviceUsage();
       error = null;
     } catch (e) {
@@ -43,8 +47,8 @@
   {#if error}
     <p class="error">{error}</p>
   {:else if today}
-    <HourChart {today} {timeZone} />
-    <Heatmap {history} goal={today.goal} />
+    <HourChart {today} {timeZone} firstDay={logFirstDay} />
+    <Heatmap {history} goal={today.goal} {firstDay} />
     <DistractionUsage {usage} unlockedMinutes={today.unlocked_minutes} />
   {/if}
 </main>

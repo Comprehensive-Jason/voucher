@@ -125,6 +125,10 @@ export interface Status {
   source_errors: Record<string, string>;
   /** False until first-run setup finishes; until then changes apply at once. */
   setup_complete: boolean;
+  /** The first Day with any history; Trends scrolls back no further. Older Ledgers omit it. */
+  first_day?: string;
+  /** The oldest Day whose hour-by-hour log is kept. */
+  log_first_day?: string;
 }
 
 export interface BlockedApp { package: string; label: string; note: string | null; on: boolean; added: boolean }

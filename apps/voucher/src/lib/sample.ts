@@ -116,6 +116,7 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: days[TODAY],
       source_errors: expired ? { [expired]: "sign-in expired" } : {},
       setup_complete: !new URLSearchParams(location.search).get("fresh"),
+      first_day: "2026-06-29", log_first_day: "2026-10-01",
       blocked: { apps: [], sites: [] } };
   }
   if (route === "/day") {

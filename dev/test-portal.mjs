@@ -95,6 +95,49 @@ async function reset() {
   await finishSetup();
 }
 
+/** Writes made-up past Days into the test Ledger's saved state: scores for
+ *  the history grid and log entries for the hour chart. The Ledger only takes
+ *  reports for today and yesterday, so this edits its file while it's stopped. */
+async function seedHistory(days) {
+  const today = (await call("GET", "/status")).today.day;
+  await stopLedger();
+  const file = path.join(DATA, "state.json");
+  const state = JSON.parse(readFileSync(file, "utf8"));
+  const zone = Intl.DateTimeFormat("en-US", { timeZone: state.settings.time_zone, timeZoneName: "longOffset" });
+  const sources = ["todoist", "todoist", "clickup", "obsidian", "readwise", "workout", "anki", "moonreader"];
+  const titles = ["Problem set", "Weekly review", "Reply to email", "Lecture notes", "Reading", "Bike ride", "Flashcards", "Chapter"];
+  const goal = state.settings.daily_goal;
+  let earliest = null;
+  for (let back = days; back >= 1; back--) {
+    // Counted back from the Ledger's own Day, not the calendar date here.
+    const date = new Date(Date.parse(today + "T12:00:00Z") - back * 86400_000).toISOString().slice(0, 10);
+    if (state.days[date]) continue;
+    earliest ??= date;
+    // A spread of quiet, ordinary, and goal-meeting Days.
+    const earned = Math.random() < 0.15 ? 0 : Math.round(goal * (0.3 + Math.random() * 0.9));
+    const redeemed = Math.min(earned, Math.floor(Math.random() * 5));
+    state.days[date] = { earned, goal, redeemed, unlocked_minutes: redeemed * state.settings.unlock_minutes, progress: {}, reported: {} };
+    const at = (hour, minute) => {
+      const probe = new Date(date + "T12:00:00Z");
+      const offset = zone.formatToParts(probe).find((x) => x.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
+      return new Date(date + "T" + String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0") + ":00" + offset).toISOString();
+    };
+    for (let i = 0; i < earned; i++) {
+      const k = Math.floor(Math.random() * sources.length);
+      state.log.push({ kind: "earned", at: at(9 + Math.floor(Math.random() * 13), Math.floor(Math.random() * 60)),
+        task: sources[k] + ":seed-" + date + "-" + i, title: titles[k], kept: true });
+    }
+    for (let i = 0; i < redeemed; i++) {
+      state.log.push({ kind: "redeemed", at: at(12 + Math.floor(Math.random() * 9), Math.floor(Math.random() * 60)), tickets: 1, minutes: state.settings.unlock_minutes });
+    }
+  }
+  state.log.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  if (earliest && Date.parse(state.started_at) > Date.parse(earliest + "T00:00:00Z")) state.started_at = earliest + "T00:00:00Z";
+  writeFileSync(file, JSON.stringify(state));
+  startLedger();
+  await untilUp();
+}
+
 const send = (res, status, type, body) => { res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" }); res.end(body); };
 
 const server = createServer(async (req, res) => {
@@ -106,6 +149,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/api/status") return send(res, 200, "application/json", JSON.stringify(await call("GET", "/status")));
     if (req.method === "POST" && req.url === "/api/minutes") return send(res, 200, "application/json", JSON.stringify(await addMinutes(input.source, Number(input.add))));
     if (req.method === "POST" && req.url === "/api/task") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/complete", { source: input.source, title: input.title })));
+    if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
     if (req.method === "POST" && req.url === "/api/reset") { await reset(); return send(res, 200, "application/json", "{}"); }
     send(res, 404, "text/plain", "not found");
   } catch (e) {
@@ -157,7 +201,7 @@ const PAGE = String.raw`<!doctype html>
   <div class="facts" id="facts"></div>
   <div id="toast" role="status"></div>
   <div class="grid" id="sources"></div>
-  <div class="row"><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
+  <div class="buttons"><button id="history">Add 4 weeks of made-up history</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
 <script>
 const COLORS = { tasks: "#4f8ff7", obsidian: "#a78bfa", workout: "#ff8a5c", readwise: "#ffd166", moonreader: "#e0a82e", anki: "#ff6fa8" };
@@ -235,6 +279,7 @@ document.addEventListener("click", (e) => {
     input.value = "";
     act(() => api("POST", "/api/task", { source: b.dataset.task, title }), (c) => "Finished “" + title + "”: " + earnedText(c));
   }
+  if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added made-up Days for the last 4 weeks");
   if (b.id === "reset") act(() => api("POST", "/api/reset"), () => "Fresh test Ledger: Bank and Day emptied");
 });
 refresh();
