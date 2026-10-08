@@ -5,7 +5,7 @@
   import { page } from "$app/state";
   import { device } from "$lib/api";
   import { Live } from "$lib/live.svelte";
-  import DesktopTicket from "$lib/components/DesktopTicket.svelte";
+  import DesktopVoucher from "$lib/components/DesktopVoucher.svelte";
 
   const label = $derived(page.url.searchParams.get("label") ?? "This program");
   const path = $derived(page.url.searchParams.get("path") ?? "");
@@ -31,9 +31,9 @@
       ? `It's Curfew. ${label} and everything else open again at ${d.curfewEnd}.`
       : d.bank === 0
         ? `The Bank is empty. Earn a Voucher to open it, or close ${site ? "this tab" : "it"} and keep going.`
-        : `Tear a ticket to open every Distraction for ${d.unlockMinutes} minutes, or close ${site ? "this tab" : "it"} and keep going.`}</p>
+        : `Tear a Voucher to open every Distraction for ${d.unlockMinutes} minutes, or close ${site ? "this tab" : "it"} and keep going.`}</p>
     <div class="bankline"><span>{d.bank} of {d.bankLimit} in the Bank</span><span>Curfew at {d.curfewStart}</span></div>
-    <div class="ticket"><DesktopTicket mode={live.mode} bank={d.bank} unlockMinutes={d.unlockMinutes} curfewEnd={d.curfewEnd} ontear={onTear} /></div>
+    <div class="voucher"><DesktopVoucher mode={live.mode} bank={d.bank} unlockMinutes={d.unlockMinutes} curfewEnd={d.curfewEnd} ontear={onTear} /></div>
   {/if}
   {#if live.error}<p class="error">{live.error}</p>{/if}
   <button class="close" onclick={() => device("goHome", { closed: true, closeTab: site })}>{site ? "Close this tab" : `Close ${label}`}</button>
@@ -44,7 +44,7 @@
   h1 { margin: 0; font-size: 24px; font-weight: 700; line-height: 1.15; }
   p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.4; }
   .bankline { width: 100%; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
-  .ticket { width: 100%; text-align: left; }
+  .voucher { width: 100%; text-align: left; }
   .close { min-height: 44px; width: 100%; border-radius: 12px; border: 1px solid #3a3f45; background: var(--surface); color: var(--ink); font: 700 14px var(--font); cursor: pointer; }
   .error { color: var(--goal); }
 </style>

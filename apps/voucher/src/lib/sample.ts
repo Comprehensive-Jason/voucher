@@ -10,8 +10,8 @@ const TODAY = "2026-10-07";
 
 const earned = (time: string, task: string, title: string, day = TODAY): Entry =>
   ({ kind: "earned", at: `${day}T${time}:00-07:00`, task, title, kept: true });
-const redeemed = (time: string, tickets: number, day = TODAY): Entry =>
-  ({ kind: "redeemed", at: `${day}T${time}:00-07:00`, tickets, minutes: tickets * 10 });
+const redeemed = (time: string, vouchers: number, day = TODAY): Entry =>
+  ({ kind: "redeemed", at: `${day}T${time}:00-07:00`, tickets: vouchers, minutes: vouchers * 10 });
 
 const days: Record<string, DaySummary> = {
   [TODAY]: {

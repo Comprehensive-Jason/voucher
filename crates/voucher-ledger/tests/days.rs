@@ -132,7 +132,7 @@ fn todays_log_lists_earnings_and_redemptions_newest_first() {
         vec![
             Entry::Redeemed {
                 at: at("2026-10-07T12:00-07:00"),
-                tickets: 1,
+                vouchers: 1,
                 minutes: 10
             },
             Entry::Earned {
@@ -158,7 +158,7 @@ fn a_past_day_keeps_its_totals_and_when_its_goal_was_met() {
     earn(&mut ledger, "b", 1, "2026-10-06T11:30-07:00");
     earn(&mut ledger, "c", 1, "2026-10-06T14:00-07:00");
     ledger.redeem_many(2, at("2026-10-06T15:00-07:00")).unwrap();
-    // Clipped by Curfew: one ticket, but only 5 minutes.
+    // Clipped by Curfew: one Voucher, but only 5 minutes.
     ledger.redeem(at("2026-10-06T21:55-07:00")).unwrap();
 
     let day = ledger.day("2026-10-06".parse().unwrap(), at("2026-10-07T09:00-07:00"));
@@ -218,4 +218,18 @@ fn a_short_pause_between_check_ins_is_not_a_gap() {
     ledger.check_in("laptop", at("2026-10-07T09:08-07:00"));
 
     assert!(ledger.today(at("2026-10-07T10:00-07:00")).log.is_empty());
+}
+
+#[test]
+fn torn_vouchers_keep_their_stored_name() {
+    // Saved states and older apps read `tickets`; renaming it would lose them.
+    let entry = Entry::Redeemed {
+        at: at("2026-10-07T12:00-07:00"),
+        vouchers: 2,
+        minutes: 20,
+    };
+    let json = serde_json::to_value(&entry).unwrap();
+    assert_eq!(json["tickets"], 2);
+    let back: Entry = serde_json::from_value(json).unwrap();
+    assert_eq!(back, entry);
 }

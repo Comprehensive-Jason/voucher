@@ -238,7 +238,7 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 }),
             ),
         },
-        // `?count=3` tears three tickets at once; no count means one.
+        // `?count=3` tears three Vouchers at once; no count means one.
         (Method::Post, "/redeem") => match number(query, "count").unwrap_or(Some(1)) {
             Some(count) => match ledger.redeem_many(count, now) {
                 Ok(redeemed) => (200, json(&redeemed)),

@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The fixed-height card under the ticket. Its height never changes between
+  // The fixed-height card under the Voucher stack. Its height never changes between
   // states, so nothing below it moves (Jason's muscle-memory rule).
   import { styleOf } from "../sources";
   import type { Mode, Today } from "../types";
@@ -9,7 +9,7 @@
   const left = $derived(data.unlockEndsAt ? Math.max(0, data.unlockEndsAt - now) : 0);
   const mmss = $derived(`${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`);
   const hm = (unix: number) => new Date(unix * 1000).toTimeString().slice(0, 5);
-  // The bar drains from the start of this run of tickets to its end.
+  // The bar drains from the start of this run of Vouchers to its end.
   const runFraction = $derived.by(() => {
     if (!data.unlockEndsAt) return 0;
     const start = data.unlockStartedAt ?? data.unlockEndsAt - data.unlockMinutes * 60;
@@ -44,7 +44,7 @@
 <div class="card {mode}">
   {#if mode === "running"}
     <div class="row"><span class="cap" style="color: var(--voucher)">Unlocked</span>
-      <span class="mono small">{data.unlockTickets ? `${data.unlockTickets} torn · ` : ""}locks {data.unlockEndsAt ? hm(data.unlockEndsAt) : ""}</span></div>
+      <span class="mono small">{data.unlockVouchers ? `${data.unlockVouchers} torn · ` : ""}locks {data.unlockEndsAt ? hm(data.unlockEndsAt) : ""}</span></div>
     <div class="mono timer">{mmss}</div>
     <div class="bar"><i style="width: {runFraction * 100}%; background: var(--voucher)"></i></div>
   {:else if mode === "curfew"}
@@ -67,7 +67,7 @@
     {/if}
   {:else}
     <div class="row"><span class="cap">Locked</span><span class="mono small">Curfew at {data.curfewStart}</span></div>
-    <div class="line">Tear a ticket for {data.unlockMinutes} minutes of {lists}.</div>
+    <div class="line">Tear a Voucher for {data.unlockMinutes} minutes of {lists}.</div>
     <div class="bar"><i style="width: 0%"></i></div>
   {/if}
 </div>
@@ -75,7 +75,7 @@
 <style>
   .card { height: 104px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; }
   .card.running { background: var(--unlocked-bg); border-color: var(--unlocked-line); }
-  .card.curfew { background: var(--night-bg); border-color: var(--night-ticket); }
+  .card.curfew { background: var(--night-bg); border-color: var(--night-voucher); }
   .card.full { background: var(--goal-bg); border-color: var(--goal-line); }
   .row { display: flex; justify-content: space-between; align-items: center; }
   .small { font-size: 12px; color: var(--muted); }

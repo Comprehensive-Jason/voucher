@@ -18,7 +18,7 @@
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
 
-  // The tablet's other columns refresh less often than the ticket.
+  // The tablet's other columns refresh less often than the Voucher stack.
   async function loadWide() {
     try {
       status = await ledger<Status>("GET", "/status");

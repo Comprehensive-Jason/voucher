@@ -1,7 +1,7 @@
 //! The Voucher app's Rust side: the bridge between the interface and the Ledger.
 //!
 //! The interface calls three commands. `today` fetches everything the Today
-//! screen shows; `tear` Redeems tickets; `ledger` passes any other request
+//! screen shows; `tear` Redeems Vouchers; `ledger` passes any other request
 //! (a Day's log, history, settings changes) straight through. Every Unlock the Ledger hands back is
 //! checked against the Ledger's public key before the app trusts it, the same
 //! rule every Enforcer follows (ADR 0001).
@@ -47,9 +47,9 @@ pub struct Today {
     pub sources: serde_json::Value,
     /// Today's log, newest first, as the Ledger sends it.
     pub log: serde_json::Value,
-    /// When the running Unlock's tickets began, and how many were torn.
+    /// When the running Unlock's Vouchers began, and how many were torn.
     pub unlock_started_at: Option<i64>,
-    pub unlock_tickets: u32,
+    pub unlock_vouchers: u32,
     /// Names of the switched-on blocklists.
     pub blocklists: Vec<String>,
 }
@@ -69,7 +69,7 @@ async fn today(app: tauri::AppHandle) -> Result<Today, String> {
     blocking(move || client(&app)?.today()).await
 }
 
-/// Redeems `count` tickets at once; together they extend the Unlock.
+/// Redeems `count` Vouchers at once; together they extend the Unlock.
 #[tauri::command]
 async fn tear(app: tauri::AppHandle, count: u32) -> Result<Today, String> {
     blocking(move || {

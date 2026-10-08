@@ -29,8 +29,8 @@ How many Vouchers one kind of activity is worth, such as one Voucher per complet
 _Avoid_: exchange rate, multiplier
 
 **Voucher**:
-One earned, unredeemed unit of free time, held in the Bank until Redeemed.
-_Avoid_: token, credit, point
+One earned, unredeemed unit of free time, held in the Bank until Redeemed. On screen it is drawn as a tear-off slip; tearing one off Redeems it.
+_Avoid_: token, credit, point, ticket
 
 **Bank**:
 The Vouchers currently held. They carry over from day to day.

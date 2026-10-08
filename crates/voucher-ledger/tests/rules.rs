@@ -105,7 +105,7 @@ fn redeeming_during_an_unlock_stacks_another_unlock_length() {
 }
 
 #[test]
-fn a_ticket_that_would_add_no_time_before_curfew_is_refused() {
+fn a_voucher_that_would_add_no_time_before_curfew_is_refused() {
     let mut ledger = stocked();
     ledger.redeem(at("2026-10-06T21:55-07:00")).unwrap();
 
@@ -338,7 +338,7 @@ fn work_done_before_the_ledger_started_earns_nothing() {
 }
 
 #[test]
-fn several_tickets_can_be_torn_at_once() {
+fn several_vouchers_can_be_torn_at_once() {
     let mut ledger = stocked();
 
     let redeemed = ledger.redeem_many(3, at("2026-10-06T19:00-07:00")).unwrap();
@@ -348,7 +348,7 @@ fn several_tickets_can_be_torn_at_once() {
 }
 
 #[test]
-fn tearing_more_tickets_than_the_bank_holds_is_refused_whole() {
+fn tearing_more_vouchers_than_the_bank_holds_is_refused_whole() {
     let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
     ledger.credit(2, at("2026-10-06T09:00-07:00"));
 
@@ -371,7 +371,7 @@ fn a_pending_loosening_can_be_cancelled() {
 }
 
 #[test]
-fn tickets_that_would_only_run_past_curfew_stay_in_the_bank() {
+fn vouchers_that_would_only_run_past_curfew_stay_in_the_bank() {
     let mut ledger = stocked();
 
     let redeemed = ledger.redeem_many(5, at("2026-10-06T21:45-07:00")).unwrap();

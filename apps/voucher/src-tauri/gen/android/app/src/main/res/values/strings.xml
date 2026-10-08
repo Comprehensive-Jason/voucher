@@ -2,6 +2,6 @@
     <string name="app_name">Voucher</string>
     <string name="main_activity_title">Voucher</string>
     <string name="widget_description">Your Bank, the running Unlock, and progress toward the next Voucher</string>
-    <string name="accessibility_description">Shows Voucher\'s blocked-app screen, with a ticket to tear, when you open a paused app. Voucher reads only which app icon you tapped; blocking works without this.</string>
+    <string name="accessibility_description">Shows Voucher\'s blocked-app screen, with a Voucher to tear, when you open a paused app. Voucher reads only which app icon you tapped; blocking works without this.</string>
     <string name="tile_label">Voucher</string>
 </resources>

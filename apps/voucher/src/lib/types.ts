@@ -17,9 +17,9 @@ export interface Today {
   sources: SourceProgress[];
   /** Today's log, newest first. */
   log: Entry[];
-  /** When the running Unlock's tickets began (Unix seconds), and how many were torn. */
+  /** When the running Unlock's Vouchers began (Unix seconds), and how many were torn. */
   unlockStartedAt: number | null;
-  unlockTickets: number;
+  unlockVouchers: number;
   /** Names of the switched-on blocklists. */
   blocklists: string[];
 }
@@ -52,6 +52,7 @@ export function modeOf(t: Today, nowSeconds: number): Mode {
 /** One line of the Ledger's log. */
 export type Entry =
   | { kind: "earned"; at: string; task: string; title: string; kept: boolean }
+  /** `tickets` is the Ledger's stored name for the Vouchers torn. */
   | { kind: "redeemed"; at: string; tickets: number; minutes: number }
   /** An Enforcer stopped checking in from `at` until `until`. */
   | { kind: "gap"; at: string; device: string; until: string };

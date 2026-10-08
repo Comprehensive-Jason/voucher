@@ -21,7 +21,7 @@ export function tear(count: number): Promise<Today> {
   const now = Math.floor(Date.now() / 1000);
   const from = t.unlockEndsAt && t.unlockEndsAt > now ? t.unlockEndsAt : now;
   return Promise.resolve({ ...t, bank: t.bank - count, unlockEndsAt: from + count * t.unlockMinutes * 60,
-    unlockStartedAt: t.unlockStartedAt ?? now, unlockTickets: t.unlockTickets + count });
+    unlockStartedAt: t.unlockStartedAt ?? now, unlockVouchers: t.unlockVouchers + count });
 }
 
 function sampleSources(): SourceProgress[] {
@@ -45,11 +45,11 @@ function sampleToday(): Today {
     log: [
       { kind: "earned", at: new Date(Date.now() - 3 * 3600_000).toISOString(), task: "todoist:1", title: "Weekly review", kept: false },
     ],
-    unlockStartedAt: null, unlockTickets: 0,
+    unlockStartedAt: null, unlockVouchers: 0,
     blocklists: ["Instagram", "YouTube", "Reddit", "Games"],
   };
   switch (state) {
-    case "running": return { ...base, bank: 7, unlockEndsAt: now + 17 * 60 + 12, unlockStartedAt: now - 2 * 60 - 48, unlockTickets: 2 };
+    case "running": return { ...base, bank: 7, unlockEndsAt: now + 17 * 60 + 12, unlockStartedAt: now - 2 * 60 - 48, unlockVouchers: 2 };
     case "curfew": return { ...base, bank: 8, curfewActive: true };
     case "full": return { ...base, bank: 24 };
     case "goalmet": return { ...base, goalDone: 16, streakDays: 5 };

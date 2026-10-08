@@ -317,21 +317,21 @@ pub struct Credited {
 pub struct Redeemed {
     pub wire: String,
     pub ends_at: Timestamp,
-    /// When this run of stacked tickets began.
+    /// When this run of stacked Vouchers began.
     #[serde(default)]
     pub started_at: Timestamp,
-    /// How many tickets this run of stacked tickets has used.
-    #[serde(default)]
-    pub tickets: u32,
+    /// How many Vouchers this run has torn. Stored as `tickets`, the old name.
+    #[serde(default, rename = "tickets")]
+    pub vouchers: u32,
 }
 
 /// Why a Redemption was refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Refusal {
-    /// The Bank holds fewer Vouchers than the tickets asked for.
+    /// The Bank holds fewer Vouchers than asked for.
     EmptyBank,
-    /// Asked to tear zero tickets.
-    NoTickets,
+    /// Asked to tear zero Vouchers.
+    NoVouchers,
     /// It is Curfew, or the Unlock already runs up to Curfew's start.
     Curfew,
 }
@@ -428,8 +428,10 @@ pub enum Entry {
     },
     Redeemed {
         at: Timestamp,
-        tickets: u32,
-        /// Minutes the tickets actually added; Curfew can cut the last one short.
+        /// Stored as `tickets`, the old name.
+        #[serde(rename = "tickets")]
+        vouchers: u32,
+        /// Minutes the Vouchers actually added; Curfew can cut the last one short.
         #[serde(default)]
         minutes: u32,
     },
@@ -450,7 +452,7 @@ pub struct DaySummary {
     /// Vouchers earned this Day, forfeited ones included: the goal measures
     /// work done, not what fitted in the Bank.
     pub earned: u32,
-    /// Tickets torn this Day.
+    /// Vouchers torn this Day.
     pub redeemed: u32,
     pub unlocked_minutes: u32,
     pub goal: u32,
@@ -805,15 +807,15 @@ impl Ledger {
 
     /// Spends `count` Vouchers and signs an Unlock: starting now, or stacked
     /// onto the end of the Unlock that is already running. All or nothing:
-    /// if the Bank can't cover every ticket, none is torn.
+    /// if the Bank can't cover every Voucher, none is torn.
     ///
-    /// An Unlock never runs into Curfew. Tickets that would only add time
-    /// past Curfew's start stay in the Bank; a ticket that adds no time at
+    /// An Unlock never runs into Curfew. Vouchers that would only add time
+    /// past Curfew's start stay in the Bank; a Voucher that adds no time at
     /// all is refused.
     pub fn redeem_many(&mut self, count: u32, now: Timestamp) -> Result<Redeemed, Refusal> {
         self.settle(now);
         if count == 0 {
-            return Err(Refusal::NoTickets);
+            return Err(Refusal::NoVouchers);
         }
         if self.in_curfew(now) {
             return Err(Refusal::Curfew);
@@ -833,14 +835,14 @@ impl Ledger {
             return Err(Refusal::Curfew);
         }
         let length = i64::from(self.state.settings.unlock_minutes) * 60;
-        // Tickets needed to reach Curfew, rounding up: the last may be cut short.
+        // Vouchers needed to reach Curfew, rounding up: the last may be cut short.
         let fit = u32::try_from((room + length - 1) / length).unwrap_or(u32::MAX);
-        let tickets = count.min(fit);
+        let vouchers = count.min(fit);
         let ends_at = starts_from
-            .checked_add(SignedDuration::from_secs(length * i64::from(tickets)))
+            .checked_add(SignedDuration::from_secs(length * i64::from(vouchers)))
             .expect("an Unlock never ends past the year 9999")
             .min(curfew);
-        self.state.bank -= tickets;
+        self.state.bank -= vouchers;
         let wire = sign(
             &Unlock {
                 ends_at: ends_at.as_second(),
@@ -851,7 +853,7 @@ impl Ledger {
             wire,
             ends_at,
             started_at: running.as_ref().map_or(now, |unlock| unlock.started_at),
-            tickets: running.as_ref().map_or(0, |unlock| unlock.tickets) + tickets,
+            vouchers: running.as_ref().map_or(0, |unlock| unlock.vouchers) + vouchers,
         };
         self.state.unlock = Some(redeemed.clone());
         let minutes = (starts_from.duration_until(ends_at).as_secs() + 30) / 60;
@@ -862,11 +864,11 @@ impl Ledger {
             .days
             .entry(day_of(&self.state.settings, now))
             .or_insert(DayScore::new(goal));
-        today.redeemed += tickets;
+        today.redeemed += vouchers;
         today.unlocked_minutes += minutes;
         self.state.log.push(Entry::Redeemed {
             at: now,
-            tickets,
+            vouchers,
             minutes,
         });
         Ok(redeemed)
@@ -1244,7 +1246,7 @@ fn setting_key(change: &Change) -> Option<String> {
 
 fn apply_to(settings: &mut Settings, change: Change) {
     match change {
-        // A zero-minute ticket would spend Vouchers for nothing.
+        // A zero-minute Voucher would spend Vouchers for nothing.
         Change::UnlockMinutes(minutes) => settings.unlock_minutes = minutes.max(1),
         Change::BankLimit(limit) => settings.bank_limit = limit,
         Change::Curfew { start, end } => {

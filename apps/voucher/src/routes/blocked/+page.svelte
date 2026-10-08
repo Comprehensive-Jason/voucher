@@ -1,11 +1,11 @@
 <script lang="ts">
   // Voucher's own blocked screen, shown when a paused app is opened (ADR
-  // 0007). Three states: tickets to tear, an empty Bank, and Curfew. Tearing
+  // 0007). Three states: Vouchers to tear, an empty Bank, and Curfew. Tearing
   // here opens the app straight away.
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { appIcon, device, deviceUsage, tear, today } from "$lib/api";
-  import TicketStack from "$lib/components/TicketStack.svelte";
+  import VoucherStack from "$lib/components/VoucherStack.svelte";
   import { styleOf } from "$lib/sources";
   import { modeOf, type DeviceUsage, type Today } from "$lib/types";
 
@@ -76,7 +76,7 @@
       <h1>{label} is paused</h1>
       <p>{data && data.bank === 0
         ? "The Bank is empty. Earn a Voucher to open it, or close it and keep going."
-        : `Tear a ticket to open every Distraction for ${data?.unlockMinutes ?? 10} minutes, or close it and keep going.`}</p>
+        : `Tear a Voucher to open every Distraction for ${data?.unlockMinutes ?? 10} minutes, or close it and keep going.`}</p>
     </div>
 
     {#if usage && usage.attempts.length}
@@ -107,7 +107,7 @@
             {/each}
           </div>
         {:else}
-          <TicketStack {mode} bank={data.bank} unlockMinutes={data.unlockMinutes} ontear={onTear} />
+          <VoucherStack {mode} bank={data.bank} unlockMinutes={data.unlockMinutes} ontear={onTear} />
         {/if}
       </div>
     {/if}
@@ -115,7 +115,7 @@
 
     <div class="foot">
       <button class="close" onclick={() => close(true)}>{named ? `Close ${named}` : "Close"}</button>
-      <div class="hint">{data?.bank === 0 ? "Come back when there is a ticket to tear." : `${named ?? "It"} opens the moment the ticket tears.`}</div>
+      <div class="hint">{data?.bank === 0 ? "Come back when there is a Voucher to tear." : `${named ?? "It"} opens the moment the Voucher tears.`}</div>
     </div>
   </main>
 {/if}

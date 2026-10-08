@@ -41,10 +41,11 @@ struct Score {
 #[derive(Deserialize)]
 struct Redeemed {
     wire: String,
-    /// When this run of stacked tickets began, and how many it has used.
+    /// When this run of stacked Vouchers began, and how many it has torn.
     started_at: Timestamp,
-    #[serde(default)]
-    tickets: u32,
+    /// Sent as `tickets`, the old name.
+    #[serde(default, rename = "tickets")]
+    vouchers: u32,
 }
 
 #[derive(Deserialize)]
@@ -150,7 +151,7 @@ impl Client {
             sources: status.today.sources,
             log: status.today.log,
             unlock_started_at: unlock.as_ref().map(|(_, u)| u.started_at.as_second()),
-            unlock_tickets: unlock.as_ref().map_or(0, |(_, u)| u.tickets),
+            unlock_vouchers: unlock.as_ref().map_or(0, |(_, u)| u.vouchers),
             blocklists: status
                 .settings
                 .blocklists
@@ -182,7 +183,7 @@ impl Client {
         serde_json::from_str(&text).map_err(|e| format!("Unexpected Ledger reply: {e}"))
     }
 
-    /// Tears `count` tickets in one go: all of them, or none if the Bank is short.
+    /// Tears `count` Vouchers in one go: all of them, or none if the Bank is short.
     pub fn redeem(&self, count: u32) -> Result<(), String> {
         let mut response = self
             .post(&format!("/redeem?count={count}"))

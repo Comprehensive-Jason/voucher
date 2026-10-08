@@ -1,6 +1,6 @@
 <script lang="ts">
-  // The Bank as a stack of tickets. Drag the right-hand part of the top ticket
-  // to the right to tear off `count` tickets; the stub's + and − set `count`.
+  // The Bank as a stack of Vouchers. Drag the right-hand part of the top Voucher
+  // to the right to tear off `count` Vouchers; the stub's + and − set `count`.
   import type { Mode } from "../types";
 
   let { mode, bank, unlockMinutes, ontear }: {
@@ -17,8 +17,8 @@
   let startX = 0;
   let body = $state<HTMLDivElement>();
 
-  // The tear line is a row of holes cut out of the ticket, like the notches,
-  // so whatever is behind (the next ticket, or the page) shows through. The
+  // The tear line is a row of holes cut out of the Voucher, like the notches,
+  // so whatever is behind (the next Voucher, or the page) shows through. The
   // notches end at y 11 and 105: eight 7.25 px dashes leave nine equal 4 px
   // gaps, one at each notch and seven between dashes. Each half cuts its own
   // half of every hole, so a torn-off body carries its half away.
@@ -44,7 +44,7 @@
   function up() {
     if (!dragging) return;
     dragging = false;
-    // Past 40% of the ticket's width counts as a tear; anything less springs back.
+    // Past 40% of the Voucher's width counts as a tear; anything less springs back.
     if (body && dx > body.offsetWidth * 0.4) {
       torn = true;
       setTimeout(() => { ontear(count); torn = false; dx = 0; count = 1; }, 260);
@@ -57,7 +57,7 @@
 <div class="stack">
   {#if mode === "empty"}
     <div class="none">
-      <div class="nonetitle">No tickets to tear</div>
+      <div class="nonetitle">No Vouchers to tear</div>
       <div class="nonesub">The next one you earn lands here</div>
     </div>
   {:else}
@@ -65,24 +65,24 @@
     <div class="layer far" class:night={mode === "curfew"}></div>
     <div class="layer near" class:night={mode === "curfew"}></div>
   {/if}
-  <div class="ticket" class:night={mode === "curfew"} style="--perforation: {perforation}">
+  <div class="voucher" class:night={mode === "curfew"} style="--perforation: {perforation}">
     <div class="stub">
       {#if mode === "curfew"}
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
         <span class="cap stubcap">Curfew</span>
       {:else}
-        <button class="step" aria-label="One ticket more" disabled={!tearable || count >= bank} onclick={() => count++}>
+        <button class="step" aria-label="One Voucher more" disabled={!tearable || count >= bank} onclick={() => count++}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6v12M6 12h12" /></svg>
         </button>
         <div class="mono count">{tearable ? count : 0}</div>
-        <button class="step" aria-label="One ticket fewer" disabled={!tearable || count <= 1} onclick={() => count--}>
+        <button class="step" aria-label="One Voucher fewer" disabled={!tearable || count <= 1} onclick={() => count--}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 12h12" /></svg>
         </button>
       {/if}
     </div>
     <!-- Where the seam falls between pixels, the two halves' soft edges leave a
-         faint hairline. This strip, holed like the ticket, covers it while the
-         ticket is at rest, and gets out of the way once a drag begins. -->
+         faint hairline. This strip, holed like the Voucher, covers it while the
+         Voucher is at rest, and gets out of the way once a drag begins. -->
     <div class="bridge" class:away={dragging || torn || dx > 0}></div>
     <div
       class="body"
@@ -126,11 +126,11 @@
   .near { left: 12px; right: 12px; top: 10px; background: var(--voucher-deep); }
   .layer.night.far { background: #1b2350; }
   .layer.night.near { background: #242e63; }
-  .ticket {
+  .voucher {
     position: absolute; left: 0; right: 0; top: 22px; height: 116px; display: flex; color: var(--voucher-ink);
   }
   .stub, .body { background: var(--voucher); height: 100%; }
-  .night .stub, .night .body { background: var(--night-ticket); color: #e8ebff; }
+  .night .stub, .night .body { background: var(--night-voucher); color: #e8ebff; }
   .stub {
     width: 30%; border-radius: 16px 0 0 16px; padding: 6px 8px; display: flex; flex-direction: column;
     align-items: stretch; justify-content: center; gap: 2px;
@@ -150,7 +150,7 @@
     mask: var(--perforation) -1px 0/4px 116px no-repeat, radial-gradient(circle 11px at 1px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 1px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     mask-composite: exclude, add;
   }
-  .night .bridge { background: var(--night-ticket); }
+  .night .bridge { background: var(--night-voucher); }
   /* Gone at once when a drag starts; back only after the body springs home. */
   .bridge.away { visibility: hidden; transition: none; }
   .stubcap { color: var(--night-ink); }

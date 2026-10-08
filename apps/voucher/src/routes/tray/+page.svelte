@@ -1,10 +1,10 @@
 <script lang="ts">
-  // The Windows tray pop-up: the Bank, a ticket to tear, where things stand,
+  // The Windows tray pop-up: the Bank, a Voucher to tear, where things stand,
   // and the sources closest to their next Voucher.
   import { onMount } from "svelte";
   import { device } from "$lib/api";
   import { Live } from "$lib/live.svelte";
-  import DesktopTicket from "$lib/components/DesktopTicket.svelte";
+  import DesktopVoucher from "$lib/components/DesktopVoucher.svelte";
   import { styleOf } from "$lib/sources";
 
   const live = new Live();
@@ -15,10 +15,10 @@
   const left = $derived(d?.unlockEndsAt ? Math.max(0, d.unlockEndsAt - live.now) : 0);
   const hm = (unix: number) => new Date(unix * 1000).toTimeString().slice(0, 5);
   const fill = $derived(mode === "curfew" ? "night" : mode === "full" ? "amber" : "on");
-  // Bank cells, then outlines for the tickets the running Unlock is using.
+  // Bank cells, then outlines for the Vouchers the running Unlock is using.
   const cells = $derived.by(() => {
     if (!d) return [];
-    const inUse = mode === "running" ? d.unlockTickets : 0;
+    const inUse = mode === "running" ? d.unlockVouchers : 0;
     return Array.from({ length: Math.max(d.bankLimit, 1) }, (_, i) => (i < d.bank ? fill : i < d.bank + inUse ? "use" : ""));
   });
   const status = $derived.by(() => {
@@ -59,7 +59,7 @@
       <div class="cells" style="grid-template-columns: repeat({cells.length}, minmax(0, 1fr))">{#each cells as c}<i class={c}></i>{/each}</div>
     </div>
 
-    <DesktopTicket {mode} bank={d.bank} unlockMinutes={d.unlockMinutes} curfewEnd={d.curfewEnd} ontear={live.tear} />
+    <DesktopVoucher {mode} bank={d.bank} unlockMinutes={d.unlockMinutes} curfewEnd={d.curfewEnd} ontear={live.tear} />
 
     <div class="status"><span class="cap {status.tone}">{status.label}</span><span class="mono right">{status.right}</span></div>
 

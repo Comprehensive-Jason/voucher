@@ -257,7 +257,7 @@ object Enforcer {
         return (if (local.toLocalTime() < end) local.toLocalDate().minusDays(1) else local.toLocalDate()).toString()
     }
 
-    /** Asks the Ledger to Redeem `count` tickets, then applies the result at once. */
+    /** Asks the Ledger to Redeem `count` Vouchers, then applies the result at once. */
     fun tear(ctx: Context, count: Int = 1): Boolean {
         val c = Store.connection(ctx) ?: return false
         val code = runCatching { LedgerClient.post(c, "/redeem?count=$count") }.getOrNull()
