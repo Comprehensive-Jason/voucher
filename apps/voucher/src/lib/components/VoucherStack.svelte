@@ -27,10 +27,29 @@
   const perforation = `url("data:image/svg+xml,${encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='4' height='116'>${holes}</svg>`)}")`;
 
-  const tearable = $derived(mode !== "curfew" && mode !== "empty" && bank > 0);
+  // After a tear, the Bank the stack shows runs ahead of the Ledger's answer,
+  // so the stack can move at once; it lets go once the answer matches, or
+  // after a few seconds if the Ledger said something else.
+  let expected = $state<number | null>(null);
+  const shown = $derived(expected ?? bank);
+  $effect(() => { if (expected !== null && bank === expected) expected = null; });
+  // Vouchers drawn behind the top one: the stack counts down with the Bank.
+  const behind = (n: number) => (n >= 3 ? 2 : n >= 2 ? 1 : 0);
+  // An empty Bank shows the empty slot at once, even while an Unlock runs.
+  const empty = $derived(mode !== "curfew" && shown === 0);
+
+  // After the torn half flies off, the next Voucher rises into its place
+  // (RISE_MS) while the ones behind move up a place; then the new top Voucher's
+  // words fade in over its matching shape (FADE_MS).
+  const RISE_MS = 300;
+  const FADE_MS = 250;
+  let phase = $state<"rest" | "rising" | "settling">("rest");
+  let behindBefore = $state(0);
+
+  const tearable = $derived(mode !== "curfew" && !empty);
   const running = $derived(mode === "running");
   // Keep the chosen count within what the Bank holds.
-  $effect(() => { if (count > Math.max(1, bank)) count = Math.max(1, bank); });
+  $effect(() => { if (count > Math.max(1, shown)) count = Math.max(1, shown); });
 
   function down(e: PointerEvent) {
     if (!tearable) return;
@@ -47,31 +66,49 @@
     // Past 40% of the Voucher's width counts as a tear; anything less springs back.
     if (body && dx > body.offsetWidth * 0.4) {
       torn = true;
-      setTimeout(() => { ontear(count); torn = false; dx = 0; count = 1; }, 260);
+      const after = shown - count;
+      setTimeout(() => {
+        ontear(count);
+        behindBefore = behind(shown);
+        expected = after;
+        setTimeout(() => { if (expected === after) expected = null; }, 4000);
+        torn = false; dx = 0; count = 1;
+        if (after > 0) {
+          phase = "rising";
+          setTimeout(() => { phase = "settling"; setTimeout(() => (phase = "rest"), FADE_MS); }, RISE_MS);
+        }
+      }, 260);
     } else {
       dx = 0;
     }
   }
 </script>
 
-<div class="stack">
-  {#if mode === "empty"}
+<div class="stack" style="--perforation: {perforation}">
+  {#if empty}
     <div class="none">
       <div class="nonetitle">No Vouchers to tear</div>
       <div class="nonesub">The next one you earn lands here</div>
     </div>
   {:else}
-  {#if bank > 1}
-    <div class="layer far" class:night={mode === "curfew"}></div>
-    <div class="layer near" class:night={mode === "curfew"}></div>
+  {#if phase === "rest"}
+    {#if behind(shown) >= 2}<div class="layer far" class:night={mode === "curfew"}></div>{/if}
+    {#if behind(shown) >= 1}<div class="layer near" class:night={mode === "curfew"}></div>{/if}
+  {:else}
+    <!-- One step forward: a new Voucher fades in at the back if the Bank has
+         enough, the far one moves up to near (or fades if none is left behind),
+         and the near one rises into the top slot. -->
+    {#if behind(shown) >= 2}<div class="layer far arriving"></div>{/if}
+    {#if behindBefore >= 2}<div class="layer far" class:moving={behind(shown) >= 1} class:leaving={behind(shown) < 1}></div>{/if}
+    {#if behindBefore >= 1}<div class="layer near rising"></div>{/if}
   {/if}
-  <div class="voucher" class:night={mode === "curfew"} style="--perforation: {perforation}">
+  <div class="voucher" class:night={mode === "curfew"}>
     <div class="stub">
       {#if mode === "curfew"}
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
         <span class="cap stubcap">Curfew</span>
       {:else}
-        <button class="step" aria-label="One Voucher more" disabled={!tearable || count >= bank} onclick={() => count++}>
+        <button class="step" aria-label="One Voucher more" disabled={!tearable || count >= shown} onclick={() => count++}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6v12M6 12h12" /></svg>
         </button>
         <div class="mono count">{tearable ? count : 0}</div>
@@ -83,11 +120,12 @@
     <!-- Where the seam falls between pixels, the two halves' soft edges leave a
          faint hairline. This strip, holed like the Voucher, covers it while the
          Voucher is at rest, and gets out of the way once a drag begins. -->
-    <div class="bridge" class:away={dragging || torn || dx > 0}></div>
+    <div class="bridge" class:away={dragging || torn || dx > 0 || phase !== "rest"}></div>
     <div
       class="body"
       class:dragging
       class:torn
+      class:hidden={phase === "rising"}
       bind:this={body}
       style="transform: translate({torn ? 320 : dx}px, {torn ? -40 : -dx / 14}px) rotate({torn ? 18 : dx / 12}deg)"
       onpointerdown={down}
@@ -117,8 +155,8 @@
 </div>
 
 <style>
-  .stack { position: relative; height: 140px; touch-action: pan-y; }
-  .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed #3a3f45; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+  .stack { position: relative; height: 140px; touch-action: pan-y; user-select: none; -webkit-user-select: none; --rise: .3s; }
+  .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed #3a3f45; animation: arrive .2s ease both; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
   .nonetitle { font-size: 17px; font-weight: 700; }
   .nonesub { font-size: 13px; color: var(--muted); }
   .layer { position: absolute; height: 116px; border-radius: 16px; }
@@ -126,6 +164,29 @@
   .near { left: 12px; right: 12px; top: 10px; background: var(--voucher-deep); }
   .layer.night.far { background: #1b2350; }
   .layer.night.near { background: #242e63; }
+  .far.arriving { animation: arrive var(--rise) ease both; }
+  .far.moving { animation: advance var(--rise) cubic-bezier(.2, .8, .2, 1) forwards; }
+  .far.leaving { animation: leave var(--rise) ease forwards; }
+  /* The rising Voucher carries the top one's notches and holes, so when the
+     real halves take over nothing changes shape. The 4 px hole strip sits at
+     30% - 2 px; a position percentage counts against (width - 4 px). */
+  .near.rising {
+    animation: rise var(--rise) cubic-bezier(.2, .8, .2, 1) forwards;
+    -webkit-mask: var(--perforation) calc(30% - .8px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 30% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 30% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    -webkit-mask-composite: xor, source-over;
+    mask: var(--perforation) calc(30% - .8px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 30% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 30% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    mask-composite: exclude, add;
+  }
+  @keyframes rise {
+    from { left: 12px; right: 12px; top: 10px; background-color: var(--voucher-deep); }
+    to { left: 0; right: 0; top: 22px; background-color: var(--voucher); }
+  }
+  @keyframes advance {
+    from { left: 24px; right: 24px; top: 0; background-color: var(--voucher-deeper); }
+    to { left: 12px; right: 12px; top: 10px; background-color: var(--voucher-deep); }
+  }
+  @keyframes leave { to { opacity: 0; } }
+  @keyframes arrive { from { opacity: 0; } }
   .voucher {
     position: absolute; left: 0; right: 0; top: 22px; height: 116px; display: flex; color: var(--voucher-ink);
   }
@@ -175,6 +236,8 @@
   }
   .body.dragging { transition: none; cursor: grabbing; }
   .body.torn { opacity: 0; }
+  /* Hidden while the next Voucher rises; then its words fade in. */
+  .body.hidden { opacity: 0; transition: none; }
   .bodycap { color: inherit; }
   .minutes { font-size: 34px; font-weight: 700; line-height: 1; }
   .hint { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; }
