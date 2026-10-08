@@ -42,7 +42,9 @@
 
 <style>
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-  .head { display: flex; justify-content: space-between; }
+  .head { display: flex; justify-content: space-between; flex-wrap: wrap; column-gap: 12px; row-gap: 4px; }
+  /* On a narrow screen the total drops under the heading instead of both wrapping. */
+  .head > span { white-space: nowrap; }
   .spend { color: var(--goal); }
   .app { display: grid; grid-template-columns: 84px minmax(0, 1fr) 48px; gap: 10px; align-items: center; }
   .name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

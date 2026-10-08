@@ -207,7 +207,8 @@
   .name.off { color: var(--muted); }
   .sub { font-size: 12px; color: var(--muted); margin-left: 4px; }
   .sub.warn { color: var(--goal); }
-  .rate { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
+  .rate { display: grid; grid-template-columns: minmax(110px, max-content) 1fr; gap: 12px; align-items: center; }
+  .rtext { white-space: nowrap; }
   .rtext { font-size: 13px; font-weight: 700; }
   .rtext.preview { color: var(--muted); }
   .hr { display: flex; align-items: center; gap: 10px; font-size: 13px; }

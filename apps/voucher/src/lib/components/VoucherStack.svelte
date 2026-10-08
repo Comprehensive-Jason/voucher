@@ -139,7 +139,7 @@
   {:else}
   {#if phase === "rest"}
     {#each Array.from({ length: behind(shown) }, (_, i) => behind(shown) - i) as k (k)}
-      <div class="back" class:night={mode === "curfew"} style="{levelBox(k)}; --c: {levelColor(k)}">
+      <div class="back" class:night={mode === "curfew"} style="{levelBox(k)}; --c: {levelColor(k)}; --k: {k}">
         <div class="bstub"></div>
         <div class="bhalf" class:picked={k <= pickedBack} class:dragging class:torn
           style="transform: {backTransform(k)}; transition-delay: {torn ? k * 45 : 0}ms"></div>
@@ -147,10 +147,10 @@
     {/each}
   {:else}
     {#each leavingStubs as k (k)}
-      <div class="back leaving" style="{levelBox(k)}; --c: {levelColor(k)}"><div class="bstub"></div></div>
+      <div class="back leaving" style="{levelBox(k)}; --c: {levelColor(k)}; --k: {k}"><div class="bstub"></div></div>
     {/each}
     {#each [...moves].reverse() as m (m.to)}
-      <div class="back moving" style="--from-x: {12 * m.from}px; --from-y: {LEVEL_TOP[Math.min(m.from, 5)]}px; --to-x: {12 * m.to}px; --to-y: {LEVEL_TOP[m.to]}px; --from-o: {m.seen ? 1 : 0}; --from-c: {levelColor(m.from)}; --to-c: {levelColor(m.to)}; --delay: {m.to * STAGGER_MS}ms">
+      <div class="back moving" style="--from-x: {12 * m.from}px; --from-y: {LEVEL_TOP[Math.min(m.from, 5)]}px; --to-x: {12 * m.to}px; --to-y: {LEVEL_TOP[m.to]}px; --from-o: {m.seen ? 1 : 0}; --from-c: {levelColor(m.from)}; --to-c: {levelColor(m.to)}; --from-k: {m.from}; --to-k: {m.to}; --k: {m.to}; --delay: {m.to * STAGGER_MS}ms">
         <div class="bstub"></div><div class="bhalf"></div>
       </div>
     {/each}
@@ -222,8 +222,12 @@
      and holed like the top one, so picked ones can tear with it. */
   .back { position: absolute; height: 116px; display: flex; }
   .bstub, .bhalf { height: 100%; background: var(--c); }
+  /* Every Voucher's seam sits at the same x as the top one's (30% of the
+     stack), so notches and holes stack straight: a Voucher k levels back is
+     24k px narrower and starts 12k px in, so its stub is 30% of its own
+     width less 4.8k px. */
   .bstub {
-    width: 30%; border-radius: 16px 0 0 16px;
+    width: calc(30% - var(--k, 0) * 4.8px); border-radius: 16px 0 0 16px;
     -webkit-mask: var(--perforation) calc(100% + 2px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     -webkit-mask-composite: xor, source-over;
     mask: var(--perforation) calc(100% + 2px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
@@ -247,12 +251,14 @@
      place, taking on its new colour. */
   .back.moving { animation: settle-in var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
   .back.moving > * { animation: retint var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
+  .back.moving > .bstub { animation: retint var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both, restub var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
   .back.leaving { animation: leave .18s ease forwards; }
   @keyframes settle-in {
     from { left: var(--from-x); right: var(--from-x); top: var(--from-y); opacity: var(--from-o); }
     to { left: var(--to-x); right: var(--to-x); top: var(--to-y); opacity: 1; }
   }
   @keyframes retint { from { background-color: var(--from-c); } to { background-color: var(--to-c); } }
+  @keyframes restub { from { width: calc(30% - var(--from-k) * 4.8px); } to { width: calc(30% - var(--to-k) * 4.8px); } }
   @keyframes leave { to { opacity: 0; } }
   @keyframes arrive { from { opacity: 0; } }
   .voucher {

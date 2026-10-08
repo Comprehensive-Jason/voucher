@@ -95,7 +95,10 @@
   .scroller { --labels: 26px; container-type: inline-size; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: calc(var(--labels) + 4px); overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   .heat {
     display: grid; grid-template-rows: 14px repeat(7, auto); grid-auto-flow: column; gap: 4px;
-    grid-template-columns: var(--labels); grid-auto-columns: calc((100cqw - var(--labels) - 48px) / 12); width: max-content;
+    grid-template-columns: var(--labels); grid-auto-columns: calc((100cqw - var(--labels) - 51px) / 12); width: max-content;
+    /* Room for the picked Day's outline, which the scroller would clip. Not
+       on the left, where the weekday labels stay put over the weeks. */
+    padding: 3px 3px 3px 0;
   }
   .corner, .weekday { position: sticky; left: 0; z-index: 1; background: var(--surface); }
   .weekday, .month { font: 500 10px/1 var(--mono); color: var(--muted); display: flex; align-items: center; white-space: nowrap; }
