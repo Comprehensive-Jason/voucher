@@ -109,7 +109,18 @@ pub fn uninstall() {
         NAME,
         ServiceAccess::STOP | ServiceAccess::DELETE | ServiceAccess::QUERY_STATUS,
     ) {
+        // Wait for the guard to actually stop before deleting it: a running
+        // service lingers after deletion and keeps its program file locked,
+        // which the uninstaller then can't remove.
         let _ = service.stop();
+        for _ in 0..30 {
+            match service.query_status() {
+                Ok(status) if status.current_state != ServiceState::Stopped => {
+                    std::thread::sleep(std::time::Duration::from_millis(500))
+                }
+                _ => break,
+            }
+        }
         let _ = service.delete();
     }
     for policy in voucher_guard::policies(&voucher_guard::Decision {

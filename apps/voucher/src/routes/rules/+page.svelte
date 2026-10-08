@@ -33,10 +33,14 @@
 
 <style>
   main { padding: calc(20px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 12px; }
-  .wide { padding: calc(24px + env(safe-area-inset-top)) 28px 28px; display: flex; flex-direction: column; gap: 14px; }
+  /* On a wide screen the page itself never scrolls: each column scrolls on
+     its own (and bounces at its ends), under a fixed heading. */
+  .wide { height: 100%; padding: calc(24px + env(safe-area-inset-top)) 28px 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
   header { display: flex; align-items: center; gap: 4px; margin-left: -12px; }
   .back { width: 44px; height: 44px; padding: 0; background: none; border: 0; color: var(--ink); display: flex; align-items: center; justify-content: center; }
   h1 { margin: 0; font-size: 26px; font-weight: 700; }
-  .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; align-items: start; }
-  section { min-width: 0; }
+  header { flex: none; }
+  .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  section { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 28px; scrollbar-width: none; }
+  section::-webkit-scrollbar { display: none; }
 </style>

@@ -82,8 +82,11 @@ jobs:
 
           # Uninstalling stops the guard and clears the policy it wrote.
           Start-Process 'C:\Program Files\Voucher\uninstall.exe' -ArgumentList '/S', '_?=C:\Program Files\Voucher' -Wait
-          Start-Sleep 3
-          if (Get-Service VoucherGuard -ErrorAction SilentlyContinue) { throw 'the guard service is still installed' }
+          # Windows removes a deleted service once the last handle to it closes,
+          # so allow it a little while rather than checking once.
+          $gone = $false
+          foreach ($i in 1..30) { if (-not (Get-Service VoucherGuard -ErrorAction SilentlyContinue)) { $gone = $true; break }; Start-Sleep 1 }
+          if (-not $gone) { throw 'the guard service is still installed after 30 s' }
           if (Test-Path 'HKLM:\SOFTWARE\Policies\Google\Chrome\URLBlocklist') { throw 'the Chrome blocklist was left behind' }
           'Guard end to end: OK'
 
