@@ -997,6 +997,28 @@ impl Ledger {
         streak
     }
 
+    /// The first Day this Ledger knows: the earlier of the Day it started
+    /// and its oldest scored Day (a migrated Ledger can hold Days from before
+    /// its start; one too old to have recorded its start has only those).
+    pub fn first_day(&self, now: Timestamp) -> Date {
+        let settings = &self.state.settings;
+        let started = (self.state.started_at != Timestamp::UNIX_EPOCH)
+            .then(|| day_of(settings, self.state.started_at));
+        let oldest = self.state.days.keys().next().copied();
+        [started, oldest]
+            .into_iter()
+            .flatten()
+            .min()
+            .unwrap_or_else(|| day_of(settings, now))
+    }
+
+    /// The oldest Day whose log entries are kept: a month back, or the first
+    /// Day if that is later.
+    pub fn log_first_day(&self, now: Timestamp) -> Date {
+        let today = day_of(&self.state.settings, now);
+        self.first_day(now).max(days_before(today, LOG_DAYS))
+    }
+
     /// Keeps a month of log entries; the Day scores keep the longer history.
     fn forget_old_entries(&mut self, today: Date) {
         let oldest = days_before(today, LOG_DAYS);

@@ -514,6 +514,10 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         setup_complete: bool,
         /// When each Enforcer last checked in.
         last_seen: BTreeMap<String, Timestamp>,
+        /// The first Day with any history, where Trends stops scrolling back.
+        first_day: jiff::civil::Date,
+        /// The oldest Day whose hour-by-hour log is still kept.
+        log_first_day: jiff::civil::Date,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -536,6 +540,8 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     drop(lists);
     let setup_complete = ledger.setup_complete();
     let last_seen = ledger.last_seen().clone();
+    let first_day = ledger.first_day(now);
+    let log_first_day = ledger.log_first_day(now);
     json(&Status {
         bank,
         curfew_active,
@@ -547,6 +553,8 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         blocked,
         setup_complete,
         last_seen,
+        first_day,
+        log_first_day,
     })
 }
 

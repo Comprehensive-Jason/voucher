@@ -233,3 +233,24 @@ fn torn_vouchers_keep_their_stored_name() {
     let back: Entry = serde_json::from_value(json).unwrap();
     assert_eq!(back, entry);
 }
+
+#[test]
+fn history_starts_at_the_first_day_and_the_log_keeps_a_month() {
+    let mut ledger = fresh(); // started 2026-10-01 at 00:00, the Day of 2026-09-30
+    assert_eq!(
+        ledger.first_day(at("2026-10-07T09:00-07:00")).to_string(),
+        "2026-09-30"
+    );
+    assert_eq!(
+        ledger
+            .log_first_day(at("2026-10-07T09:00-07:00"))
+            .to_string(),
+        "2026-09-30"
+    );
+    assert_eq!(
+        ledger
+            .log_first_day(at("2026-12-15T09:00-08:00"))
+            .to_string(),
+        "2026-11-15"
+    );
+}
