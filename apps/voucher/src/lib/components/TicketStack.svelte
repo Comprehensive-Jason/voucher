@@ -98,6 +98,10 @@
         {/if}
       </div>
     </div>
+    <!-- The tear line, drawn over the seam so it sits on the notches' centre.
+         Seven 5 px dashes and six 7 px gaps fill y 19.5 to 96.5 exactly, so the
+         line ends the same distance from each notch. -->
+    <svg class="perf" aria-hidden="true" width="4" height="116" viewBox="0 0 4 116"><line x1="2" y1="19.5" x2="2" y2="96.5" /></svg>
   </div>
   {/if}
 </div>
@@ -119,11 +123,14 @@
   .night .stub, .night .body { background: var(--night-ticket); color: #e8ebff; }
   .stub {
     width: 30%; border-radius: 16px 0 0 16px; padding: 6px 8px; display: flex; flex-direction: column;
-    align-items: stretch; justify-content: center; gap: 2px; border-right: 2px dashed rgba(7, 23, 13, .45);
+    align-items: stretch; justify-content: center; gap: 2px;
     -webkit-mask: radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     mask: radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
   }
-  .night .stub { align-items: center; gap: 8px; border-right-color: rgba(232, 235, 255, .35); }
+  .night .stub { align-items: center; gap: 8px; }
+  .perf { position: absolute; top: 0; left: calc(30% - 2px); pointer-events: none; overflow: visible; }
+  .perf line { stroke: rgba(7, 23, 13, .45); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 5 7; }
+  .night .perf line { stroke: rgba(232, 235, 255, .35); }
   .stubcap { color: var(--night-ink); }
   .step {
     height: 34px; padding: 0; border: 0; border-radius: 10px; background: rgba(7, 23, 13, .14);
