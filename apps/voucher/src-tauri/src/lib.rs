@@ -52,6 +52,8 @@ pub struct Today {
     pub unlock_vouchers: u32,
     /// Minutes a tear could still add before Curfew; none from older Ledgers.
     pub curfew_room_minutes: Option<u32>,
+    /// Colours chosen on Rules, by source id.
+    pub source_colors: std::collections::BTreeMap<String, String>,
     /// Names of the switched-on blocklists.
     pub blocklists: Vec<String>,
 }

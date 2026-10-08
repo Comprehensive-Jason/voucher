@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DeviceUsage, Protection, SourceProgress, Today } from "./types";
 import { sampleLedger } from "./sample";
+import { rememberSourceColors } from "./colors.svelte";
 
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -11,8 +12,10 @@ export function device<T>(command: string, args?: Record<string, unknown>): Prom
   return invoke<T>("device", { command, args: args ?? null });
 }
 
-export function today(): Promise<Today> {
-  return inTauri ? invoke<Today>("today") : Promise.resolve(sampleToday());
+export async function today(): Promise<Today> {
+  const t = inTauri ? await invoke<Today>("today") : sampleToday();
+  rememberSourceColors(t.sourceColors ?? {});
+  return t;
 }
 
 export function tear(count: number): Promise<Today> {
@@ -45,7 +48,7 @@ function sampleToday(): Today {
     log: [
       { kind: "earned", at: new Date(Date.now() - 3 * 3600_000).toISOString(), task: "todoist:1", title: "Weekly review", kept: false },
     ],
-    unlockStartedAt: null, unlockVouchers: 0, curfewRoomMinutes: null,
+    unlockStartedAt: null, unlockVouchers: 0, curfewRoomMinutes: null, sourceColors: sampleColors(),
     blocklists: ["Instagram", "YouTube", "Reddit", "Games"],
   };
   switch (state) {
@@ -60,11 +63,21 @@ function sampleToday(): Today {
 }
 
 /** Any other Ledger request, passed through the app's Rust side. */
-export function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
-  if (inTauri) {
-    return invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) });
+export async function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  const reply = inTauri
+    ? await invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
+    : (sampleLedger(method, path, body) as T);
+  // Any fresh look at the settings also refreshes the colours sources are drawn in.
+  if (path === "/status") {
+    const sources = (reply as { settings?: { sources?: Record<string, { color?: string }> } }).settings?.sources;
+    if (sources) rememberSourceColors(sources);
   }
-  return Promise.resolve(sampleLedger(method, path, body) as T);
+  return reply;
+}
+
+function sampleColors(): Record<string, string> {
+  const sources = (sampleLedger("GET", "/status", null) as { settings: { sources: Record<string, { color?: string }> } }).settings.sources;
+  return Object.fromEntries(Object.entries(sources).filter(([, s]) => s.color).map(([id, s]) => [id, s.color!]));
 }
 
 /**

@@ -131,6 +131,18 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
   if (route === "/setup") return sampleLedger("GET", "/status", null);
   if (route === "/token") return { message: "saved; it is used from the next check" };
   if (route === "/change" && method === "POST") {
+    // Colours apply at once, as on the Ledger.
+    const b = body as { SourceColor?: { id: string; color: string | null }; BlocklistColor?: { id: string; color: string } };
+    if (b.SourceColor) {
+      const s = settings.sources[b.SourceColor.id] as { color?: string };
+      if (s) { if (b.SourceColor.color) s.color = b.SourceColor.color; else delete s.color; }
+      return "Now";
+    }
+    if (b.BlocklistColor) {
+      const l = settings.blocklists[b.BlocklistColor.id];
+      if (l) l.color = b.BlocklistColor.color;
+      return "Now";
+    }
     pending = [...pending, [body as Record<string, unknown>, nextMorning()]];
     return { At: nextMorning() };
   }

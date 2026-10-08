@@ -1,6 +1,8 @@
 // How each Activity source is named and coloured everywhere in the app. The
 // Ledger names a source by id (`todoist`, `obsidian`, …), and each earning by
-// its source's prefix (`todoist:…`).
+// its source's prefix (`todoist:…`). A colour chosen on Rules replaces the
+// default; Todoist and ClickUp share one, as Tasks.
+import { custom } from "./colors.svelte";
 export interface SourceStyle { name: string; short: string; color: string; sub?: string }
 
 export const SOURCES: Record<string, SourceStyle> = {
@@ -25,16 +27,32 @@ const ALIASES: Record<string, string> = { todoist: "tasks", clickup: "tasks" };
 /** Colours for apps added as Focused time sources later. */
 const SPARE = ["#7fd1ff", "#9be36d", "#ff9ec7", "#c3a6ff", "#ffd27f"];
 
+/** The colour chosen on Rules for a source, if any. */
+function chosen(id: string): string | undefined {
+  if (id === "tasks" || ALIASES[id] === "tasks") return custom.sources.todoist ?? custom.sources.clickup;
+  return custom.sources[id];
+}
+
+const recolor = (style: SourceStyle, id: string): SourceStyle => {
+  const color = chosen(id);
+  return color ? { ...style, color } : style;
+};
+
 export function styleOf(id: string): SourceStyle {
   const known = SOURCES[ALIASES[id] ?? id];
-  if (known) return known;
+  if (known) return recolor(known, id);
   const n = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
   const name = id.replace(/^app\./, "");
-  return { name, short: name, color: SPARE[n % SPARE.length] };
+  return recolor({ name, short: name, color: SPARE[n % SPARE.length] }, id);
 }
 
 export function serviceOf(id: string): SourceStyle {
-  return SERVICES[id] ?? styleOf(id);
+  return SERVICES[id] ? recolor(SERVICES[id], id) : styleOf(id);
+}
+
+/** The colour a source is drawn in before any choice on Rules. */
+export function defaultColorOf(id: string): string {
+  return (SERVICES[id] ?? SOURCES[ALIASES[id] ?? id])?.color ?? styleOf(id).color;
 }
 
 export function sourceOf(task: string): SourceStyle {

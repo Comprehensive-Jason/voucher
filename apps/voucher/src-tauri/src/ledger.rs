@@ -58,6 +58,15 @@ struct Settings {
     curfew_start: String,
     curfew_end: String,
     blocklists: std::collections::BTreeMap<String, BlocklistName>,
+    #[serde(default)]
+    sources: std::collections::BTreeMap<String, SourceColor>,
+}
+
+/// A source's chosen colour, if any; the rest of a source the app doesn't need here.
+#[derive(Deserialize)]
+struct SourceColor {
+    #[serde(default)]
+    color: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -156,6 +165,12 @@ impl Client {
             unlock_started_at: unlock.as_ref().map(|(_, u)| u.started_at.as_second()),
             unlock_vouchers: unlock.as_ref().map_or(0, |(_, u)| u.vouchers),
             curfew_room_minutes: status.room_before_curfew,
+            source_colors: status
+                .settings
+                .sources
+                .iter()
+                .filter_map(|(id, s)| Some((id.clone(), s.color.clone()?)))
+                .collect(),
             blocklists: status
                 .settings
                 .blocklists

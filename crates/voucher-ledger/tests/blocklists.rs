@@ -237,3 +237,49 @@ fn a_lower_maximum_heart_rate_waits_for_morning_and_a_higher_one_applies_now() {
         Some(180)
     );
 }
+
+#[test]
+fn colours_change_at_once_and_only_take_hex_values() {
+    let mut ledger = fresh();
+    let now = at("2026-10-07T12:00-07:00");
+    ledger.setup(vec![], true, now);
+
+    ledger.request(
+        Change::SourceColor {
+            id: "obsidian".into(),
+            color: Some("#7fe6d2".into()),
+        },
+        now,
+    );
+    ledger.request(
+        Change::BlocklistColor {
+            id: "reddit".into(),
+            color: "#9cc2ff".into(),
+        },
+        now,
+    );
+    ledger.request(
+        Change::BlocklistColor {
+            id: "reddit".into(),
+            color: "red; drop".into(),
+        },
+        now,
+    );
+
+    let settings = ledger.settings(now);
+    assert_eq!(
+        settings.sources["obsidian"].color.as_deref(),
+        Some("#7fe6d2")
+    );
+    assert_eq!(settings.blocklists["reddit"].color, "#9cc2ff");
+    assert!(ledger.pending(now).is_empty());
+
+    ledger.request(
+        Change::SourceColor {
+            id: "obsidian".into(),
+            color: None,
+        },
+        now,
+    );
+    assert_eq!(ledger.settings(now).sources["obsidian"].color, None);
+}

@@ -3,7 +3,7 @@
   // ClickUp share one Tasks row; other sources fill a bar toward their rate.
   // At one Voucher per task there is nothing to fill, since each task earns
   // at once, so that row shows a tally of today's task Vouchers instead.
-  import { SOURCES, styleOf } from "../sources";
+  import { styleOf } from "../sources";
   import ProgressFill from "./ProgressFill.svelte";
   import type { SourceProgress } from "../types";
 
@@ -20,7 +20,7 @@
       const every = Math.max(...tasks.map((s) => s.every));
       const progress = every === 1 ? 0 : Math.max(...tasks.map((s) => s.progress / s.every));
       const rate = every === 1 ? "+1 each" : `1 per ${every}`;
-      out.push({ key: "tasks", ...SOURCES.tasks, detail: `${rate} · ${earned} today`, progress, earned,
+      out.push({ key: "tasks", ...styleOf("tasks"), detail: `${rate} · ${earned} today`, progress, earned,
         tally: every === 1 ? earned : undefined });
     }
     for (const s of on.filter((s) => s.kind !== "tasks")) {

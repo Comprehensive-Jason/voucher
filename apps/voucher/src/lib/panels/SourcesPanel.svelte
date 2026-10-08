@@ -7,7 +7,8 @@
   import Switch from "../components/Switch.svelte";
   import Sheet from "../components/Sheet.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";
-  import { needsToken, serviceOf } from "../sources";
+  import ColorSheet from "../components/ColorSheet.svelte";
+  import { defaultColorOf, needsToken, serviceOf } from "../sources";
   import { hhmm, until } from "../rules";
   import type { SourceKind, Status } from "../types";
 
@@ -17,6 +18,17 @@
   let adding = $state(false);
   let apps = $state<{ package: string; label: string }[]>([]);
   let note = $state<string | null>(null);
+  /** The source whose colour is being picked. Tasks share one colour. */
+  let coloring = $state<string | null>(null);
+  async function setColor(id: string, color: string | null) {
+    coloring = null;
+    const ids = status?.settings.sources[id]?.kind === "tasks"
+      ? Object.entries(status.settings.sources).filter(([, s]) => s.kind === "tasks").map(([i]) => i) : [id];
+    try {
+      for (const one of ids) await ledger("POST", "/change", { SourceColor: { id: one, color } });
+      await load();
+    } catch (e) { error = String(e); }
+  }
 
   const GROUPS: { kind: SourceKind; name: string; how: string }[] = [
     { kind: "tasks", name: "Task counters", how: "API" },
@@ -105,7 +117,7 @@
             {@const waiting = pendingFor(id)}
             <div class="row" class:first={i === 0}>
               <div class="line">
-                <div class="dot" style="background: {style.color}"></div>
+                <button class="dot" style="background: {style.color}" aria-label="{style.name} colour" onclick={() => (coloring = id)}></button>
                 <div class="label">
                   <span class="name" class:off={!s.on}>{style.name}</span>
                   <span class="sub" class:warn={!!problem}>{problem ? (needsToken(problem) ? `${problem}, not counting` : `${problem}, retrying`) : s.on ? style.sub ?? "" : "off"}</span>
@@ -161,6 +173,12 @@
   </Sheet>
 {/if}
 
+{#if coloring && status}
+  {@const style = serviceOf(coloring)}
+  <ColorSheet title={status.settings.sources[coloring]?.kind === "tasks" ? "Tasks colour" : `${style.name} colour`}
+    current={style.color} fallback={defaultColorOf(coloring)} onpick={(c) => setColor(coloring!, c)} onclose={() => (coloring = null)} />
+{/if}
+
 <style>
   .panel { display: flex; flex-direction: column; gap: 12px; }
   .group { display: flex; flex-direction: column; gap: 4px; }
@@ -171,7 +189,9 @@
   .row { padding: 8px 0; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--divider); }
   .row.first { border-top: 0; }
   .line { display: flex; align-items: center; gap: 10px; min-height: 30px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  /* The colour dot opens the colour picker; its tap area is bigger than it looks. */
+  .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; border: 0; padding: 0; cursor: pointer; box-shadow: 0 0 0 7px transparent; }
+  .dot:focus-visible { outline: 2px solid var(--voucher); outline-offset: 3px; }
   .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .name { font-size: 15px; font-weight: 700; }
   .name.off { color: var(--muted); }

@@ -5,6 +5,7 @@
   import { ledger } from "../api";
   import Switch from "../components/Switch.svelte";
   import Tag from "../components/Tag.svelte";
+  import ColorSheet from "../components/ColorSheet.svelte";
   import { summary } from "../blocklists";
   import { hhmm } from "../rules";
   import type { Status } from "../types";
@@ -29,6 +30,14 @@
     } catch (e) { error = String(e); }
   }
 
+  /** The blocklist whose colour is being picked. */
+  let coloring = $state<string | null>(null);
+  async function setColor(id: string, color: string | null) {
+    coloring = null;
+    if (!color) return;
+    try { await ledger("POST", "/change", { BlocklistColor: { id, color } }); await load(); } catch (e) { error = String(e); }
+  }
+
   onMount(load);
 
   /** On the tablet each panel is a column with its own heading. */
@@ -42,8 +51,8 @@
     {#if !heading}<div class="head"><span class="cap">Blocklists</span><span class="cap">{lists.filter(([, l]) => l.on).length} on</span></div>{/if}
     {#each lists as [id, list] (id)}
       <div class="row">
+        <button class="dot" style="background: {list.color}" aria-label="{list.name} colour" onclick={() => (coloring = id)}></button>
         <a class="open" href="/rules/distractions/edit?id={id}" aria-label="Edit {list.name} blocklist">
-          <span class="dot" style="background: {list.color}"></span>
           <span class="text">
             <span class="title"><span class="name">{list.name}</span><Tag premade={list.premade} /></span>
             <span class="sub" class:warn={waitingOff(id)}>{waitingOff(id) ? `Off at ${hhmm(status.settings.morning_boundary)}` : summary(list)}</span>
@@ -61,12 +70,19 @@
   {/if}
 </div>
 
+{#if coloring && status?.settings.blocklists[coloring]}
+  {@const list = status.settings.blocklists[coloring]}
+  <ColorSheet title="{list.name} colour" current={list.color} onpick={(c) => setColor(coloring!, c)} onclose={() => (coloring = null)} />
+{/if}
+
 <style>
   .panel { display: flex; flex-direction: column; gap: 10px; }
   .head { display: flex; justify-content: space-between; align-items: center; padding-top: 4px; }
   .row { border-radius: 14px; background: var(--surface); border: 1px solid var(--line); padding: 0 14px; display: flex; align-items: center; gap: 10px; }
   .open { flex: 1; min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 12px; color: var(--ink); text-decoration: none; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  /* The colour dot opens the colour picker; its tap area is bigger than it looks. */
+  .dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; border: 0; padding: 0; margin-right: 2px; cursor: pointer; box-shadow: 0 0 0 7px transparent; }
+  .dot:focus-visible { outline: 2px solid var(--voucher); outline-offset: 3px; }
   .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .title { display: flex; align-items: center; gap: 8px; }
   .name { font-size: 15px; font-weight: 700; }

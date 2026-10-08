@@ -22,6 +22,8 @@ export interface Today {
   unlockVouchers: number;
   /** Minutes a tear could still add before Curfew; null from older Ledgers. */
   curfewRoomMinutes: number | null;
+  /** Colours chosen on Rules, by source id. */
+  sourceColors: Record<string, string>;
   /** Names of the switched-on blocklists. */
   blocklists: string[];
 }
@@ -112,7 +114,7 @@ export interface Settings {
   curfew_end: string;
   morning_boundary: string;
   daily_goal: number;
-  sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[]; max_heart_rate?: number }>;
+  sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[]; max_heart_rate?: number; color?: string }>;
   blocklists: Record<string, Blocklist>;
   released_devices: string[];
 }

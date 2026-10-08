@@ -239,6 +239,10 @@ pub struct Source {
     /// against. The phone uses 195 when this is unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_heart_rate: Option<u32>,
+    /// The colour the apps draw this source in, "#rrggbb"; unset means the
+    /// app's own default for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -260,6 +264,7 @@ pub fn default_sources() -> BTreeMap<String, Source> {
         every,
         packages: packages.iter().map(|p| p.to_string()).collect(),
         max_heart_rate: None,
+        color: None,
     };
     BTreeMap::from([
         ("todoist".into(), source(SourceKind::Tasks, 1, &[])),
@@ -406,6 +411,18 @@ pub enum Change {
     ReleaseDevice(String),
     /// Withdraws a release. Always a Tightening.
     KeepDevice(String),
+    /// The colour a source is drawn in ("#rrggbb"), or None for its default.
+    /// Cosmetic, so it applies at once.
+    SourceColor {
+        id: String,
+        color: Option<String>,
+    },
+    /// The colour a blocklist is drawn in ("#rrggbb"). Cosmetic, so it
+    /// applies at once.
+    BlocklistColor {
+        id: String,
+        color: String,
+    },
 }
 
 /// One line of the log.
@@ -1141,6 +1158,8 @@ impl Ledger {
                 !self.state.settings.released_devices.contains(device)
             }
             Change::KeepDevice(_) => false,
+            // Colours change how things look, never what is blocked or earned.
+            Change::SourceColor { .. } | Change::BlocklistColor { .. } => false,
             Change::SourceApps {
                 ref id,
                 ref packages,
@@ -1269,6 +1288,11 @@ fn same_setting(a: &Change, b: &Change) -> bool {
     }
 }
 
+/// "#rrggbb", the only colour form the apps take.
+fn is_hex_color(color: &str) -> bool {
+    color.len() == 7 && color.starts_with('#') && color[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
 /// Names the one thing a keyed change sets, such as one app in one blocklist.
 fn setting_key(change: &Change) -> Option<String> {
     Some(match change {
@@ -1280,6 +1304,8 @@ fn setting_key(change: &Change) -> Option<String> {
         Change::BlocklistOn { id, .. } => format!("list-on {id}"),
         Change::ReleaseDevice(device) | Change::KeepDevice(device) => format!("device {device}"),
         Change::RenameBlocklist { id, .. } => format!("list-name {id}"),
+        Change::SourceColor { id, .. } => format!("source-color {id}"),
+        Change::BlocklistColor { id, .. } => format!("list-color {id}"),
         Change::BlockApp { list, app } => format!("app {list} {}", app.package),
         Change::RemoveApp { list, package } => format!("app {list} {package}"),
         Change::BlockSite { list, site } => format!("site {list} {}", site.site),
@@ -1319,6 +1345,21 @@ fn apply_to(settings: &mut Settings, change: Change) {
         Change::RenameBlocklist { id, name } => {
             if let Some(list) = settings.blocklists.get_mut(&id) {
                 list.name = name;
+            }
+        }
+        // Anything but "#rrggbb" is ignored, so a bad value can't reach the apps.
+        Change::SourceColor { id, color } => {
+            if let Some(source) = settings.sources.get_mut(&id) {
+                if color.as_deref().is_none_or(is_hex_color) {
+                    source.color = color;
+                }
+            }
+        }
+        Change::BlocklistColor { id, color } => {
+            if let Some(list) = settings.blocklists.get_mut(&id) {
+                if is_hex_color(&color) {
+                    list.color = color;
+                }
             }
         }
         Change::BlockApp { list, app } => {
