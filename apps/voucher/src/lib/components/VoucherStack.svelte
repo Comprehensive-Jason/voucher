@@ -57,14 +57,18 @@
     startX = e.clientX;
     body?.setPointerCapture(e.pointerId);
   }
+  // Dragging the right-hand half past 40% of its width tears it then and
+  // there, held or not; let go before that and it springs back.
+  const TEAR_AT = 0.4;
   function move(e: PointerEvent) {
-    if (dragging) dx = Math.max(0, e.clientX - startX);
+    if (!dragging) return;
+    dx = Math.max(0, e.clientX - startX);
+    if (body && dx > body.offsetWidth * TEAR_AT) up();
   }
   function up() {
     if (!dragging) return;
     dragging = false;
-    // Past 40% of the Voucher's width counts as a tear; anything less springs back.
-    if (body && dx > body.offsetWidth * 0.4) {
+    if (body && dx > body.offsetWidth * TEAR_AT) {
       torn = true;
       const after = shown - count;
       setTimeout(() => {
@@ -127,7 +131,7 @@
       class:torn
       class:hidden={phase === "rising"}
       bind:this={body}
-      style="transform: translate({torn ? 320 : dx}px, {torn ? -40 : -dx / 14}px) rotate({torn ? 18 : dx / 12}deg)"
+      style="transform: translate({torn ? 320 : dx}px, {torn ? -40 : -dx / 14}px) rotate({torn ? 18 : dx / 12}deg); {dragging && body ? `opacity: ${1 - (0.35 * dx) / (body.offsetWidth * TEAR_AT)}` : ''}"
       onpointerdown={down}
       onpointermove={move}
       onpointerup={up}
