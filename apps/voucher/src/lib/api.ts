@@ -85,6 +85,12 @@ function sampleColors(): Record<string, string> {
  * access yet, or not running on Android).
  */
 export async function deviceUsage(): Promise<DeviceUsage | null> {
+  // A dev build pointed at the test portal (VITE_TEST_PORTAL in a local env
+  // file) shows the portal's made-up Distraction time instead of this device's.
+  const portal = import.meta.env.DEV ? import.meta.env.VITE_TEST_PORTAL : undefined;
+  if (portal) {
+    try { return await (await fetch(`${portal}/api/usage`)).json(); } catch { /* fall through */ }
+  }
   if (!inTauri) {
     return { measured: true, apps: [{ label: "Instagram", minutes: 14 }, { label: "YouTube", minutes: 8 }, { label: "Reddit", minutes: 4 }],
       blockedOpens: 23, closedWithoutTearing: 21,

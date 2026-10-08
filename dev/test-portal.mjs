@@ -7,7 +7,9 @@
 //   PORTAL_LEDGER=192.168.1.16:8797 node dev/test-portal.mjs
 //
 // Then open http://<this machine>:8798 and connect the app to the Ledger
-// address it prints. Settings, all optional:
+// address it prints. To have a dev build show the portal's made-up
+// Distraction time, put VITE_TEST_PORTAL=http://<this machine>:8798 in
+// apps/voucher/.env.development.local. Settings, all optional:
 //   PORTAL_DATA        the test Ledger's data folder (default dev/test-ledger)
 //   PORTAL_LEDGER      where the test Ledger listens (default 127.0.0.1:8797);
 //                      use a network address so a phone or tablet can reach it
@@ -27,6 +29,26 @@ const LEDGER = `http://${LISTEN}`;
 // Minutes reported so far per Day and source. A device reports running totals,
 // and the Ledger ignores a total that doesn't grow, so the portal keeps them.
 const TOTALS = path.join(DATA, "portal-totals.json");
+// Made-up Distraction time for a dev build to show (it's measured on the
+// device, so the Ledger never has it). Starts with placeholder figures.
+const USAGE = path.join(DATA, "portal-usage.json");
+function placeholderUsage() {
+  return { minutes: { Instagram: 14, YouTube: 8, Reddit: 4, Chess: 6, Firefox: 2 }, opens: { Instagram: 14, YouTube: 6, Reddit: 3, Chess: 2, Firefox: 1 }, closedWithoutTearing: 21 };
+}
+const readUsage = () => { try { return JSON.parse(readFileSync(USAGE, "utf8")); } catch { return placeholderUsage(); } };
+const writeUsage = (u) => writeFileSync(USAGE, JSON.stringify(u));
+/** The shape the app's deviceUsage() returns. */
+function usageReply() {
+  const u = readUsage();
+  const byMost = (o) => Object.entries(o).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  const blockedOpens = Object.values(u.opens).reduce((a, b) => a + b, 0);
+  return {
+    measured: true,
+    apps: byMost(u.minutes).map(([label, minutes]) => ({ label, minutes })),
+    blockedOpens, closedWithoutTearing: Math.min(u.closedWithoutTearing, blockedOpens),
+    attempts: byMost(u.opens).map(([label, count]) => ({ label, count })),
+  };
+}
 
 mkdirSync(DATA, { recursive: true });
 let ledger = null;
@@ -147,6 +169,20 @@ const server = createServer(async (req, res) => {
     const input = body ? JSON.parse(body) : {};
     if (req.method === "GET" && req.url === "/") return send(res, 200, "text/html; charset=utf-8", PAGE);
     if (req.method === "GET" && req.url === "/api/status") return send(res, 200, "application/json", JSON.stringify(await call("GET", "/status")));
+    // Read by the app itself, from another origin.
+    if (req.method === "GET" && req.url === "/api/usage") { res.setHeader("Access-Control-Allow-Origin", "*"); return send(res, 200, "application/json", JSON.stringify(usageReply())); }
+    if (req.method === "POST" && req.url === "/api/usage") {
+      const u = readUsage();
+      if (input.reset) writeUsage(placeholderUsage());
+      else if (input.clear) writeUsage({ minutes: {}, opens: {}, closedWithoutTearing: 0 });
+      else {
+        if (input.app && input.minutes) u.minutes[input.app] = (u.minutes[input.app] ?? 0) + Number(input.minutes);
+        if (input.app && input.open) u.opens[input.app] = (u.opens[input.app] ?? 0) + 1;
+        if (input.closed) u.closedWithoutTearing += 1;
+        writeUsage(u);
+      }
+      return send(res, 200, "application/json", JSON.stringify(usageReply()));
+    }
     if (req.method === "POST" && req.url === "/api/minutes") return send(res, 200, "application/json", JSON.stringify(await addMinutes(input.source, Number(input.add))));
     if (req.method === "POST" && req.url === "/api/task") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/complete", { source: input.source, title: input.title })));
     if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
@@ -194,6 +230,7 @@ const PAGE = String.raw`<!doctype html>
   .row { display: flex; gap: 8px; }
   .off { opacity: .5; }
   #toast { min-height: 20px; font-size: 13px; color: var(--green); }
+  h2 { margin: 12px 0 0; font-size: 17px; }
   #toast.bad { color: var(--gold); }
 </style></head>
 <body><div class="wrap">
@@ -204,6 +241,9 @@ const PAGE = String.raw`<!doctype html>
   <div class="facts" id="facts"></div>
   <div id="toast" role="status"></div>
   <div class="grid" id="sources"></div>
+  <h2>Distraction time on this device (made up)</h2>
+  <span class="note">What a dev build shows under "In Distractions today" and on the blocked-app screen, instead of what Android measures.</span>
+  <div class="grid" id="usage"></div>
   <div class="buttons"><button id="history">Add 4 weeks of made-up history</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
 <script>
@@ -267,9 +307,19 @@ function render(s) {
   if (focused && $(focused)) $(focused).focus();
 }
 
+function renderUsage(u) {
+  const minutes = Object.fromEntries(u.apps.map((a) => [a.label, a.minutes]));
+  const opens = Object.fromEntries(u.attempts.map((a) => [a.label, a.count]));
+  const apps = ["Instagram", "YouTube", "Reddit", "Chess", "Firefox"].map((app) => '<div class="src"><div class="top"><span class="name">' + app + '</span><span class="detail">' + (minutes[app] ?? 0) + ' min · ' + (opens[app] ?? 0) + ' blocked opens</span></div>'
+    + '<div class="buttons"><button data-uapp="' + app + '" data-umin="5">+5 min</button><button data-uapp="' + app + '" data-umin="15">+15 min</button><button data-uapp="' + app + '" data-uopen="1">+1 blocked open</button></div></div>').join("");
+  const all = '<div class="src"><div class="top"><span class="name">All Distractions</span><span class="detail">' + u.blockedOpens + ' blocked opens · ' + u.closedWithoutTearing + ' closed without tearing</span></div>'
+    + '<div class="buttons"><button data-uclosed="1">+1 closed without tearing</button><button data-ureset="1">Placeholder figures</button><button data-uclear="1" class="danger">Clear all</button></div></div>';
+  $("usage").innerHTML = apps + all;
+}
+
 async function refresh() {
   if (busy) return;
-  try { render(await api("GET", "/api/status")); } catch (e) { toast("Can't reach the test Ledger: " + (e.message || e), true); }
+  try { render(await api("GET", "/api/status")); renderUsage(await api("GET", "/api/usage")); } catch (e) { toast("Can't reach the test Ledger: " + (e.message || e), true); }
 }
 
 document.addEventListener("click", (e) => {
@@ -282,6 +332,11 @@ document.addEventListener("click", (e) => {
     input.value = "";
     act(() => api("POST", "/api/task", { source: b.dataset.task, title }), (c) => "Finished “" + title + "”: " + earnedText(c));
   }
+  if (b.dataset.uapp && b.dataset.umin) act(() => api("POST", "/api/usage", { app: b.dataset.uapp, minutes: Number(b.dataset.umin) }), () => b.dataset.uapp + " +" + b.dataset.umin + " min");
+  if (b.dataset.uapp && b.dataset.uopen) act(() => api("POST", "/api/usage", { app: b.dataset.uapp, open: true }), () => b.dataset.uapp + ": one more blocked open");
+  if (b.dataset.uclosed) act(() => api("POST", "/api/usage", { closed: true }), () => "One more closed without tearing");
+  if (b.dataset.ureset) act(() => api("POST", "/api/usage", { reset: true }), () => "Placeholder Distraction time back");
+  if (b.dataset.uclear) act(() => api("POST", "/api/usage", { clear: true }), () => "Distraction time cleared");
   if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added made-up Days for the last 4 weeks");
   if (b.id === "reset") act(() => api("POST", "/api/reset"), () => "Fresh test Ledger: Bank and Day emptied");
 });
