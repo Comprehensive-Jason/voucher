@@ -33,12 +33,6 @@
     return { name: styleOf(best.id).name, color: styleOf(best.id).color, remaining: best.every - best.progress,
       unit: best.kind === "workout" ? "zone minutes" : "minutes", fraction: best.progress / best.every };
   });
-  const lists = $derived.by(() => {
-    const names = data.blocklists;
-    if (!names.length) return "your Distractions";
-    const own = names.map((n) => (["Instagram", "YouTube", "Reddit"].includes(n) ? n : `your ${n.toLowerCase()}`));
-    return own.length === 1 ? own[0] : `${own.slice(0, -1).join(", ")}${own.length > 2 ? "," : ""} and ${own.at(-1)}`;
-  });
 </script>
 
 <div class="card {mode}">
@@ -67,7 +61,7 @@
     {/if}
   {:else}
     <div class="row"><span class="cap">Locked</span><span class="mono small">Curfew at {data.curfewStart}</span></div>
-    <div class="line">Tear a Voucher for {data.unlockMinutes} minutes of {lists}.</div>
+    <div class="line">Unlock distractions for {data.unlockMinutes} minutes.</div>
     <div class="bar"><i style="width: 0%"></i></div>
   {/if}
 </div>

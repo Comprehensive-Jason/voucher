@@ -285,6 +285,11 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 }),
             ),
         },
+        // Ends the grace period after setup early. Only ever stricter.
+        (Method::Post, "/grace/end") => {
+            ledger.end_grace();
+            (200, status_json(&mut ledger, now))
+        }
         // The phone's running total of minutes for a Workout or Focus source.
         (Method::Post, "/report") => {
             let mut body = String::new();
@@ -411,6 +416,11 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
         // Also test-only: Vouchers straight into the Bank, with no earning
         // behind them (no Log entry, no Day score), e.g. to try a Redemption
         // in an hour that earned nothing.
+        // Test-only: restarts the grace period, as if setup had just finished.
+        (Method::Post, "/test/grace") if config.test_tasks => {
+            ledger.start_grace(now);
+            (200, status_json(&mut ledger, now))
+        }
         (Method::Post, "/test/credit") if config.test_tasks => {
             let count = query
                 .split('&')
@@ -531,6 +541,8 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         log_first_day: jiff::civil::Date,
         /// Minutes a tear now could still add before Curfew starts.
         room_before_curfew: u32,
+        /// While the grace period after setup runs, when it ends.
+        grace_until: Option<Timestamp>,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -556,6 +568,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let first_day = ledger.first_day(now);
     let log_first_day = ledger.log_first_day(now);
     let room_before_curfew = ledger.room_before_curfew(now);
+    let grace_until = ledger.grace_until(now);
     json(&Status {
         bank,
         curfew_active,
@@ -570,6 +583,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         first_day,
         log_first_day,
         room_before_curfew,
+        grace_until,
     })
 }
 

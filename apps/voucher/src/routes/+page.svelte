@@ -72,6 +72,8 @@
   /* Sized by the row (the history grid's height), never by its own content,
      which scrolls when there's more of it. */
   .usage { grid-area: usage; contain: size; }
-  .usage :global(.card) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  /* The box fills its cell; only its list of apps scrolls, so the totals stay at the bottom. */
+  .usage :global(.card) { flex: 1; min-height: 0; }
+  .usage :global(.card .apps) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
   .logcard { grid-area: log; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 12px; }
 </style>

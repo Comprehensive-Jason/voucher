@@ -715,6 +715,10 @@ struct State {
     /// When each Enforcer last checked in.
     #[serde(default)]
     last_seen: BTreeMap<String, Timestamp>,
+    /// Until then, every change applies at once, Loosenings included: the
+    /// first two days after setup, while the rules are still being tuned.
+    #[serde(default)]
+    grace_until: Option<Timestamp>,
 }
 
 fn set_up_already() -> bool {
@@ -737,6 +741,7 @@ impl Ledger {
                 log: Vec::new(),
                 setup_complete: false,
                 last_seen: BTreeMap::new(),
+                grace_until: None,
             },
         }
     }
@@ -1259,6 +1264,13 @@ impl Ledger {
     /// for the next Morning boundary, however urgently they are wanted.
     pub fn request(&mut self, change: Change, now: Timestamp) -> Effect {
         self.settle(now);
+        if self.grace_until(now).is_some() {
+            self.state
+                .pending
+                .retain(|(queued, _)| !same_setting(queued, &change));
+            self.apply(change);
+            return Effect::Now;
+        }
         if let Change::DailyGoal(_) = change {
             // A Day's goal is fixed once it starts, so raising or lowering it
             // waits for the next Day. The newest request replaces older ones.
@@ -1362,7 +1374,29 @@ impl Ledger {
             self.apply(change);
         }
         self.state.setup_complete = finish;
+        if finish {
+            self.start_grace(now);
+        }
         true
+    }
+
+    /// Starts the grace period: changes apply at once until the first
+    /// Morning boundary at least two full days (48 hours) from now.
+    pub fn start_grace(&mut self, now: Timestamp) {
+        let two_days = now + SignedDuration::from_hours(48);
+        self.state.grace_until =
+            Some(self.next_local(two_days, self.state.settings.morning_boundary));
+    }
+
+    /// Ends the grace period early, at the user's request. From now on
+    /// Loosenings wait for the Morning boundary.
+    pub fn end_grace(&mut self) {
+        self.state.grace_until = None;
+    }
+
+    /// When the grace period ends, while it is running.
+    pub fn grace_until(&self, now: Timestamp) -> Option<Timestamp> {
+        self.state.grace_until.filter(|&until| now < until)
     }
 
     /// An Enforcer saying it is running. A silence longer than

@@ -49,8 +49,9 @@
   let { heading = false }: { heading?: boolean } = $props();
 </script>
 
-<div class="panel">
+<div class="panel" class:headed={heading}>
   {#if heading}<div class="colhead"><span class="coltitle">Distractions</span><span class="colhint">{status ? Object.values(status.settings.blocklists).filter((l) => l.on).length : 0} blocklists on</span></div>{/if}
+  <div class="body">
   {#if error}<p class="error">{error}</p>{/if}
   {#if status}
     {#if !heading}<div class="head"><span class="cap">Blocklists</span><span class="cap">{lists.filter(([, l]) => l.on).length} on</span></div>{/if}
@@ -73,6 +74,7 @@
     <div class="foot">Tap a blocklist to edit it. Switching one on applies now. Switching one off waits for {hhmm(status.settings.morning_boundary)}.</div>
     {#if note}<div class="foot">{note}</div>{/if}
   {/if}
+  </div>
 </div>
 
 {#if coloring && status?.settings.blocklists[coloring]}
@@ -96,6 +98,13 @@
   .new { min-height: 48px; border-radius: 14px; border: 2px dashed #3a3f45; color: var(--ink); font: 700 14px var(--font); display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
   .foot { font-size: 12px; color: var(--muted); line-height: 1.4; }
   .error { color: var(--goal); }
+  /* On the tablet the heading stays put and only what's under it scrolls,
+     so it never moves or bounces with the list. */
+  .body { display: contents; }
+  .headed { height: 100%; min-height: 0; }
+  .headed .colhead { flex: none; }
+  .headed .body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: inherit; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 28px; scrollbar-width: none; }
+  .headed .body::-webkit-scrollbar { display: none; }
   .colhead { display: flex; justify-content: space-between; align-items: baseline; height: 24px; }
   .coltitle { font-size: 18px; font-weight: 700; line-height: 24px; }
   .colhint { font-size: 12px; color: var(--muted); }

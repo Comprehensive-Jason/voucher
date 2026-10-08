@@ -3,6 +3,7 @@
 // its source by prefix (`reading:…`), or by its service (`todoist:…`) for
 // tasks. A colour chosen on Rules replaces the default.
 import { custom } from "./colors.svelte";
+import type { SourceKind } from "./types";
 export interface SourceStyle { name: string; short: string; color: string; sub?: string }
 
 /** Defaults for the sources Voucher ships with, and for ones from before
@@ -61,4 +62,20 @@ export function sourceOf(task: string): SourceStyle {
 /** Poll problems that a new token fixes, as opposed to a service having a bad moment. */
 export function needsToken(problem: string | undefined): boolean {
   return problem === "sign-in expired" || problem === "not connected";
+}
+
+/** How far each kind of source's rate can go: tasks, minutes, or steps per Voucher. */
+export const RATE_RANGE: Record<SourceKind, { min: number; max: number; step: number }> = {
+  tasks: { min: 1, max: 5, step: 1 },
+  workout: { min: 5, max: 30, step: 5 },
+  focus: { min: 10, max: 120, step: 5 },
+  steps: { min: 500, max: 10000, step: 500 },
+};
+
+/** "1 per 30 min", "1 per task", "1 per 2,000 steps". */
+export function rateText(kind: SourceKind, every: number): string {
+  if (kind === "tasks") return every === 1 ? "1 per task" : `1 per ${every} tasks`;
+  if (kind === "steps") return `1 per ${every.toLocaleString("en-US")} steps`;
+  if (kind === "workout") return `1 per ${every} zone min`;
+  return `1 per ${every} min`;
 }

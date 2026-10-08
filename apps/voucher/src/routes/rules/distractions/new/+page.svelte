@@ -63,7 +63,6 @@
     </button>
     <h1>New blocklist</h1>
     <Tag premade={false} />
-    <ColorButton {color} round label={name || "New blocklist"} onclick={() => (coloring = true)} />
   </header>
   {#if error}<p class="error">{error}</p>{/if}
 
@@ -72,10 +71,13 @@
       <label class="field">
         <span class="cap">Name</span>
         <!-- svelte-ignore a11y_autofocus -->
-        <input placeholder="For example: Games" bind:value={name} autofocus />
+        <span class="namerow">
+          <input placeholder="For example: Games" bind:value={name} autofocus />
+          <ColorButton {color} round label={name || "New blocklist"} onclick={() => (coloring = true)} />
+        </span>
       </label>
 
-      <EntryList title="Apps" empty={wide.on ? "Tap apps on the right to block them" : "No apps yet"} onadd={wide.on ? undefined : () => (adding = "app")}
+      <EntryList title="Apps" icons empty={wide.on ? "Tap apps on the right to block them" : "No apps yet"} onadd={wide.on ? undefined : () => (adding = "app")}
         rows={apps.map((a) => ({ key: a.package, name: a.label, note: a.note, on: a.on, added: true }))}
         ontoggle={(key, on) => (apps = apps.map((a) => (a.package === key ? { ...a, on } : a)))}
         onremove={(key) => (apps = apps.filter((a) => a.package !== key))} />
@@ -110,6 +112,8 @@
 
 <style>
   main { min-height: 100%; padding: calc(12px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .namerow { display: flex; gap: 10px; }
+  .namerow input { flex: 1; min-width: 0; }
   .panes, .pane { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   /* Wide: Apps, Sites, and the installed apps, each scrolling on its own. */
   main.split { height: 100%; min-height: 0; padding: 24px 32px; gap: 16px; }

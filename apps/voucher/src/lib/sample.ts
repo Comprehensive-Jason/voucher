@@ -120,6 +120,7 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
       source_errors: expired ? { [expired]: "sign-in expired" } : {},
       setup_complete: !new URLSearchParams(location.search).get("fresh"),
       first_day: "2026-06-29", log_first_day: "2026-10-01",
+      grace_until: new URLSearchParams(location.search).get("grace") ? "2026-10-11T13:00:00Z" : null,
       blocked: { apps: [], sites: [] } };
   }
   if (route === "/day") {

@@ -145,6 +145,8 @@ export interface Status {
   source_errors: Record<string, string>;
   /** False until first-run setup finishes; until then changes apply at once. */
   setup_complete: boolean;
+  /** While the grace period after setup runs (every change applies at once), when it ends. */
+  grace_until?: string | null;
   /** The first Day with any history; Trends scrolls back no further. Older Ledgers omit it. */
   first_day?: string;
   /** The oldest Day whose hour-by-hour log is kept. */

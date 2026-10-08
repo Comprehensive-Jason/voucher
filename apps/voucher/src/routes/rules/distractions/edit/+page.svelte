@@ -77,7 +77,7 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
     </button>
     <h1>Edit blocklist</h1>
-    {#if list}<Tag premade={list.premade} /><ColorButton color={list.color} round label={list.name} onclick={() => (coloring = true)} />{/if}
+    {#if list}<Tag premade={list.premade} />{/if}
   </header>
   {#if error}<p class="error">{error}</p>{/if}
 
@@ -86,10 +86,13 @@
       <div class="pane">
         <label class="field">
           <span class="cap">Name</span>
-          <input bind:value={name} onblur={rename} onkeydown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} />
+          <span class="namerow">
+            <input bind:value={name} onblur={rename} onkeydown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()} />
+            <ColorButton color={list.color} round label={list.name} onclick={() => (coloring = true)} />
+          </span>
         </label>
 
-        <EntryList title="Apps" empty={wide.on ? "Tap apps on the right to block them" : "No apps yet"} onadd={wide.on ? undefined : () => (adding = "app")}
+        <EntryList title="Apps" icons empty={wide.on ? "Tap apps on the right to block them" : "No apps yet"} onadd={wide.on ? undefined : () => (adding = "app")}
           rows={list.apps.map((a) => ({ key: a.package, name: a.label, note: a.note, on: a.on, added: a.added, waiting: waiting("app", a.package) }))}
           ontoggle={(key, on) => { const a = list.apps.find((x) => x.package === key)!; send({ BlockApp: { list: id, app: { ...a, on } } }); }}
           onremove={(key) => send({ RemoveApp: { list: id, package: key } })} />
@@ -135,6 +138,8 @@
 
 <style>
   main { min-height: 100%; padding: calc(12px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .namerow { display: flex; gap: 10px; }
+  .namerow input { flex: 1; min-width: 0; }
   .panes, .pane { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
   /* Wide: Apps, Sites, and the installed apps, each scrolling on its own. */

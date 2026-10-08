@@ -3,10 +3,13 @@
   // each with a switch (unless `switches` is off), and a remove button for
   // entries the user added.
   import Switch from "./Switch.svelte";
+  import AppIcon from "./AppIcon.svelte";
 
   type Row = { key: string; name: string; note: string | null; on: boolean; added: boolean; waiting?: string | null };
-  let { title, rows, empty, onadd, ontoggle, onremove, switches = true }: {
+  let { title, rows, empty, onadd, ontoggle, onremove, switches = true, icons = false }: {
     title: string; rows: Row[]; empty: string; switches?: boolean;
+    /** Rows are apps keyed by package: show each app's icon. */
+    icons?: boolean;
     onadd?: () => void; ontoggle?: (key: string, on: boolean) => void; onremove?: (key: string) => void;
   } = $props();
 </script>
@@ -24,6 +27,7 @@
     <div class="card">
       {#each rows as r, i (r.key)}
         <div class="row" class:first={i === 0}>
+          {#if icons}<AppIcon pkg={r.key} label={r.name} size={30} />{/if}
           <span class="text">
             <span class="name">{r.name}</span>
             {#if r.waiting}<span class="sub warn">{r.waiting}</span>{:else if r.note}<span class="sub">{r.note}</span>{/if}

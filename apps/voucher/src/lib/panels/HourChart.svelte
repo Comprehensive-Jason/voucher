@@ -207,8 +207,9 @@
     {/each}
   </div>
   <div class="legend">
-    <div class="list" aria-live="polite">
+    <!-- Outside the scrolling list, so it stays put when the list bounces. -->
     <div class="row head"><span class="mono when">{breakdown.label}</span><span class="mono">{breakdown.total} earned</span></div>
+    <div class="list" aria-live="polite">
     {#each breakdown.rows as row (row.name)}
       <div class="row" class:zero={!row.n}><span class="mk"><Marker kind="source" color={row.color} /></span><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
     {/each}
@@ -280,7 +281,7 @@
   .tall .legend { flex: 1; min-height: 96px; }
   .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
   .tall .hintline { flex: none; }
-  .tall .row.head { position: sticky; top: 0; z-index: 1; background: #1f2226; }
+  .tall .row.head { flex: none; }
   .tall .chart, .tall .dots { gap: 6px; }
   .tall .day { gap: 14px; }
   .tall .dots { height: 18px; }

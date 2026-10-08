@@ -9,7 +9,7 @@
   import Switch from "../components/Switch.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
-  import { defaultColorOf, needsToken, serviceOf, styleOf } from "../sources";
+  import { RATE_RANGE, defaultColorOf, needsToken, rateText, serviceOf, styleOf } from "../sources";
   import { hhmm, until } from "../rules";
   import type { Source, SourceKind, Status } from "../types";
 
@@ -26,13 +26,7 @@
     try { await ledger("POST", "/change", { SourceColor: { id, color } }); await load(); } catch (e) { error = String(e); }
   }
 
-  // Rate ranges: tasks, minutes, or steps per Voucher.
-  const RANGE: Record<SourceKind, { min: number; max: number; step: number }> = {
-    tasks: { min: 1, max: 5, step: 1 },
-    workout: { min: 5, max: 30, step: 5 },
-    focus: { min: 10, max: 120, step: 5 },
-    steps: { min: 500, max: 10000, step: 500 },
-  };
+  const RANGE = RATE_RANGE;
   // Tasks, Workout, and Steps first, then groups of apps by name.
   const FIRST = ["tasks", "workout", "steps", "obsidian", "reading", "anki"];
   const rank = (id: string) => (FIRST.includes(id) ? FIRST.indexOf(id) : FIRST.length);
@@ -50,12 +44,7 @@
     if (!names.length) return "Nothing yet";
     return names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ");
   }
-  function rate(kind: SourceKind, every: number) {
-    if (kind === "tasks") return every === 1 ? "1 per task" : `1 per ${every} tasks`;
-    if (kind === "steps") return `1 per ${every.toLocaleString("en-US")} steps`;
-    if (kind === "workout") return `1 per ${every} zone min`;
-    return `1 per ${every} min`;
-  }
+  const rate = rateText;
   function pendingFor(id: string): { on: boolean; every: number; at: string } | null {
     const hit = status?.pending.find(([c]) => (c as any).Source?.id === id);
     return hit ? { ...(hit[0] as any).Source, at: hit[1] } : null;
@@ -101,8 +90,9 @@
   let { heading = false }: { heading?: boolean } = $props();
 </script>
 
-<div class="panel">
-  {#if heading}<div class="colhead"><span class="coltitle">Sources</span><span class="colhint">On or faster waits for {status ? hhmm(status.settings.morning_boundary) : "06:00"}</span></div>{/if}
+<div class="panel" class:headed={heading}>
+  {#if heading}<div class="colhead"><span class="coltitle">Sources</span><span class="colhint">{status?.grace_until ? "Grace: changes apply now" : `On or faster waits for ${status ? hhmm(status.settings.morning_boundary) : "06:00"}`}</span></div>{/if}
+  <div class="body">
   {#if error}<p class="error">{error}</p>{/if}
 
   {#if status}
@@ -164,6 +154,7 @@
     <div class="foot">Tap a source to rename it or change its apps. Off or slower applies now. On, faster, or new waits for {hhmm(status.settings.morning_boundary)}.</div>
     {#if note}<div class="foot">{note}</div>{/if}
   {/if}
+  </div>
 </div>
 
 {#if reconnecting}
@@ -204,6 +195,13 @@
   .new { min-height: 48px; border-radius: 14px; border: 2px dashed #3a3f45; color: var(--ink); font: 700 14px var(--font); display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
   .foot { font-size: 12px; color: var(--muted); line-height: 1.4; }
   .error { color: var(--goal); }
+  /* On the tablet the heading stays put and only what's under it scrolls,
+     so it never moves or bounces with the list. */
+  .body { display: contents; }
+  .headed { height: 100%; min-height: 0; }
+  .headed .colhead { flex: none; }
+  .headed .body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: inherit; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 28px; scrollbar-width: none; }
+  .headed .body::-webkit-scrollbar { display: none; }
   .colhead { display: flex; justify-content: space-between; align-items: baseline; height: 24px; }
   .coltitle { font-size: 18px; font-weight: 700; line-height: 24px; }
   .colhint { font-size: 12px; color: var(--muted); }

@@ -240,7 +240,7 @@
     </div>
     {#if error}<p class="error">{error}</p>{/if}
     <div class="foot">
-      <div class="hint">{settingUp ? "Set these freely now. After setup, anything that loosens a rule waits for 06:00." : "This Ledger is already set up: anything that loosens a rule waits for 06:00."}</div>
+      <div class="hint">{settingUp ? "Set these freely now. For two days after setup every change still applies at once; then anything that loosens a rule waits for 06:00." : "This Ledger is already set up: anything that loosens a rule waits for 06:00."}</div>
       <button class="pri" disabled={busy} onclick={start}>Start Voucher</button>
     </div>
   {/if}

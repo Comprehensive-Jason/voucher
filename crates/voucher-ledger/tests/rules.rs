@@ -470,3 +470,49 @@ fn room_before_curfew_shrinks_as_unlocks_stack_and_is_zero_once_they_reach_it() 
     assert_eq!(ledger.room_before_curfew(at("2026-10-07T21:33-07:00")), 0);
     assert_eq!(ledger.room_before_curfew(at("2026-10-07T23:00-07:00")), 0);
 }
+
+fn just_set_up(moment: &str) -> Ledger {
+    let mut ledger = Ledger::new(settings(), ledger_key(), STARTED);
+    ledger.setup(Vec::new(), true, at(moment));
+    ledger
+}
+
+#[test]
+fn for_two_days_after_setup_a_loosening_applies_at_once() {
+    // Set up on a Thursday afternoon: grace runs to Sunday's Morning boundary,
+    // the first one at least 48 hours away.
+    let mut ledger = just_set_up("2026-10-08T15:00-07:00");
+    assert_eq!(
+        ledger.grace_until(at("2026-10-08T15:00-07:00")),
+        Some(at("2026-10-11T06:00-07:00"))
+    );
+
+    let during = ledger.request(Change::BankLimit(30), at("2026-10-10T22:00-07:00"));
+    let after = ledger.request(Change::BankLimit(40), at("2026-10-11T06:00-07:00"));
+
+    assert_eq!(during, Effect::Now);
+    assert_eq!(after, Effect::At(at("2026-10-12T06:00-07:00")));
+    assert_eq!(ledger.grace_until(at("2026-10-11T06:00-07:00")), None);
+}
+
+#[test]
+fn ending_grace_early_makes_loosenings_wait_again() {
+    let mut ledger = just_set_up("2026-10-08T15:00-07:00");
+
+    ledger.end_grace();
+    let effect = ledger.request(Change::BankLimit(30), at("2026-10-08T16:00-07:00"));
+
+    assert_eq!(effect, Effect::At(at("2026-10-09T06:00-07:00")));
+}
+
+#[test]
+fn a_ledger_saved_before_grace_existed_has_none() {
+    let ledger = stocked();
+    let mut saved: serde_json::Value = serde_json::from_str(&ledger.save()).unwrap();
+    saved.as_object_mut().unwrap().remove("grace_until");
+    let mut reloaded = Ledger::load(&saved.to_string(), ledger_key()).unwrap();
+
+    let effect = reloaded.request(Change::BankLimit(30), at("2026-10-06T21:00-07:00"));
+
+    assert!(matches!(effect, Effect::At(_)));
+}

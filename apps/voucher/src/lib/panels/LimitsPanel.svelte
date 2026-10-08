@@ -100,8 +100,9 @@
   const clockOf = (m: number) => hhmm(timeOf(m));
 </script>
 
-<div class="panel">
-  {#if heading}<div class="colhead"><span class="coltitle">Limits</span><span class="colhint">Looser waits for {status ? hhmm(status.settings.morning_boundary) : "06:00"}</span></div>{/if}
+<div class="panel" class:headed={heading}>
+  {#if heading}<div class="colhead"><span class="coltitle">Limits</span><span class="colhint">{status?.grace_until ? "Grace: changes apply now" : `Looser waits for ${status ? hhmm(status.settings.morning_boundary) : "06:00"}`}</span></div>{/if}
+  <div class="body">
 
   {#if error}<p class="error">{error}</p>{/if}
 
@@ -196,6 +197,7 @@
 
     {#if note}<div class="note">{note}</div>{/if}
   {/if}
+  </div>
 </div>
 
 <style>
@@ -237,6 +239,13 @@
   .ptitle small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .note { font-size: 12px; color: var(--muted); text-align: center; }
   .error { color: var(--goal); }
+  /* On the tablet the heading stays put and only what's under it scrolls,
+     so it never moves or bounces with the list. */
+  .body { display: contents; }
+  .headed { height: 100%; min-height: 0; }
+  .headed .colhead { flex: none; }
+  .headed .body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: inherit; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 28px; scrollbar-width: none; }
+  .headed .body::-webkit-scrollbar { display: none; }
   .colhead { display: flex; justify-content: space-between; align-items: baseline; height: 24px; }
   .coltitle { font-size: 18px; font-weight: 700; line-height: 24px; }
   .colhint { font-size: 12px; color: var(--muted); }

@@ -4,6 +4,7 @@
   // are greyed with that source's name.
   import { onMount } from "svelte";
   import { launchableApps } from "../api";
+  import AppIcon from "./AppIcon.svelte";
 
   type App = { package: string; label: string; note?: string };
   let { members, taken = {}, games = false, onadd }: {
@@ -30,6 +31,7 @@
       {@const member = members.includes(a.package)}
       {@const owner = member ? undefined : taken[a.package]}
       <button class="row" class:taken={!!owner} disabled={member || !!owner} aria-label={member ? `${a.label}, added` : owner ? `${a.label}, in ${owner}` : `Add ${a.label}`} onclick={() => onadd(a)}>
+        <AppIcon pkg={a.package} label={a.label} size={34} />
         <span class="text">
           <span class="name">{a.label}</span>
           <span class="sub" class:plain={!!owner || !!a.note}>{owner ? `In ${owner}` : a.note ?? a.package}</span>

@@ -32,8 +32,15 @@ const TOTALS = path.join(DATA, "portal-totals.json");
 // Made-up Distraction time for a dev build to show (it's measured on the
 // device, so the Ledger never has it). Starts with placeholder figures.
 const USAGE = path.join(DATA, "portal-usage.json");
+// Apps from Jason's own blocklists, named as the blocklists name them so the
+// app can colour each one by its list.
+const USAGE_APPS = ["Instagram", "YouTube", "X", "rednote", "Mihon", "Reddit", "bilibili", "HoYoLAB", "Samsung Internet"];
 function placeholderUsage() {
-  return { minutes: { Instagram: 14, YouTube: 8, Reddit: 4, Chess: 6, Firefox: 2 }, opens: { Instagram: 14, YouTube: 6, Reddit: 3, Chess: 2, Firefox: 1 }, closedWithoutTearing: 21 };
+  return {
+    minutes: { Instagram: 14, YouTube: 8, X: 11, rednote: 6, Mihon: 9, Reddit: 4, bilibili: 5, HoYoLAB: 2, "Samsung Internet": 1 },
+    opens: { Instagram: 14, YouTube: 6, X: 9, rednote: 4, Mihon: 5, Reddit: 3, bilibili: 2, HoYoLAB: 1, "Samsung Internet": 1 },
+    closedWithoutTearing: 33,
+  };
 }
 const readUsage = () => { try { return JSON.parse(readFileSync(USAGE, "utf8")); } catch { return placeholderUsage(); } };
 const writeUsage = (u) => writeFileSync(USAGE, JSON.stringify(u));
@@ -117,9 +124,12 @@ async function reset() {
   await finishSetup();
 }
 
-/** Writes made-up past Days into the test Ledger's saved state: scores for
- *  the history grid and log entries for the hour chart. The Ledger only takes
- *  reports for today and yesterday, so this edits its file while it's stopped. */
+/** Writes `days` more made-up Days into the test Ledger's saved state, going
+ *  back from the oldest Day it already has, so each press makes the history
+ *  longer: scores for the history grid, and log entries for the hour chart
+ *  (only for the last 30 Days, which is all the Ledger keeps of its log).
+ *  The Ledger only takes reports for today and yesterday, so this edits its
+ *  file while it's stopped. */
 async function seedHistory(days) {
   const today = (await call("GET", "/status")).today.day;
   await stopLedger();
@@ -130,12 +140,15 @@ async function seedHistory(days) {
   const sources = Object.entries(state.settings.sources).flatMap(([id, s]) => (s.kind === "tasks" ? [...s.packages, ...s.packages] : [id]));
   const titles = ["Problem set", "Weekly review", "Reply to email", "Lecture notes", "Bike ride", "Flashcards", "Chapter"];
   const goal = state.settings.daily_goal;
+  // Counted back from the Ledger's own Day, not the calendar date here.
+  const shift = (day, n) => new Date(Date.parse(day + "T12:00:00Z") + n * 86400_000).toISOString().slice(0, 10);
+  const past = Object.keys(state.days).filter((d) => d < today).sort();
+  const from = past.length ? past[0] : today;
+  const logFrom = shift(today, -30);
   let earliest = null;
-  for (let back = days; back >= 1; back--) {
-    // Counted back from the Ledger's own Day, not the calendar date here.
-    const date = new Date(Date.parse(today + "T12:00:00Z") - back * 86400_000).toISOString().slice(0, 10);
-    if (state.days[date]) continue;
-    earliest ??= date;
+  for (let back = 1; back <= days; back++) {
+    const date = shift(from, -back);
+    earliest = date;
     // A spread of quiet, ordinary, and goal-meeting Days.
     const earned = Math.random() < 0.15 ? 0 : Math.round(goal * (0.3 + Math.random() * 0.9));
     const redeemed = Math.min(earned, Math.floor(Math.random() * 5));
@@ -145,6 +158,7 @@ async function seedHistory(days) {
       const offset = zone.formatToParts(probe).find((x) => x.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
       return new Date(date + "T" + String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0") + ":00" + offset).toISOString();
     };
+    if (date < logFrom) continue;
     for (let i = 0; i < earned; i++) {
       const k = Math.floor(Math.random() * sources.length);
       state.log.push({ kind: "earned", at: at(9 + Math.floor(Math.random() * 13), Math.floor(Math.random() * 60)),
@@ -187,6 +201,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/minutes") return send(res, 200, "application/json", JSON.stringify(await addMinutes(input.source, Number(input.add))));
     if (req.method === "POST" && req.url === "/api/credit") return send(res, 200, "application/json", JSON.stringify(await call("POST", `/test/credit?count=${Number(input.count) || 1}`)));
     if (req.method === "POST" && req.url === "/api/task") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/complete", { source: input.source, title: input.title })));
+    if (req.method === "POST" && req.url === "/api/grace") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/grace")));
     if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
     if (req.method === "POST" && req.url === "/api/reset") { await reset(); return send(res, 200, "application/json", "{}"); }
     send(res, 404, "text/plain", "not found");
@@ -247,13 +262,14 @@ const PAGE = String.raw`<!doctype html>
   <h2>Distraction time on this device (made up)</h2>
   <span class="note">What a dev build shows under "In Distractions today" and on the blocked-app screen, instead of what Android measures.</span>
   <div class="grid" id="usage"></div>
-  <div class="buttons"><button id="history">Add 4 weeks of made-up history</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
+  <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
 <script>
 // Defaults for sources with no colour chosen; names come from the Ledger.
 const COLORS = { tasks: "#5b9cff", obsidian: "#b08cff", workout: "#ff8a5c", reading: "#ffd166", anki: "#ff6fa8", steps: "#05afa5" };
 const SERVICES = { todoist: "Todoist", clickup: "ClickUp" };
 let NAMES = {};
+const USAGE_APPS = ${JSON.stringify(USAGE_APPS)};
 const TITLES = ["Problem set 4", "Reply to the landlord", "Weekly review", "Draft the budget", "Read chapter 6", "Water the plants", "Lab report figures", "Email the adviser"];
 const $ = (id) => document.getElementById(id);
 let busy = false;
@@ -318,10 +334,10 @@ function render(s) {
 function renderUsage(u) {
   const minutes = Object.fromEntries(u.apps.map((a) => [a.label, a.minutes]));
   const opens = Object.fromEntries(u.attempts.map((a) => [a.label, a.count]));
-  const apps = ["Instagram", "YouTube", "Reddit", "Chess", "Firefox"].map((app) => '<div class="src"><div class="top"><span class="name">' + app + '</span><span class="detail">' + (minutes[app] ?? 0) + ' min · ' + (opens[app] ?? 0) + ' blocked opens</span></div>'
+  const apps = USAGE_APPS.map((app) => '<div class="src"><div class="top"><span class="name">' + app + '</span><span class="detail">' + (minutes[app] ?? 0) + ' min · ' + (opens[app] ?? 0) + ' blocked opens</span></div>'
     + '<div class="buttons"><button data-uapp="' + app + '" data-umin="5">+5 min</button><button data-uapp="' + app + '" data-umin="15">+15 min</button><button data-uapp="' + app + '" data-uopen="1">+1 blocked open</button></div></div>').join("");
-  const all = '<div class="src"><div class="top"><span class="name">All Distractions</span><span class="detail">' + u.blockedOpens + ' blocked opens · ' + u.closedWithoutTearing + ' closed without tearing</span></div>'
-    + '<div class="buttons"><button data-uclosed="1">+1 closed without tearing</button><button data-ureset="1">Placeholder figures</button><button data-uclear="1" class="danger">Clear all</button></div></div>';
+  const all = '<div class="src"><div class="top"><span class="name">All Distractions</span><span class="detail">' + u.blockedOpens + ' blocked opens · ' + u.closedWithoutTearing + ' left without unlocking</span></div>'
+    + '<div class="buttons"><button data-uclosed="1">+1 left without unlocking</button><button data-ureset="1">Placeholder figures</button><button data-uclear="1" class="danger">Clear all</button></div></div>';
   $("usage").innerHTML = apps + all;
 }
 
@@ -342,11 +358,12 @@ document.addEventListener("click", (e) => {
   }
   if (b.dataset.uapp && b.dataset.umin) act(() => api("POST", "/api/usage", { app: b.dataset.uapp, minutes: Number(b.dataset.umin) }), () => b.dataset.uapp + " +" + b.dataset.umin + " min");
   if (b.dataset.uapp && b.dataset.uopen) act(() => api("POST", "/api/usage", { app: b.dataset.uapp, open: true }), () => b.dataset.uapp + ": one more blocked open");
-  if (b.dataset.uclosed) act(() => api("POST", "/api/usage", { closed: true }), () => "One more closed without tearing");
+  if (b.dataset.uclosed) act(() => api("POST", "/api/usage", { closed: true }), () => "One more left without unlocking");
   if (b.dataset.ureset) act(() => api("POST", "/api/usage", { reset: true }), () => "Placeholder Distraction time back");
   if (b.dataset.uclear) act(() => api("POST", "/api/usage", { clear: true }), () => "Distraction time cleared");
   if (b.dataset.credit) act(() => api("POST", "/api/credit", { count: Number(b.dataset.credit) }), (c) => "+" + c.kept + " in the Bank" + (c.forfeited ? ", " + c.forfeited + " over the limit" : ""));
-  if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added made-up Days for the last 4 weeks");
+  if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added 4 more weeks of made-up Days, before the oldest");
+  if (b.id === "grace") act(() => api("POST", "/api/grace"), () => "Grace period on: changes apply at once for 2 days");
   if (b.id === "reset") act(() => api("POST", "/api/reset"), () => "Fresh test Ledger: Bank and Day emptied");
 });
 refresh();

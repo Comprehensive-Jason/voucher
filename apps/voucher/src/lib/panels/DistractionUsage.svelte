@@ -20,20 +20,27 @@
   </div>
   {#if usage && !usage.measured}
     <div class="note">Minutes need usage access on this device: turn it on in Rules, under Protection.</div>
-    <div class="note">{usage.blockedOpens} blocked opens, {usage.closedWithoutTearing} closed without tearing</div>
   {:else if usage}
-    {#each usage.apps as a}
-      <div class="app">
-        <div class="name">{a.label}</div>
-        <div class="bar"><i style="width: {(a.minutes / Math.max(1, usage.apps[0].minutes)) * 100}%; background: {colorOf(a.label)}"></i></div>
-        <div class="mono min">{a.minutes} min</div>
-      </div>
-    {:else}
-      <div class="note">No time in Distractions today.</div>
-    {/each}
-    <div class="note">{usage.blockedOpens} blocked opens, {usage.closedWithoutTearing} closed without tearing</div>
+    <div class="apps">
+      {#each usage.apps as a}
+        <div class="app">
+          <div class="name">{a.label}</div>
+          <div class="bar"><i style="width: {(a.minutes / Math.max(1, usage.apps[0].minutes)) * 100}%; background: {colorOf(a.label)}"></i></div>
+          <div class="mono min">{a.minutes} min</div>
+        </div>
+      {:else}
+        <div class="note">No time in Distractions today.</div>
+      {/each}
+    </div>
   {:else}
     <div class="note">Needs usage access on this device. Turn it on in Rules, under Protection.</div>
+  {/if}
+  <!-- Stays at the bottom of the box, however many apps are listed. -->
+  {#if usage}
+    <div class="stats">
+      <span><b class="mono">{usage.blockedOpens}</b> blocked {usage.blockedOpens === 1 ? "open" : "opens"}</span>
+      <span><b class="mono">{usage.closedWithoutTearing}</b> left without unlocking</span>
+    </div>
   {/if}
 </section>
 
@@ -47,5 +54,8 @@
   .name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .min { font-size: 12px; text-align: right; color: var(--muted); }
   .note { font-size: 12px; color: var(--muted); }
+  .apps { display: flex; flex-direction: column; gap: 10px; }
+  .stats { margin-top: auto; display: flex; flex-wrap: wrap; gap: 4px 16px; padding-top: 10px; border-top: 1px solid var(--divider); font-size: 12px; color: var(--muted); }
+  .stats b { color: var(--ink); font-size: 13px; }
   .card { gap: 10px; }
 </style>
