@@ -2,7 +2,8 @@
   // The small shape before a line in the Log and the All-day list, telling
   // kinds of event apart by shape as well as colour: a source's rounded
   // square, a hollow one for a Voucher lost to a full Bank, a star for the
-  // Daily goal met, a dashed ring for a time Voucher was off, and Redeemed's own.
+  // Daily goal met, a dashed ring for a time Voucher was off, and a triangle
+  // pointing right, the way a torn Voucher goes, for a Redemption.
   export type MarkerKind = "source" | "lost" | "redeemed" | "goal" | "gap";
   let { kind, color = "currentColor", size = 12 }: { kind: MarkerKind; color?: string; size?: number } = $props();
 </script>
@@ -17,8 +18,8 @@
   {:else if kind === "gap"}
     <circle cx="6" cy="6" r="4.6" fill="none" stroke="#ff8a7a" stroke-width="1.5" stroke-dasharray="2.4 1.8" />
   {:else}
-    <!-- Redeemed: a placeholder until its shape is chosen. -->
-    <circle cx="6" cy="6" r="5" fill="var(--ink)" />
+    <!-- Redeemed: a triangle pointing right, the way a torn Voucher goes. -->
+    <path d="M2.2 1.2l8.6 4.8-8.6 4.8z" fill="var(--ink)" stroke="var(--ink)" stroke-width="1" stroke-linejoin="round" />
   {/if}
 </svg>
 
