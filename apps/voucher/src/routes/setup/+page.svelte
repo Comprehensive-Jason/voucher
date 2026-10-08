@@ -111,7 +111,7 @@
     </div>
     <div class="points">
       {#each [["Earn", "Finished tasks, workouts, reading, and focused time each count toward a Voucher."],
-              ["Tear", "Tear a voucher off the stack to open every Distraction for 10 minutes."],
+              ["Tear", "Tear a Voucher off the stack to open every Distraction for 10 minutes."],
               ["Sleep", "During Curfew nothing can be torn. Your Bank is kept for the morning."]] as [title, text], i}
         <div class="point"><div class="mono num">{i + 1}</div><div><div class="ptitle">{title}</div><div class="ptext">{text}</div></div></div>
       {/each}
