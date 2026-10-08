@@ -1,5 +1,6 @@
 <script lang="ts">
-  import GraceBanner from "$lib/components/GraceBanner.svelte";
+  import RulesNotices from "$lib/components/RulesNotices.svelte";
+  import { NOTICES_IN_HEADER } from "$lib/notices";
   // Rules. On a phone: Limits, with tabs for Sources and Distractions. On a
   // wide screen: all three side by side, as a sheet over Today that slides
   // back down to it.
@@ -18,7 +19,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
       </button>
       <h1>Rules</h1>
-      <div class="graceslot"><GraceBanner /></div>
+      {#if NOTICES_IN_HEADER}<div class="noticeslot"><RulesNotices row /></div>{/if}
     </header>
     <div class="cols">
       <section><LimitsPanel heading /></section>
@@ -41,7 +42,8 @@
   header { display: flex; align-items: center; gap: 4px; margin-left: -12px; }
   .back { width: 44px; height: 44px; padding: 0; background: none; border: 0; color: var(--ink); display: flex; align-items: center; justify-content: center; }
   h1 { margin: 0; font-size: 26px; font-weight: 700; }
-  .graceslot { margin-left: auto; max-width: 620px; }
+  /* Page-wide notices fill the header beside the title. */
+  .noticeslot { flex: 1; min-width: 0; margin-left: 28px; }
   header { flex: none; }
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
   /* Each panel scrolls under its own heading. */

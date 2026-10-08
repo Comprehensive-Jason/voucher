@@ -200,3 +200,17 @@ export function protectionParts(): { part: keyof Protection; name: string; what:
     { part: "overlay", name: "Blocked-app screen", what: "Shows Voucher's screen when a paused app opens" },
   ];
 }
+
+/** Which protection part is missing, most serious first, with what to say and do about it. */
+export function missingProtection(guard: Protection | null) {
+  if (!guard) return null;
+  if (!guard.deviceOwner) return { level: "off", part: "deviceOwner" as const, title: "Protection off",
+    text: onWindows ? "The Voucher guard isn't running, so nothing is closed or blocked." : "Voucher isn't Device Owner on this phone, so nothing is paused.",
+    action: onWindows ? "See how to fix it" : "Set up app blocking" };
+  if (!guard.usageAccess) return { level: "partial", part: "usageAccess" as const, title: "Protection partly on",
+    text: onWindows ? "ActivityWatch isn't running, so Focused time on this PC can't be counted." : "Usage access is off, so Focused time and Distraction minutes can't be measured.",
+    action: onWindows ? "Get ActivityWatch" : "Turn usage access on" };
+  if (!guard.overlay && !onWindows) return { level: "partial", part: "overlay" as const, title: "Protection partly on",
+    text: "The blocked-app screen is off, so paused apps show Android's plain dialog instead.", action: "Turn the blocked-app screen on" };
+  return null;
+}

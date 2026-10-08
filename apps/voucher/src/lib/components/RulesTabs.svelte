@@ -1,5 +1,6 @@
 <script lang="ts">
-  import GraceBanner from "./GraceBanner.svelte";
+  import RulesNotices from "./RulesNotices.svelte";
+  import { NOTICES_IN_HEADER } from "../notices";
   let { active }: { active: "limits" | "sources" | "distractions" } = $props();
   const segs = [
     { id: "limits", label: "Limits", href: "/rules" },
@@ -11,7 +12,7 @@
 <div class="segs">
   {#each segs as s}<a class="seg" class:on={s.id === active} href={s.href}>{s.label}</a>{/each}
 </div>
-<GraceBanner />
+{#if NOTICES_IN_HEADER}<RulesNotices />{/if}
 
 <style>
   .segs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
