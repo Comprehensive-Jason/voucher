@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Picks the colour a source or blocklist is drawn in: the palette as a grid,
-  // a hue per column and light, medium, and deep down each one.
+  // Picks the colour a source or blocklist is drawn in: the palette's rows,
+  // light to dark, each running around the colour wheel.
   import Sheet from "./Sheet.svelte";
   import { PALETTE } from "../palette";
 
@@ -17,13 +17,10 @@
 <Sheet {onclose}>
   <div class="head"><h2>{title}</h2><span class="now" style="background: {current}"></span></div>
   <div class="grid" role="radiogroup" aria-label="Colours">
-    {#each [0, 1, 2] as tone}
-      {#each PALETTE as p}
-        {@const color = p.tones[tone]}
-        <button class="swatch" class:on={color.toLowerCase() === current.toLowerCase()} style="background: {color}"
-          role="radio" aria-checked={color.toLowerCase() === current.toLowerCase()} aria-label="{p.hue}, {['light', 'medium', 'deep'][tone]}"
-          onclick={() => onpick(color)}></button>
-      {/each}
+    {#each PALETTE.flat() as swatch}
+      <button class="swatch" class:on={swatch.color === current.toLowerCase()} style="background: {swatch.color}"
+        role="radio" aria-checked={swatch.color === current.toLowerCase()} aria-label={swatch.name}
+        onclick={() => onpick(swatch.color)}></button>
     {/each}
   </div>
   {#if fallback}
@@ -36,7 +33,7 @@
   h2 { margin: 0; font-size: 18px; }
   .now { width: 22px; height: 22px; border-radius: 50%; }
   .now.small { width: 14px; height: 14px; }
-  .grid { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 8px; max-width: 520px; }
+  .grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; max-width: 480px; }
   .swatch { aspect-ratio: 1; min-height: 28px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; }
   .swatch.on { outline: 3px solid var(--ink); outline-offset: 2px; }
   .swatch:focus-visible { outline: 3px solid var(--voucher); outline-offset: 2px; }

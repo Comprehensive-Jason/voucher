@@ -1,18 +1,15 @@
-// The colours a source or blocklist can be drawn in: eleven hues, each light,
-// medium, and deep, tuned to read on the app's dark surfaces. The Voucher
-// green itself is left out so nothing is mistaken for a Voucher.
-export const PALETTE: { hue: string; tones: [string, string, string] }[] = [
-  { hue: "Red", tones: ["#ff9a8f", "#ff6b5b", "#d94a3d"] },
-  { hue: "Orange", tones: ["#ffb27a", "#ff8a5c", "#e0662f"] },
-  { hue: "Amber", tones: ["#ffd27f", "#f0b03f", "#c98a1e"] },
-  { hue: "Yellow", tones: ["#ffe38a", "#ffd166", "#d9b13d"] },
-  { hue: "Lime", tones: ["#c6ef7d", "#9be36d", "#6fbf45"] },
-  { hue: "Teal", tones: ["#7fe6d2", "#3fcdb4", "#24a08a"] },
-  { hue: "Sky", tones: ["#9adfff", "#7fd1ff", "#3fa9e0"] },
-  { hue: "Blue", tones: ["#9cc2ff", "#5b9cff", "#3a74e0"] },
-  { hue: "Indigo", tones: ["#b3bcff", "#7d8cff", "#5a63e0"] },
-  { hue: "Violet", tones: ["#d2bdff", "#b08cff", "#8a5fe8"] },
-  { hue: "Pink", tones: ["#ffb3d4", "#ff6fa8", "#e5609b"] },
+// The colours a source or blocklist can be drawn in: thirty picked so the
+// closest two still differ clearly (a smallest OKLab difference of 0.113),
+// spanning dark to light and grey to vivid. Nothing neon, nothing near the
+// Voucher green, and nothing too dark to see on the app's surfaces. Rows run
+// light to dark; each row runs around the colour wheel, greys last. Made by
+// a max-min search over OKLCH (see the git log for the method).
+export interface Swatch { color: string; name: string }
+
+export const PALETTE: Swatch[][] = [
+  [{ color: "#fea845", name: "Light amber" }, { color: "#e1df5d", name: "Light olive" }, { color: "#b0ba56", name: "Olive 1" }, { color: "#38f7db", name: "Light teal" }, { color: "#01d3f8", name: "Light sky" }, { color: "#acb8fe", name: "Light indigo" }, { color: "#df8ee7", name: "Magenta 1" }, { color: "#fec0f7", name: "Light magenta" }, { color: "#cfa5a9", name: "Muted red" }, { color: "#c2d7ce", name: "Light cool grey" }],
+  [{ color: "#d38147", name: "Orange" }, { color: "#8b9347", name: "Olive 2" }, { color: "#188d7c", name: "Deep teal 1" }, { color: "#46b3a8", name: "Teal" }, { color: "#069ce4", name: "Blue" }, { color: "#9587ef", name: "Indigo" }, { color: "#b05baa", name: "Magenta 2" }, { color: "#ea7290", name: "Red" }, { color: "#bb475d", name: "Deep red" }, { color: "#908999", name: "Grey" }],
+  [{ color: "#853901", name: "Deep orange" }, { color: "#a46305", name: "Deep amber" }, { color: "#5d6312", name: "Deep olive" }, { color: "#0c6567", name: "Deep teal 2" }, { color: "#0276ae", name: "Deep blue 1" }, { color: "#264ba4", name: "Deep blue 2" }, { color: "#6d5cbf", name: "Deep indigo" }, { color: "#6e328d", name: "Deep violet" }, { color: "#76596e", name: "Deep muted magenta" }, { color: "#8f204f", name: "Deep rose" }],
 ];
 
-export const COLORS = PALETTE.flatMap((p) => p.tones);
+export const COLORS = PALETTE.flat().map((s) => s.color);
