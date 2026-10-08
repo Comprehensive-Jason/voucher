@@ -9,7 +9,7 @@
 
   let { sources }: { sources: SourceProgress[] } = $props();
 
-  const ORDER = ["tasks", "obsidian", "workout", "readwise", "moonreader", "anki"];
+  const ORDER = ["tasks", "obsidian", "workout", "steps", "readwise", "moonreader", "anki"];
 
   const rows = $derived.by(() => {
     const on = sources.filter((s) => s.on);
@@ -24,7 +24,7 @@
         tally: every === 1 ? earned : undefined });
     }
     for (const s of on.filter((s) => s.kind !== "tasks")) {
-      const unit = s.kind === "workout" ? "zone min" : "min";
+      const unit = s.kind === "workout" ? "zone min" : s.kind === "steps" ? "steps" : "min";
       out.push({ key: s.id, ...styleOf(s.id), detail: `${s.progress} / ${s.every} ${unit}`, progress: s.progress / s.every, earned: s.earned });
     }
     const rank = (k: string) => (ORDER.includes(k) ? ORDER.indexOf(k) : ORDER.length);

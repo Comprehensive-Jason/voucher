@@ -254,6 +254,9 @@ pub enum SourceKind {
     Workout,
     /// Minutes an app is on screen and in use, reported by the phone.
     Focus,
+    /// Steps walked, reported by the phone from Health Connect. A Steps
+    /// source's rate counts steps, not minutes.
+    Steps,
 }
 
 /// The sources a new Ledger starts with.
@@ -289,6 +292,14 @@ pub fn default_sources() -> BTreeMap<String, Source> {
         (
             "anki".into(),
             source(SourceKind::Focus, 30, &["com.ichi2.anki", "win:anki.exe"]),
+        ),
+        // Off until switched on: not everyone carries a phone that counts steps.
+        (
+            "steps".into(),
+            Source {
+                on: false,
+                ..source(SourceKind::Steps, 2000, &[])
+            },
         ),
     ])
 }
@@ -760,6 +771,7 @@ impl Ledger {
             let label = match (title, kind) {
                 (Some(title), _) => title.to_string(),
                 (None, SourceKind::Workout) => format!("{n} zone min"),
+                (None, SourceKind::Steps) => format!("{n} steps"),
                 (None, _) => format!("{n} min focused"),
             };
             (format!("{source}:{day}#{}", now.as_second()), label)

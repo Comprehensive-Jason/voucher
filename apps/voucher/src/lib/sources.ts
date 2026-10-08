@@ -12,6 +12,7 @@ export const SOURCES: Record<string, SourceStyle> = {
   readwise: { name: "Readwise Reader", short: "Reader", color: "#ffd166" },
   moonreader: { name: "Moon+ Reader", short: "Moon+", color: "#e0a82e" },
   anki: { name: "Anki", short: "Anki", color: "#ff6fa8" },
+  steps: { name: "Steps", short: "Steps", color: "#05afa5" },
 };
 
 /** Per-service styles for the Sources page, where Todoist and ClickUp are separate. */
@@ -19,6 +20,7 @@ const SERVICES: Record<string, SourceStyle> = {
   todoist: { name: "Todoist", short: "Todoist", color: "#5b9cff", sub: "your completed tasks" },
   clickup: { name: "ClickUp", short: "ClickUp", color: "#7aa7ff", sub: "assigned to you" },
   workout: { name: "Zone minutes", short: "Workout", color: "#ff8a5c", sub: "heart rate" },
+  steps: { name: "Steps", short: "Steps", color: "#05afa5", sub: "walked today" },
 };
 
 /** Todoist and ClickUp both count as Tasks. */

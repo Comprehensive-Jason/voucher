@@ -28,7 +28,7 @@ export interface Today {
   blocklists: string[];
 }
 
-export type SourceKind = "tasks" | "workout" | "focus";
+export type SourceKind = "tasks" | "workout" | "focus" | "steps";
 
 /** One source's standing today, from the Ledger. */
 export interface SourceProgress {

@@ -235,3 +235,38 @@ fn adding_an_app_to_a_source_waits_for_morning_and_removing_one_applies_now() {
         fewer
     );
 }
+
+#[test]
+fn steps_earn_by_the_step_once_switched_on() {
+    let mut ledger = fresh();
+    let day = "2026-10-07".parse().unwrap();
+    let noon = at("2026-10-07T12:00-07:00");
+    // Off by default: steps reported then earn nothing.
+    ledger.report_from("phone", "steps", day, 2500, None, noon);
+    assert_eq!(ledger.bank(), 0);
+
+    ledger.setup(
+        vec![Change::Source {
+            id: "steps".into(),
+            on: true,
+            every: 2000,
+        }],
+        false,
+        noon,
+    );
+    ledger.report_from(
+        "phone",
+        "steps",
+        day,
+        4500,
+        None,
+        at("2026-10-07T13:00-07:00"),
+    );
+
+    // 4,500 steps reported after switching on: the 2,000 more since the
+    // last report earn one Voucher.
+    let today = ledger.today(at("2026-10-07T13:05-07:00"));
+    let steps = today.sources.iter().find(|s| s.id == "steps").unwrap();
+    assert_eq!(ledger.bank(), 1);
+    assert_eq!(steps.earned, 1);
+}

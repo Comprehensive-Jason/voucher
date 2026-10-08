@@ -155,7 +155,7 @@ object Enforcer {
         runCatching { dpm.clearDeviceOwnerApp(ctx.packageName) }
     }
 
-    /** Sends each Focused time source's minutes so far this Day, when they have grown. */
+    /** Sends Workout zone minutes, Steps, and each Focused time source's minutes so far this Day, when they have grown. */
     private fun report(ctx: Context, c: Connection, status: JSONObject, zone: ZoneId, end: LocalTime, day: String) {
         val sources = status.optJSONObject("settings")?.optJSONObject("sources") ?: return
         val dayStart = LocalDate.parse(day).atTime(end).atZone(zone).toInstant().toEpochMilli()
@@ -168,6 +168,17 @@ object Enforcer {
                         .put("device", Store.deviceId(ctx))
                     w.title?.let { body.put("title", it) }
                     if (runCatching { LedgerClient.post(c, "/report", body) }.getOrNull() == 200) Store.setReported(ctx, "workout", day, w.zoneMinutes)
+                }
+            }
+        }
+        // Steps walked this Day, as a running total like zone minutes.
+        val steps = sources.optJSONObject("steps")
+        if (steps != null && steps.optBoolean("on")) {
+            Health.stepsSince(ctx, java.time.Instant.ofEpochMilli(dayStart))?.toInt()?.let { n ->
+                if (n > Store.reported(ctx, "steps", day)) {
+                    val body = JSONObject().put("source", "steps").put("day", day).put("minutes", n)
+                        .put("device", Store.deviceId(ctx))
+                    if (runCatching { LedgerClient.post(c, "/report", body) }.getOrNull() == 200) Store.setReported(ctx, "steps", day, n)
                 }
             }
         }

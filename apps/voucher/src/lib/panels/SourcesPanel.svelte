@@ -35,15 +35,17 @@
   const GROUPS: { kind: SourceKind; name: string; how: string }[] = [
     { kind: "tasks", name: "Task counters", how: "API" },
     { kind: "workout", name: "Workout", how: "Health Connect" },
+    { kind: "steps", name: "Steps", how: "Health Connect" },
     { kind: "focus", name: "Focused time", how: "on screen" },
   ];
-  // Rate ranges: tasks per Voucher, or minutes per Voucher.
+  // Rate ranges: tasks, minutes, or steps per Voucher.
   const RANGE: Record<SourceKind, { min: number; max: number; step: number }> = {
     tasks: { min: 1, max: 5, step: 1 },
     workout: { min: 5, max: 30, step: 5 },
     focus: { min: 10, max: 120, step: 5 },
+    steps: { min: 500, max: 10000, step: 500 },
   };
-  const ORDER = ["todoist", "clickup", "workout", "obsidian", "readwise", "moonreader", "anki"];
+  const ORDER = ["todoist", "clickup", "workout", "steps", "obsidian", "readwise", "moonreader", "anki"];
   const rank = (id: string) => (ORDER.includes(id) ? ORDER.indexOf(id) : ORDER.length);
 
   function rows(kind: SourceKind) {
@@ -52,6 +54,7 @@
   }
   function rate(kind: SourceKind, every: number) {
     if (kind === "tasks") return every === 1 ? "1 per task" : `1 per ${every} tasks`;
+    if (kind === "steps") return `1 per ${every.toLocaleString("en-US")} steps`;
     return `1 per ${every} min`;
   }
   function pendingFor(id: string): { on: boolean; every: number; at: string } | null {

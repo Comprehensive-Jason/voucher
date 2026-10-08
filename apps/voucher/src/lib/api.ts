@@ -33,7 +33,7 @@ function sampleSources(): SourceProgress[] {
   return [
     s("todoist", "tasks", 1, 0, 5), s("clickup", "tasks", 1, 0, 2), s("workout", "workout", 15, 9, 1),
     s("obsidian", "focus", 30, 18, 2), s("readwise", "focus", 30, 22, 1), s("moonreader", "focus", 30, 9, 0),
-    s("anki", "focus", 30, 6, 0),
+    s("anki", "focus", 30, 6, 0), s("steps", "steps", 2000, 1450, 1),
   ];
 }
 

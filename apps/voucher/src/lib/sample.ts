@@ -1,6 +1,6 @@
 // Sample Ledger replies for design checks in a plain browser, where there is
 // no Tauri and no Ledger. Mirrors the round 4 canvas with neutral task names.
-import type { Blocklist, DaySummary, DayTotal, Entry } from "./types";
+import type { Blocklist, DaySummary, DayTotal, Entry, SourceKind } from "./types";
 
 const app = (pkg: string, label: string, note: string | null = null, added = false) =>
   ({ package: pkg, label, note, on: true, added });
@@ -82,7 +82,8 @@ const settings = {
     readwise: { kind: "focus", on: true, every: 30, packages: ["com.readermobile"] },
     moonreader: { kind: "focus", on: true, every: 30, packages: ["com.flyersoft.moonreaderp"] },
     anki: { kind: "focus", on: false, every: 30, packages: ["com.ichi2.anki"] },
-  } as Record<string, { kind: "tasks" | "workout" | "focus"; on: boolean; every: number; packages: string[] }>,
+    steps: { kind: "steps", on: true, every: 2000, packages: [] },
+  } as Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[] }>,
   blocklists: {
     instagram: { name: "Instagram", color: "#e5609b", premade: true, on: true,
       apps: [app("com.instagram.android", "Instagram")], sites: [site("instagram.com", "All subdomains")] },
