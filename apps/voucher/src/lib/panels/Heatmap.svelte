@@ -20,6 +20,23 @@
     return out;
   });
 
+  // A column per week; a week's month label shows where a month begins (and
+  // on the oldest week), so the grid reads like a calendar.
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const weeks = $derived.by(() => {
+    const out: { month: string; days: typeof cells }[] = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      const days = cells.slice(i, i + 7);
+      const first = days.find((d) => d.day && d.day.slice(8) === "01");
+      const start = i === 0 ? days.find((d) => d.day && !d.blank) ?? days[0] : null;
+      const at = first ?? start;
+      const month = at?.day ? MONTHS[Number(at.day.slice(5, 7)) - 1] + (at.day.slice(5, 7) === "01" ? ` ${at.day.slice(0, 4)}` : "") : "";
+      out.push({ month, days });
+    }
+    return out;
+  });
+  const WEEKDAYS = ["Mon", "", "Wed", "", "Fri", "", ""];
+
   // Open on the latest weeks, and stay there as weeks are added, unless scrolled back.
   let scroller = $state<HTMLDivElement>();
   let atEnd = true;
@@ -39,7 +56,12 @@
   </div>
   <div class="scroller" bind:this={scroller} onscroll={onScroll}>
     <div class="heat">
-      {#each cells as c}<div class="h h{c.level}" class:blank={c.blank} title={c.day}></div>{/each}
+      <span class="corner"></span>
+      {#each WEEKDAYS as w}<span class="weekday">{w}</span>{/each}
+      {#each weeks as week}
+        <span class="month">{week.month}</span>
+        {#each week.days as c}<div class="h h{c.level}" class:blank={c.blank} title={c.day}></div>{/each}
+      {/each}
     </div>
   </div>
   {#if keyBelow}
@@ -54,15 +76,18 @@
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .earn { color: var(--voucher); }
-  /* Twelve week-columns fill the visible width; earlier weeks sit off to the
-     left. The columns are sized against the scroller (a size container). */
-  .scroller { container-type: inline-size; overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  /* A pinned weekday column, then twelve week-columns filling the visible
+     width; earlier weeks sit off to the left. Columns are sized against the
+     scroller (a size container): 100cqw less the labels and twelve gaps. */
+  .scroller { --labels: 26px; container-type: inline-size; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: calc(var(--labels) + 4px); overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   .heat {
-    display: grid; grid-template-rows: repeat(7, auto); grid-auto-flow: column; gap: 4px;
-    grid-auto-columns: calc((100cqw - 44px) / 12); width: max-content;
+    display: grid; grid-template-rows: 14px repeat(7, auto); grid-auto-flow: column; gap: 4px;
+    grid-template-columns: var(--labels); grid-auto-columns: calc((100cqw - var(--labels) - 48px) / 12); width: max-content;
   }
+  .corner, .weekday { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+  .weekday, .month { font: 500 10px/1 var(--mono); color: var(--muted); display: flex; align-items: center; white-space: nowrap; }
+  .month { scroll-snap-align: start; align-items: flex-end; overflow: visible; }
   .h { aspect-ratio: 1; border-radius: 4px; background: #22262a; }
-  .heat .h:nth-child(7n + 1) { scroll-snap-align: start; }
   .h1 { background: #1d4d33; } .h2 { background: #24804f; } .h3 { background: #2fb36b; } .h4 { background: #3ddc84; }
   .h.blank { background: transparent; }
   .heatkey { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }

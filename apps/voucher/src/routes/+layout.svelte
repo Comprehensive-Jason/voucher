@@ -4,7 +4,7 @@
   import NavTabs from "$lib/components/NavTabs.svelte";
   import { wide } from "$lib/wide.svelte";
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
+  import { goto, onNavigate } from "$app/navigation";
   import { connection, device } from "$lib/api";
 
   let { children } = $props();
@@ -26,6 +26,19 @@
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   });
+  // On a wide screen Rules is a sheet over Today: it slides up from the
+  // bottom when opened and back down when left (button or back gesture).
+  onNavigate((nav) => {
+    const from = nav.from?.url.pathname, to = nav.to?.url.pathname;
+    const direction = from === "/" && to === "/rules" ? "up" : from === "/rules" && to === "/" ? "down" : null;
+    if (!wide.on || !direction || !document.startViewTransition) return;
+    document.documentElement.dataset.slide = direction;
+    return new Promise((resolve) => {
+      const transition = document.startViewTransition(async () => { resolve(); await nav.complete; });
+      transition.finished.finally(() => delete document.documentElement.dataset.slide);
+    });
+  });
+
   const active = $derived((page.url.pathname.split("/")[1] || "today") as "today" | "trends" | "log" | "rules");
 </script>
 

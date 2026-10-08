@@ -57,9 +57,10 @@
   .name { font-size: 14px; font-weight: 500; }
   .detail { font-size: 12px; color: var(--muted); }
   .wide { grid-column: 2 / 4; }
-  /* One segment per task Voucher, on the same 6 px track as the bars; past
-     what fits, the row simply runs on under the clip. */
+  /* One segment per task Voucher, on the same 6 px track as the bars. Each
+     is 18 px until the track fills, then they narrow to fit, down to 3 px
+     (about 45 on a phone); past that the rest are clipped. */
   .tally { height: 6px; border-radius: 3px; background: var(--line); display: flex; gap: 3px; overflow: hidden; }
-  .tally i { flex: 0 0 18px; border-radius: 3px; transform-origin: left; animation: grow .35s ease both; }
+  .tally i { flex: 0 1 18px; min-width: 3px; border-radius: 3px; transform-origin: left; animation: grow .35s ease both; }
   @keyframes grow { from { transform: scaleX(0); } }
 </style>

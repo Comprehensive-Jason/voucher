@@ -1,6 +1,7 @@
 <script lang="ts">
   // Rules. On a phone: Limits, with tabs for Sources and Distractions. On a
-  // wide screen: all three side by side, with a way back to Today.
+  // wide screen: all three side by side, as a sheet over Today that slides
+  // back down to it.
   import { goto } from "$app/navigation";
   import RulesTabs from "$lib/components/RulesTabs.svelte";
   import LimitsPanel from "$lib/panels/LimitsPanel.svelte";
@@ -13,7 +14,7 @@
   <div class="wide">
     <header>
       <button class="back" aria-label="Back to Today" onclick={() => goto("/")}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
       </button>
       <h1>Rules</h1>
     </header>

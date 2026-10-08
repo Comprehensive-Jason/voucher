@@ -5,7 +5,7 @@
   import { onMount } from "svelte";
   import { ledger } from "../api";
   import { POLL_MS } from "../live.svelte";
-  import { sourceOf } from "../sources";
+  import { serviceOf, sourceOf } from "../sources";
   import { clock, dayLabel, shiftDay } from "../time";
   import type { DaySummary } from "../types";
 
@@ -34,10 +34,12 @@
       }
       if (e.kind === "earned") {
         const s = sourceOf(e.task);
-        // The compact card has no source line, so Focused time names its app.
-        const title = compact && s.name !== "Tasks" && !e.task.startsWith("todoist") && !e.task.startsWith("clickup")
-          ? `${s.name}, ${e.title}` : e.title || "A task";
-        out.push({ time: clock(e.at, timeZone), title, source: e.kept ? s.name : `${s.name} · Bank full, lost`,
+        // Tasks name the app they were finished in, Todoist or ClickUp.
+        const id = e.task.split(":")[0];
+        const app = id === "todoist" || id === "clickup" ? serviceOf(id).name : s.name;
+        // The compact card has no source line, so every entry names its app.
+        const title = compact ? `${app}, ${e.title || "a task"}` : e.title || "A task";
+        out.push({ time: clock(e.at, timeZone), title, source: e.kept ? app : `${app} · Bank full, lost`,
           color: s.color, value: e.kept ? "+1" : "+0", tone: e.kept ? "earn" : "lost" });
       } else if (e.kind === "gap") {
         const mins = Math.round((new Date(e.until).getTime() - new Date(e.at).getTime()) / 60000);
