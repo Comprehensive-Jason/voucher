@@ -5,6 +5,9 @@ import type { DeviceUsage, Protection, SourceProgress, Today } from "./types";
 import { sampleLedger } from "./sample";
 import { rememberSourceColors } from "./colors.svelte";
 
+/** Fired after any change to the Ledger's settings, for panels to reload. */
+export const RULES_CHANGED = "voucher:rules-changed";
+
 const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 /** Calls the phone's own side (Kotlin), through the Rust `device` command. */
@@ -67,6 +70,11 @@ export async function ledger<T>(method: "GET" | "POST", path: string, body?: unk
   const reply = inTauri
     ? await invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
     : (sampleLedger(method, path, body) as T);
+  // A settings change tells every panel showing settings to look again, so
+  // e.g. a loosening made under Sources shows at once among Limits' changes.
+  if (method === "POST" && ["/change", "/cancel", "/setup"].some((p) => path.startsWith(p)) && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(RULES_CHANGED));
+  }
   // Any fresh look at the settings also refreshes the colours sources are drawn in.
   if (path === "/status") {
     const sources = (reply as { settings?: { sources?: Record<string, { color?: string }> } }).settings?.sources;

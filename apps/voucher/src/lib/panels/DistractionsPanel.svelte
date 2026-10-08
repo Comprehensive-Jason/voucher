@@ -2,7 +2,7 @@
   // Rules, Distractions: the blocklists. Switching one on applies now;
   // switching one off waits for 06:00.
   import { onMount } from "svelte";
-  import { ledger } from "../api";
+  import { ledger, RULES_CHANGED } from "../api";
   import Switch from "../components/Switch.svelte";
   import Tag from "../components/Tag.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
@@ -38,7 +38,12 @@
     try { await ledger("POST", "/change", { BlocklistColor: { id, color } }); await load(); } catch (e) { error = String(e); }
   }
 
-  onMount(load);
+  onMount(() => {
+    load();
+    // Reload when a change is made anywhere on Rules.
+    window.addEventListener(RULES_CHANGED, load);
+    return () => window.removeEventListener(RULES_CHANGED, load);
+  });
 
   /** On the tablet each panel is a column with its own heading. */
   let { heading = false }: { heading?: boolean } = $props();

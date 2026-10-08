@@ -2,7 +2,7 @@
   // Rules, Sources: what earns Vouchers, and how fast. Switching a source off
   // or slowing it applies now; switching on, speeding up, or adding waits for 06:00.
   import { onMount } from "svelte";
-  import { launchableApps, ledger } from "../api";
+  import { launchableApps, ledger, RULES_CHANGED } from "../api";
   import RuleSlider from "../components/RuleSlider.svelte";
   import Switch from "../components/Switch.svelte";
   import Sheet from "../components/Sheet.svelte";
@@ -94,7 +94,12 @@
     } catch (e) { error = String(e); }
   }
 
-  onMount(load);
+  onMount(() => {
+    load();
+    // Reload when a change is made anywhere on Rules.
+    window.addEventListener(RULES_CHANGED, load);
+    return () => window.removeEventListener(RULES_CHANGED, load);
+  });
 
   /** On the tablet each panel is a column with its own heading. */
   let { heading = false }: { heading?: boolean } = $props();
