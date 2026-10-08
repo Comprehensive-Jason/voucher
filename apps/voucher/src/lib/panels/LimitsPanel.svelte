@@ -105,7 +105,7 @@
 
     <div class="rule">
       <div class="top"><span class="name">Bank limit</span><span class="mono val">{s.bank_limit}</span></div>
-      <RuleSlider min={1} max={48} value={s.bank_limit} pending={pendingValue(status.pending, "BankLimit")}
+      <RuleSlider min={4} max={40} step={2} value={s.bank_limit} pending={pendingValue(status.pending, "BankLimit")}
         onchange={(v) => change({ BankLimit: v })} />
       <div class="ends"><span>Lower: now</span><span>Higher: at {hhmm(s.morning_boundary)}</span></div>
     </div>

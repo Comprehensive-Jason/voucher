@@ -39,7 +39,7 @@
   const RANGE: Record<SourceKind, { min: number; max: number; step: number }> = {
     tasks: { min: 1, max: 5, step: 1 },
     workout: { min: 5, max: 30, step: 5 },
-    focus: { min: 10, max: 60, step: 5 },
+    focus: { min: 10, max: 120, step: 5 },
   };
   const ORDER = ["todoist", "clickup", "workout", "obsidian", "readwise", "moonreader", "anki"];
   const rank = (id: string) => (ORDER.includes(id) ? ORDER.indexOf(id) : ORDER.length);
