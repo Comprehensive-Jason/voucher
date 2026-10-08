@@ -1,7 +1,9 @@
 <script lang="ts">
-  // A rule's slider. Left of the knob is the strict side (solid), right is the
-  // loose side (hatched): moving left applies now, moving right waits for
-  // 06:00 and leaves a dashed ghost knob where the pending value will land.
+  // A rule's slider. The green fill shows how strict the rule is: it runs from
+  // the knob to the loose end, so the stricter the setting, the more green.
+  // The hatched part is the room left on the strict side. Moving toward the
+  // strict end applies now; moving toward the loose end waits for 06:00 and
+  // leaves a dashed ghost knob where the pending value will land.
   // `kind="goal"` draws a plain amber fill instead, with no strict or loose side.
   // `strict="right"` flips the sides, for rates where a bigger number is
   // stricter (more minutes per Voucher). `small` is the compact source slider.
@@ -48,11 +50,11 @@
     <div class="rail" style="left: 0; right: 0; background: var(--line)"></div>
     <div class="rail" style="left: 0; width: {pct(shown)}%; background: var(--goal)"></div>
   {:else if strict === "left"}
-    <div class="rail strict" style="left: 0; width: {pct(value)}%"></div>
-    <div class="rail loose" style="left: {pct(value)}%; right: 0"></div>
+    <div class="rail room" style="left: 0; width: {pct(value)}%"></div>
+    <div class="rail strictness" style="left: {pct(value)}%; right: 0"></div>
   {:else}
-    <div class="rail loose" style="left: 0; width: {pct(value)}%"></div>
-    <div class="rail strict" style="left: {pct(value)}%; right: 0"></div>
+    <div class="rail strictness" style="left: 0; width: {pct(value)}%"></div>
+    <div class="rail room" style="left: {pct(value)}%; right: 0"></div>
   {/if}
   {#if pending !== null}<div class="ghost" style="left: {pct(pending)}%"></div>{/if}
   <div class="knob" class:goal={kind === "goal"} style="left: {pct(shown)}%"></div>
@@ -61,8 +63,8 @@
 <style>
   .track { position: relative; height: 28px; touch-action: none; cursor: pointer; }
   .rail { position: absolute; top: 11px; height: 6px; border-radius: 3px; }
-  .strict { background: var(--voucher); }
-  .loose { background: repeating-linear-gradient(135deg, #3a3f45 0 4px, #22262a 4px 8px); }
+  .strictness { background: var(--voucher); }
+  .room { background: repeating-linear-gradient(135deg, #3a3f45 0 4px, #22262a 4px 8px); }
   .knob { position: absolute; top: 2px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px rgba(61, 220, 132, .25); }
   .knob.goal { box-shadow: 0 0 0 4px rgba(255, 181, 71, .25); }
   .small .knob { top: 4px; width: 20px; height: 20px; margin-left: -10px; box-shadow: none; }
