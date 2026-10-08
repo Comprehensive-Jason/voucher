@@ -41,13 +41,25 @@
   // An empty Bank shows the empty slot at once, even while an Unlock runs.
   const empty = $derived(mode !== "curfew" && shown === 0);
 
-  // After the torn half flies off, the next Voucher rises into its place
-  // (RISE_MS) while the ones behind move up a place; then the new top Voucher's
-  // words fade in over its matching shape (FADE_MS).
-  const RISE_MS = 300;
+  // The stack: the top Voucher (level 0) and up to two behind it, each 12 px
+  // narrower on both sides and higher up. Every one is a stub and a right
+  // half with the same notches and holes, so the ones behind can tear too.
+  const LEVEL_TOP = [22, 10, 0, -10, -20, -30];
+  const levelBox = (k: number) => `left: ${12 * k}px; right: ${12 * k}px; top: ${LEVEL_TOP[Math.min(k, 5)]}px`;
+  const levelColor = (k: number) => mode === "curfew"
+    ? (k === 0 ? "var(--night-voucher)" : k === 1 ? "#242e63" : "#1b2350")
+    : (k === 0 ? "var(--voucher)" : k === 1 ? "var(--voucher-deep)" : "var(--voucher-deeper)");
+
+  // After a tear the stack refills as a cascade: the next Voucher rises into
+  // the top slot and each one behind moves up a place, STAGGER_MS apart
+  // (MOVE_MS each); stubs of torn Vouchers fade, and new ones fade in at the
+  // back. Then the new top Voucher's words fade in (FADE_MS).
+  const MOVE_MS = 300;
+  const STAGGER_MS = 70;
   const FADE_MS = 250;
   let phase = $state<"rest" | "rising" | "settling">("rest");
-  let behindBefore = $state(0);
+  let moves = $state<{ to: number; from: number; seen: boolean }[]>([]);
+  let leavingStubs = $state<number[]>([]);
 
   // An Unlock never runs into Curfew: tears stop at what fits before it, and
   // once the running Unlock reaches it the Voucher says so instead of
@@ -57,14 +69,17 @@
   const minutes = $derived(room == null ? count * unlockMinutes : Math.min(count * unlockMinutes, room));
 
   const tearable = $derived(mode !== "curfew" && !empty && !capped);
-  // Tearing several at once: up to three more halves sit under the top one,
-  // peeking out as a stack; they fan out behind it while dragging and fly
-  // off one after another when it tears.
-  const extra = $derived(tearable ? Math.min(count - 1, 3) : 0);
-  function copyTransform(i: number): string {
-    if (torn) return `translate(${320 - i * 26}px, ${-40 + i * 14}px) rotate(${18 - i * 5}deg)`;
-    if (dx > 0) return `translate(${dx - i * 7}px, ${-dx / 14 + i * 3}px) rotate(${dx / 12 - i * 1.5}deg)`;
-    return `translate(${i * 3}px, ${i * 3}px)`;
+  // Tearing several at once picks the Vouchers behind the top one, one per
+  // press of +: a picked right half brightens and lifts a little. Up to the
+  // two drawn behind are shown picked; the count says the rest. Picked halves
+  // follow the drag with a slight lag (still behind the top stub) and fly off
+  // after the top one, each a moment later and at its own angle.
+  const pickedBack = $derived(tearable ? Math.min(count - 1, behind(shown)) : 0);
+  function backTransform(k: number): string {
+    if (k > pickedBack) return "none";
+    if (torn) return `translate(${320 - 22 * k}px, ${-44 - 10 * k}px) rotate(${18 - 4 * k}deg)`;
+    const t = dx * (1 - 0.08 * k);
+    return `translate(${t}px, ${-3 - t / 14}px) rotate(${t / 12 - k * 1.2 * Math.min(1, dx / 40)}deg)`;
   }
   const running = $derived(mode === "running");
   // Keep the chosen count within what the Bank holds.
@@ -89,18 +104,23 @@
     dragging = false;
     if (body && dx > body.offsetWidth * TEAR_AT) {
       torn = true;
-      const after = shown - count;
-      // With several, wait for the last stacked half to finish its flight.
-      const handOff = 260 + extra * 45;
+      const torn_ = count;
+      const after = shown - torn_;
+      const before = behind(shown);
+      // With several, wait for the last picked half to finish its flight.
+      const handOff = 260 + pickedBack * 45;
       setTimeout(() => {
-        ontear(count);
-        behindBefore = behind(shown);
+        ontear(torn_);
         expected = after;
         setTimeout(() => { if (expected === after) expected = null; }, 4000);
         torn = false; dx = 0; count = 1;
         if (after > 0) {
+          // Level `to` after the tear is the Voucher that was `torn_` levels further back.
+          moves = Array.from({ length: behind(after) + 1 }, (_, to) => ({ to, from: to + torn_, seen: to + torn_ <= before }));
+          leavingStubs = Array.from({ length: Math.min(torn_ - 1, before) }, (_, i) => i + 1);
           phase = "rising";
-          setTimeout(() => { phase = "settling"; setTimeout(() => (phase = "rest"), FADE_MS); }, RISE_MS);
+          const rise = MOVE_MS + (moves.length - 1) * STAGGER_MS;
+          setTimeout(() => { phase = "settling"; setTimeout(() => (phase = "rest"), FADE_MS); }, rise);
         }
       }, handOff);
     } else {
@@ -117,15 +137,22 @@
     </div>
   {:else}
   {#if phase === "rest"}
-    {#if behind(shown) >= 2}<div class="layer far" class:night={mode === "curfew"}></div>{/if}
-    {#if behind(shown) >= 1}<div class="layer near" class:night={mode === "curfew"}></div>{/if}
+    {#each Array.from({ length: behind(shown) }, (_, i) => behind(shown) - i) as k (k)}
+      <div class="back" class:night={mode === "curfew"} style="{levelBox(k)}; --c: {levelColor(k)}">
+        <div class="bstub"></div>
+        <div class="bhalf" class:picked={k <= pickedBack} class:dragging class:torn
+          style="transform: {backTransform(k)}; transition-delay: {torn ? k * 45 : 0}ms"></div>
+      </div>
+    {/each}
   {:else}
-    <!-- One step forward: a new Voucher fades in at the back if the Bank has
-         enough, the far one moves up to near (or fades if none is left behind),
-         and the near one rises into the top slot. -->
-    {#if behind(shown) >= 2}<div class="layer far arriving"></div>{/if}
-    {#if behindBefore >= 2}<div class="layer far" class:moving={behind(shown) >= 1} class:leaving={behind(shown) < 1}></div>{/if}
-    {#if behindBefore >= 1}<div class="layer near rising"></div>{/if}
+    {#each leavingStubs as k (k)}
+      <div class="back leaving" style="{levelBox(k)}; --c: {levelColor(k)}"><div class="bstub"></div></div>
+    {/each}
+    {#each [...moves].reverse() as m (m.to)}
+      <div class="back moving" style="--from-x: {12 * m.from}px; --from-y: {LEVEL_TOP[Math.min(m.from, 5)]}px; --to-x: {12 * m.to}px; --to-y: {LEVEL_TOP[m.to]}px; --from-o: {m.seen ? 1 : 0}; --from-c: {levelColor(m.from)}; --to-c: {levelColor(m.to)}; --delay: {m.to * STAGGER_MS}ms">
+        <div class="bstub"></div><div class="bhalf"></div>
+      </div>
+    {/each}
   {/if}
   <div class="voucher" class:night={mode === "curfew"}>
     <div class="stub">
@@ -146,10 +173,6 @@
          faint hairline. This strip, holed like the Voucher, covers it while the
          Voucher is at rest, and gets out of the way once a drag begins. -->
     <div class="bridge" class:away={dragging || torn || dx > 0 || phase !== "rest"}></div>
-    {#each Array.from({ length: extra }, (_, k) => extra - k) as i (i)}
-      <div class="copy" class:dragging class:torn aria-hidden="true"
-        style="transform: {copyTransform(i)}; filter: brightness({1 - i * 0.1}); transition-delay: {torn ? i * 45 : 0}ms"></div>
-    {/each}
     <div
       class="body"
       class:dragging
@@ -190,36 +213,45 @@
 </div>
 
 <style>
-  .stack { position: relative; height: 140px; touch-action: pan-y; user-select: none; -webkit-user-select: none; --rise: .3s; }
+  .stack { position: relative; height: 140px; touch-action: pan-y; user-select: none; -webkit-user-select: none; --move: .3s; }
   .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed #3a3f45; animation: arrive .2s ease both; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
   .nonetitle { font-size: 17px; font-weight: 700; }
   .nonesub { font-size: 13px; color: var(--muted); }
-  .layer { position: absolute; height: 116px; border-radius: 16px; }
-  .far { left: 24px; right: 24px; top: 0; background: var(--voucher-deeper); }
-  .near { left: 12px; right: 12px; top: 10px; background: var(--voucher-deep); }
-  .layer.night.far { background: #1b2350; }
-  .layer.night.near { background: #242e63; }
-  .far.arriving { animation: arrive var(--rise) ease both; }
-  .far.moving { animation: advance var(--rise) cubic-bezier(.2, .8, .2, 1) forwards; }
-  .far.leaving { animation: leave var(--rise) ease forwards; }
-  /* The rising Voucher carries the top one's notches and holes, so when the
-     real halves take over nothing changes shape. The 4 px hole strip sits at
-     30% - 2 px; a position percentage counts against (width - 4 px). */
-  .near.rising {
-    animation: rise var(--rise) cubic-bezier(.2, .8, .2, 1) forwards;
-    -webkit-mask: var(--perforation) calc(30% - .8px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 30% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 30% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+  /* The Vouchers behind the top one: a stub and a right half each, notched
+     and holed like the top one, so picked ones can tear with it. */
+  .back { position: absolute; height: 116px; display: flex; }
+  .bstub, .bhalf { height: 100%; background: var(--c); }
+  .bstub {
+    width: 30%; border-radius: 16px 0 0 16px;
+    -webkit-mask: var(--perforation) calc(100% + 2px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     -webkit-mask-composite: xor, source-over;
-    mask: var(--perforation) calc(30% - .8px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 30% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 30% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    mask: var(--perforation) calc(100% + 2px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     mask-composite: exclude, add;
   }
-  @keyframes rise {
-    from { left: 12px; right: 12px; top: 10px; background-color: var(--voucher-deep); }
-    to { left: 0; right: 0; top: 22px; background-color: var(--voucher); }
+  .bhalf {
+    flex: 1; margin-left: -2px; border-left: 2px solid transparent; background-clip: padding-box;
+    border-radius: 0 16px 16px 0; transform-origin: 0 100%;
+    transition: transform .25s ease, opacity .25s ease, background-color .22s ease;
+    -webkit-mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    -webkit-mask-composite: xor, source-over;
+    mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    mask-composite: exclude, add;
   }
-  @keyframes advance {
-    from { left: 24px; right: 24px; top: 0; background-color: var(--voucher-deeper); }
-    to { left: 12px; right: 12px; top: 10px; background-color: var(--voucher-deep); }
+  /* Picked to tear: brighter, lifted a little, and above the next column so
+     it flies in front of it (but still under the top stub, z-index 6). */
+  .bhalf.picked { position: relative; z-index: 4; background-color: color-mix(in oklab, var(--voucher) 70%, var(--c)); }
+  .bhalf.dragging { transition: background-color .22s ease; }
+  .bhalf.torn { opacity: 0; }
+  /* The cascade after a tear: each level slides from where it was to its new
+     place, taking on its new colour. */
+  .back.moving { animation: settle-in var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
+  .back.moving > * { animation: retint var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
+  .back.leaving { animation: leave .18s ease forwards; }
+  @keyframes settle-in {
+    from { left: var(--from-x); right: var(--from-x); top: var(--from-y); opacity: var(--from-o); }
+    to { left: var(--to-x); right: var(--to-x); top: var(--to-y); opacity: 1; }
   }
+  @keyframes retint { from { background-color: var(--from-c); } to { background-color: var(--to-c); } }
   @keyframes leave { to { opacity: 0; } }
   @keyframes arrive { from { opacity: 0; } }
   .voucher {
@@ -237,6 +269,9 @@
     mask: var(--perforation) calc(100% + 2px) 0/4px 116px no-repeat, radial-gradient(circle 11px at 100% 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 100% 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     mask-composite: exclude, add;
   }
+  /* The top stub stays above everything that moves, so halves torn from
+     behind stay hidden under it until they're clear of it. */
+  .stub { position: relative; z-index: 6; }
   .night .stub { align-items: center; gap: 8px; }
   .bridge {
     position: absolute; top: 0; left: calc(30% - 1px); width: 2px; height: 100%; background: var(--voucher);
@@ -272,19 +307,6 @@
   /* Above everything while it moves, so a torn half flying right passes in
      front of the tablet's next column, not behind it. */
   .body { position: relative; z-index: 5; }
-  /* The halves under the top one when tearing several: same shape and holes. */
-  .copy {
-    position: absolute; top: 0; height: 100%; left: calc(30% - 2px); right: 0; z-index: 4;
-    border-left: 2px solid transparent; background: var(--voucher); background-clip: padding-box;
-    border-radius: 0 16px 16px 0; transform-origin: 0 100%; pointer-events: none;
-    transition: transform .25s ease, opacity .25s ease;
-    -webkit-mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
-    -webkit-mask-composite: xor, source-over;
-    mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
-    mask-composite: exclude, add;
-  }
-  .copy.dragging { transition: none; }
-  .copy.torn { opacity: 0; }
   .body.dragging { transition: none; cursor: grabbing; }
   .body.torn { opacity: 0; }
   /* Hidden while the next Voucher rises; then its words fade in. */
