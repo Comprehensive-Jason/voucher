@@ -187,6 +187,9 @@ const PAGE = String.raw`<!doctype html>
   button:focus-visible, input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
   button.go { background: var(--green); border-color: var(--green); color: #07170d; }
   button.danger { color: var(--gold); }
+  /* The task-title boxes are marked as not-a-login (autocomplete off, plus
+     data-protonpass-ignore and the other managers' equivalents), or password
+     managers offer to fill them. */
   input { min-height: 40px; flex: 1; min-width: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 0 12px; font: 14px var(--font); }
   .row { display: flex; gap: 8px; }
   .off { opacity: .5; }
@@ -244,7 +247,7 @@ function render(s) {
     if (src.kind === "tasks") {
       cards.push('<div class="src' + (src.on ? '' : ' off') + '"><div class="top"><span class="name"><i class="dot" style="background:' + color + '"></i>' + name + ' task</span>'
         + '<span class="detail">' + (src.every === 1 ? "+1 each" : src.progress + " / " + src.every) + ' · ' + src.earned + ' today</span></div>'
-        + '<div class="row"><input id="title-' + src.id + '" placeholder="' + TITLES[Math.floor(Math.random() * TITLES.length)] + '" aria-label="Task title">'
+        + '<div class="row"><input id="title-' + src.id + '" type="text" name="task-title-' + src.id + '" autocomplete="off" data-protonpass-ignore="true" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-form-type="other" spellcheck="false" placeholder="' + TITLES[Math.floor(Math.random() * TITLES.length)] + '" aria-label="Task title">'
         + '<button class="go" data-task="' + src.id + '">Finish a task</button></div></div>');
     } else {
       const unit = src.kind === "workout" ? "zone min" : "min";
