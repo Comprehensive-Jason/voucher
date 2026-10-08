@@ -20,6 +20,8 @@
   let note = $state<string | null>(null);
   /** The source whose colour is being picked. Tasks share one colour. */
   let coloring = $state<string | null>(null);
+  /** The rate a source's knob is snapped to while dragging, shown greyed. */
+  let ratePreview = $state<Record<string, number | null>>({});
   async function setColor(id: string, color: string | null) {
     coloring = null;
     const ids = status?.settings.sources[id]?.kind === "tasks"
@@ -126,8 +128,8 @@
               </div>
               {#if s.on && !needsToken(problem)}
                 <div class="rate">
-                  <div class="mono rtext">{rate(s.kind, s.every)}</div>
-                  <RuleSlider small strict="right" {...RANGE[s.kind]} value={s.every}
+                  <div class="mono rtext" class:preview={ratePreview[id] != null && ratePreview[id] !== s.every}>{rate(s.kind, ratePreview[id] ?? s.every)}</div>
+                  <RuleSlider small strict="right" {...RANGE[s.kind]} value={s.every} onpreview={(v) => (ratePreview[id] = v)}
                     pending={waiting && waiting.on ? waiting.every : null} onchange={(v) => set(id, true, v)} />
                 </div>
               {/if}
@@ -199,6 +201,7 @@
   .sub.warn { color: var(--goal); }
   .rate { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
   .rtext { font-size: 13px; font-weight: 700; }
+  .rtext.preview { color: var(--muted); }
   .hr { display: flex; align-items: center; gap: 10px; font-size: 13px; }
   .hrlabel { flex: 1; color: var(--muted); }
   .hrval { min-width: 36px; text-align: center; font-weight: 700; }

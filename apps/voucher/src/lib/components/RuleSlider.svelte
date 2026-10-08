@@ -7,9 +7,12 @@
   // `kind="goal"` draws a plain amber fill instead, with no strict or loose side.
   // `strict="right"` flips the sides, for rates where a bigger number is
   // stricter (more minutes per Voucher). `small` is the compact source slider.
-  let { min, max, step = 1, value, pending = null, kind = "limit", strict = "left", small = false, onchange }: {
+  let { min, max, step = 1, value, pending = null, kind = "limit", strict = "left", small = false, onpreview, onchange }: {
     min: number; max: number; step?: number; value: number; pending?: number | null;
-    kind?: "limit" | "goal"; strict?: "left" | "right"; small?: boolean; onchange: (value: number) => void;
+    kind?: "limit" | "goal"; strict?: "left" | "right"; small?: boolean;
+    /** Told the value the knob is snapped to while dragging, for the label to show; null when let go. */
+    onpreview?: (value: number | null) => void;
+    onchange: (value: number) => void;
   } = $props();
 
   let track: HTMLDivElement;
@@ -22,12 +25,17 @@
     const raw = min + ((e.clientX - r.left) / r.width) * (max - min);
     return Math.min(max, Math.max(min, Math.round(raw / step) * step));
   }
-  function down(e: PointerEvent) { track.setPointerCapture(e.pointerId); dragging = at(e); }
-  function move(e: PointerEvent) { if (dragging !== null) dragging = at(e); }
+  function down(e: PointerEvent) { track.setPointerCapture(e.pointerId); dragging = at(e); onpreview?.(dragging); }
+  function move(e: PointerEvent) {
+    if (dragging === null) return;
+    const v = at(e);
+    if (v !== dragging) { dragging = v; onpreview?.(v); }
+  }
   function up() {
     if (dragging === null) return;
     const v = dragging;
     dragging = null;
+    onpreview?.(null);
     if (v !== value) onchange(v);
   }
 </script>

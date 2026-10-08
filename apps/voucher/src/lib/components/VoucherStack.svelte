@@ -70,7 +70,8 @@
 
   const tearable = $derived(mode !== "curfew" && !empty && !capped);
   // Tearing several at once picks the Vouchers behind the top one, one per
-  // press of +: a picked right half brightens and lifts a little. Up to the
+  // press of +: a picked right half brightens (it stays in line, so its tear
+  // line still meets its stub's). Up to the
   // two drawn behind are shown picked; the count says the rest. Picked halves
   // follow the drag with a slight lag (still behind the top stub) and fly off
   // after the top one, each a moment later and at its own angle.
@@ -79,7 +80,7 @@
     if (k > pickedBack) return "none";
     if (torn) return `translate(${320 - 22 * k}px, ${-44 - 10 * k}px) rotate(${18 - 4 * k}deg)`;
     const t = dx * (1 - 0.08 * k);
-    return `translate(${t}px, ${-3 - t / 14}px) rotate(${t / 12 - k * 1.2 * Math.min(1, dx / 40)}deg)`;
+    return `translate(${t}px, ${-t / 14}px) rotate(${t / 12 - k * 1.2 * Math.min(1, dx / 40)}deg)`;
   }
   const running = $derived(mode === "running");
   // Keep the chosen count within what the Bank holds.
@@ -237,7 +238,7 @@
     mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     mask-composite: exclude, add;
   }
-  /* Picked to tear: brighter, lifted a little, and above the next column so
+  /* Picked to tear: brighter, and above the next column so
      it flies in front of it (but still under the top stub, z-index 6). */
   .bhalf.picked { position: relative; z-index: 4; background-color: color-mix(in oklab, var(--voucher) 70%, var(--c)); }
   .bhalf.dragging { transition: background-color .22s ease; }

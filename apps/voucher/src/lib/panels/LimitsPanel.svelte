@@ -66,6 +66,12 @@
 
   /** On the tablet each panel is a column with its own heading. */
   let { heading = false }: { heading?: boolean } = $props();
+  // While a knob is dragged its label shows the value it's snapped to, greyed.
+  let unlockPreview = $state<number | null>(null);
+  let bankPreview = $state<number | null>(null);
+  let goalPreview = $state<number | null>(null);
+  let curfewPreview = $state<{ start: number; end: number } | null>(null);
+  const clockOf = (m: number) => hhmm(timeOf(m));
 </script>
 
 <div class="panel">
@@ -97,29 +103,29 @@
     {/each}
 
     <div class="rule">
-      <div class="top"><span class="name">Unlock length</span><span class="mono val">{s.unlock_minutes} min</span></div>
-      <RuleSlider min={5} max={30} step={5} value={s.unlock_minutes} pending={pendingValue(status.pending, "UnlockMinutes")}
+      <div class="top"><span class="name">Unlock length</span><span class="mono val" class:preview={unlockPreview !== null && unlockPreview !== s.unlock_minutes}>{unlockPreview ?? s.unlock_minutes} min</span></div>
+      <RuleSlider min={5} max={30} step={5} value={s.unlock_minutes} onpreview={(v) => (unlockPreview = v)} pending={pendingValue(status.pending, "UnlockMinutes")}
         onchange={(v) => change({ UnlockMinutes: v })} />
       <div class="ends"><span>Shorter: now</span><span>Longer: at {hhmm(s.morning_boundary)}</span></div>
     </div>
 
     <div class="rule">
-      <div class="top"><span class="name">Bank limit</span><span class="mono val">{s.bank_limit}</span></div>
-      <RuleSlider min={4} max={40} step={2} value={s.bank_limit} pending={pendingValue(status.pending, "BankLimit")}
+      <div class="top"><span class="name">Bank limit</span><span class="mono val" class:preview={bankPreview !== null && bankPreview !== s.bank_limit}>{bankPreview ?? s.bank_limit}</span></div>
+      <RuleSlider min={4} max={40} step={2} value={s.bank_limit} onpreview={(v) => (bankPreview = v)} pending={pendingValue(status.pending, "BankLimit")}
         onchange={(v) => change({ BankLimit: v })} />
       <div class="ends"><span>Lower: now</span><span>Higher: at {hhmm(s.morning_boundary)}</span></div>
     </div>
 
     <div class="rule">
-      <div class="top"><span class="name">Daily goal, for the streak</span><span class="mono val">{s.daily_goal}</span></div>
-      <RuleSlider kind="goal" min={1} max={30} value={s.daily_goal} pending={pendingValue(status.pending, "DailyGoal")}
+      <div class="top"><span class="name">Daily goal, for the streak</span><span class="mono val" class:preview={goalPreview !== null && goalPreview !== s.daily_goal}>{goalPreview ?? s.daily_goal}</span></div>
+      <RuleSlider kind="goal" min={1} max={30} value={s.daily_goal} onpreview={(v) => (goalPreview = v)} pending={pendingValue(status.pending, "DailyGoal")}
         onchange={(v) => change({ DailyGoal: v })} />
       <div class="ends"><span>Doesn't change access</span><span>Applies tomorrow</span></div>
     </div>
 
     <div class="rule">
-      <div class="top"><span class="name">Curfew</span><span class="mono val">{hhmm(s.curfew_start)} to {hhmm(s.curfew_end)}</span></div>
-      <CurfewSlider start={minutesOf(s.curfew_start)} end={minutesOf(s.curfew_end)} pending={curfewPending}
+      <div class="top"><span class="name">Curfew</span><span class="mono val" class:preview={curfewPreview !== null && (clockOf(curfewPreview.start) !== hhmm(s.curfew_start) || clockOf(curfewPreview.end) !== hhmm(s.curfew_end))}>{curfewPreview ? `${clockOf(curfewPreview.start)} to ${clockOf(curfewPreview.end)}` : `${hhmm(s.curfew_start)} to ${hhmm(s.curfew_end)}`}</span></div>
+      <CurfewSlider start={minutesOf(s.curfew_start)} end={minutesOf(s.curfew_end)} pending={curfewPending} onpreview={(v) => (curfewPreview = v)}
         onchange={(a, b) => change({ Curfew: { start: timeOf(a), end: timeOf(b) } })} />
       <div class="ends mono"><span>18</span><span>20</span><span>22</span><span>00</span><span>02</span><span>04</span><span>06</span><span>08</span><span>10</span></div>
       <div class="ends"><span>Wider: now</span><span>Narrower: at {hhmm(s.morning_boundary)}</span></div>
@@ -143,6 +149,8 @@
   .top { display: flex; justify-content: space-between; align-items: baseline; }
   .name { font-weight: 700; }
   .val { font-size: 18px; font-weight: 700; }
+  /* A value being dragged to, not yet set. */
+  .val.preview { color: var(--muted); }
   .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
   .pending { border-radius: 16px; background: var(--goal-bg); border: 1px solid var(--goal-line); padding: 10px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .ptext { display: flex; flex-direction: column; gap: 4px; font-size: 15px; }

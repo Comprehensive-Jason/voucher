@@ -1,10 +1,12 @@
 <script lang="ts">
   // Curfew's two knobs on an 18:00 to 10:00 track, in 30-minute steps.
   // Widening Curfew applies now; narrowing it waits for 06:00.
-  let { start, end, pending = null, onchange }: {
+  let { start, end, pending = null, onpreview, onchange }: {
     /** Minutes after midnight. */
     start: number; end: number;
     pending?: { start: number; end: number } | null;
+    /** Told where the knobs are snapped to while dragging, for the label; null when let go. */
+    onpreview?: (value: { start: number; end: number } | null) => void;
     onchange: (start: number, end: number) => void;
   } = $props();
 
@@ -37,11 +39,13 @@
     // Keep at least 30 minutes of Curfew, start before end.
     if (which === "start" && pos(m) < pos(drag.end)) drag = { ...drag, start: m };
     if (which === "end" && pos(m) > pos(drag.start)) drag = { ...drag, end: m };
+    onpreview?.(drag);
   }
   function up() {
     if (!drag) return;
     const d = drag;
     drag = null; which = null;
+    onpreview?.(null);
     if (d.start !== start || d.end !== end) onchange(d.start, d.end);
   }
 </script>
