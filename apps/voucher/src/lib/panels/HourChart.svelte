@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Each Day's earnings hour by hour: a bar per hour, split into a segment per
+  // Each Day's earnings hour by hour (its totals are in the list below): a bar per hour, split into a segment per
   // source and topped with its count, over faint tick lines, with a dot under
   // each hour that had a Redemption. Tap a bar to pick that hour: the others
   // fade and the line below lists its count per source (otherwise it lists
@@ -12,16 +12,19 @@
   import { dayLabel, hourOf, shiftDay } from "../time";
   import type { DaySummary } from "../types";
 
-  let { today, timeZone, tall = false, firstDay }: {
+  let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable() }: {
     today: DaySummary; timeZone: string; tall?: boolean;
     /** The oldest Day whose log the Ledger keeps; without it, only today shows. */
     firstDay?: string;
+    /** A Day to scroll to (from the history grid); `at` makes each request new. */
+    focus?: { day: string; at: number } | null;
+    /** The Day in view, for the history grid to mark. */
+    shownDay?: string;
   } = $props();
 
   const FIRST_HOUR = 6;
   const HOURS = 18; // 06 to 23; anything after midnight joins the last column
   const chart = $derived(tall ? 150 : 84);
-  const most = $derived(tall ? 24 : 22);
 
   /** Every Day from the oldest kept to today, oldest first. */
   const days = $derived.by(() => {
@@ -38,7 +41,6 @@
   let scroller = $state<HTMLDivElement>();
   const summaryOf = (day: string) => (day === today.day ? today : past[day]);
   const current = $derived(summaryOf(days[shown]));
-  const shortName = (name: string) => Object.values(SOURCES).find((s) => s.name === name)?.short ?? name;
 
   // Segments stack in a fixed source order, so a source sits at the same
   // place in every bar (the first at the bottom).
@@ -80,21 +82,20 @@
     }
     return { label: "All day", parts: partsOf(all), redeemed: cols.reduce((n, c) => n + c.redeemed, 0) };
   }
-  /** Tick lines at round steps, at most four up to the busiest hour. */
-  function ticksOf(max: number): number[] {
-    const step = [1, 2, 5, 10, 20, 50, 100].find((s) => max / s <= 4) ?? 200;
-    const out: number[] = [];
-    for (let v = step; v <= max; v += step) out.push(v);
-    return out;
+  /** The top tick line's number: the smallest even number at or above the
+   *  busiest hour, and at least 2, so the half-way line is a whole number. */
+  function topOf(cols: ReturnType<typeof columnsOf>): number {
+    const max = Math.max(0, ...cols.map((c) => c.total));
+    return Math.max(2, max + (max % 2));
   }
-  // A Voucher is a full block's height until a busy hour needs a smaller
-  // scale to fit; segments never drop below MIN_SEGMENT, and the count on top
-  // says exactly how many.
+  // Two tick lines that never move, at half and full height; their numbers
+  // follow the Day's busiest hour (topOf), and bars scale to match. Segments
+  // never drop below MIN_SEGMENT, and the count on top says exactly how many.
   const LABEL = 14;
   const MIN_SEGMENT = 3;
+  const plot = $derived(chart - LABEL);
   function unitOf(cols: ReturnType<typeof columnsOf>) {
-    const n = Math.max(1, ...cols.map((c) => c.total));
-    return Math.min(most, (chart - LABEL) / n);
+    return plot / topOf(cols);
   }
 
   async function load(index: number) {
@@ -103,9 +104,30 @@
     try { past[day] = await ledger<DaySummary>("GET", `/day?date=${day}`); } catch { /* stays blank */ }
   }
 
+  // Report the Day in view, and scroll to a Day the history grid asks for
+  // (the nearest kept Day if its log is gone).
+  $effect(() => { shownDay = days[shown]; });
+  $effect(() => {
+    const want = focus;
+    if (!want || !scroller) return;
+    untrack(() => {
+      let index = days.indexOf(want.day);
+      if (index < 0) index = want.day < days[0] ? 0 : days.length - 1;
+      scroller!.scrollTo({ left: index * scroller!.clientWidth, behavior: "smooth" });
+    });
+  });
+
   // The picked hour, on the Day in view; moving to another Day lets it go.
   let pick = $state<number | null>(null);
-  const breakdown = $derived(breakdownOf(columnsOf(current), pick));
+  // The list keeps the Day's sources in place whichever hour is picked, so it
+  // doesn't jump; an hour without a source shows a dash for it.
+  const breakdown = $derived.by(() => {
+    const cols = columnsOf(current);
+    const day = breakdownOf(cols, null);
+    const now = pick === null ? day : breakdownOf(cols, pick);
+    const rows = day.parts.map((p) => ({ ...p, n: now.parts.find((q) => q.name === p.name)?.n ?? 0 }));
+    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0 };
+  });
   function onScroll() {
     if (!scroller) return;
     const now = Math.round(scroller.scrollLeft / scroller.clientWidth);
@@ -153,9 +175,6 @@
         </button>
       {/if}
     </div>
-    {#if current}
-      <span class="cap earn">{tall ? `${current.earned} earned · ${current.redeemed} redeemed` : `+${current.earned} · −${current.redeemed}`}</span>
-    {/if}
   </div>
   <div class="days" bind:this={scroller} onscroll={onScroll}>
     {#each days as day (day)}
@@ -164,9 +183,8 @@
       {@const here = days[shown] === day}
       <div class="day">
         <div class="chart" style="height: {chart}px">
-          {#each ticksOf(Math.max(0, ...cols.map((c) => c.total))) as v}
-            <div class="tick" style="bottom: {v * unit}px"><span class="mono">{v}</span></div>
-          {/each}
+          <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
+          <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
           {#each cols as c, i}
             <button class="col" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i}
               aria-label="{String(FIRST_HOUR + i).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
@@ -188,10 +206,17 @@
     {/each}
   </div>
   <div class="legend" aria-live="polite">
-    <span class="mono when">{breakdown.label}</span>
-    {#each breakdown.parts as part (part.name)}<span><i style="background: {part.color}"></i>{tall ? part.name : shortName(part.name)} <b class="mono">{part.n}</b></span>{/each}
-    {#if breakdown.redeemed}<span><i class="round"></i>Redeemed <b class="mono">{breakdown.redeemed}</b></span>{/if}
-    {#if !breakdown.parts.length && !breakdown.redeemed}<span class="none">{pick === null ? "Nothing earned yet" : "Nothing this hour"}</span>{/if}
+    <div class="row head"><span class="mono when">{breakdown.label}</span><span class="mono">{breakdown.total} earned</span></div>
+    {#each breakdown.rows as row (row.name)}
+      <div class="row" class:zero={!row.n}><i style="background: {row.color}"></i><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
+    {/each}
+    {#if breakdown.anyRedeemed}
+      <div class="row" class:zero={!breakdown.redeemed}><i class="round"></i><span class="name">Redeemed</span><b class="mono">{breakdown.redeemed || "–"}</b></div>
+    {/if}
+    {#if !breakdown.rows.length && !breakdown.anyRedeemed}
+      <div class="row none">{current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
+    {/if}
+    {#if pick === null && breakdown.rows.length}<div class="hintline">Tap a bar to see that hour</div>{/if}
   </div>
 </section>
 
@@ -202,7 +227,6 @@
   .switcher:not(:has(.nav)) { margin-left: 0; }
   .nav { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; }
   .nav:disabled { opacity: .3; cursor: default; }
-  .earn { color: var(--voucher); }
   /* One Day per screen width, snapping, with no scrollbar: the arrows and
      the header say where you are. */
   .days { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
@@ -233,11 +257,15 @@
   .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
-  .legend { display: flex; column-gap: 12px; row-gap: 6px; flex-wrap: wrap; align-items: center; min-height: 32px; padding: 7px 10px; border-radius: 10px; background: #1f2226; font-size: 12px; color: #c9cdd1; }
-  .legend b { font-weight: 500; color: var(--ink); }
-  .when { color: var(--muted); font-size: 11px; }
-  .none { color: var(--muted); }
-  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: #1f2226; font-size: 13px; color: #c9cdd1; }
+  .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
+  .row.head { grid-template-columns: minmax(0, 1fr) auto; border-top: 0; font-size: 11px; color: var(--muted); }
+  .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .row.zero { color: var(--muted); } .row.zero b { color: var(--muted); } .row.zero i { opacity: .35; }
+  .when { color: var(--muted); }
+  .none { display: block; color: var(--muted); }
+  .hintline { font-size: 11px; color: #6f757b; padding: 6px 0 4px; border-top: 1px solid var(--divider); }
   .legend i { width: 10px; height: 10px; border-radius: 3px; }
   .legend i.round { border-radius: 50%; background: var(--ink); }
   .tall { gap: 14px; padding: 18px; border-radius: 18px; }

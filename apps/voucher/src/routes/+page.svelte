@@ -17,6 +17,9 @@
   let status = $state<Status | null>(null);
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
+  // Tapping a Day in the history grid scrolls the hour chart to it.
+  let focus = $state<{ day: string; at: number } | null>(null);
+  let shownDay = $state<string | undefined>();
 
   // The tablet's other columns refresh less often than the Voucher stack.
   async function loadWide() {
@@ -41,8 +44,8 @@
     <section class="col"><TodayColumn {live} wide /></section>
     <section class="col">
       {#if status}
-        <HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.log_first_day} tall />
-        <Heatmap {history} goal={status.today.goal} firstDay={status.first_day} keyBelow={false} />
+        <HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.log_first_day} {focus} bind:shownDay tall />
+        <Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} keyBelow={false} />
       {/if}
     </section>
     <section class="col">
@@ -58,5 +61,5 @@
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
   .grid { height: 100%; display: grid; grid-template-columns: minmax(340px, 1fr) minmax(280px, 1fr) minmax(300px, 1fr); gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 28px 28px; }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
-  .logcard { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 18px; }
+  .logcard { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 12px; }
 </style>

@@ -4,10 +4,14 @@
   // as the Ledger's first Day; Days before it and Days to come stay blank.
   import type { DayTotal } from "../types";
 
-  let { history, goal, keyBelow = true, firstDay }: {
+  let { history, goal, keyBelow = true, firstDay, selected, onpick }: {
     history: DayTotal[]; goal: number; keyBelow?: boolean;
     /** The Ledger's first Day; Days before it are blank, not "nothing earned". */
     firstDay?: string;
+    /** The Day the hour chart shows, outlined here. */
+    selected?: string;
+    /** Tapping a Day asks the hour chart to show it. */
+    onpick?: (day: string) => void;
   } = $props();
 
   const cells = $derived.by(() => {
@@ -60,7 +64,13 @@
       {#each WEEKDAYS as w}<span class="weekday">{w}</span>{/each}
       {#each weeks as week}
         <span class="month">{week.month}</span>
-        {#each week.days as c}<div class="h h{c.level}" class:blank={c.blank} title={c.day}></div>{/each}
+        {#each week.days as c}
+          {#if c.day && !c.blank}
+            <button class="h h{c.level}" class:sel={c.day === selected} title={c.day} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day!)}></button>
+          {:else}
+            <div class="h blank"></div>
+          {/if}
+        {/each}
       {/each}
     </div>
   </div>
@@ -87,7 +97,11 @@
   .corner, .weekday { position: sticky; left: 0; z-index: 1; background: var(--surface); }
   .weekday, .month { font: 500 10px/1 var(--mono); color: var(--muted); display: flex; align-items: center; white-space: nowrap; }
   .month { scroll-snap-align: start; align-items: flex-end; overflow: visible; }
-  .h { aspect-ratio: 1; border-radius: 4px; background: #22262a; }
+  .h { aspect-ratio: 1; border-radius: 4px; background: #22262a; padding: 0; border: 0; display: block; width: 100%; }
+  button.h { cursor: pointer; }
+  /* The Day the hour chart is showing. */
+  .h.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+  button.h:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }
   .h1 { background: #1d4d33; } .h2 { background: #24804f; } .h3 { background: #2fb36b; } .h4 { background: #3ddc84; }
   .h.blank { background: transparent; }
   .heatkey { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
