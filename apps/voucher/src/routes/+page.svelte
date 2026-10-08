@@ -56,7 +56,7 @@
 
 <style>
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
-  .grid { height: 100%; display: grid; grid-template-columns: 380px minmax(0, 1fr) 340px; gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 28px 28px; }
+  .grid { height: 100%; display: grid; grid-template-columns: minmax(340px, 1fr) minmax(280px, 1fr) minmax(300px, 1fr); gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 28px 28px; }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
   .logcard { flex: 1; min-height: 0; overflow: hidden; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 18px; }
 </style>
