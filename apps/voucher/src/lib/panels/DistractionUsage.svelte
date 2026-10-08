@@ -1,26 +1,34 @@
 <script lang="ts">
   // Time in Distractions today, measured on this device.
-  import type { DeviceUsage } from "../types";
+  import type { Blocklist, DeviceUsage } from "../types";
 
-  let { usage, unlockedMinutes }: { usage: DeviceUsage | null; unlockedMinutes: number } = $props();
+  let { usage, unlockedMinutes, blocklists = {} }: {
+    usage: DeviceUsage | null; unlockedMinutes: number;
+    /** To draw each app in the colour of the blocklist it's on. */
+    blocklists?: Record<string, Blocklist>;
+  } = $props();
 
   const used = $derived(usage ? usage.apps.reduce((n, a) => n + a.minutes, 0) : 0);
-  const COLORS = ["#e5609b", "#ff6b5b", "#ff8a3d", "#c9cdd1"];
+  /** The colour of the blocklist an app is on (matched by its name), or grey. */
+  function colorOf(label: string): string {
+    const list = Object.values(blocklists).find((l) => l.apps.some((a) => a.label.toLowerCase() === label.toLowerCase()));
+    return list?.color ?? "#9aa0a6";
+  }
 </script>
 
 <section class="card">
   <div class="head">
     <span class="cap">In Distractions today</span>
-    <span class="cap spend">{usage?.measured ? `${used} of ${unlockedMinutes} min` : ""}</span>
+    <span class="cap spend">{usage?.measured ? `${used} min used of ${unlockedMinutes} unlocked` : ""}</span>
   </div>
   {#if usage && !usage.measured}
     <div class="note">Minutes need usage access on this device: turn it on in Rules, under Protection.</div>
     <div class="note">{usage.blockedOpens} blocked opens, {usage.closedWithoutTearing} closed without tearing</div>
   {:else if usage}
-    {#each usage.apps.slice(0, 4) as a, i}
+    {#each usage.apps as a}
       <div class="app">
         <div class="name">{a.label}</div>
-        <div class="bar"><i style="width: {(a.minutes / Math.max(1, usage.apps[0].minutes)) * 100}%; background: {COLORS[i]}"></i></div>
+        <div class="bar"><i style="width: {(a.minutes / Math.max(1, usage.apps[0].minutes)) * 100}%; background: {colorOf(a.label)}"></i></div>
         <div class="mono min">{a.minutes} min</div>
       </div>
     {:else}

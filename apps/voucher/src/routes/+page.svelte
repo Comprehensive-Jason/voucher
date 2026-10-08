@@ -48,7 +48,7 @@
     {#if status}
       <div class="cell hour"><HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.log_first_day} {focus} bind:shownDay tall /></div>
       <div class="cell heat"><Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} keyBelow={false} /></div>
-      <div class="cell usage"><DistractionUsage {usage} unlockedMinutes={status.today.unlocked_minutes} /></div>
+      <div class="cell usage"><DistractionUsage {usage} unlockedMinutes={status.today.unlocked_minutes} blocklists={status.settings.blocklists} /></div>
     {/if}
     <div class="logcard"><LogPanel compact /></div>
   </div>

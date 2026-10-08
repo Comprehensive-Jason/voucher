@@ -10,6 +10,7 @@
   import { ledger } from "../api";
   import { SOURCES, sourceOf } from "../sources";
   import { dayLabel, hourOf, shiftDay } from "../time";
+  import Marker from "../components/Marker.svelte";
   import type { DaySummary } from "../types";
 
   let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable() }: {
@@ -209,10 +210,10 @@
     <div class="list" aria-live="polite">
     <div class="row head"><span class="mono when">{breakdown.label}</span><span class="mono">{breakdown.total} earned</span></div>
     {#each breakdown.rows as row (row.name)}
-      <div class="row" class:zero={!row.n}><i style="background: {row.color}"></i><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
+      <div class="row" class:zero={!row.n}><span class="mk"><Marker kind="source" color={row.color} /></span><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
     {/each}
     {#if breakdown.anyRedeemed}
-      <div class="row" class:zero={!breakdown.redeemed}><i class="round"></i><span class="name">Redeemed</span><b class="mono">{breakdown.redeemed || "–"}</b></div>
+      <div class="row" class:zero={!breakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Redeemed</span><b class="mono">{breakdown.redeemed || "–"}</b></div>
     {/if}
     {#if !breakdown.rows.length && !breakdown.anyRedeemed}
       <div class="row none">{current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
@@ -262,16 +263,16 @@
      the colour key, since it names every colour on screen. */
   .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: #1f2226; font-size: 13px; color: #c9cdd1; }
   .list { display: flex; flex-direction: column; }
-  .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
+  .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
   .row.head { grid-template-columns: minmax(0, 1fr) auto; border-top: 0; font-size: 11px; color: var(--muted); }
   .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .row.zero { color: var(--muted); } .row.zero b { color: var(--muted); } .row.zero i { opacity: .35; }
+  .row.zero { color: var(--muted); } .row.zero b { color: var(--muted); }
   .when { color: var(--muted); }
   .none { display: block; color: var(--muted); }
   .hintline { font-size: 11px; color: #6f757b; padding: 6px 0 4px; border-top: 1px solid var(--divider); }
-  .legend i { width: 10px; height: 10px; border-radius: 3px; }
-  .legend i.round { border-radius: 50%; background: var(--ink); }
+  .mk { display: flex; align-items: center; }
+  .row.zero .mk { opacity: .35; }
   .tall { gap: 14px; padding: 18px; border-radius: 18px; }
   /* On the tablet the card fills the column above the history grid, so the
      grid stays put level with the next column; the list scrolls inside

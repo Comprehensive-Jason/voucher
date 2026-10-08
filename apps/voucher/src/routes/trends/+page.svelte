@@ -18,11 +18,13 @@
   let shownDay = $state<string | undefined>();
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
+  let blocklists = $state<Status["settings"]["blocklists"]>({});
   let error = $state<string | null>(null);
 
   onMount(async () => {
     try {
       const status = await ledger<Status>("GET", "/status");
+      blocklists = status.settings.blocklists;
       today = status.today;
       timeZone = status.settings.time_zone;
       firstDay = status.first_day;
@@ -52,7 +54,7 @@
   {:else if today}
     <HourChart {today} {timeZone} firstDay={logFirstDay} {focus} bind:shownDay />
     <Heatmap {history} goal={today.goal} {firstDay} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} />
-    <DistractionUsage {usage} unlockedMinutes={today.unlocked_minutes} />
+    <DistractionUsage {usage} unlockedMinutes={today.unlocked_minutes} {blocklists} />
   {/if}
 </main>
 

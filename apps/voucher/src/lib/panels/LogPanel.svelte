@@ -6,6 +6,7 @@
   import { ledger } from "../api";
   import { POLL_MS } from "../live.svelte";
   import { serviceOf, sourceOf } from "../sources";
+  import Marker, { type MarkerKind } from "../components/Marker.svelte";
   import { clock, dayLabel, shiftDay } from "../time";
   import type { DaySummary } from "../types";
 
@@ -23,14 +24,14 @@
 
   const day = $derived(today ? shiftDay(today, -back) : null);
 
-  type Row = { time: string; title: string; source: string; color: string; value: string; tone: "earn" | "spend" | "lost" | "goal" };
+  type Row = { time: string; title: string; source: string; color: string; value: string; tone: "earn" | "spend" | "lost" | "goal"; marker: MarkerKind };
   const rows = $derived.by((): Row[] => {
     if (!shown) return [];
     const out: Row[] = [];
     for (const e of shown.log) {
       if (shown.goal_met_at && e.at === shown.goal_met_at && e.kind === "earned") {
         // The milestone sits just above the earning that met the goal.
-        out.push({ time: clock(e.at, timeZone), title: "Daily goal met", source: `Streak: ${shown.streak} ${shown.streak === 1 ? "day" : "days"}`, color: "var(--goal)", value: "", tone: "goal" });
+        out.push({ time: clock(e.at, timeZone), title: "Daily goal met", source: `Streak: ${shown.streak} ${shown.streak === 1 ? "day" : "days"}`, color: "var(--goal)", value: "", tone: "goal", marker: "goal" });
       }
       if (e.kind === "earned") {
         const s = sourceOf(e.task);
@@ -40,14 +41,14 @@
         // The compact card has no source line, so every entry names its app.
         const title = compact ? `${app}, ${e.title || "a task"}` : e.title || "A task";
         out.push({ time: clock(e.at, timeZone), title, source: e.kept ? app : `${app} · Bank full, lost`,
-          color: s.color, value: e.kept ? "+1" : "+0", tone: e.kept ? "earn" : "lost" });
+          color: s.color, value: e.kept ? "+1" : "+0", tone: e.kept ? "earn" : "lost", marker: e.kept ? "source" : "lost" });
       } else if (e.kind === "gap") {
         const mins = Math.round((new Date(e.until).getTime() - new Date(e.at).getTime()) / 60000);
         out.push({ time: clock(e.at, timeZone), title: `Voucher was off for ${mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`}`,
-          source: e.device, color: "#ff8a7a", value: "", tone: "lost" });
+          source: e.device, color: "#ff8a7a", value: "", tone: "lost", marker: "gap" });
       } else {
         out.push({ time: clock(e.at, timeZone), title: `Redeemed ${e.tickets}, ${e.minutes} min`, source: "All distractions",
-          color: "var(--ink)", value: `−${e.tickets}`, tone: "spend" });
+          color: "var(--ink)", value: `−${e.tickets}`, tone: "spend", marker: "redeemed" });
       }
     }
     return out;
@@ -112,7 +113,7 @@
       {#each rows as r}
         <div class="row">
           <span class="mono time">{r.time}</span>
-          <span class="dot" style="background: {r.color}"></span>
+          <span class="dot"><Marker kind={r.marker} color={r.color} /></span>
           <span class="what">
             <span class="title" class:goal={r.tone === "goal"}>{r.title}</span>
             {#if !compact}<span class="src">{r.source}</span>{/if}
@@ -148,9 +149,9 @@
   .earn { color: var(--voucher); }
   .spend { color: var(--goal); }
   .rows { display: flex; flex-direction: column; }
-  .row { display: grid; grid-template-columns: 44px 10px minmax(0, 1fr) auto; gap: 10px; align-items: center; height: 43px; border-bottom: 1px solid var(--divider); }
+  .row { display: grid; grid-template-columns: 44px 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; height: 43px; border-bottom: 1px solid var(--divider); }
   .time { font-size: 12px; color: var(--muted); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot { display: flex; align-items: center; justify-content: center; }
   .what { min-width: 0; }
   .title { display: block; font-size: 14px; font-weight: 500; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .title.goal { color: var(--goal); }
@@ -168,7 +169,7 @@
   .compact header { flex: none; margin: 0 -12px 0 0; padding: 8px 0 6px; }
   .compact .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -8px; padding-right: 8px; }
   .compact .label { min-width: 0; }
-  .compact .row { height: auto; padding: 9px 0; grid-template-columns: 44px 10px minmax(0, 1fr) 28px; }
+  .compact .row { height: auto; padding: 9px 0; grid-template-columns: 44px 12px minmax(0, 1fr) 28px; }
   .compact .title { font-size: 13px; font-weight: 400; line-height: 1.3; white-space: normal; }
   .compact .value { font-size: 13px; font-weight: 500; text-align: right; }
 </style>

@@ -31,8 +31,11 @@
     const out: { month: string; days: typeof cells }[] = [];
     for (let i = 0; i < cells.length; i += 7) {
       const days = cells.slice(i, i + 7);
-      const first = days.find((d) => d.day && d.day.slice(8) === "01");
-      const start = i === 0 ? days.find((d) => d.day && !d.blank) ?? days[0] : null;
+      // Only weeks with history get a label: blank weeks before the first Day
+      // stay unlabelled. The first labelled week names its month.
+      const shown = days.filter((d) => d.day && !d.blank);
+      const first = shown.find((d) => d.day!.slice(8) === "01");
+      const start = shown.length && !out.some((w) => w.month) ? shown[0] : null;
       const at = first ?? start;
       const month = at?.day ? MONTHS[Number(at.day.slice(5, 7)) - 1] + (at.day.slice(5, 7) === "01" ? ` ${at.day.slice(0, 4)}` : "") : "";
       out.push({ month, days });
