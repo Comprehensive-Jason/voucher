@@ -4,6 +4,7 @@
   // `compact` is the tablet's side card: one line per entry, no totals.
   import { onMount } from "svelte";
   import { ledger } from "../api";
+  import { POLL_MS } from "../live.svelte";
   import { sourceOf } from "../sources";
   import { clock, dayLabel, shiftDay } from "../time";
   import type { DaySummary } from "../types";
@@ -52,11 +53,10 @@
 
   async function load() {
     try {
-      if (!today) {
-        const status = await ledger<{ today: DaySummary; settings: { time_zone: string } }>("GET", "/status");
-        today = status.today.day;
-        timeZone = status.settings.time_zone;
-      }
+      // Asked every time, so the Log moves on when a new Day starts.
+      const status = await ledger<{ today: DaySummary; settings: { time_zone: string } }>("GET", "/status");
+      today = status.today.day;
+      timeZone = status.settings.time_zone;
       const d = day!;
       [shown, before] = await Promise.all([
         ledger<DaySummary>("GET", `/day?date=${d}`),
@@ -73,7 +73,12 @@
     load();
   }
 
-  onMount(load);
+  // Today's Log keeps itself current; a past Day doesn't change.
+  onMount(() => {
+    load();
+    const timer = setInterval(() => { if (back === 0) load(); }, POLL_MS);
+    return () => clearInterval(timer);
+  });
 </script>
 
 <div class="log" class:compact>
