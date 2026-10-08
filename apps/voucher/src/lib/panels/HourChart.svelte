@@ -269,6 +269,13 @@
   .legend i { width: 10px; height: 10px; border-radius: 3px; }
   .legend i.round { border-radius: 50%; background: var(--ink); }
   .tall { gap: 14px; padding: 18px; border-radius: 18px; }
+  /* On the tablet the card fills the column above the history grid, so the
+     grid stays put level with the next column; the list scrolls inside
+     whatever room is left, with its heading row pinned. */
+  .tall { flex: 1; min-height: 0; }
+  .tall .head, .tall .days { flex: none; }
+  .tall .legend { flex: 1; min-height: 72px; overflow-y: auto; overscroll-behavior: contain; }
+  .tall .row.head { position: sticky; top: 0; z-index: 1; background: #1f2226; }
   .tall .chart, .tall .dots { gap: 6px; }
   .tall .day { gap: 14px; }
   .tall .dots { height: 18px; }

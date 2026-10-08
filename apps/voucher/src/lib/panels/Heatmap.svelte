@@ -107,5 +107,5 @@
   .heatkey { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
   .scale { display: flex; align-items: center; gap: 4px; }
   .scale i { width: 12px; display: inline-block; }
-  .wide { padding: 18px; border-radius: 18px; }
+  .wide { padding: 18px; border-radius: 18px; flex: none; }
 </style>
