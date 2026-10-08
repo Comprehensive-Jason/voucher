@@ -17,6 +17,10 @@ export function summary(list: Blocklist): string {
   return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")}${parts.length > 2 ? "," : ""} and ${parts.at(-1)}`;
 }
 
+/** "https://www.Example.com/path" → "example.com". */
+export const domainOf = (input: string) => input.trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
+export const isDomain = (domain: string) => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain);
+
 /** How a site entry reads: maintained lists get a name. */
 export function siteName(site: string): string {
   const lists: Record<string, string> = { "list:invidious": "Invidious instances", "list:piped": "Piped instances" };

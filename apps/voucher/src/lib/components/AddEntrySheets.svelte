@@ -4,6 +4,7 @@
   // with apps another group already counts shown but not pickable.
   import { launchableApps } from "../api";
   import Sheet from "./Sheet.svelte";
+  import { domainOf, isDomain } from "../blocklists";
 
   let { mode, onapp, onsite, onclose, games = true, taken = {} }: {
     mode: "app" | "site" | null;
@@ -20,9 +21,8 @@
   let site = $state("");
   $effect(() => { if (mode === "app") launchableApps().then((a) => (apps = a)); });
   const shown = $derived(apps.filter((a) => (a.label + a.package).toLowerCase().includes(filter.toLowerCase())));
-  /** "https://www.Example.com/path" → "example.com". */
-  const domain = $derived(site.trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0]);
-  const valid = $derived(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain));
+  const domain = $derived(domainOf(site));
+  const valid = $derived(isDomain(domain));
 </script>
 
 {#if mode === "app"}

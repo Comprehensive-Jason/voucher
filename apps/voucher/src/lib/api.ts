@@ -133,10 +133,15 @@ export async function fixProtection(part: keyof Protection): Promise<void> {
 /** Apps on this phone that could count as Focused time. */
 export async function launchableApps(): Promise<{ package: string; label: string }[]> {
   if (!inTauri) {
+    // A browser preview has no device to ask, so it shows a sample of apps.
     return [
-      { package: "com.duolingo", label: "Duolingo" }, { package: "org.zotero.android", label: "Zotero" },
-      { package: "com.google.android.apps.docs.editors.docs", label: "Docs" }, { package: "net.ankiweb.ankidroid", label: "AnkiDroid" },
-    ];
+      ["com.duolingo", "Duolingo"], ["org.zotero.android", "Zotero"], ["com.google.android.apps.docs.editors.docs", "Docs"],
+      ["com.ichi2.anki", "AnkiDroid"], ["com.readermobile", "Readwise Reader"], ["com.flyersoft.moonreaderp", "Moon+ Reader Pro"],
+      ["com.shortform.app", "Shortform"], ["com.overdrive.mobile.android.libby", "Libby"], ["com.hoopladigital.android", "Hoopla"],
+      ["com.substack.app", "Substack"], ["org.wikipedia", "Wikipedia"], ["md.obsidian", "Obsidian"], ["com.pleco.chinesesystem", "Pleco"],
+      ["com.instructure.candroid", "Canvas"], ["com.twitter.android", "X"], ["tv.danmaku.bili", "bilibili"], ["com.discord", "Discord"],
+      ["com.linkedin.android", "LinkedIn"], ["com.brave.browser", "Brave"], ["com.desmos.calculator", "Desmos"],
+    ].map(([pkg, label]) => ({ package: pkg, label }));
   }
   try {
     return await device<{ package: string; label: string }[]>("apps");
