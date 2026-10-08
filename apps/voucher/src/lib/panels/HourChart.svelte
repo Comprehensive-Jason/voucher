@@ -205,7 +205,8 @@
       </div>
     {/each}
   </div>
-  <div class="legend" aria-live="polite">
+  <div class="legend">
+    <div class="list" aria-live="polite">
     <div class="row head"><span class="mono when">{breakdown.label}</span><span class="mono">{breakdown.total} earned</span></div>
     {#each breakdown.rows as row (row.name)}
       <div class="row" class:zero={!row.n}><i style="background: {row.color}"></i><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
@@ -216,7 +217,9 @@
     {#if !breakdown.rows.length && !breakdown.anyRedeemed}
       <div class="row none">{current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
     {/if}
-    {#if pick === null && breakdown.rows.length}<div class="hintline">Tap a bar to see that hour</div>{/if}
+    </div>
+    <!-- Stays at the bottom of the box, however long the list is. -->
+    {#if breakdown.rows.length}<div class="hintline">{pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole day"}</div>{/if}
   </div>
 </section>
 
@@ -258,6 +261,7 @@
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
   .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: #1f2226; font-size: 13px; color: #c9cdd1; }
+  .list { display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
   .row.head { grid-template-columns: minmax(0, 1fr) auto; border-top: 0; font-size: 11px; color: var(--muted); }
   .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -274,7 +278,9 @@
      whatever room is left, with its heading row pinned. */
   .tall { flex: 1; min-height: 0; }
   .tall .head, .tall .days { flex: none; }
-  .tall .legend { flex: 1; min-height: 72px; overflow-y: auto; overscroll-behavior: contain; }
+  .tall .legend { flex: 1; min-height: 96px; }
+  .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .tall .hintline { flex: none; }
   .tall .row.head { position: sticky; top: 0; z-index: 1; background: #1f2226; }
   .tall .chart, .tall .dots { gap: 6px; }
   .tall .day { gap: 14px; }
