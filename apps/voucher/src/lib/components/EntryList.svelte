@@ -1,21 +1,24 @@
 <script lang="ts">
-  // One section of a blocklist: its apps or its sites, each with a switch, and
-  // a remove button for entries the user added.
+  // One section of a blocklist or source group: its apps, sites, or services,
+  // each with a switch (unless `switches` is off), and a remove button for
+  // entries the user added.
   import Switch from "./Switch.svelte";
 
   type Row = { key: string; name: string; note: string | null; on: boolean; added: boolean; waiting?: string | null };
-  let { title, rows, empty, onadd, ontoggle, onremove }: {
-    title: string; rows: Row[]; empty: string;
-    onadd: () => void; ontoggle: (key: string, on: boolean) => void; onremove?: (key: string) => void;
+  let { title, rows, empty, onadd, ontoggle, onremove, switches = true }: {
+    title: string; rows: Row[]; empty: string; switches?: boolean;
+    onadd?: () => void; ontoggle?: (key: string, on: boolean) => void; onremove?: (key: string) => void;
   } = $props();
 </script>
 
 <div class="section">
   <div class="head">
     <span class="cap">{title} · {rows.length}</span>
-    <button class="add" aria-label="Add to {title}" onclick={onadd}>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>Add
-    </button>
+    {#if onadd}
+      <button class="add" aria-label="Add to {title}" onclick={onadd}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>Add
+      </button>
+    {/if}
   </div>
   {#if rows.length}
     <div class="card">
@@ -30,7 +33,7 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           {/if}
-          <Switch on={r.on} label={r.name} onchange={(on) => ontoggle(r.key, on)} />
+          {#if switches}<Switch on={r.on} label={r.name} onchange={(on) => ontoggle?.(r.key, on)} />{/if}
         </div>
       {/each}
     </div>

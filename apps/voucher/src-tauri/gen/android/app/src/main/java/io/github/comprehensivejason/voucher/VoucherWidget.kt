@@ -24,11 +24,20 @@ class VoucherWidget : AppWidgetProvider() {
     }
 
     companion object {
-        private val SOURCE_COLORS = mapOf(
-            "obsidian" to ("Obsidian" to 0xFFB08CFF), "workout" to ("Workout" to 0xFFFF8A5C),
-            "readwise" to ("Reader" to 0xFFFFD166), "moonreader" to ("Moon+" to 0xFFE0A82E),
-            "anki" to ("Anki" to 0xFFFF6FA8),
+        /** Default colours for the sources Voucher ships with; the Ledger sends
+         *  each source's name, and its colour once one is chosen. */
+        private val DEFAULT_COLORS = mapOf(
+            "obsidian" to 0xFFB08CFF, "workout" to 0xFFFF8A5C, "reading" to 0xFFFFD166,
+            "anki" to 0xFFFF6FA8, "steps" to 0xFF05AFA5,
         )
+
+        private fun nameOf(s: JSONObject) = s.optString("name").ifEmpty { s.optString("id") }
+
+        private fun colorOf(s: JSONObject): Int {
+            val chosen = s.optString("color")
+            if (chosen.length == 7 && chosen.startsWith("#")) return (0xFF000000 or chosen.substring(1).toLong(16)).toInt()
+            return (DEFAULT_COLORS[s.optString("id")] ?: 0xFFC9CDD1).toInt()
+        }
 
         fun updateAll(ctx: Context, d: Decision) {
             val manager = AppWidgetManager.getInstance(ctx)
@@ -127,10 +136,7 @@ class VoucherWidget : AppWidgetProvider() {
             val sources = d.status?.optJSONObject("today")?.optJSONArray("sources") ?: return emptyList()
             return (0 until sources.length()).map { sources.getJSONObject(it) }
                 .filter { it.optBoolean("on") && it.optString("kind") != "tasks" }
-                .map { s ->
-                    val (name, color) = SOURCE_COLORS[s.optString("id")] ?: (s.optString("id") to 0xFFC9CDD1)
-                    Bar(name, 100 * s.optInt("progress") / s.optInt("every").coerceAtLeast(1), color.toInt())
-                }
+                .map { s -> Bar(nameOf(s), 100 * s.optInt("progress") / s.optInt("every").coerceAtLeast(1), colorOf(s)) }
                 .sortedByDescending { it.percent }
         }
 
@@ -140,7 +146,7 @@ class VoucherWidget : AppWidgetProvider() {
             return (0 until sources.length()).map { sources.getJSONObject(it) }
                 .filter { it.optBoolean("on") && it.optString("kind") != "tasks" && it.optInt("progress") > 0 }
                 .minByOrNull { it.optInt("every") - it.optInt("progress") }
-                ?.let { (SOURCE_COLORS[it.optString("id")]?.first ?: it.optString("id")) to (it.optInt("every") - it.optInt("progress")) }
+                ?.let { nameOf(it) to (it.optInt("every") - it.optInt("progress")) }
         }
     }
 }

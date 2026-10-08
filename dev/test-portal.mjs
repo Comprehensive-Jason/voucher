@@ -126,8 +126,9 @@ async function seedHistory(days) {
   const file = path.join(DATA, "state.json");
   const state = JSON.parse(readFileSync(file, "utf8"));
   const zone = Intl.DateTimeFormat("en-US", { timeZone: state.settings.time_zone, timeZoneName: "longOffset" });
-  const sources = ["todoist", "todoist", "clickup", "obsidian", "readwise", "workout", "anki", "moonreader"];
-  const titles = ["Problem set", "Weekly review", "Reply to email", "Lecture notes", "Reading", "Bike ride", "Flashcards", "Chapter"];
+  // Earnings name a task's service (todoist:…), or any other source's id.
+  const sources = Object.entries(state.settings.sources).flatMap(([id, s]) => (s.kind === "tasks" ? [...s.packages, ...s.packages] : [id]));
+  const titles = ["Problem set", "Weekly review", "Reply to email", "Lecture notes", "Bike ride", "Flashcards", "Chapter"];
   const goal = state.settings.daily_goal;
   let earliest = null;
   for (let back = days; back >= 1; back--) {
@@ -147,7 +148,7 @@ async function seedHistory(days) {
     for (let i = 0; i < earned; i++) {
       const k = Math.floor(Math.random() * sources.length);
       state.log.push({ kind: "earned", at: at(9 + Math.floor(Math.random() * 13), Math.floor(Math.random() * 60)),
-        task: sources[k] + ":seed-" + date + "-" + i, title: titles[k], kept: true });
+        task: sources[k] + ":seed-" + date + "-" + i, title: titles[k % titles.length], kept: true });
     }
     for (let i = 0; i < redeemed; i++) {
       state.log.push({ kind: "redeemed", at: at(12 + Math.floor(Math.random() * 9), Math.floor(Math.random() * 60)), tickets: 1, minutes: state.settings.unlock_minutes });
@@ -249,8 +250,10 @@ const PAGE = String.raw`<!doctype html>
   <div class="buttons"><button id="history">Add 4 weeks of made-up history</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
 <script>
-const COLORS = { tasks: "#4f8ff7", obsidian: "#a78bfa", workout: "#ff8a5c", readwise: "#ffd166", moonreader: "#e0a82e", anki: "#ff6fa8", steps: "#05afa5" };
-const NAMES = { todoist: "Todoist", clickup: "ClickUp", obsidian: "Obsidian", workout: "Workout", readwise: "Readwise Reader", moonreader: "Moon+ Reader", anki: "Anki", steps: "Steps" };
+// Defaults for sources with no colour chosen; names come from the Ledger.
+const COLORS = { tasks: "#5b9cff", obsidian: "#b08cff", workout: "#ff8a5c", reading: "#ffd166", anki: "#ff6fa8", steps: "#05afa5" };
+const SERVICES = { todoist: "Todoist", clickup: "ClickUp" };
+let NAMES = {};
 const TITLES = ["Problem set 4", "Reply to the landlord", "Weekly review", "Draft the budget", "Read chapter 6", "Water the plants", "Lab report figures", "Email the adviser"];
 const $ = (id) => document.getElementById(id);
 let busy = false;
@@ -271,7 +274,7 @@ async function act(fn, done) {
 const earnedText = (c) => c.kept || c.forfeited ? "+" + c.kept + " Voucher" + (c.kept === 1 ? "" : "s") + (c.forfeited ? ", " + c.forfeited + " lost to a full Bank" : "") : "no Voucher yet";
 
 const hm = (t) => t.slice(0, 5);
-const ORDER = ["todoist", "clickup", "obsidian", "workout", "steps", "readwise", "moonreader", "anki"];
+const ORDER = ["tasks", "obsidian", "workout", "steps", "reading", "anki"];
 const rank = (id) => (ORDER.includes(id) ? ORDER.indexOf(id) : ORDER.length);
 
 function fact(label, value) { return '<div class="fact"><span>' + label + '</span><b>' + value + '</b></div>'; }
@@ -283,14 +286,17 @@ function render(s) {
   $("facts").innerHTML = fact("Bank", s.bank + " / " + s.settings.bank_limit) + fact("Today's goal", t.earned + " / " + t.goal)
     + fact("Unlock", unlock) + fact("Curfew", s.curfew_active ? "on now" : hm(s.settings.curfew_start) + " to " + hm(s.settings.curfew_end));
   const cards = [];
-  for (const src of [...t.sources].sort((a, b) => rank(a.id) - rank(b.id))) {
-    const color = COLORS[src.kind === "tasks" ? "tasks" : src.id] || "#9aa0a6";
-    const name = NAMES[src.id] || src.id;
+  NAMES = Object.fromEntries(t.sources.map((src) => [src.id, src.name || src.id]));
+  for (const src of [...t.sources].sort((a, b) => rank(a.id) - rank(b.id) || a.name.localeCompare(b.name))) {
+    const color = src.color || COLORS[src.id] || "#9aa0a6";
+    const name = NAMES[src.id];
     if (src.kind === "tasks") {
-      cards.push('<div class="src' + (src.on ? '' : ' off') + '"><div class="top"><span class="name"><i class="dot" style="background:' + color + '"></i>' + name + ' task</span>'
+      // One field and button per service in the group, so the Log can name it.
+      const services = s.settings.sources[src.id].packages;
+      cards.push('<div class="src' + (src.on ? '' : ' off') + '"><div class="top"><span class="name"><i class="dot" style="background:' + color + '"></i>' + name + '</span>'
         + '<span class="detail">' + (src.every === 1 ? "+1 each" : src.progress + " / " + src.every) + ' · ' + src.earned + ' today</span></div>'
-        + '<div class="row"><input id="title-' + src.id + '" type="text" name="task-title-' + src.id + '" autocomplete="off" data-protonpass-ignore="true" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-form-type="other" spellcheck="false" placeholder="' + TITLES[Math.floor(Math.random() * TITLES.length)] + '" aria-label="Task title">'
-        + '<button class="go" data-task="' + src.id + '">Finish a task</button></div></div>');
+        + services.map((svc) => '<div class="row"><input id="title-' + svc + '" type="text" name="task-title-' + svc + '" autocomplete="off" data-protonpass-ignore="true" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-form-type="other" spellcheck="false" placeholder="' + TITLES[Math.floor(Math.random() * TITLES.length)] + '" aria-label="' + (SERVICES[svc] || svc) + ' task title">'
+          + '<button class="go" data-task="' + svc + '">Finish in ' + (SERVICES[svc] || svc) + '</button></div>').join("") + '</div>');
     } else {
       const unit = src.kind === "workout" ? "zone min" : src.kind === "steps" ? "steps" : "min";
       const steps = src.kind === "workout" ? [1, 5, 10, 15] : src.kind === "steps" ? [100, 500, 1000, 2000] : [1, 5, 15, 30];

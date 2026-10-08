@@ -1,6 +1,6 @@
 <script lang="ts">
-  // "Toward the next Voucher": each switched-on source's progress. Todoist and
-  // ClickUp share one Tasks row; other sources fill a bar toward their rate.
+  // "Toward the next Voucher": each switched-on source's progress, one row
+  // per source group; most fill a bar toward their rate.
   // At one Voucher per task there is nothing to fill, since each task earns
   // at once, so that row shows a tally of today's task Vouchers instead.
   import { styleOf } from "../sources";
@@ -10,7 +10,7 @@
 
   let { sources }: { sources: SourceProgress[] } = $props();
 
-  const ORDER = ["tasks", "obsidian", "workout", "steps", "readwise", "moonreader", "anki"];
+  const ORDER = ["tasks", "obsidian", "workout", "steps", "reading", "anki"];
 
   const rows = $derived.by(() => {
     const on = sources.filter((s) => s.on);

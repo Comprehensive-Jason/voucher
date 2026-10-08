@@ -1,6 +1,6 @@
 // Plain-language descriptions of the Ledger's settings changes.
 import type { Pending, Settings } from "./types";
-import { serviceOf } from "./sources";
+import { styleOf } from "./sources";
 
 /** "22:00:00" → minutes after midnight. */
 export const minutesOf = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -8,8 +8,8 @@ export const minutesOf = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.sl
 export const timeOf = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}:00`;
 export const hhmm = (t: string) => t.slice(0, 5);
 
-/** A source as Rules names it ("Obsidian", "Todoist"), never its id. */
-const sourceName = (id: string) => serviceOf(id).name;
+/** A source as Rules names it ("Reading", "Tasks"), never its id. */
+const sourceName = (id: string) => styleOf(id).name;
 /** "45 min", "2 tasks", "15 zone min", "2,000 steps": a source's rate, with its unit. */
 function rateOf(id: string, every: number, s: Settings): string {
   switch (s.sources[id]?.kind) {
@@ -30,8 +30,15 @@ export function describe([change]: Pending, s: Settings): string {
     case "Source": return v.on
       ? (s.sources[v.id]?.on ? `${sourceName(v.id)}: 1 Voucher per ${rateOf(v.id, v.every, s)}` : `${sourceName(v.id)} on, 1 Voucher per ${rateOf(v.id, v.every, s)}`)
       : `${sourceName(v.id)} off`;
-    case "AddSource": return `Add ${sourceName(v.id)} as a source`;
-    case "SourceApps": return `${sourceName(v.id)} counts ${v.packages.length} app${v.packages.length === 1 ? "" : "s"}`;
+    case "AddSource": return `New source: ${v.source.name || sourceName(v.id)}`;
+    case "RenameSource": return `Rename ${sourceName(v.id)} to ${v.name}`;
+    case "DeleteSource": return `Delete ${sourceName(v)}`;
+    case "SourceApps": {
+      // Only adding waits, so name what is being added.
+      const had = s.sources[v.id]?.packages ?? [];
+      const added = (v.packages as string[]).filter((p) => !had.includes(p)).map((p) => v.labels?.[p] ?? p.replace(/^win:/, ""));
+      return added.length ? `${sourceName(v.id)} adds ${added.join(", ")}` : `${sourceName(v.id)} counts ${v.packages.length} app${v.packages.length === 1 ? "" : "s"}`;
+    }
     case "MaxHeartRate": return `Maximum heart rate ${v}`;
     case "BlocklistOn": return `${s.blocklists[v.id]?.name ?? v.id} blocklist off`;
     case "BlockApp": return `${v.app.label} off in ${s.blocklists[v.list]?.name ?? v.list}`;

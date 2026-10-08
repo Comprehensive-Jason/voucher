@@ -33,6 +33,9 @@ export type SourceKind = "tasks" | "workout" | "focus" | "steps";
 /** One source's standing today, from the Ledger. */
 export interface SourceProgress {
   id: string;
+  /** The group's name, such as "Reading". */
+  name?: string;
+  color?: string;
   kind: SourceKind;
   on: boolean;
   /** One Voucher per this many tasks or minutes. */
@@ -114,9 +117,22 @@ export interface Settings {
   curfew_end: string;
   morning_boundary: string;
   daily_goal: number;
-  sources: Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[]; max_heart_rate?: number; color?: string }>;
+  sources: Record<string, Source>;
   blocklists: Record<string, Blocklist>;
   released_devices: string[];
+}
+
+/** A source: a named group with one counter and one Earning rate. Its
+ *  `packages` are apps (Focus) or services (Tasks: `todoist`, `clickup`). */
+export interface Source {
+  name: string;
+  kind: SourceKind;
+  on: boolean;
+  every: number;
+  packages: string[];
+  labels?: Record<string, string>;
+  max_heart_rate?: number;
+  color?: string;
 }
 
 export interface Status {

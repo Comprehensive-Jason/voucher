@@ -3,7 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DeviceUsage, Protection, SourceProgress, Today } from "./types";
 import { sampleLedger } from "./sample";
-import { rememberSourceColors } from "./colors.svelte";
+import { rememberSources } from "./colors.svelte";
 
 /** Fired after any change to the Ledger's settings, for panels to reload. */
 export const RULES_CHANGED = "voucher:rules-changed";
@@ -17,7 +17,8 @@ export function device<T>(command: string, args?: Record<string, unknown>): Prom
 
 export async function today(): Promise<Today> {
   const t = inTauri ? await invoke<Today>("today") : sampleToday();
-  rememberSourceColors(t.sourceColors ?? {});
+  // Today names each source and carries its colour; older desktop builds send only colours.
+  rememberSources(t.sources?.some((s) => s.name) ? t.sources : t.sourceColors ?? {});
   return t;
 }
 
@@ -75,10 +76,10 @@ export async function ledger<T>(method: "GET" | "POST", path: string, body?: unk
   if (method === "POST" && ["/change", "/cancel", "/setup"].some((p) => path.startsWith(p)) && typeof window !== "undefined") {
     window.dispatchEvent(new Event(RULES_CHANGED));
   }
-  // Any fresh look at the settings also refreshes the colours sources are drawn in.
+  // Any fresh look at the settings also refreshes how sources are named and drawn.
   if (path === "/status") {
-    const sources = (reply as { settings?: { sources?: Record<string, { color?: string }> } }).settings?.sources;
-    if (sources) rememberSourceColors(sources);
+    const sources = (reply as { settings?: { sources?: Record<string, { name?: string; color?: string }> } }).settings?.sources;
+    if (sources) rememberSources(sources);
   }
   return reply;
 }

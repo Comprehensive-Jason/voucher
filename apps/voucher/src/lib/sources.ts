@@ -1,60 +1,57 @@
-// How each Activity source is named and coloured everywhere in the app. The
-// Ledger names a source by id (`todoist`, `obsidian`, …), and each earning by
-// its source's prefix (`todoist:…`). A colour chosen on Rules replaces the
-// default; Todoist and ClickUp share one, as Tasks.
+// How each Activity source is named and coloured everywhere in the app. Every
+// source is a group the Ledger names (Tasks, Reading, …); a log entry names
+// its source by prefix (`reading:…`), or by its service (`todoist:…`) for
+// tasks. A colour chosen on Rules replaces the default.
 import { custom } from "./colors.svelte";
 export interface SourceStyle { name: string; short: string; color: string; sub?: string }
 
+/** Defaults for the sources Voucher ships with, and for ones from before
+ *  groups (`readwise`, `moonreader`) that older log entries still name. */
 export const SOURCES: Record<string, SourceStyle> = {
   tasks: { name: "Tasks", short: "Tasks", color: "#5b9cff" },
   obsidian: { name: "Obsidian", short: "Obsidian", color: "#b08cff" },
   workout: { name: "Workout", short: "Workout", color: "#ff8a5c" },
+  reading: { name: "Reading", short: "Reading", color: "#ffd166" },
   readwise: { name: "Readwise Reader", short: "Reader", color: "#ffd166" },
   moonreader: { name: "Moon+ Reader", short: "Moon+", color: "#e0a82e" },
   anki: { name: "Anki", short: "Anki", color: "#ff6fa8" },
   steps: { name: "Steps", short: "Steps", color: "#05afa5" },
 };
 
-/** Per-service styles for the Sources page, where Todoist and ClickUp are separate. */
+/** The task services, members of the Tasks group. */
 const SERVICES: Record<string, SourceStyle> = {
   todoist: { name: "Todoist", short: "Todoist", color: "#5b9cff", sub: "your completed tasks" },
   clickup: { name: "ClickUp", short: "ClickUp", color: "#7aa7ff", sub: "assigned to you" },
-  workout: { name: "Zone minutes", short: "Workout", color: "#ff8a5c", sub: "heart rate" },
-  steps: { name: "Steps", short: "Steps", color: "#05afa5", sub: "walked today" },
 };
 
-/** Todoist and ClickUp both count as Tasks. */
-const ALIASES: Record<string, string> = { todoist: "tasks", clickup: "tasks" };
+/** Colours for groups the user makes, in the order new ones take them (light
+ *  swatches from the palette, so the picker shows them as chosen). */
+export const SPARE = ["#7dd9fb", "#c1d58a", "#f3b2e6", "#d1bfff", "#e9c57d", "#76e0d6", "#feb896"];
 
-/** Colours for apps added as Focused time sources later. */
-const SPARE = ["#7fd1ff", "#9be36d", "#ff9ec7", "#c3a6ff", "#ffd27f"];
-
-/** The colour chosen on Rules for a source, if any. */
-function chosen(id: string): string | undefined {
-  if (id === "tasks" || ALIASES[id] === "tasks") return custom.sources.todoist ?? custom.sources.clickup;
-  return custom.sources[id];
-}
-
-const recolor = (style: SourceStyle, id: string): SourceStyle => {
-  const color = chosen(id);
-  return color ? { ...style, color } : style;
-};
+/** Earnings name a service; they count toward the Tasks group. */
+const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);
 
 export function styleOf(id: string): SourceStyle {
-  const known = SOURCES[ALIASES[id] ?? id];
-  if (known) return recolor(known, id);
-  const n = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const name = id.replace(/^app\./, "");
-  return recolor({ name, short: name, color: SPARE[n % SPARE.length] }, id);
+  const key = groupOf(id);
+  const known = SOURCES[key];
+  const name = custom.names[key];
+  const n = [...key].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const base = known ?? { name: key.replace(/^app\./, ""), short: key.replace(/^app\./, ""), color: SPARE[n % SPARE.length] };
+  // A name set in Rules wins over the shipped one, short form included.
+  const named = name && name !== base.name ? { ...base, name, short: name } : base;
+  const color = custom.sources[key];
+  return color ? { ...named, color } : named;
 }
 
+/** A task service (Todoist, ClickUp) by its own name, or any other source. */
 export function serviceOf(id: string): SourceStyle {
-  return SERVICES[id] ? recolor(SERVICES[id], id) : styleOf(id);
+  return SERVICES[id] ?? styleOf(id);
 }
 
 /** The colour a source is drawn in before any choice on Rules. */
 export function defaultColorOf(id: string): string {
-  return (SERVICES[id] ?? SOURCES[ALIASES[id] ?? id])?.color ?? styleOf(id).color;
+  const key = groupOf(id);
+  return SOURCES[key]?.color ?? SPARE[[...key].reduce((a, c) => a + c.charCodeAt(0), 0) % SPARE.length];
 }
 
 export function sourceOf(task: string): SourceStyle {

@@ -1,6 +1,10 @@
 use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, civil::time, tz::TimeZone};
-use voucher_ledger::{Change, Completion, Effect, Ledger, Settings, default_sources};
+use std::collections::BTreeMap;
+
+use voucher_ledger::{
+    Change, Completion, Effect, Ledger, Settings, Source, SourceKind, default_sources,
+};
 
 fn settings() -> Settings {
     Settings {
@@ -49,9 +53,9 @@ fn change(ledger: &mut Ledger, source: &str, on: bool, every: u32, moment: &str)
 }
 
 #[test]
-fn a_task_source_set_to_one_voucher_per_two_tasks_pays_on_every_second_task() {
+fn tasks_from_both_services_share_one_counter() {
     let mut ledger = fresh();
-    change(&mut ledger, "todoist", true, 2, "2026-10-07T07:00-07:00");
+    change(&mut ledger, "tasks", true, 2, "2026-10-07T07:00-07:00");
 
     ledger.record(
         &[done("todoist:a", "2026-10-07T08:00-07:00")],
@@ -59,7 +63,7 @@ fn a_task_source_set_to_one_voucher_per_two_tasks_pays_on_every_second_task() {
     );
     assert_eq!(ledger.bank(), 0);
     ledger.record(
-        &[done("todoist:b", "2026-10-07T09:00-07:00")],
+        &[done("clickup:b", "2026-10-07T09:00-07:00")],
         at("2026-10-07T09:01-07:00"),
     );
     assert_eq!(ledger.bank(), 1);
@@ -69,7 +73,7 @@ fn a_task_source_set_to_one_voucher_per_two_tasks_pays_on_every_second_task() {
 fn a_switched_off_source_earns_nothing_and_never_back_pays() {
     let mut ledger = fresh();
     assert_eq!(
-        change(&mut ledger, "clickup", false, 1, "2026-10-07T07:00-07:00"),
+        change(&mut ledger, "tasks", false, 1, "2026-10-07T07:00-07:00"),
         Effect::Now
     );
 
@@ -77,7 +81,7 @@ fn a_switched_off_source_earns_nothing_and_never_back_pays() {
         &[done("clickup:a", "2026-10-07T08:00-07:00")],
         at("2026-10-07T08:01-07:00"),
     );
-    let effect = change(&mut ledger, "clickup", true, 1, "2026-10-07T09:00-07:00");
+    let effect = change(&mut ledger, "tasks", true, 1, "2026-10-07T09:00-07:00");
     ledger.record(
         &[done("clickup:a", "2026-10-07T08:00-07:00")],
         at("2026-10-08T06:30-07:00"),
@@ -212,6 +216,7 @@ fn adding_an_app_to_a_source_waits_for_morning_and_removing_one_applies_now() {
         Change::SourceApps {
             id: "obsidian".into(),
             packages: more.clone(),
+            labels: BTreeMap::new(),
         },
         at("2026-10-07T10:00-07:00"),
     );
@@ -226,6 +231,7 @@ fn adding_an_app_to_a_source_waits_for_morning_and_removing_one_applies_now() {
         Change::SourceApps {
             id: "obsidian".into(),
             packages: fewer.clone(),
+            labels: BTreeMap::new(),
         },
         at("2026-10-08T07:00-07:00"),
     );
@@ -269,4 +275,136 @@ fn steps_earn_by_the_step_once_switched_on() {
     let steps = today.sources.iter().find(|s| s.id == "steps").unwrap();
     assert_eq!(ledger.bank(), 1);
     assert_eq!(steps.earned, 1);
+}
+
+fn group(name: &str, packages: &[&str]) -> Source {
+    Source {
+        name: name.into(),
+        kind: SourceKind::Focus,
+        on: true,
+        every: 30,
+        packages: packages.iter().map(|p| p.to_string()).collect(),
+        labels: BTreeMap::new(),
+        max_heart_rate: None,
+        color: None,
+    }
+}
+
+#[test]
+fn a_new_group_waits_for_morning_then_its_apps_add_up_toward_one_voucher() {
+    let mut ledger = fresh();
+    let effect = ledger.request(
+        Change::AddSource {
+            id: "chinese".into(),
+            source: group("Chinese", &["com.pleco.chinesesystem", "com.duolingo"]),
+        },
+        at("2026-10-07T10:00-07:00"),
+    );
+    assert!(matches!(effect, Effect::At(_)));
+
+    // The phone sends the group's running total: 20 min of Pleco, then 10 of Duolingo.
+    let day = "2026-10-08".parse().unwrap();
+    ledger.report("chinese", day, 20, None, at("2026-10-08T09:00-07:00"));
+    assert_eq!(ledger.bank(), 0);
+    ledger.report("chinese", day, 30, None, at("2026-10-08T09:10-07:00"));
+    assert_eq!(ledger.bank(), 1);
+    assert_eq!(
+        ledger.settings(at("2026-10-08T09:10-07:00")).sources["chinese"].name,
+        "Chinese"
+    );
+}
+
+#[test]
+fn an_app_already_in_one_group_is_left_out_of_another() {
+    let mut ledger = fresh();
+    ledger.request(
+        Change::AddSource {
+            id: "notes".into(),
+            source: group("Notes", &["md.obsidian", "com.samsung.android.app.notes"]),
+        },
+        at("2026-10-07T10:00-07:00"),
+    );
+    let settings = ledger.settings(at("2026-10-08T06:00-07:00"));
+    assert_eq!(
+        settings.sources["notes"].packages,
+        ["com.samsung.android.app.notes"]
+    );
+    assert_eq!(settings.sources["obsidian"].packages[0], "md.obsidian");
+}
+
+#[test]
+fn renaming_or_deleting_a_group_applies_now() {
+    let mut ledger = fresh();
+    let now = at("2026-10-07T10:00-07:00");
+    let renamed = ledger.request(
+        Change::RenameSource {
+            id: "reading".into(),
+            name: "Books".into(),
+        },
+        now,
+    );
+    let deleted = ledger.request(Change::DeleteSource("anki".into()), now);
+
+    assert_eq!((renamed, deleted), (Effect::Now, Effect::Now));
+    let settings = ledger.settings(now);
+    assert_eq!(settings.sources["reading"].name, "Books");
+    assert!(!settings.sources.contains_key("anki"));
+}
+
+#[test]
+fn a_service_taken_out_of_the_tasks_group_stops_earning() {
+    let mut ledger = fresh();
+    ledger.request(
+        Change::SourceApps {
+            id: "tasks".into(),
+            packages: vec!["todoist".into()],
+            labels: BTreeMap::new(),
+        },
+        at("2026-10-07T07:00-07:00"),
+    );
+    ledger.record(
+        &[
+            done("todoist:a", "2026-10-07T08:00-07:00"),
+            done("clickup:b", "2026-10-07T08:00-07:00"),
+        ],
+        at("2026-10-07T08:01-07:00"),
+    );
+    assert_eq!(ledger.bank(), 1);
+    assert_eq!(
+        ledger.settings(at("2026-10-07T08:01-07:00")).sources["tasks"].labels["todoist"],
+        "Todoist"
+    );
+}
+
+#[test]
+fn sources_saved_before_groups_load_as_groups() {
+    let ledger = fresh();
+    let mut saved: serde_json::Value = serde_json::from_str(&ledger.save()).unwrap();
+    saved["settings"]["sources"] = serde_json::json!({
+        "todoist": { "kind": "tasks", "on": true, "every": 1, "color": "#123456" },
+        "clickup": { "kind": "tasks", "on": false, "every": 1 },
+        "moonreader": { "kind": "focus", "on": true, "every": 30, "packages": ["com.flyersoft.moonreaderp"] },
+        "app.pleco": { "kind": "focus", "on": true, "every": 30, "packages": ["com.pleco.chinesesystem"] }
+    });
+    saved["pending"] = serde_json::json!([[{ "Source": { "id": "clickup", "on": true, "every": 1 } }, "2026-10-08T13:00:00Z"]]);
+
+    let mut ledger = Ledger::load(&saved.to_string(), SigningKey::from_bytes(&[7; 32])).unwrap();
+    let settings = ledger.settings(at("2026-10-07T10:00-07:00")).clone();
+
+    let tasks = &settings.sources["tasks"];
+    assert_eq!((tasks.name.as_str(), tasks.on), ("Tasks", true));
+    // Only the service that was earning joins; the waiting switch-on carries over.
+    assert_eq!(tasks.packages, ["todoist"]);
+    assert_eq!(tasks.color.as_deref(), Some("#123456"));
+    assert!(!settings.sources.contains_key("todoist"));
+    assert_eq!(settings.sources["moonreader"].name, "Moon+ Reader");
+    assert_eq!(
+        settings.sources["moonreader"].labels["com.flyersoft.moonreaderp"],
+        "Moon+ Reader Pro"
+    );
+    assert_eq!(settings.sources["app.pleco"].name, "pleco");
+    assert!(matches!(
+        &ledger.pending(at("2026-10-07T10:00-07:00"))[0].0,
+        Change::Source { id, .. } if id == "tasks"
+    ));
 }

@@ -35,7 +35,8 @@ pub struct Settings {
     /// Vouchers to earn in a Day for it to count toward the Streak.
     #[serde(default = "default_daily_goal")]
     pub daily_goal: u32,
-    /// Every Activity source, by id (`todoist`, `obsidian`, …).
+    /// Every Activity source, by id (`tasks`, `obsidian`, …). Each is a
+    /// group: one counter and one Earning rate for all of its members.
     #[serde(default = "default_sources")]
     pub sources: BTreeMap<String, Source>,
     /// Every blocklist, by id. What they block, merged, is the Distractions.
@@ -223,18 +224,27 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
     })
 }
 
-/// How one Activity source earns.
+/// How one Activity source earns. A source is a group: everything in it
+/// shares one counter toward its next Voucher and one Earning rate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Source {
+    /// What the source is called everywhere, such as "Reading".
+    #[serde(default)]
+    pub name: String,
     pub kind: SourceKind,
     pub on: bool,
     /// One Voucher per this many tasks (Tasks) or minutes (Workout, Focus):
     /// the Earning rate. Bigger is slower, so stricter.
     pub every: u32,
-    /// The Android apps whose on-screen time counts (Focus only); several
-    /// when an app comes in editions, such as a free and a paid one.
+    /// The group's members. Focus: the Android packages, and `win:` programs,
+    /// whose on-screen time counts, added together. Tasks: the services whose
+    /// finished tasks count (`todoist`, `clickup`). Workout and Steps: none.
+    /// No package belongs to two sources, so nothing earns twice.
     #[serde(default)]
     pub packages: Vec<String>,
+    /// Each member's display name, such as "Moon+ Reader Pro".
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub labels: BTreeMap<String, String>,
     /// Workout only: the maximum heart rate zone minutes are measured
     /// against. The phone uses 195 when this is unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -261,47 +271,145 @@ pub enum SourceKind {
 
 /// The sources a new Ledger starts with.
 pub fn default_sources() -> BTreeMap<String, Source> {
-    let source = |kind, every, packages: &[&str]| Source {
+    let source = |name: &str, kind, every, members: &[&str]| Source {
+        name: name.into(),
         kind,
         on: true,
         every,
-        packages: packages.iter().map(|p| p.to_string()).collect(),
+        packages: members.iter().map(|p| p.to_string()).collect(),
+        labels: members
+            .iter()
+            .filter_map(|p| Some((p.to_string(), known_label(p)?.to_string())))
+            .collect(),
         max_heart_rate: None,
         color: None,
     };
     BTreeMap::from([
-        ("todoist".into(), source(SourceKind::Tasks, 1, &[])),
-        ("clickup".into(), source(SourceKind::Tasks, 1, &[])),
-        ("workout".into(), source(SourceKind::Workout, 15, &[])),
+        (
+            "tasks".into(),
+            source("Tasks", SourceKind::Tasks, 1, &["todoist", "clickup"]),
+        ),
+        (
+            "workout".into(),
+            source("Workout", SourceKind::Workout, 15, &[]),
+        ),
         (
             "obsidian".into(),
-            source(SourceKind::Focus, 30, &["md.obsidian", "win:Obsidian.exe"]),
-        ),
-        (
-            "readwise".into(),
-            source(SourceKind::Focus, 30, &["com.readermobile"]),
-        ),
-        (
-            "moonreader".into(),
             source(
+                "Obsidian",
                 SourceKind::Focus,
                 30,
-                &["com.flyersoft.moonreaderp", "com.flyersoft.moonreader"],
+                &["md.obsidian", "win:Obsidian.exe"],
+            ),
+        ),
+        (
+            "reading".into(),
+            source(
+                "Reading",
+                SourceKind::Focus,
+                30,
+                &[
+                    "com.readermobile",
+                    "com.flyersoft.moonreaderp",
+                    "com.flyersoft.moonreader",
+                ],
             ),
         ),
         (
             "anki".into(),
-            source(SourceKind::Focus, 30, &["com.ichi2.anki", "win:anki.exe"]),
+            source(
+                "Anki",
+                SourceKind::Focus,
+                30,
+                &["com.ichi2.anki", "win:anki.exe"],
+            ),
         ),
         // Off until switched on: not everyone carries a phone that counts steps.
         (
             "steps".into(),
             Source {
                 on: false,
-                ..source(SourceKind::Steps, 2000, &[])
+                ..source("Steps", SourceKind::Steps, 2000, &[])
             },
         ),
     ])
+}
+
+/// Display names for the members Voucher ships with.
+fn known_label(member: &str) -> Option<&'static str> {
+    Some(match member {
+        "todoist" => "Todoist",
+        "clickup" => "ClickUp",
+        "md.obsidian" => "Obsidian",
+        "win:Obsidian.exe" => "Obsidian for Windows",
+        "com.readermobile" => "Readwise Reader",
+        "com.flyersoft.moonreaderp" => "Moon+ Reader Pro",
+        "com.flyersoft.moonreader" => "Moon+ Reader",
+        "com.ichi2.anki" => "AnkiDroid",
+        "win:anki.exe" => "Anki for Windows",
+        _ => return None,
+    })
+}
+
+/// Brings sources saved before source groups up to date: Todoist and
+/// ClickUp, once two sources, become one Tasks group, and every source gets
+/// a name and labels for its members.
+fn upgrade_sources(sources: &mut BTreeMap<String, Source>) {
+    let grouped = sources
+        .values()
+        .any(|s| s.kind == SourceKind::Tasks && !s.packages.is_empty());
+    let services: Vec<(String, Source)> = ["todoist", "clickup"]
+        .into_iter()
+        .filter_map(|id| Some((id.to_string(), sources.remove(id)?)))
+        .collect();
+    if !grouped && !services.is_empty() {
+        let on: Vec<&(String, Source)> = services.iter().filter(|(_, s)| s.on).collect();
+        // Only the services that were earning join, unless none were.
+        let members = if on.is_empty() {
+            services.iter().collect()
+        } else {
+            on.clone()
+        };
+        sources.insert(
+            "tasks".into(),
+            Source {
+                name: "Tasks".into(),
+                kind: SourceKind::Tasks,
+                on: !on.is_empty(),
+                every: members.iter().map(|(_, s)| s.every).min().unwrap_or(1),
+                packages: members.iter().map(|(id, _)| id.clone()).collect(),
+                labels: BTreeMap::new(),
+                max_heart_rate: None,
+                color: services.iter().find_map(|(_, s)| s.color.clone()),
+            },
+        );
+    }
+    for (id, source) in sources.iter_mut() {
+        for package in &source.packages {
+            if let (false, Some(label)) =
+                (source.labels.contains_key(package), known_label(package))
+            {
+                source.labels.insert(package.clone(), label.into());
+            }
+        }
+        if source.name.is_empty() {
+            source.name = match id.as_str() {
+                "tasks" => "Tasks".into(),
+                "workout" => "Workout".into(),
+                "steps" => "Steps".into(),
+                "obsidian" => "Obsidian".into(),
+                "readwise" => "Readwise Reader".into(),
+                "moonreader" => "Moon+ Reader".into(),
+                "anki" => "Anki".into(),
+                // An app added on its own before groups: name it after the app.
+                other => source
+                    .packages
+                    .first()
+                    .and_then(|p| source.labels.get(p).cloned())
+                    .unwrap_or_else(|| other.trim_start_matches("app.").to_string()),
+            };
+        }
+    }
 }
 
 pub const DEFAULT_DAILY_GOAL: u32 = 16;
@@ -374,6 +482,13 @@ pub enum Change {
         id: String,
         source: Source,
     },
+    /// Cosmetic, so it applies at once.
+    RenameSource {
+        id: String,
+        name: String,
+    },
+    /// Fewer ways to earn, so it applies at once.
+    DeleteSource(String),
     // Blocklist changes. Each is a Tightening when everything blocked before
     // is still blocked after it, and a Loosening otherwise.
     NewBlocklist {
@@ -413,6 +528,9 @@ pub enum Change {
     SourceApps {
         id: String,
         packages: Vec<String>,
+        /// Names for the members, as in `Source::labels`.
+        #[serde(default)]
+        labels: BTreeMap<String, String>,
     },
     /// The maximum heart rate Workout zone minutes are measured against.
     /// Lower makes zone minutes easier, so it is a Loosening.
@@ -502,6 +620,9 @@ pub struct DaySummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SourceProgress {
     pub id: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
     pub kind: SourceKind,
     pub on: bool,
     pub every: u32,
@@ -601,7 +722,8 @@ fn set_up_already() -> bool {
 }
 
 impl Ledger {
-    pub fn new(settings: Settings, key: SigningKey, started_at: Timestamp) -> Self {
+    pub fn new(mut settings: Settings, key: SigningKey, started_at: Timestamp) -> Self {
+        upgrade_sources(&mut settings.sources);
         Ledger {
             key,
             state: State {
@@ -626,10 +748,17 @@ impl Ledger {
 
     /// Rebuilds a Ledger from saved JSON and its signing key.
     pub fn load(saved: &str, key: SigningKey) -> Result<Self, serde_json::Error> {
-        Ok(Ledger {
-            key,
-            state: serde_json::from_str(saved)?,
-        })
+        let mut state: State = serde_json::from_str(saved)?;
+        upgrade_sources(&mut state.settings.sources);
+        // Waiting changes to Todoist or ClickUp now belong to the Tasks group.
+        for (change, _) in &mut state.pending {
+            if let Change::Source { id, .. } | Change::SourceColor { id, .. } = change {
+                if id == "todoist" || id == "clickup" {
+                    *id = "tasks".into();
+                }
+            }
+        }
+        Ok(Ledger { key, state })
     }
 
     /// The public half of the signing key, base64url, for Enforcers to check Unlocks with.
@@ -700,10 +829,15 @@ impl Ledger {
         for completion in completions {
             let day = day_of(&self.state.settings, completion.at);
             let counts = day >= oldest && completion.at >= self.state.started_at;
+            // A service in no Tasks group earns nothing, and stays free to
+            // earn if it joins one within the earning window.
+            let Some(source) = group_of(&self.state.settings, &completion.task).map(String::from)
+            else {
+                continue;
+            };
             if !counts || !self.state.earned.insert((completion.task.clone(), day)) {
                 continue;
             }
-            let source = source_of(&completion.task).to_string();
             let paid = self.count(&source, day, 1, completion.at, now, |_| {
                 (completion.task.clone(), completion.title.clone())
             });
@@ -951,7 +1085,9 @@ impl Ledger {
         let mut goal_met_at = None;
         for entry in log.iter().rev() {
             if let Entry::Earned { task, at, .. } = entry {
-                *by_source.entry(source_of(task).to_string()).or_insert(0) += 1;
+                // Earnings from sources since removed keep their own prefix.
+                let source = group_of(settings, task).unwrap_or(source_of(task));
+                *by_source.entry(source.to_string()).or_insert(0) += 1;
                 so_far += 1;
                 if so_far == goal && goal > 0 {
                     goal_met_at = Some(*at);
@@ -963,11 +1099,12 @@ impl Ledger {
             .iter()
             .map(|(id, source)| SourceProgress {
                 id: id.clone(),
+                name: source.name.clone(),
+                color: source.color.clone(),
                 kind: source.kind,
                 on: source.on,
                 every: source.every,
                 progress: score.progress.get(id).copied().unwrap_or(0),
-                // Task sources share their earnings through their own prefix.
                 earned: by_source.get(id).copied().unwrap_or(0),
             })
             .collect();
@@ -1166,6 +1303,7 @@ impl Ledger {
                 None => false,
             },
             Change::AddSource { .. } => true,
+            Change::RenameSource { .. } | Change::DeleteSource(_) => false,
             Change::ReleaseDevice(ref device) => {
                 !self.state.settings.released_devices.contains(device)
             }
@@ -1175,6 +1313,7 @@ impl Ledger {
             Change::SourceApps {
                 ref id,
                 ref packages,
+                ..
             } => {
                 let old = self.state.settings.sources.get(id).map(|s| &s.packages);
                 packages
@@ -1286,6 +1425,34 @@ const GAP_MINUTES: i64 = 10;
 /// What the phone assumes when the Workout source has no maximum heart rate.
 pub const DEFAULT_MAX_HEART_RATE: u32 = 195;
 
+/// `packages` without any that another source already has: one app's time
+/// must never earn twice.
+fn unclaimed(settings: &Settings, id: &str, packages: Vec<String>) -> Vec<String> {
+    packages
+        .into_iter()
+        .filter(|p| {
+            !settings
+                .sources
+                .iter()
+                .any(|(other, s)| other != id && s.packages.contains(p))
+        })
+        .collect()
+}
+
+/// The source an earning counts toward: the one its prefix names
+/// (`obsidian:…`), or the Tasks group its service is in (`todoist:…`).
+fn group_of<'a>(settings: &'a Settings, task: &'a str) -> Option<&'a str> {
+    let prefix = source_of(task);
+    if settings.sources.contains_key(prefix) {
+        return Some(prefix);
+    }
+    settings
+        .sources
+        .iter()
+        .find(|(_, s)| s.kind == SourceKind::Tasks && s.packages.iter().any(|p| p == prefix))
+        .map(|(id, _)| id.as_str())
+}
+
 /// The source an earning came from: the prefix of `todoist:123`.
 fn source_of(task: &str) -> &str {
     task.split_once(':').map_or(task, |(source, _)| source)
@@ -1308,7 +1475,10 @@ fn is_hex_color(color: &str) -> bool {
 /// Names the one thing a keyed change sets, such as one app in one blocklist.
 fn setting_key(change: &Change) -> Option<String> {
     Some(match change {
-        Change::Source { id, .. } | Change::AddSource { id, .. } => format!("source {id}"),
+        Change::Source { id, .. } | Change::AddSource { id, .. } | Change::DeleteSource(id) => {
+            format!("source {id}")
+        }
+        Change::RenameSource { id, .. } => format!("source-name {id}"),
         Change::SourceApps { id, .. } => format!("source-apps {id}"),
         Change::NewBlocklist { id, .. }
         | Change::ResetBlocklist(id)
@@ -1342,8 +1512,19 @@ fn apply_to(settings: &mut Settings, change: Change) {
                 source.every = every.max(1);
             }
         }
-        Change::AddSource { id, source } => {
-            settings.sources.entry(id).or_insert(source);
+        Change::AddSource { id, mut source } => {
+            if !settings.sources.contains_key(&id) {
+                source.packages = unclaimed(settings, &id, source.packages);
+                settings.sources.insert(id, source);
+            }
+        }
+        Change::RenameSource { id, name } => {
+            if let (Some(source), false) = (settings.sources.get_mut(&id), name.trim().is_empty()) {
+                source.name = name.trim().to_string();
+            }
+        }
+        Change::DeleteSource(id) => {
+            settings.sources.remove(&id);
         }
         // A new blocklist never replaces one with the same id.
         Change::NewBlocklist { id, list } => {
@@ -1417,9 +1598,22 @@ fn apply_to(settings: &mut Settings, change: Change) {
         Change::KeepDevice(device) => {
             settings.released_devices.remove(&device);
         }
-        Change::SourceApps { id, packages } => {
+        Change::SourceApps {
+            id,
+            packages,
+            mut labels,
+        } => {
+            let packages = unclaimed(settings, &id, packages);
             if let Some(source) = settings.sources.get_mut(&id) {
+                // Keep names already known, for members the change didn't name.
+                for package in &packages {
+                    if let Some(label) = source.labels.get(package) {
+                        labels.entry(package.clone()).or_insert(label.clone());
+                    }
+                }
+                labels.retain(|package, _| packages.contains(package));
                 source.packages = packages;
+                source.labels = labels;
             }
         }
         Change::MaxHeartRate(bpm) => {

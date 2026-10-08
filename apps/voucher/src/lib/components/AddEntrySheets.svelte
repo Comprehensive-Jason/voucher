@@ -1,13 +1,18 @@
 <script lang="ts">
-  // The two "Add" sheets for a blocklist: pick an installed app, or type a site.
+  // The two "Add" sheets for a blocklist: pick an installed app, or type a
+  // site. Source groups use the app sheet alone, without "Every game", and
+  // with apps another group already counts shown but not pickable.
   import { launchableApps } from "../api";
   import Sheet from "./Sheet.svelte";
 
-  let { mode, onapp, onsite, onclose }: {
+  let { mode, onapp, onsite, onclose, games = true, taken = {} }: {
     mode: "app" | "site" | null;
     onapp: (app: { package: string; label: string }) => void;
-    onsite: (site: string) => void;
+    onsite?: (site: string) => void;
     onclose: () => void;
+    games?: boolean;
+    /** Apps that can't be picked, with the name of what already has them. */
+    taken?: Record<string, string>;
   } = $props();
 
   let apps = $state<{ package: string; label: string }[]>([]);
@@ -24,11 +29,15 @@
   <Sheet {onclose}>
     <h2>Add an app</h2>
     <input placeholder="Search apps" bind:value={filter} />
-    <button class="pick" onclick={() => onapp({ package: "category:game", label: "Every game" })}>
-      <span>Every game</span><span class="pkg">Any app marked as a game, including ones installed later</span>
-    </button>
+    {#if games}
+      <button class="pick" onclick={() => onapp({ package: "category:game", label: "Every game" })}>
+        <span>Every game</span><span class="pkg">Any app marked as a game, including ones installed later</span>
+      </button>
+    {/if}
     {#each shown as a (a.package)}
-      <button class="pick" onclick={() => onapp(a)}><span>{a.label}</span><span class="mono pkg">{a.package}</span></button>
+      <button class="pick" disabled={!!taken[a.package]} onclick={() => onapp(a)}>
+        <span>{a.label}</span><span class="mono pkg">{taken[a.package] ? `Already in ${taken[a.package]}` : a.package}</span>
+      </button>
     {:else}
       <p class="body">No apps to show.</p>
     {/each}
@@ -38,7 +47,7 @@
     <h2>Add a site</h2>
     <p class="body">Blocks the site and all its subdomains in your browsers.</p>
     <input class="mono" placeholder="example.com" autocapitalize="off" autocomplete="off" bind:value={site} />
-    <button class="primary" disabled={!valid} onclick={() => { onsite(domain); site = ""; }}>Add {valid ? domain : "site"}</button>
+    <button class="primary" disabled={!valid} onclick={() => { onsite?.(domain); site = ""; }}>Add {valid ? domain : "site"}</button>
   </Sheet>
 {/if}
 
@@ -48,6 +57,7 @@
   input { height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); padding: 0 14px; font: 500 15px var(--font); }
   input.mono { font-family: var(--mono); }
   .pick { min-height: 52px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: none; color: var(--ink); text-align: left; }
+  .pick:disabled { opacity: .45; }
   .pkg { font-size: 11px; color: var(--muted); }
   .primary { min-height: 52px; border-radius: 14px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 16px var(--font); }
   .primary:disabled { background: var(--line); color: var(--muted); }

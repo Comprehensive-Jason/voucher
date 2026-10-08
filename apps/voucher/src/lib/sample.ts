@@ -1,6 +1,6 @@
 // Sample Ledger replies for design checks in a plain browser, where there is
 // no Tauri and no Ledger. Mirrors the round 4 canvas with neutral task names.
-import type { Blocklist, DaySummary, DayTotal, Entry, SourceKind } from "./types";
+import type { Blocklist, DaySummary, DayTotal, Entry, Source } from "./types";
 
 const app = (pkg: string, label: string, note: string | null = null, added = false) =>
   ({ package: pkg, label, note, on: true, added });
@@ -16,11 +16,11 @@ const redeemed = (time: string, vouchers: number, day = TODAY): Entry =>
 const days: Record<string, DaySummary> = {
   [TODAY]: {
     day: TODAY, earned: 11, redeemed: 3, unlocked_minutes: 30, goal: 16, goal_met: false, goal_met_at: null,
-    streak: 4, by_source: { todoist: 7, obsidian: 2, workout: 1, readwise: 1 }, sources: [],
+    streak: 4, by_source: { tasks: 7, obsidian: 2, workout: 1, reading: 1 }, sources: [],
     log: [
       redeemed("19:42", 2),
       earned("16:40", "todoist:1", "Weekly review"),
-      earned("15:50", "readwise:1", "30 min focused"),
+      earned("15:50", "reading:1", "30 min focused"),
       earned("15:20", "obsidian:2", "30 min focused"),
       earned("14:40", "workout:1", "Fitbod upper body"),
       earned("13:05", "clickup:1", "Draft the budget"),
@@ -35,17 +35,17 @@ const days: Record<string, DaySummary> = {
   },
   "2026-10-06": {
     day: "2026-10-06", earned: new URLSearchParams(location.search).get("state") === "streaklost" ? 9 : 17, redeemed: 4, unlocked_minutes: 40, goal: 16, goal_met: new URLSearchParams(location.search).get("state") !== "streaklost",
-    goal_met_at: "2026-10-06T17:30:00-07:00", streak: 4, by_source: { todoist: 11, obsidian: 3, workout: 1, readwise: 1, moonreader: 1 }, sources: [],
+    goal_met_at: "2026-10-06T17:30:00-07:00", streak: 4, by_source: { tasks: 11, obsidian: 3, workout: 1, reading: 2 }, sources: [],
     log: [
       redeemed("21:10", 1, "2026-10-06"),
       earned("19:05", "obsidian:3", "30 min focused", "2026-10-06"),
       earned("17:30", "todoist:7", "Submit lab report", "2026-10-06"),
       redeemed("16:15", 2, "2026-10-06"),
       earned("15:00", "workout:2", "Fitbod legs", "2026-10-06"),
-      earned("13:40", "readwise:2", "30 min focused", "2026-10-06"),
+      earned("13:40", "reading:2", "30 min focused", "2026-10-06"),
       redeemed("12:20", 1, "2026-10-06"),
       earned("11:10", "todoist:8", "Clean the kitchen", "2026-10-06"),
-      earned("10:05", "moonreader:1", "30 min focused", "2026-10-06"),
+      earned("10:05", "chinese:1", "30 min focused", "2026-10-06"),
       earned("09:00", "todoist:9", "Plan the week", "2026-10-06"),
       earned("08:10", "todoist:10", "Make bed", "2026-10-06"),
     ],
@@ -75,15 +75,17 @@ const settings = {
   time_zone: "America/Los_Angeles", bank_limit: 24, unlock_minutes: 10,
   curfew_start: "22:00:00", curfew_end: "06:00:00", morning_boundary: "06:00:00", daily_goal: 16,
   sources: {
-    todoist: { kind: "tasks", on: true, every: 1, packages: [] },
-    clickup: { kind: "tasks", on: true, every: 1, packages: [] },
-    workout: { kind: "workout", on: true, every: 15, packages: [] },
-    obsidian: { kind: "focus", on: true, every: 30, packages: ["md.obsidian"] },
-    readwise: { kind: "focus", on: true, every: 30, packages: ["com.readermobile"] },
-    moonreader: { kind: "focus", on: true, every: 30, packages: ["com.flyersoft.moonreaderp"] },
-    anki: { kind: "focus", on: false, every: 30, packages: ["com.ichi2.anki"] },
-    steps: { kind: "steps", on: true, every: 2000, packages: [] },
-  } as Record<string, { kind: SourceKind; on: boolean; every: number; packages: string[] }>,
+    tasks: { name: "Tasks", kind: "tasks", on: true, every: 1, packages: ["todoist", "clickup"], labels: { todoist: "Todoist", clickup: "ClickUp" } },
+    workout: { name: "Workout", kind: "workout", on: true, every: 15, packages: [] },
+    obsidian: { name: "Obsidian", kind: "focus", on: true, every: 30, packages: ["md.obsidian", "win:Obsidian.exe"],
+      labels: { "md.obsidian": "Obsidian", "win:Obsidian.exe": "Obsidian for Windows" } },
+    reading: { name: "Reading", kind: "focus", on: true, every: 30, packages: ["com.readermobile", "com.flyersoft.moonreaderp", "com.shortform.app"],
+      labels: { "com.readermobile": "Readwise Reader", "com.flyersoft.moonreaderp": "Moon+ Reader Pro", "com.shortform.app": "Shortform" } },
+    chinese: { name: "Chinese", kind: "focus", on: true, every: 30, packages: ["com.pleco.chinesesystem", "com.duolingo"], color: "#9be36d",
+      labels: { "com.pleco.chinesesystem": "Pleco", "com.duolingo": "Duolingo" } },
+    anki: { name: "Anki", kind: "focus", on: false, every: 30, packages: ["com.ichi2.anki"], labels: { "com.ichi2.anki": "AnkiDroid" } },
+    steps: { name: "Steps", kind: "steps", on: true, every: 2000, packages: [] },
+  } as Record<string, Source>,
   blocklists: {
     instagram: { name: "Instagram", color: "#e5609b", premade: true, on: true,
       apps: [app("com.instagram.android", "Instagram")], sites: [site("instagram.com", "All subdomains")] },
@@ -142,6 +144,15 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     if (b.BlocklistColor) {
       const l = settings.blocklists[b.BlocklistColor.id];
       if (l) l.color = b.BlocklistColor.color;
+      return "Now";
+    }
+    // Renaming, deleting, and taking apps out are never Loosenings.
+    const c = body as { RenameSource?: { id: string; name: string }; DeleteSource?: string; SourceApps?: { id: string; packages: string[]; labels?: Record<string, string> } };
+    if (c.RenameSource) { settings.sources[c.RenameSource.id].name = c.RenameSource.name; return "Now"; }
+    if (c.DeleteSource) { delete settings.sources[c.DeleteSource]; return "Now"; }
+    const group = c.SourceApps && settings.sources[c.SourceApps.id];
+    if (group && c.SourceApps!.packages.every((p) => group.packages.includes(p))) {
+      group.packages = c.SourceApps!.packages;
       return "Now";
     }
     pending = [...pending, [body as Record<string, unknown>, nextMorning()]];

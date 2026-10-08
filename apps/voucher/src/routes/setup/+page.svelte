@@ -10,7 +10,7 @@
   import Switch from "$lib/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
-  import { needsToken, serviceOf } from "$lib/sources";
+  import { needsToken, serviceOf, styleOf } from "$lib/sources";
   import { hhmm, minutesOf, timeOf } from "$lib/rules";
   import { summary } from "$lib/blocklists";
   import type { Protection, Status } from "$lib/types";
@@ -186,18 +186,23 @@
       <div class="cap">{title}</div>
       <div class="list">
         {#each Object.entries(status.settings.sources).filter(([, s]) => s.kind === kind) as [id, s] (id)}
-          {@const style = serviceOf(id)}
-          {@const problem = status.source_errors[id]}
+          {@const style = styleOf(id)}
           <div class="li">
             <span class="dot" style="background: {style.color}"></span>
-            <span class="lt"><b>{style.name}</b></span>
-            {#if kind === "tasks" && needsToken(problem)}
-              <button class="sm out" onclick={() => (tokenFor = id)}>Connect</button>
-            {:else}
-              {#if kind === "tasks"}<span class="ok">Connected</span>{/if}
-              <Switch on={s.on} label={style.name} onchange={(on) => apply([{ Source: { id, on, every: s.every } }])} />
-            {/if}
+            <span class="lt"><b>{style.name}</b>{#if kind === "focus"}<small>{s.packages.filter((p) => !p.startsWith("win:")).map((p) => s.labels?.[p] ?? p).join(", ")}</small>{/if}</span>
+            <Switch on={s.on} label={style.name} onchange={(on) => apply([{ Source: { id, on, every: s.every } }])} />
           </div>
+          <!-- Each task service in the group signs in on its own. -->
+          {#if kind === "tasks"}
+            {#each s.packages as service (service)}
+              <div class="li sub">
+                <span class="lt">{serviceOf(service).name}</span>
+                {#if needsToken(status.source_errors[service])}
+                  <button class="sm out" onclick={() => (tokenFor = service)}>Connect</button>
+                {:else}<span class="ok">Connected</span>{/if}
+              </div>
+            {/each}
+          {/if}
         {/each}
       </div>
     {/each}
@@ -273,6 +278,7 @@
   .list { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 0 14px; }
   .li { display: flex; align-items: center; gap: 12px; min-height: 60px; border-top: 1px solid var(--divider); }
   .li:first-child { border-top: 0; }
+  .li.sub { min-height: 44px; padding-left: 26px; font-size: 14px; }
   .lt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .lt b { font-size: 15px; }
   .lt small { font-size: 12px; color: var(--muted); line-height: 1.3; }
