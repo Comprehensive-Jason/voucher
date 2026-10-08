@@ -57,6 +57,15 @@
   const minutes = $derived(room == null ? count * unlockMinutes : Math.min(count * unlockMinutes, room));
 
   const tearable = $derived(mode !== "curfew" && !empty && !capped);
+  // Tearing several at once: up to three more halves sit under the top one,
+  // peeking out as a stack; they fan out behind it while dragging and fly
+  // off one after another when it tears.
+  const extra = $derived(tearable ? Math.min(count - 1, 3) : 0);
+  function copyTransform(i: number): string {
+    if (torn) return `translate(${320 - i * 26}px, ${-40 + i * 14}px) rotate(${18 - i * 5}deg)`;
+    if (dx > 0) return `translate(${dx - i * 7}px, ${-dx / 14 + i * 3}px) rotate(${dx / 12 - i * 1.5}deg)`;
+    return `translate(${i * 3}px, ${i * 3}px)`;
+  }
   const running = $derived(mode === "running");
   // Keep the chosen count within what the Bank holds.
   $effect(() => { const most = Math.max(1, Math.min(shown, fits)); if (count > most) count = most; });
@@ -81,6 +90,8 @@
     if (body && dx > body.offsetWidth * TEAR_AT) {
       torn = true;
       const after = shown - count;
+      // With several, wait for the last stacked half to finish its flight.
+      const handOff = 260 + extra * 45;
       setTimeout(() => {
         ontear(count);
         behindBefore = behind(shown);
@@ -91,7 +102,7 @@
           phase = "rising";
           setTimeout(() => { phase = "settling"; setTimeout(() => (phase = "rest"), FADE_MS); }, RISE_MS);
         }
-      }, 260);
+      }, handOff);
     } else {
       dx = 0;
     }
@@ -135,6 +146,10 @@
          faint hairline. This strip, holed like the Voucher, covers it while the
          Voucher is at rest, and gets out of the way once a drag begins. -->
     <div class="bridge" class:away={dragging || torn || dx > 0 || phase !== "rest"}></div>
+    {#each Array.from({ length: extra }, (_, k) => extra - k) as i (i)}
+      <div class="copy" class:dragging class:torn aria-hidden="true"
+        style="transform: {copyTransform(i)}; filter: brightness({1 - i * 0.1}); transition-delay: {torn ? i * 45 : 0}ms"></div>
+    {/each}
     <div
       class="body"
       class:dragging
@@ -254,6 +269,22 @@
     mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     mask-composite: exclude, add;
   }
+  /* Above everything while it moves, so a torn half flying right passes in
+     front of the tablet's next column, not behind it. */
+  .body { position: relative; z-index: 5; }
+  /* The halves under the top one when tearing several: same shape and holes. */
+  .copy {
+    position: absolute; top: 0; height: 100%; left: calc(30% - 2px); right: 0; z-index: 4;
+    border-left: 2px solid transparent; background: var(--voucher); background-clip: padding-box;
+    border-radius: 0 16px 16px 0; transform-origin: 0 100%; pointer-events: none;
+    transition: transform .25s ease, opacity .25s ease;
+    -webkit-mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    -webkit-mask-composite: xor, source-over;
+    mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
+    mask-composite: exclude, add;
+  }
+  .copy.dragging { transition: none; }
+  .copy.torn { opacity: 0; }
   .body.dragging { transition: none; cursor: grabbing; }
   .body.torn { opacity: 0; }
   /* Hidden while the next Voucher rises; then its words fade in. */

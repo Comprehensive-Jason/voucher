@@ -40,18 +40,17 @@
 </script>
 
 {#if wide.on}
+  <!-- Today spans both rows; the hour chart and the Log share the top row,
+       the history grid and Distractions the bottom one, which the grid's
+       height sets, so the two bottom cards always line up. -->
   <div class="grid">
-    <section class="col"><TodayColumn {live} wide /></section>
-    <section class="col">
-      {#if status}
-        <HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.log_first_day} {focus} bind:shownDay tall />
-        <Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} keyBelow={false} />
-      {/if}
-    </section>
-    <section class="col">
-      <div class="logcard"><LogPanel compact /></div>
-      {#if status}<DistractionUsage {usage} unlockedMinutes={status.today.unlocked_minutes} />{/if}
-    </section>
+    <section class="col today"><TodayColumn {live} wide /></section>
+    {#if status}
+      <div class="cell hour"><HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.log_first_day} {focus} bind:shownDay tall /></div>
+      <div class="cell heat"><Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} keyBelow={false} /></div>
+      <div class="cell usage"><DistractionUsage {usage} unlockedMinutes={status.today.unlocked_minutes} /></div>
+    {/if}
+    <div class="logcard"><LogPanel compact /></div>
   </div>
 {:else}
   <main><TodayColumn {live} /></main>
@@ -59,7 +58,20 @@
 
 <style>
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
-  .grid { height: 100%; display: grid; grid-template-columns: minmax(340px, 1fr) minmax(280px, 1fr) minmax(300px, 1fr); gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 28px 28px; }
+  .grid {
+    height: 100%; display: grid; column-gap: 24px; row-gap: 20px; padding: calc(28px + env(safe-area-inset-top)) 28px 28px;
+    grid-template-columns: minmax(340px, 1fr) minmax(280px, 1fr) minmax(300px, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "today hour log" "today heat usage";
+  }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
-  .logcard { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 12px; }
+  .today { grid-area: today; }
+  .cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .hour { grid-area: hour; }
+  .heat { grid-area: heat; }
+  /* Sized by the row (the history grid's height), never by its own content,
+     which scrolls when there's more of it. */
+  .usage { grid-area: usage; contain: size; }
+  .usage :global(.card) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .logcard { grid-area: log; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 12px; }
 </style>
