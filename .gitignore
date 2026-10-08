@@ -11,3 +11,6 @@ secrets/
 
 # Design sources stay private: they hold personal sample data.
 /design/
+
+# Test portal data (dev/test-portal.mjs)
+/dev/test-ledger/

@@ -3,7 +3,7 @@
   // the tablet's three columns, Today | Trends | Log and Distraction time.
   import { onMount } from "svelte";
   import { deviceUsage, ledger } from "$lib/api";
-  import { Live } from "$lib/live.svelte";
+  import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$lib/wide.svelte";
   import { twelveWeeks } from "$lib/time";
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
@@ -31,7 +31,7 @@
   $effect(() => {
     if (!wide.on) return;
     loadWide();
-    const timer = setInterval(loadWide, 60_000);
+    const timer = setInterval(loadWide, import.meta.env.DEV ? POLL_MS : 60_000);
     return () => clearInterval(timer);
   });
 </script>

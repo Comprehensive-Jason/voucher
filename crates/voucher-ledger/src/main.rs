@@ -38,6 +38,8 @@ struct Config {
     clickup_token_file: PathBuf,
     clickup_team_id: Option<String>,
     clickup_user_id: Option<u64>,
+    /// `POST /test/complete` records a finished task, for test Ledgers only.
+    test_tasks: bool,
 }
 
 impl Config {
@@ -63,6 +65,7 @@ impl Config {
             clickup_team_id: var("VOUCHER_CLICKUP_TEAM_ID"),
             clickup_user_id: var("VOUCHER_CLICKUP_USER_ID")
                 .map(|id| id.parse().expect("VOUCHER_CLICKUP_USER_ID")),
+            test_tasks: var("VOUCHER_TEST_TASKS").as_deref() == Some("1"),
         }
     }
 }
@@ -402,6 +405,33 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 ),
             }
         }
+        // Off unless VOUCHER_TEST_TASKS=1: lets a test Ledger earn task
+        // Vouchers without Todoist or ClickUp. It grants nothing `/report`
+        // can't already, to anyone holding the access code.
+        (Method::Post, "/test/complete") if config.test_tasks => {
+            let mut body = String::new();
+            let parsed = request
+                .as_reader()
+                .read_to_string(&mut body)
+                .ok()
+                .and_then(|_| serde_json::from_str::<TestTask>(&body).ok());
+            match parsed {
+                Some(t) => {
+                    let task = voucher_ledger::Completion {
+                        task: format!("{}:test-{}", t.source, now.as_nanosecond()),
+                        title: t.title,
+                        at: now,
+                    };
+                    (200, json(&ledger.record(&[task], now)))
+                }
+                None => (
+                    400,
+                    json(&Message {
+                        message: "body is not a test task",
+                    }),
+                ),
+            }
+        }
         _ => (
             404,
             json(&Message {
@@ -443,6 +473,13 @@ struct Setup {
 struct NewToken {
     source: String,
     token: String,
+}
+
+#[derive(serde::Deserialize)]
+struct TestTask {
+    /// "todoist" or "clickup".
+    source: String,
+    title: String,
 }
 
 #[derive(serde::Deserialize)]

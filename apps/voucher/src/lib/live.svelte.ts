@@ -4,6 +4,10 @@
 import { today, tear } from "./api";
 import { modeOf, type Today } from "./types";
 
+/** How often to ask the Ledger again. A dev build asks every few seconds, so
+ *  changes made while testing show up almost at once. */
+export const POLL_MS = import.meta.env.DEV ? 3_000 : 30_000;
+
 export class Live {
   data = $state<Today | null>(null);
   error = $state<string | null>(null);
@@ -32,7 +36,7 @@ export class Live {
         this.refresh();
       }
     }, 1000);
-    const poll = setInterval(this.refresh, 30_000);
+    const poll = setInterval(this.refresh, POLL_MS);
     return () => { clearInterval(tick); clearInterval(poll); };
   }
 }
