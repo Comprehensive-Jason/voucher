@@ -100,6 +100,16 @@
     dx = Math.max(0, e.clientX - startX);
     if (body && dx > body.offsetWidth * TEAR_AT) up();
   }
+  // With a keyboard (on a PC, say), Enter or Space on the focused Voucher
+  // tears it, with the same flight as a drag.
+  function key(e: KeyboardEvent) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    if (!tearable || torn || !body) return;
+    dragging = true;
+    dx = body.offsetWidth * TEAR_AT + 1;
+    up();
+  }
   function up() {
     if (!dragging) return;
     dragging = false;
@@ -185,8 +195,9 @@
       onpointermove={move}
       onpointerup={up}
       onpointercancel={up}
+      onkeydown={key}
       role="slider"
-      aria-label="Drag right to tear"
+      aria-label="Drag right to tear, or press Enter"
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(dx)}

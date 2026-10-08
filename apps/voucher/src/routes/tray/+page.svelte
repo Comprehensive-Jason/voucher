@@ -33,7 +33,7 @@
   });
   const near = $derived.by(() => (d?.sources ?? [])
     .filter((s) => s.on && s.kind !== "tasks")
-    .map((s) => ({ ...styleOf(s.id), fraction: s.progress / s.every, left: `${s.every - s.progress} ${s.kind === "workout" ? "zone min" : "min"}` }))
+    .map((s) => ({ ...styleOf(s.id), fraction: s.progress / s.every, left: `${(s.every - s.progress).toLocaleString("en-US")} ${s.kind === "workout" ? "zone min" : s.kind === "steps" ? "steps" : "min"}` }))
     .sort((a, b) => b.fraction - a.fraction)
     .slice(0, 4));
 </script>
