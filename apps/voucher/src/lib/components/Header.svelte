@@ -1,6 +1,7 @@
 <script lang="ts">
   // `night` turns the logo indigo during Curfew; `rules` adds the tablet's Rules button.
-  let { streakDays, night = false, rules = false }: { streakDays: number; night?: boolean; rules?: boolean } = $props();
+  // The Streak sits with the Daily goal, in the Bank meter.
+  let { night = false, rules = false }: { night?: boolean; rules?: boolean } = $props();
 </script>
 
 <header>
@@ -9,10 +10,6 @@
     <span class="mono word">VOUCHER</span>
   </div>
   <div class="right">
-    <div class="streak">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-5 1-8z" /></svg>
-        {streakDays > 0 ? `${streakDays} day streak` : "No streak"}
-      </div>
     {#if rules}
       <a class="rules" href="/rules" aria-label="Rules">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
@@ -27,5 +24,5 @@
   .word { font-size: 15px; font-weight: 700; letter-spacing: .2em; }
   .right { display: flex; align-items: center; gap: 8px; }
   .rules { width: 44px; height: 44px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); display: flex; align-items: center; justify-content: center; }
-  .streak { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: var(--goal-bg); color: var(--goal); font-size: 13px; font-weight: 700; }
+  header { min-height: 44px; }
 </style>

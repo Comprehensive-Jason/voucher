@@ -15,8 +15,8 @@
 
 {#if live.data}
   {@const data = live.data}
-  <Header streakDays={data.streakDays} night={live.mode === "curfew"} rules={wide} />
-  <BankMeter mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} />
+  <Header night={live.mode === "curfew"} rules={wide} />
+  <BankMeter mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
   <VoucherStack mode={live.mode} bank={data.bank} unlockMinutes={data.unlockMinutes} ontear={live.tear} />
   <StatusCard mode={live.mode} now={live.now} {data} />
   <NextVoucher sources={data.sources} />
