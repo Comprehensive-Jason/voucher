@@ -68,9 +68,11 @@
   <div class="head">
     <span class="cap">Vouchers earned, 12 weeks</span>
     {#if !keyBelow}<span class="cap earn">Brightest: {goal}+ (goal met)</span>{/if}
-    <TodayButton show={!atEnd || (!!selected && !!lastDay && selected !== lastDay)} onclick={backToToday} />
   </div>
   <div class="grid">
+  <!-- Floats over the grid's right edge, where today is, so it never changes
+       the card's height. -->
+  <div class="todayslot"><TodayButton show={!atEnd || (!!selected && !!lastDay && selected !== lastDay)} onclick={backToToday} /></div>
   <!-- Outside the scroller, so the weekday labels never move or bounce. -->
   <div class="labels" aria-hidden="true">
     <span class="corner"></span>
@@ -101,13 +103,14 @@
 
 <style>
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-  .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 28px; }
+  .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   .earn { color: var(--voucher); }
   /* A fixed weekday column beside a scroller of week-columns: twelve fill the
      visible width, and earlier weeks sit off to the left. Cells are sized
      against the whole grid (a size container): 100cqw less the labels (26),
      the gap after them (4), the outline room (3 + 3), and 11 gaps (44). */
-  .grid { --labels: 26px; --cell: calc((100cqw - 80px) / 12); container-type: inline-size; display: flex; gap: 4px; }
+  .todayslot { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); z-index: 3; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .55)); }
+  .grid { position: relative; --labels: 26px; --cell: calc((100cqw - 80px) / 12); container-type: inline-size; display: flex; gap: 4px; }
   .labels { flex: none; width: var(--labels); display: grid; grid-template-rows: 14px repeat(7, var(--cell)); gap: 4px; padding-top: 3px; }
   .scroller { flex: 1; min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: 3px; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
   .heat {
