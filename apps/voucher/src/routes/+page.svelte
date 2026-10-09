@@ -70,7 +70,10 @@
      what's left and scrolls under its fixed heading when it's long. */
   .today > :global(*) { flex: none; }
   .today > :global(section.next) { flex: 1 1 0; min-height: 0; }
-  .today :global(section.next .list) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding-bottom: 4px; }
+  .today :global(section.next .frame) { flex: 1; min-height: 0; }
+  /* 16 px of room at the sides (and 4 at the ends), so a raised row's card
+     is never clipped by the scrolling edge. */
+  .today :global(section.next .list) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px; }
   .cell { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .hour { grid-area: hour; }
   .heat { grid-area: heat; }

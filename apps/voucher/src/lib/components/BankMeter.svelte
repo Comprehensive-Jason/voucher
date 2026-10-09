@@ -1,16 +1,28 @@
 <script lang="ts">
   import type { Mode } from "../types";
+  import { wins } from "../celebrate.svelte";
+  import { untrack } from "svelte";
   // The Bank, then today's progress toward the Daily goal with the Streak it feeds.
   let { mode, bank, limit, goalDone, goalTarget, streakDays }: {
     mode: Mode; bank: number; limit: number; goalDone: number; goalTarget: number; streakDays: number;
   } = $props();
-  const cells = $derived(Array.from({ length: limit }, (_, i) => i < bank));
+  // Vouchers just earned are counted when their row says "+1 Voucher".
+  const shown = $derived(Math.max(0, bank - wins.held));
+  const cells = $derived(Array.from({ length: limit }, (_, i) => i < shown));
+  // The count pops when it goes up.
+  let pop = $state(false);
+  let last = untrack(() => shown);
+  $effect(() => {
+    const now = shown;
+    if (now > last) { pop = false; requestAnimationFrame(() => (pop = true)); }
+    last = now;
+  });
   const toGo = $derived(Math.max(0, goalTarget - goalDone));
 </script>
 
 <section>
   <div class="count">
-    <span class="mono big" class:full={mode === "full"} class:night={mode === "curfew"} class:empty={mode === "empty"}>{bank}</span>
+    <span class="mono big" class:pop class:full={mode === "full"} class:night={mode === "curfew"} class:empty={mode === "empty"} onanimationend={() => (pop = false)}>{shown}</span>
     <span class="of">of {limit} in the Bank{mode === "full" ? ": full" : ""}</span>
   </div>
   <div class="cells" style="grid-template-columns: repeat({limit}, minmax(0, 1fr))">
@@ -34,7 +46,9 @@
 <style>
   section { display: flex; flex-direction: column; gap: 10px; }
   .count { display: flex; align-items: baseline; gap: 10px; }
-  .big { font-size: 56px; font-weight: 700; line-height: 1; }
+  .big { font-size: 56px; font-weight: 700; line-height: 1; display: inline-block; transform-origin: left bottom; }
+  .big.pop { animation: pop .45s ease; }
+  @keyframes pop { 40% { transform: scale(1.18); color: var(--voucher); } }
   .big.full { color: var(--goal); }
   .big.night { color: var(--night-ink); }
   .big.empty { color: var(--muted); }

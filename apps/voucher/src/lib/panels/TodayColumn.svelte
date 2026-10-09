@@ -19,7 +19,7 @@
   <BankMeter mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
   <VoucherStack mode={live.mode} bank={data.bank} unlockMinutes={data.unlockMinutes} room={data.curfewRoomMinutes} curfewStart={data.curfewStart} ontear={live.tear} />
   <StatusCard mode={live.mode} now={live.now} {data} />
-  <NextVoucher sources={data.sources} />
+  <NextVoucher sources={data.sources} bank={data.bank} />
   <MomentSheet {data} />
 {:else if live.error}
   <p class="error">{live.error}</p>
