@@ -126,9 +126,21 @@
   $effect(() => {
     const want = focus;
     if (!want) return;
-    untrack(async () => {
-      // A Day picked on the history grid shows hour by hour.
-      if (zoom !== "day") { zoom = "day"; await tick(); }
+    untrack(() => {
+      // The chart keeps its zoom: Day slides to that Day; Week or Month
+      // slides to the page holding it, with its bar picked.
+      if (zoom !== "day") {
+        if (!periodScroller) return;
+        let index = pages.indexOf(zoom === "week" ? mondayOf(want.day) : monthOf(want.day));
+        if (index < 0) index = want.day < pages[0] ? 0 : pages.length - 1;
+        const at = daysOf(pages[index]).indexOf(want.day);
+        const pick = at >= 0 && totalOf(want.day)?.earned ? at : null;
+        if (index === page) { periodPick = pick; return; }
+        // Passing other pages would clear the pick, so it's made once the scroll lands.
+        landing = { page: index, pick };
+        periodScroller.scrollTo({ left: index * periodScroller.clientWidth, behavior: "smooth" });
+        return;
+      }
       if (!scroller) return;
       let index = days.indexOf(want.day);
       if (index < 0) index = want.day < days[0] ? 0 : days.length - 1;
@@ -255,9 +267,17 @@
       if (periodScroller) periodScroller.scrollLeft = index * periodScroller.clientWidth;
     }
   }
+  /** A page the history grid sent the chart to, and the bar to pick there. */
+  let landing: { page: number; pick: number | null } | null = null;
   function onPeriodScroll() {
     if (!periodScroller) return;
     const now = Math.round(periodScroller.scrollLeft / periodScroller.clientWidth);
+    if (landing) {
+      page = now;
+      if (now === landing.page && Math.abs(periodScroller.scrollLeft - now * periodScroller.clientWidth) < 2) { periodPick = landing.pick; landing = null; }
+      else periodPick = null;
+      return;
+    }
     if (now !== page) periodPick = null;
     page = now;
   }
