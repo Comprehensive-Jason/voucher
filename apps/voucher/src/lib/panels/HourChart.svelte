@@ -185,14 +185,15 @@
   const monthOf = (d: string) => `${d.slice(0, 7)}-01`;
   const nextMonth = (first: string) => { const [y, m] = first.split("-").map(Number); return new Date(Date.UTC(y, m, 1, 12)).toISOString().slice(0, 10); };
   /** The first Day of every page, oldest first. */
-  const pages = $derived.by(() => {
+  function pagesFor(zoom: Zoom): string[] {
     if (zoom === "day") return [] as string[];
     const oldest = firstDay && firstDay < today.day ? firstDay : today.day;
     const out: string[] = [];
     if (zoom === "week") for (let d = mondayOf(oldest); d <= today.day && out.length < 400; d = shiftDay(d, 7)) out.push(d);
     else for (let d = monthOf(oldest); d <= today.day && out.length < 120; d = nextMonth(d)) out.push(d);
     return out;
-  });
+  }
+  const pages = $derived(pagesFor(zoom));
   function daysOf(start: string): string[] {
     if (zoom === "week") return Array.from({ length: 7 }, (_, i) => shiftDay(start, i));
     const out: string[] = [];
@@ -251,6 +252,9 @@
 
   /** Bumped on each zoom change, so the new view plays its entrance once. */
   let entrance = $state(0);
+  /** True while the new view's bars rise (the last of up to 31 starts 12 ms after the one before). */
+  let entering = $state(false);
+  let enteringTimer = 0;
   let zoomedOut = $state(true);
   const LEVELS: Zoom[] = ["day", "week", "month"];
   async function setZoom(z: Zoom) {
@@ -260,21 +264,28 @@
       : periodPick !== null ? pageCols[periodPick]?.day
       : pageCols.filter((c) => !c.future).at(-1)?.day ?? today.day;
     zoomedOut = LEVELS.indexOf(z) > LEVELS.indexOf(zoom);
-    zoom = z; periodPick = null; pick = null; entrance++;
-    await tick();
+    // Which page opens is settled before the new view draws, so its first
+    // frame already knows which page is in view (only that one plays the rise).
+    let index: number;
     if (z === "day") {
-      let index = days.indexOf(anchor ?? today.day);
+      index = days.indexOf(anchor ?? today.day);
       if (index < 0) index = days.length - 1;
       shown = index; onToday = index >= days.length - 1;
+    } else {
+      const list = pagesFor(z);
+      index = list.indexOf(z === "week" ? mondayOf(anchor ?? today.day) : monthOf(anchor ?? today.day));
+      if (index < 0) index = list.length - 1;
+      page = index;
+    }
+    zoom = z; periodPick = null; pick = null; entrance++;
+    entering = true;
+    clearTimeout(enteringTimer);
+    enteringTimer = window.setTimeout(() => (entering = false), ms("move") + 31 * 12 + 60);
+    await tick();
+    if (z === "day") {
       if (scroller) scroller.scrollLeft = index * pageWidth(scroller);
       load(index - 1); load(index); load(index + 1);
-    } else {
-      const want = z === "week" ? mondayOf(anchor ?? today.day) : monthOf(anchor ?? today.day);
-      let index = pages.indexOf(want);
-      if (index < 0) index = pages.length - 1;
-      page = index;
-      if (periodScroller) periodScroller.scrollLeft = index * pageWidth(periodScroller);
-    }
+    } else if (periodScroller) periodScroller.scrollLeft = index * pageWidth(periodScroller);
   }
   /** A page the history grid sent the chart to, and the bar to pick there. */
   let landing: { page: number; pick: number | null } | null = null;
@@ -356,14 +367,14 @@
   <!-- A new zoom level grows in from the old one's scale (larger when zooming
        out, smaller when zooming in), and its bars rise one after another. -->
   {#key entrance}
-  <div class="viewport" class:entering={entrance > 0} in:zoomIn={{ out: zoomedOut }}>
+  <div class="viewport" class:entering in:zoomIn={{ out: zoomedOut }}>
   {#if zoom === "day"}
   <div class="days" bind:this={scroller} onscroll={onScroll}>
     {#each days as day (day)}
       {@const cols = columnsOf(summaryOf(day))}
       {@const unit = unitOf(cols)}
       {@const here = days[shown] === day}
-      <div class="day">
+      <div class="day" class:here>
         <div class="chart" style="height: {chart}px">
           <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
           <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
@@ -397,7 +408,7 @@
         {@const n = cols.length}
         {@const here = pi === page}
         {@const gap = n > 7 ? 2 : tall ? 10 : 8}
-        <div class="day period">
+        <div class="day period" class:here>
           <div class="chart" style="height: {chart}px; grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
             <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{top / 2}</span></div>
             <div class="tick" style="bottom: {plot}px"><span class="mono">{top}</span></div>
@@ -457,7 +468,10 @@
   .card { container: card / inline-size; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   .viewport { position: relative; transform-origin: 50% 100%; }
   /* After a zoom change, the bars on screen rise from the axis one after another. */
-  .entering .bar { animation: rise var(--t-move) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 12ms); transform-origin: 50% 100%; }
+  /* Only the page in view plays it: animating every page's bars put them on
+     their own layers, and Android's WebView let the page before flicker
+     in at the left edge. */
+  .entering .here .bar { animation: rise var(--t-move) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 12ms); transform-origin: 50% 100%; }
   @keyframes rise { from { transform: scaleY(0); } }
   .col.future { cursor: default; }
   .n.blank { height: 11px; }
@@ -475,7 +489,8 @@
      the header say where you are. */
   .days { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
   .days::-webkit-scrollbar { display: none; }
-  .day { flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
+  /* Each page clips its own drawing, so nothing from a neighbour shows. */
+  .day { contain: paint; flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
   .chart { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid #3a3f45; }
   /* Bars, dots, and hours leave a gutter on the left for the tick numbers. */
   .chart, .dots, .axis { margin-left: 16px; }
