@@ -131,7 +131,7 @@ async function reset() {
 /** Writes `days` more made-up Days into the test Ledger's saved state, going
  *  back from the oldest Day it already has, so each press makes the history
  *  longer: scores for the history grid, and log entries for the hour chart
- *  (only for the last 30 Days, which is all the Ledger keeps of its log).
+ *  (only for the last 183 Days, which is all the Ledger keeps of its log).
  *  The Ledger only takes reports for today and yesterday, so this edits its
  *  file while it's stopped. */
 async function seedHistory(days) {
@@ -148,7 +148,7 @@ async function seedHistory(days) {
   const shift = (day, n) => new Date(Date.parse(day + "T12:00:00Z") + n * 86400_000).toISOString().slice(0, 10);
   const past = Object.keys(state.days).filter((d) => d < today).sort();
   const from = past.length ? past[0] : today;
-  const logFrom = shift(today, -30);
+  const logFrom = shift(today, -183);
   let earliest = null;
   for (let back = 1; back <= days; back++) {
     const date = shift(from, -back);

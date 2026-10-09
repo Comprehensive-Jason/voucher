@@ -12,7 +12,7 @@
 
   let { compact = false }: { compact?: boolean } = $props();
 
-  /** The Ledger keeps a month of entries; older Days have totals only. */
+  /** The Ledger keeps half a year of entries; older Days have totals only. */
   const OLDEST = 30;
 
   let today = $state<string | null>(null);

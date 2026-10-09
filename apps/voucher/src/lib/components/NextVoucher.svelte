@@ -14,7 +14,7 @@
   import { flip } from "svelte/animate";
   import { cubicOut } from "svelte/easing";
   import { styleOf } from "../sources";
-  import { wins } from "../celebrate.svelte";
+  import { WIN_HOLD_MS, wins } from "../celebrate.svelte";
   import Marker from "./Marker.svelte";
   import ProgressFill from "./ProgressFill.svelte";
   import type { SourceProgress } from "../types";
@@ -87,13 +87,17 @@
     reveal(keys);
     // Let a bar finish filling before anything plays (a tally has no fill).
     await wait(keys.some((k) => k !== "tasks") ? 520 : 200);
+    // The words, the Bank's count, and its green all start together and last
+    // as long as each other.
     for (const k of keys) won[k] = true;
     wins.held = Math.max(0, wins.held - kept);
-    await wait(1400);
+    if (kept) wins.lit++;
+    await wait(WIN_HOLD_MS);
+    if (kept) wins.lit = Math.max(0, wins.lit - 1);
     for (const k of keys) { delete won[k]; delete frozen[k]; delete lost[k]; }
   }
   // Nothing stays held back once Today is gone.
-  onDestroy(() => { wins.held = 0; });
+  onDestroy(() => { wins.held = 0; wins.lit = 0; });
 
   // Closest to a Voucher first, Tasks pinned on top. Neighbours only swap
   // once one is 3 points ahead, so near-ties don't flicker back and forth.

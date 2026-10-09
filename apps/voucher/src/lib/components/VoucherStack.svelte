@@ -1,6 +1,7 @@
 <script lang="ts">
   // The Bank as a stack of Vouchers. Drag the right-hand part of the top Voucher
   // to the right to tear off `count` Vouchers; the stub's + and − set `count`.
+  import { untrack } from "svelte";
   import type { Mode } from "../types";
 
   let { mode, bank, unlockMinutes, room = null, curfewStart = "22:00", ontear }: {
@@ -83,6 +84,30 @@
     return `translate(${t}px, ${-t / 14}px) rotate(${t / 12 - k * 1.2 * Math.min(1, dx / 40)}deg)`;
   }
   const running = $derived(mode === "running");
+
+  // A Voucher earned while the stack is on screen drops into place: into the
+  // empty slot as the top Voucher, or in behind it as the next level appears.
+  // With the stack already three deep, the back one drops in again, so every
+  // new Voucher shows. (The Bank this gets is held back until the earning
+  // row says "+1 Voucher", so the drop lands with it.)
+  const ARRIVE_MS = 550;
+  let arriving = $state<{ front: boolean; levels: number[] } | null>(null);
+  let lastShown = untrack(() => shown);
+  let arriveTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    const now = shown;
+    untrack(() => {
+      if (now > lastShown && expected === null && phase === "rest" && mode !== "curfew") {
+        const levels: number[] = [];
+        for (let k = behind(lastShown) + 1; k <= behind(now); k++) levels.push(k);
+        if (!levels.length && lastShown > 0 && behind(now) > 0) levels.push(behind(now));
+        arriving = { front: lastShown === 0, levels };
+        clearTimeout(arriveTimer);
+        arriveTimer = setTimeout(() => (arriving = null), ARRIVE_MS + 100);
+      }
+      lastShown = now;
+    });
+  });
   // Keep the chosen count within what the Bank holds.
   $effect(() => { const most = Math.max(1, Math.min(shown, fits)); if (count > most) count = most; });
 
@@ -149,7 +174,7 @@
   {:else}
   {#if phase === "rest"}
     {#each Array.from({ length: behind(shown) }, (_, i) => behind(shown) - i) as k (k)}
-      <div class="back" class:night={mode === "curfew"} style="{levelBox(k)}; --c: {levelColor(k)}; --k: {k}">
+      <div class="back" class:night={mode === "curfew"} class:arrive={arriving?.levels.includes(k)} style="{levelBox(k)}; --c: {levelColor(k)}; --k: {k}">
         <div class="bstub"></div>
         <div class="bhalf" class:picked={k <= pickedBack} class:dragging class:torn
           style="transform: {backTransform(k)}; transition-delay: {torn ? k * 45 : 0}ms"></div>
@@ -165,7 +190,7 @@
       </div>
     {/each}
   {/if}
-  <div class="voucher" class:night={mode === "curfew"}>
+  <div class="voucher" class:night={mode === "curfew"} class:drop={arriving?.front}>
     <div class="stub">
       {#if mode === "curfew"}
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
@@ -264,6 +289,10 @@
   .back.moving > * { animation: retint var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
   .back.moving > .bstub { animation: retint var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both, restub var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
   .back.leaving { animation: leave .18s ease forwards; }
+  /* A Voucher just earned drops into its place from above. */
+  .back.arrive { animation: drop-in .55s cubic-bezier(.2, .8, .2, 1) both; }
+  .voucher.drop { animation: drop-in .55s cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes drop-in { from { transform: translateY(-28px) scale(.95); opacity: 0; } }
   @keyframes settle-in {
     from { left: var(--from-x); right: var(--from-x); top: var(--from-y); opacity: var(--from-o); }
     to { left: var(--to-x); right: var(--to-x); top: var(--to-y); opacity: 1; }

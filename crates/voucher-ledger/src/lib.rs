@@ -1674,8 +1674,10 @@ fn blocked_by(settings: &Settings) -> Blocked {
 /// How many Days back, besides today, a Completion can still earn.
 const EARNING_WINDOW_DAYS: i64 = 2;
 
-/// How many Days back, besides today, the log keeps entries.
-const LOG_DAYS: i64 = 30;
+/// How many Days back, besides today, the log keeps entries: half a year,
+/// so the hour chart and the Log reach as far back as anyone looks for a
+/// trend. Day scores (the history grid, Trends) are kept for good.
+const LOG_DAYS: i64 = 183;
 
 /// The Day a moment belongs to. A Day runs from Curfew's end to the next
 /// Curfew's end, so work at 01:00 still counts toward the evening before.
