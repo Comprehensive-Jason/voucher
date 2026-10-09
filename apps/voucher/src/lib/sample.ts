@@ -66,7 +66,12 @@ function history(n: number): DayTotal[] {
     const d = new Date(end.getTime() - back * 86_400_000).toISOString().slice(0, 10);
     seed = (seed * 9301 + 49297) % 233280;
     const earned = back === 0 ? 11 : Math.floor((seed / 233280) * 22);
-    out.push({ day: d, earned, redeemed: Math.floor(earned / 3), goal_met: earned >= 16 });
+    // A plausible split by source, for the Week and Month views.
+    const share = [["tasks", 0.45], ["obsidian", 0.15], ["reading", 0.15], ["workout", 0.1], ["chinese", 0.15]] as const;
+    const by_source: Record<string, number> = {};
+    let left = earned;
+    share.forEach(([id, f], i) => { const n = i === share.length - 1 ? left : Math.min(left, Math.round(earned * f)); if (n) by_source[id] = n; left -= n; });
+    out.push({ day: d, earned, redeemed: Math.floor(earned / 3), goal_met: earned >= 16, by_source });
   }
   return out;
 }

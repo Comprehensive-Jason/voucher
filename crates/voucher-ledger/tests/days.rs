@@ -190,6 +190,9 @@ fn history_lists_each_day_oldest_first_including_empty_ones() {
             ("2026-10-07".into(), 1, false),
         ]
     );
+    // Each Day also says where its Vouchers came from: Todoist counts toward Tasks.
+    assert_eq!(history[1].by_source.get("tasks"), Some(&3));
+    assert!(history[2].by_source.is_empty());
 }
 
 #[test]

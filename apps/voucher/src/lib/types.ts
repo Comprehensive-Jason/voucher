@@ -81,7 +81,11 @@ export interface DaySummary {
 }
 
 /** One Day in the Ledger's `GET /history`. */
-export interface DayTotal { day: string; earned: number; redeemed: number; goal_met: boolean }
+export interface DayTotal {
+  day: string; earned: number; redeemed: number; goal_met: boolean;
+  /** Vouchers earned per source; empty for Days older than the kept log. */
+  by_source?: Record<string, number>;
+}
 
 /** What the phone itself measured today, from the Android side. */
 export interface DeviceUsage {

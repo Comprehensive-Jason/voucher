@@ -1,4 +1,8 @@
 <script lang="ts">
+  // Zoom: Day shows one Day hour by hour (below); Week and Month show a bar
+  // per Day across the week (Monday first) or calendar month, with the same
+  // stacking, ticks, and list, and arrows that step a whole week or month.
+  //
   // Each Day's earnings hour by hour (its totals are in the list below): a bar per hour, split into a segment per
   // source and topped with its count, over faint tick lines, with a triangle under
   // each hour that had a Redemption. Tap a bar to pick that hour: the others
@@ -6,12 +10,12 @@
   // the whole Day's). Today shows first; swipe (or the arrows) back through
   // earlier Days, as far as the Ledger keeps logs. Past Days load as they
   // come near the screen.
-  import { onMount, untrack } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { ledger } from "../api";
-  import { SOURCES, sourceOf } from "../sources";
+  import { SOURCES, sourceOf, styleOf } from "../sources";
   import { dayLabel, hourOf, shiftDay } from "../time";
   import Marker from "../components/Marker.svelte";
-  import type { DaySummary } from "../types";
+  import type { DaySummary, DayTotal } from "../types";
   import ScrollCue from "../components/ScrollCue.svelte";
   import TodayButton from "../components/TodayButton.svelte";
   let listEl = $state<HTMLDivElement>();
@@ -115,11 +119,14 @@
   $effect(() => { shownDay = days[shown]; });
   $effect(() => {
     const want = focus;
-    if (!want || !scroller) return;
-    untrack(() => {
+    if (!want) return;
+    untrack(async () => {
+      // A Day picked on the history grid shows hour by hour.
+      if (zoom !== "day") { zoom = "day"; await tick(); }
+      if (!scroller) return;
       let index = days.indexOf(want.day);
       if (index < 0) index = want.day < days[0] ? 0 : days.length - 1;
-      scroller!.scrollTo({ left: index * scroller!.clientWidth, behavior: "smooth" });
+      scroller.scrollTo({ left: index * scroller.clientWidth, behavior: "smooth" });
     });
   });
 
@@ -134,6 +141,82 @@
     const rows = day.parts.map((p) => ({ ...p, n: now.parts.find((q) => q.name === p.name)?.n ?? 0 }));
     return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0 };
   });
+  // ---- Week and Month ----
+  type Zoom = "day" | "week" | "month";
+  let zoom = $state<Zoom>("day");
+  /** Weeks or months back from the current one. */
+  let offset = $state(0);
+  let periodPick = $state<number | null>(null);
+  let totals = $state<Record<string, DayTotal>>({});
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const weekdayOf = (d: string) => (new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7; // Monday 0
+  /** The Days of the week or month in view, future ones included (they stay blank). */
+  const period = $derived.by(() => {
+    if (zoom === "week") {
+      const start = shiftDay(shiftDay(today.day, -weekdayOf(today.day)), -7 * offset);
+      return Array.from({ length: 7 }, (_, i) => shiftDay(start, i));
+    }
+    const [y, m] = today.day.split("-").map(Number);
+    const first = new Date(Date.UTC(y, m - 1 - offset, 1, 12));
+    const n = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0, 12)).getUTCDate();
+    return Array.from({ length: n }, (_, i) => new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), i + 1, 12)).toISOString().slice(0, 10));
+  });
+  const periodLabel = $derived.by(() => {
+    if (zoom === "week") return offset === 0 ? "This week" : offset === 1 ? "Last week" : `Week of ${dayLabel(period[0], today.day)}`;
+    const [y, m] = period[0].split("-").map(Number);
+    return `${MONTHS[m - 1]}${y !== Number(today.day.slice(0, 4)) ? " " + y : ""}`;
+  });
+  const atStart = $derived(!!firstDay && period[0] <= firstDay);
+  // History for the Days in view: fetched back to the period's first Day.
+  $effect(() => {
+    if (zoom === "day") return;
+    const start = period[0];
+    if (totals[start] || (firstDay && start < firstDay && totals[firstDay])) return;
+    const span = Math.round((Date.parse(`${today.day}T12:00:00Z`) - Date.parse(`${start}T12:00:00Z`)) / 86_400_000) + 1;
+    ledger<DayTotal[]>("GET", `/history?days=${Math.max(1, span)}`).then((list) => {
+      const next = { ...untrack(() => totals) };
+      for (const t of list) next[t.day] = t;
+      totals = next;
+    }).catch(() => {});
+  });
+  const periodCols = $derived(period.map((day) => {
+    const t = totals[day];
+    const counts = new Map<string, Part>();
+    for (const [id, n] of Object.entries(t?.by_source ?? {})) {
+      const { name, color } = styleOf(id);
+      const part = counts.get(name) ?? { name, color, n: 0 };
+      part.n += n;
+      counts.set(name, part);
+    }
+    // Days past the kept log have a total but no sources: one grey segment.
+    const known = [...counts.values()].reduce((a, p) => a + p.n, 0);
+    if (t && t.earned > known) counts.set("Earlier, by source not kept", { name: "Earlier, by source not kept", color: "#6c7177", n: t.earned - known });
+    const total = [...counts.values()].reduce((a, p) => a + p.n, 0);
+    return { day, counts, total, redeemed: t?.redeemed ?? 0, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
+  }));
+  const periodBreakdown = $derived.by(() => {
+    const all = new Map<string, Part>();
+    for (const c of periodCols) for (const p of c.parts) { const sum = all.get(p.name) ?? { ...p, n: 0 }; sum.n += p.n; all.set(p.name, sum); }
+    const picked = periodPick === null ? null : periodCols[periodPick];
+    const rows = partsOf(all).map((p) => ({ ...p, n: picked ? picked.parts.find((q) => q.name === p.name)?.n ?? 0 : p.n }));
+    return { label: picked ? dayLabel(picked.day, today.day) : periodLabel, total: rows.reduce((n, r) => n + r.n, 0), rows,
+      redeemed: picked ? picked.redeemed : periodCols.reduce((n, c) => n + c.redeemed, 0), anyRedeemed: periodCols.some((c) => c.redeemed > 0) };
+  });
+  const shownBreakdown = $derived(zoom === "day" ? breakdown : periodBreakdown);
+  function setZoom(z: Zoom) {
+    if (z === zoom) return;
+    zoom = z; offset = 0; periodPick = null; pick = null;
+  }
+  function step(by: number) {
+    if (zoom === "day") go(by);
+    else { offset = Math.max(0, offset - by); periodPick = null; }
+  }
+  const onLatest = $derived(zoom === "day" ? shown >= days.length - 1 : offset === 0);
+  function backToToday() {
+    if (zoom === "day") scroller?.scrollTo({ left: (days.length - 1) * scroller.clientWidth, behavior: "smooth" });
+    else { offset = 0; periodPick = null; }
+  }
+
   function onScroll() {
     if (!scroller) return;
     const now = Math.round(scroller.scrollLeft / scroller.clientWidth);
@@ -153,7 +236,9 @@
     const count = days.length;
     const el = scroller;
     untrack(() => {
-      if (!el || !onToday) return;
+      if (!el) return;
+      // Back from Week or Month, the Day in view before is still in view.
+      if (!onToday) { el.scrollLeft = shown * el.clientWidth; return; }
       el.scrollLeft = el.scrollWidth;
       shown = count - 1;
       load(shown - 1);
@@ -169,20 +254,23 @@
 <section class="card" class:tall>
   <div class="head">
     <div class="switcher">
-      {#if days.length > 1}
-        <button class="nav" aria-label="Earlier day" disabled={shown === 0} onclick={() => go(-1)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-        </button>
-      {/if}
-      <span class="cap">{dayLabel(days[shown], today.day)}, by hour</span>
-      {#if days.length > 1}
-        <button class="nav" aria-label="Later day" disabled={shown >= days.length - 1} onclick={() => go(1)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-        </button>
-      {/if}
+      <button class="nav" aria-label="Earlier {zoom}" disabled={zoom === "day" ? shown === 0 : atStart} onclick={() => step(-1)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+      </button>
+      <!-- The zoom switch says hours or days, so the title only names the time. -->
+      <span class="cap">{zoom === "day" ? dayLabel(days[shown], today.day) : periodLabel}</span>
+      <button class="nav" aria-label="Later {zoom}" disabled={onLatest} onclick={() => step(1)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+      </button>
     </div>
-    <TodayButton show={shown < days.length - 1} onclick={() => scroller?.scrollTo({ left: (days.length - 1) * scroller.clientWidth, behavior: "smooth" })} />
+    <div class="zoom" role="group" aria-label="Zoom">
+      {#each [["day", "Day"], ["week", "Week"], ["month", "Month"]] as [z, label]}
+        <button class:on={zoom === z} aria-pressed={zoom === z} onclick={() => setZoom(z as Zoom)}>{label}</button>
+      {/each}
+    </div>
   </div>
+  <div class="viewport">
+  {#if zoom === "day"}
   <div class="days" bind:this={scroller} onscroll={onScroll}>
     {#each days as day (day)}
       {@const cols = columnsOf(summaryOf(day))}
@@ -212,31 +300,76 @@
       </div>
     {/each}
   </div>
+  {:else}
+    {@const top = Math.max(2, Math.max(0, ...periodCols.map((c) => c.total)) + (Math.max(0, ...periodCols.map((c) => c.total)) % 2))}
+    {@const unit = plot / top}
+    {@const n = periodCols.length}
+    {@const busiest = Math.max(0, ...periodCols.map((c) => c.total))}
+    <div class="day period">
+      <div class="chart" style="height: {chart}px; grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {n > 7 ? 2 : tall ? 10 : 8}px">
+        <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{top / 2}</span></div>
+        <div class="tick" style="bottom: {plot}px"><span class="mono">{top}</span></div>
+        {#each periodCols as c, i (c.day)}
+          <button class="col" class:faded={periodPick !== null && periodPick !== i} class:picked={periodPick === i} class:future={c.future}
+            aria-label="{c.day}, {c.total} earned" aria-pressed={periodPick === i} disabled={c.future}
+            onclick={() => (periodPick = periodPick === i || !c.total ? null : i)}>
+            {#if c.total}
+              <!-- A month's bars are too narrow for every count: it labels the busiest Day and the picked one. -->
+              {#if n <= 7 || i === periodPick || (periodPick === null && c.total === busiest)}<span class="mono n">{c.total}</span>{:else}<span class="mono n blank"></span>{/if}
+              <div class="bar" style="height: {Math.max(c.total * unit, c.segments.length * MIN_SEGMENT)}px">
+                {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
+              </div>
+            {/if}
+          </button>
+        {/each}
+      </div>
+      <div class="dots" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {n > 7 ? 2 : tall ? 10 : 8}px">
+        {#each periodCols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={n > 7 ? 7 : tall ? 10 : 8} />{/if}</div>{/each}
+      </div>
+      <div class="mono axis periodaxis" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {n > 7 ? 2 : tall ? 10 : 8}px">
+        {#each periodCols as c, i}
+          <span class:today={c.day === today.day}>{zoom === "week" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i] : [0, 7, 14, 21, 28].includes(i) ? i + 1 : ""}</span>
+        {/each}
+      </div>
+    </div>
+  {/if}
+  </div>
   <div class="legend">
     <!-- Outside the scrolling list, so it stays put when the list bounces. -->
-    <div class="row head"><span class="mono when">{breakdown.label}</span><span class="mono">{breakdown.total} earned</span></div>
+    <!-- Today sits beside the period's name, where there's room on every screen. -->
+    <div class="row head"><span class="mono when">{shownBreakdown.label}</span><span class="todaycell"><TodayButton show={!onLatest} onclick={backToToday} /></span><span class="mono">{shownBreakdown.total} earned</span></div>
     <div class="lframe">
     <ScrollCue target={listEl} />
     <div class="list" aria-live="polite" bind:this={listEl}>
-    {#each breakdown.rows as row (row.name)}
+    {#each shownBreakdown.rows as row (row.name)}
       <div class="row" class:zero={!row.n}><span class="mk"><Marker kind="source" color={row.color} /></span><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
     {/each}
-    {#if breakdown.anyRedeemed}
-      <div class="row" class:zero={!breakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Redeemed</span><b class="mono">{breakdown.redeemed || "–"}</b></div>
+    {#if shownBreakdown.anyRedeemed}
+      <div class="row" class:zero={!shownBreakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Redeemed</span><b class="mono">{shownBreakdown.redeemed || "–"}</b></div>
     {/if}
-    {#if !breakdown.rows.length && !breakdown.anyRedeemed}
-      <div class="row none">{current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
+    {#if !shownBreakdown.rows.length && !shownBreakdown.anyRedeemed}
+      <div class="row none">{zoom !== "day" ? `Nothing earned ${zoom === "week" ? "this week" : "this month"}` : current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
     {/if}
     </div>
     </div>
     <!-- Stays at the bottom of the box, however long the list is. -->
-    {#if breakdown.rows.length}<div class="hintline">{pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole day"}</div>{/if}
+    {#if shownBreakdown.rows.length}<div class="hintline">{zoom === "day" ? (pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole day") : periodPick === null ? "Tap a bar to see that day" : `Tap it again for the whole ${zoom}`}</div>{/if}
   </div>
 </section>
 
 <style>
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 28px; }
+  /* Day, Week, Month: a small segmented switch. */
+  .zoom { flex: none; display: flex; padding: 2px; border-radius: 10px; background: #1f2226; border: 1px solid var(--line); }
+  .zoom button { height: 26px; padding: 0 9px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: 700 11px var(--font); cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick); }
+  .zoom button.on { background: var(--line); color: var(--ink); }
+  .viewport { position: relative; }
+  .col.future { cursor: default; }
+  .n.blank { height: 11px; }
+  .periodaxis { display: grid; justify-content: stretch; }
+  .periodaxis span { text-align: center; white-space: nowrap; }
+  .periodaxis span.today { color: var(--ink); font-weight: 700; }
   .switcher { display: flex; align-items: center; gap: 2px; margin-left: -8px; }
   .switcher:not(:has(.nav)) { margin-left: 0; }
   .nav { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; }
@@ -274,7 +407,8 @@
   .lframe { position: relative; display: flex; flex-direction: column; }
   .list { position: relative; display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
-  .row.head { grid-template-columns: minmax(0, 1fr) auto; border-top: 0; font-size: 11px; color: var(--muted); }
+  .row.head { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 10px; border-top: 0; font-size: 11px; color: var(--muted); }
+  .todaycell { display: flex; height: 30px; align-items: center; }
   .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
   .row.zero { color: var(--muted); } .row.zero b { color: var(--muted); }
@@ -288,7 +422,7 @@
      grid stays put level with the next column; the list scrolls inside
      whatever room is left, with its heading row pinned. */
   .tall { flex: 1; min-height: 0; }
-  .tall .head, .tall .days { flex: none; }
+  .tall .head, .tall .days, .tall .viewport { flex: none; }
   .tall .legend { flex: 1; min-height: 96px; }
   .tall .lframe { flex: 1; min-height: 0; }
   .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }

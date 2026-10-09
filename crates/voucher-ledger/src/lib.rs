@@ -633,12 +633,15 @@ pub struct SourceProgress {
 }
 
 /// One Day in the history, for Trends.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DayTotal {
     pub day: Date,
     pub earned: u32,
     pub redeemed: u32,
     pub goal_met: bool,
+    /// Vouchers earned per source, from the log: empty for Days older than
+    /// the log keeps (their totals above still stand).
+    pub by_source: BTreeMap<String, u32>,
 }
 
 /// What one Day earned, and the goal it had.
@@ -1133,6 +1136,19 @@ impl Ledger {
         self.settle(now);
         let today = day_of(&self.state.settings, now);
         let goal_today = self.state.settings.daily_goal;
+        // Each Day's earnings per source, in one pass over the log.
+        let settings = &self.state.settings;
+        let mut sources: BTreeMap<Date, BTreeMap<String, u32>> = BTreeMap::new();
+        for entry in &self.state.log {
+            if let Entry::Earned { task, at, .. } = entry {
+                let source = group_of(settings, task).unwrap_or(source_of(task));
+                *sources
+                    .entry(day_of(settings, *at))
+                    .or_default()
+                    .entry(source.to_string())
+                    .or_insert(0) += 1;
+            }
+        }
         (0..i64::from(days))
             .rev()
             .map(|back| {
@@ -1150,6 +1166,7 @@ impl Ledger {
                     earned,
                     redeemed,
                     goal_met: earned >= goal,
+                    by_source: sources.remove(&day).unwrap_or_default(),
                 }
             })
             .collect()
