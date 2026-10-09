@@ -14,9 +14,8 @@
   let error = $state<string | null>(null);
   let note = $state<string | null>(null);
 
-  const ORDER = ["instagram", "youtube", "reddit"];
-  const lists = $derived(status ? Object.entries(status.settings.blocklists).sort(([a], [b]) =>
-    (ORDER.includes(a) ? ORDER.indexOf(a) : 99) - (ORDER.includes(b) ? ORDER.indexOf(b) : 99) || a.localeCompare(b)) : []);
+  // A to Z; the Premade tag already says which ones Voucher filled in.
+  const lists = $derived(status ? Object.entries(status.settings.blocklists).sort(([a, x], [b, y]) => (x.name || a).localeCompare(y.name || b)) : []);
   const waitingOff = (id: string) => status?.pending.some(([c]) => (c as any).BlocklistOn?.id === id && !(c as any).BlocklistOn.on);
 
   async function load() {

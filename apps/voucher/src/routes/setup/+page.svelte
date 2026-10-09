@@ -10,7 +10,7 @@
   import Switch from "$lib/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
-  import { needsToken, serviceOf, styleOf } from "$lib/sources";
+  import { compareSources, needsToken, serviceOf, styleOf } from "$lib/sources";
   import { hhmm, minutesOf, timeOf } from "$lib/rules";
   import { summary } from "$lib/blocklists";
   import type { Protection, Status } from "$lib/types";
@@ -185,7 +185,7 @@
     {#each [["Task counters", "tasks"], ["Workout", "workout"], ["Focused time", "focus"]] as [title, kind]}
       <div class="cap">{title}</div>
       <div class="list">
-        {#each Object.entries(status.settings.sources).filter(([, s]) => s.kind === kind) as [id, s] (id)}
+        {#each Object.entries(status.settings.sources).filter(([, s]) => s.kind === kind).sort(([a, x], [b, y]) => compareSources({ id: a, name: x.name || a }, { id: b, name: y.name || b })) as [id, s] (id)}
           {@const style = styleOf(id)}
           <div class="li">
             <span class="dot" style="background: {style.color}"></span>
@@ -214,7 +214,7 @@
       <p>Pick blocklists and check the starting limits.</p>
     </div>
     <div class="list">
-      {#each Object.entries(status.settings.blocklists) as [id, list] (id)}
+      {#each Object.entries(status.settings.blocklists).sort(([a, x], [b, y]) => (x.name || a).localeCompare(y.name || b)) as [id, list] (id)}
         <div class="li">
           <span class="dot" style="background: {list.color}"></span>
           <span class="lt"><b>{list.name}</b><small>{summary(list)}</small></span>

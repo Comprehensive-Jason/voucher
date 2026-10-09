@@ -30,7 +30,16 @@ const SERVICES: Record<string, SourceStyle> = {
 export const SPARE = ["#7dd9fb", "#c1d58a", "#f3b2e6", "#d1bfff", "#e9c57d", "#76e0d6", "#feb896"];
 
 /** Earnings name a service; they count toward the Tasks group. */
-const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);
+export const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);
+
+/** The order sources are listed in everywhere (Rules, the hour chart's list,
+ *  and its bars from the bottom up): Tasks, Workout, and Steps first, since
+ *  they're the ones that aren't time in an app, then the rest by name. */
+const PINNED = ["tasks", "workout", "steps"];
+export function compareSources(a: { id: string; name: string }, b: { id: string; name: string }): number {
+  const rank = (id: string) => (PINNED.includes(id) ? PINNED.indexOf(id) : PINNED.length);
+  return rank(a.id) - rank(b.id) || a.name.localeCompare(b.name);
+}
 
 export function styleOf(id: string): SourceStyle {
   const key = groupOf(id);

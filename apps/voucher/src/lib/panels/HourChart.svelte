@@ -12,7 +12,7 @@
   // come near the screen.
   import { tick, untrack } from "svelte";
   import { ledger } from "../api";
-  import { SOURCES, sourceOf, styleOf } from "../sources";
+  import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
   import { dayLabel, hourOf, shiftDay } from "../time";
   import Marker from "../components/Marker.svelte";
   import type { DaySummary, DayTotal } from "../types";
@@ -58,13 +58,13 @@
   const summaryOf = (day: string) => (day === today.day ? today : past[day]);
   const current = $derived(summaryOf(days[shown]));
 
-  // Segments stack in a fixed source order, so a source sits at the same
-  // place in every bar (the first at the bottom).
-  const ORDER = Object.values(SOURCES).map((s) => s.name);
-  type Part = { name: string; color: string; n: number };
-  const rank = (name: string) => (ORDER.includes(name) ? ORDER.indexOf(name) : ORDER.length);
+  // Segments stack in the order sources are listed everywhere
+  // (compareSources), so a source sits at the same place in every bar (the
+  // first at the bottom). Days past the kept log come last.
+  type Part = { id: string; name: string; color: string; n: number };
+  const EARLIER = "Earlier, by source not kept";
   function partsOf(counts: Map<string, Part>): Part[] {
-    return [...counts.values()].sort((a, b) => rank(a.name) - rank(b.name));
+    return [...counts.values()].sort((a, b) => Number(a.id === EARLIER) - Number(b.id === EARLIER) || compareSources(a, b));
   }
   function columnsOf(summary: DaySummary | undefined) {
     const cols = Array.from({ length: HOURS }, () => ({ counts: new Map<string, Part>(), total: 0, redeemed: 0 }));
@@ -73,13 +73,13 @@
       const col = h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1;
       if (e.kind === "earned") {
         const { name, color } = sourceOf(e.task);
-        const part = cols[col].counts.get(name) ?? { name, color, n: 0 };
+        const part = cols[col].counts.get(name) ?? { id: groupOf(e.task.split(":")[0]), name, color, n: 0 };
         part.n++;
         cols[col].counts.set(name, part);
         cols[col].total++;
       } else if (e.kind === "redeemed") cols[col].redeemed += e.tickets;
     }
-    // Bars draw top to bottom, so the first source in ORDER ends up lowest.
+    // Bars draw top to bottom, so the first source in the order ends up lowest.
     return cols.map((c) => ({ ...c, parts: partsOf(c.counts), segments: partsOf(c.counts).reverse() }));
   }
   /** What the line under the chart lists: the picked hour, or the whole Day. */
@@ -218,13 +218,13 @@
       const counts = new Map<string, Part>();
       for (const [id, n] of Object.entries(t?.by_source ?? {})) {
         const { name, color } = styleOf(id);
-        const part = counts.get(name) ?? { name, color, n: 0 };
+        const part = counts.get(name) ?? { id: groupOf(id), name, color, n: 0 };
         part.n += n;
         counts.set(name, part);
       }
       // Days past the kept log have a total but no sources: one grey segment.
       const known = [...counts.values()].reduce((a, q) => a + q.n, 0);
-      if (t && t.earned > known) counts.set("Earlier, by source not kept", { name: "Earlier, by source not kept", color: "#6c7177", n: t.earned - known });
+      if (t && t.earned > known) counts.set(EARLIER, { id: EARLIER, name: EARLIER, color: "#6c7177", n: t.earned - known });
       const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
       return { day, total, redeemed: t?.redeemed ?? 0, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
     });

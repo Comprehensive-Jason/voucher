@@ -9,7 +9,7 @@
   import Switch from "../components/Switch.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
-  import { RATE_RANGE, defaultColorOf, needsToken, rateText, serviceOf, styleOf } from "../sources";
+  import { RATE_RANGE, compareSources, defaultColorOf, needsToken, rateText, serviceOf, styleOf } from "../sources";
   import { hhmm, until } from "../rules";
   import type { Source, SourceKind, Status } from "../types";
 
@@ -27,11 +27,9 @@
   }
 
   const RANGE = RATE_RANGE;
-  // Tasks, Workout, and Steps first, then groups of apps by name.
-  const FIRST = ["tasks", "workout", "steps", "obsidian", "reading", "anki"];
-  const rank = (id: string) => (FIRST.includes(id) ? FIRST.indexOf(id) : FIRST.length);
+  // Tasks, Workout, and Steps first, then groups of apps by name (compareSources).
   const groups = $derived(status ? Object.entries(status.settings.sources)
-    .sort(([a, x], [b, y]) => rank(a) - rank(b) || (x.name || a).localeCompare(y.name || b)) : []);
+    .sort(([a, x], [b, y]) => compareSources({ id: a, name: x.name || a }, { id: b, name: y.name || b })) : []);
   /** New groups waiting for the morning, which the Ledger doesn't list yet. */
   const comingUp = $derived((status?.pending ?? []).filter(([c]) => (c as any).AddSource)
     .map(([c, at]) => ({ id: (c as any).AddSource.id as string, source: (c as any).AddSource.source as Source, at })));
