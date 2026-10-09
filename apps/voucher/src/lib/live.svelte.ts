@@ -16,12 +16,30 @@ export class Live {
   /** The Unlock end we've already refreshed for, so it happens once. */
   #refreshedFor: number | null = null;
 
+  // Requests can overlap (a slow answer, then the next poll), and answers can
+  // come back out of order. An older answer arriving late would set the
+  // screen back: a source that just earned would earn again a moment later,
+  // replaying its fill and drop. So each answer is numbered by when it was
+  // asked, and one asked before the answer on screen is dropped.
+  #asked = 0;
+  #shown = 0;
+
   refresh = async () => {
-    try { this.data = await today(); this.error = null; } catch (e) { this.error = String(e); }
+    const n = ++this.#asked;
+    try {
+      const data = await today();
+      if (n < this.#shown) return;
+      this.#shown = n; this.data = data; this.error = null;
+    } catch (e) { if (n >= this.#shown) this.error = String(e); }
   };
 
   tear = async (count: number) => {
-    try { this.data = await tear(count); this.error = null; } catch (e) { this.error = String(e); }
+    try {
+      const data = await tear(count);
+      // A tear's answer is the newest there is: polls still on their way were
+      // asked before it landed, so they're dropped.
+      this.#shown = ++this.#asked; this.data = data; this.error = null;
+    } catch (e) { this.error = String(e); }
   };
 
   /** Starts the clock and the poll; returns the function that stops them. */
