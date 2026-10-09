@@ -74,6 +74,14 @@ object Store {
     fun setReported(ctx: Context, source: String, day: String, minutes: Int) =
         prefs(ctx).edit().putInt("reported_${source}_$day", minutes).apply()
 
+    /** Lasting yes/no markers, such as a Day whose usage was sent for the last time. */
+    fun flag(ctx: Context, key: String): Boolean = prefs(ctx).getBoolean("flag_$key", false)
+    fun setFlag(ctx: Context, key: String) = prefs(ctx).edit().putBoolean("flag_$key", true).apply()
+
+    /** The Distraction minutes last sent for a Day, so unchanged ones aren't sent again. */
+    fun usageSent(ctx: Context, day: String): String? = prefs(ctx).getString("usage_sent_$day", null)
+    fun setUsageSent(ctx: Context, day: String, sent: String) = prefs(ctx).edit().putString("usage_sent_$day", sent).apply()
+
     /** One-shot markers, such as which moment notifications were already sent. */
     fun once(ctx: Context, key: String): Boolean {
         val p = prefs(ctx)

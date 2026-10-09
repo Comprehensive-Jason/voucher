@@ -614,6 +614,10 @@ pub struct DaySummary {
     pub log: Vec<Entry>,
     /// Each source's progress toward its next Voucher this Day.
     pub sources: Vec<SourceProgress>,
+    /// Minutes in each Distraction app per clock hour (24 of them, midnight
+    /// first), every device's added together: empty for Days older than the
+    /// log keeps.
+    pub usage: BTreeMap<String, Vec<u32>>,
 }
 
 /// One source's standing for a Day.
@@ -642,6 +646,10 @@ pub struct DayTotal {
     /// Vouchers earned per source, from the log: empty for Days older than
     /// the log keeps (their totals above still stand).
     pub by_source: BTreeMap<String, u32>,
+    pub unlocked_minutes: u32,
+    /// Minutes in each Distraction app, every device's added together:
+    /// empty for Days older than the log keeps.
+    pub used: BTreeMap<String, u32>,
 }
 
 /// What one Day earned, and the goal it had.
@@ -659,6 +667,10 @@ struct DayScore {
     /// The last running total of minutes the phone reported, per source.
     #[serde(default)]
     reported: BTreeMap<String, u32>,
+    /// Distraction minutes per clock hour, by device, then by app. Each
+    /// device's latest report replaces its last one.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    usage: BTreeMap<String, BTreeMap<String, Vec<u32>>>,
 }
 
 impl DayScore {
@@ -670,6 +682,7 @@ impl DayScore {
             unlocked_minutes: 0,
             progress: BTreeMap::new(),
             reported: BTreeMap::new(),
+            usage: BTreeMap::new(),
         }
     }
 }
@@ -922,6 +935,39 @@ impl Ledger {
         paid
     }
 
+    /// One device's Distraction minutes for `day`: per app, the minutes in
+    /// each clock hour (24, midnight first). It replaces that device's last
+    /// report for the Day. Only today and yesterday are accepted, and no hour
+    /// can hold more than 60 minutes. False if refused.
+    pub fn report_usage(
+        &mut self,
+        device: &str,
+        day: Date,
+        apps: BTreeMap<String, Vec<u32>>,
+        now: Timestamp,
+    ) -> bool {
+        self.settle(now);
+        let today = day_of(&self.state.settings, now);
+        let fresh_day = day == today || Some(day) == today.yesterday().ok();
+        let sane = apps.values().all(|hours| hours.len() <= 24 && hours.iter().all(|&m| m <= 60));
+        if !fresh_day || !sane {
+            return false;
+        }
+        let apps = apps
+            .into_iter()
+            .filter(|(_, hours)| hours.iter().any(|&m| m > 0))
+            .map(|(app, mut hours)| {
+                hours.resize(24, 0);
+                (app, hours)
+            })
+            .collect();
+        let goal = self.state.settings.daily_goal;
+        let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
+        score.usage.insert(device.to_string(), apps);
+        self.forget_old_entries(today);
+        true
+    }
+
     /// Adds `units` (tasks or minutes) to a source's progress on `day`,
     /// paying a Voucher each time it reaches the source's `every`. Each
     /// Voucher is logged under the name `entry` gives it.
@@ -1116,9 +1162,11 @@ impl Ledger {
                 earned: by_source.get(id).copied().unwrap_or(0),
             })
             .collect();
+        let usage = usage_of(&score);
         DaySummary {
             day,
             sources,
+            usage,
             earned: score.earned,
             redeemed: score.redeemed,
             unlocked_minutes: score.unlocked_minutes,
@@ -1167,6 +1215,13 @@ impl Ledger {
                     redeemed,
                     goal_met: earned >= goal,
                     by_source: sources.remove(&day).unwrap_or_default(),
+                    unlocked_minutes: score.map_or(0, |s| s.unlocked_minutes),
+                    used: score
+                        .map(usage_of)
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(app, hours)| (app, hours.iter().sum()))
+                        .collect(),
                 }
             })
             .collect()
@@ -1236,6 +1291,10 @@ impl Ledger {
         self.state
             .log
             .retain(|entry| day_of(settings, entry.at()) >= oldest);
+        // Distraction minutes go with the log.
+        for (_, score) in self.state.days.range_mut(..oldest) {
+            score.usage.clear();
+        }
     }
 
     /// Whether Curfew is in force at `now`.
@@ -1695,6 +1754,21 @@ const EARNING_WINDOW_DAYS: i64 = 2;
 /// so the hour chart and the Log reach as far back as anyone looks for a
 /// trend. Day scores (the history grid, Trends) are kept for good.
 const LOG_DAYS: i64 = 183;
+
+/// A Day's Distraction minutes per app and clock hour, every device's added
+/// together; two screens in the same hour still make at most 60 minutes.
+fn usage_of(score: &DayScore) -> BTreeMap<String, Vec<u32>> {
+    let mut out: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    for apps in score.usage.values() {
+        for (app, hours) in apps {
+            let sum = out.entry(app.clone()).or_insert_with(|| vec![0; 24]);
+            for (total, &m) in sum.iter_mut().zip(hours) {
+                *total = (*total + m).min(60);
+            }
+        }
+    }
+    out
+}
 
 /// The Day a moment belongs to. A Day runs from Curfew's end to the next
 /// Curfew's end, so work at 01:00 still counts toward the evening before.

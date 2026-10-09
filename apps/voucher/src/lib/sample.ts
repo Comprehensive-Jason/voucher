@@ -13,10 +13,19 @@ const earned = (time: string, task: string, title: string, day = TODAY): Entry =
 const redeemed = (time: string, vouchers: number, day = TODAY): Entry =>
   ({ kind: "redeemed", at: `${day}T${time}:00-07:00`, tickets: vouchers, minutes: vouchers * 10 });
 
+/** Minutes per clock hour for each app, from [hour, minutes] pairs. */
+const usage = (apps: Record<string, [number, number][]>): Record<string, number[]> =>
+  Object.fromEntries(Object.entries(apps).map(([app, pairs]) => {
+    const hours = Array<number>(24).fill(0);
+    for (const [h, m] of pairs) hours[h] = m;
+    return [app, hours];
+  }));
+
 const days: Record<string, DaySummary> = {
   [TODAY]: {
     day: TODAY, earned: 11, redeemed: 3, unlocked_minutes: 30, goal: 16, goal_met: false, goal_met_at: null,
     streak: 4, by_source: { tasks: 7, obsidian: 2, workout: 1, reading: 1 }, sources: [],
+    usage: usage({ Instagram: [[8, 6], [12, 9], [13, 4], [19, 12]], YouTube: [[12, 3], [20, 14]], Reddit: [[16, 5]], Chess: [[21, 8]] }),
     log: [
       redeemed("19:42", 2),
       earned("16:40", "todoist:1", "Weekly review"),
@@ -36,6 +45,7 @@ const days: Record<string, DaySummary> = {
   "2026-10-06": {
     day: "2026-10-06", earned: new URLSearchParams(location.search).get("state") === "streaklost" ? 9 : 17, redeemed: 4, unlocked_minutes: 40, goal: 16, goal_met: new URLSearchParams(location.search).get("state") !== "streaklost",
     goal_met_at: "2026-10-06T17:30:00-07:00", streak: 4, by_source: { tasks: 11, obsidian: 3, workout: 1, reading: 2 }, sources: [],
+    usage: usage({ Instagram: [[9, 4], [12, 10], [16, 8], [21, 9]], YouTube: [[16, 12], [21, 6]], Reddit: [[12, 6]], Words: [[13, 5]] }),
     log: [
       redeemed("21:10", 1, "2026-10-06"),
       earned("19:05", "obsidian:3", "30 min focused", "2026-10-06"),
@@ -71,7 +81,12 @@ function history(n: number): DayTotal[] {
     const by_source: Record<string, number> = {};
     let left = earned;
     share.forEach(([id, f], i) => { const n = i === share.length - 1 ? left : Math.min(left, Math.round(earned * f)); if (n) by_source[id] = n; left -= n; });
-    out.push({ day: d, earned, redeemed: Math.floor(earned / 3), goal_met: earned >= 16, by_source });
+    // Distraction minutes that drift down as earning climbs, around what was unlocked.
+    const unlocked = Math.floor(earned / 3) * 10;
+    const spent = Math.max(0, unlocked + ((seed % 23) - 9));
+    const used: Record<string, number> = {};
+    if (spent) { used.Instagram = Math.round(spent * 0.45); used.YouTube = Math.round(spent * 0.3); used.Reddit = spent - used.Instagram - used.YouTube; }
+    out.push({ day: d, earned, redeemed: Math.floor(earned / 3), goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used });
   }
   return out;
 }

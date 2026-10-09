@@ -29,8 +29,10 @@ const LEDGER = `http://${LISTEN}`;
 // Minutes reported so far per Day and source. A device reports running totals,
 // and the Ledger ignores a total that doesn't grow, so the portal keeps them.
 const TOTALS = path.join(DATA, "portal-totals.json");
-// Made-up Distraction time for a dev build to show (it's measured on the
-// device, so the Ledger never has it). Starts with placeholder figures.
+// Made-up Distraction time, as a phone would measure it: the dev build's
+// "today on this device" figures, and minutes per app and hour that the
+// portal reports to the Ledger (POST /usage) for the Distraction time chart.
+// Starts with placeholder figures.
 const USAGE = path.join(DATA, "portal-usage.json");
 // Apps from Jason's own blocklists, named as the blocklists name them so the
 // app can colour each one by its list.
@@ -47,6 +49,44 @@ function placeholderUsage() {
   };
 }
 const readUsage = () => { try { return JSON.parse(readFileSync(USAGE, "utf8")); } catch { return placeholderUsage(); } };
+const ZONE = process.env.VOUCHER_TIME_ZONE ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+const hourNow = () => Number(new Intl.DateTimeFormat("en-US", { timeZone: ZONE, hour: "numeric", hourCycle: "h23" }).format(new Date()));
+/** Each app's minutes today per clock hour: what's there, or today's totals
+ *  spread from 08:00 to now (at most 60 a hour). */
+function hoursOf(u) {
+  if (u.hours) return u.hours;
+  const now = hourNow(), from = Math.min(8, now), span = now - from + 1;
+  const hours = {};
+  for (const [app, total] of Object.entries(u.minutes)) {
+    const h = Array(24).fill(0);
+    let left = total;
+    for (let i = 0; i < span && left > 0; i++) { const m = Math.min(60, Math.ceil(left / (span - i))); h[from + i] = m; left -= m; }
+    hours[app] = h;
+  }
+  return hours;
+}
+/** Sends today's made-up minutes to the Ledger, as a phone would. */
+async function reportUsage() {
+  const u = readUsage();
+  u.hours = hoursOf(u);
+  writeUsage(u);
+  const day = (await call("GET", "/status")).today.day;
+  return call("POST", "/usage", { device: "portal", day, apps: u.hours });
+}
+/** A made-up Day of Distraction time: a few apps, mostly in the hours the Day
+ *  tore Vouchers, sometimes running past what was unlocked. */
+function fakeDayUsage(tearHours, unlockMinutes) {
+  const apps = {};
+  const add = (app, hour, m) => { (apps[app] ??= Array(24).fill(0))[hour] = Math.min(60, (apps[app]?.[hour] ?? 0) + m); };
+  const pick = () => USAGE_APPS[Math.floor(Math.random() ** 2 * USAGE_APPS.length)];
+  for (const h of tearHours) {
+    let left = Math.round(unlockMinutes * (0.6 + Math.random() * 0.8));
+    while (left > 0) { const m = Math.min(left, 2 + Math.floor(Math.random() * 8)); add(pick(), h, m); left -= m; }
+  }
+  // A little time outside Unlocks too, as an allowed app would show.
+  if (Math.random() < 0.5) add(pick(), 8 + Math.floor(Math.random() * 13), 1 + Math.floor(Math.random() * 6));
+  return apps;
+}
 const writeUsage = (u) => writeFileSync(USAGE, JSON.stringify(u));
 /** The shape the app's deviceUsage() returns. */
 function usageReply() {
@@ -168,15 +208,45 @@ async function seedHistory(days) {
       state.log.push({ kind: "earned", at: at(9 + Math.floor(Math.random() * 13), Math.floor(Math.random() * 60)),
         task: sources[k] + ":seed-" + date + "-" + i, title: titles[k % titles.length], kept: true });
     }
+    const tearHours = [];
     for (let i = 0; i < redeemed; i++) {
-      state.log.push({ kind: "redeemed", at: at(12 + Math.floor(Math.random() * 9), Math.floor(Math.random() * 60)), tickets: 1, minutes: state.settings.unlock_minutes });
+      const hour = 12 + Math.floor(Math.random() * 9);
+      tearHours.push(hour);
+      state.log.push({ kind: "redeemed", at: at(hour, Math.floor(Math.random() * 60)), tickets: 1, minutes: state.settings.unlock_minutes });
     }
+    state.days[date].usage = { portal: fakeDayUsage(tearHours, state.settings.unlock_minutes) };
   }
   state.log.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   if (earliest && Date.parse(state.started_at) > Date.parse(earliest + "T00:00:00Z")) state.started_at = earliest + "T00:00:00Z";
   writeFileSync(file, JSON.stringify(state));
   startLedger();
   await untilUp();
+}
+
+/** Gives every past Day in the kept log that has no Distraction time some,
+ *  around the hours its log shows Vouchers torn. Edits the saved state while
+ *  the Ledger is stopped, like seedHistory. */
+async function backfillUsage() {
+  const today = (await call("GET", "/status")).today.day;
+  await stopLedger();
+  const file = path.join(DATA, "state.json");
+  const state = JSON.parse(readFileSync(file, "utf8"));
+  const hourIn = (iso) => Number(new Intl.DateTimeFormat("en-US", { timeZone: state.settings.time_zone, hour: "numeric", hourCycle: "h23" }).format(new Date(iso)));
+  const dayOf = (iso) => { const h = hourIn(iso); const local = new Intl.DateTimeFormat("en-CA", { timeZone: state.settings.time_zone }).format(new Date(iso)); return h < 6 ? new Date(Date.parse(local + "T12:00:00Z") - 86400_000).toISOString().slice(0, 10) : local; };
+  const tears = {};
+  for (const e of state.log) if (e.kind === "redeemed") (tears[dayOf(e.at)] ??= []).push(hourIn(e.at));
+  const logFrom = new Date(Date.parse(today + "T12:00:00Z") - 183 * 86400_000).toISOString().slice(0, 10);
+  let filled = 0;
+  for (const [date, score] of Object.entries(state.days)) {
+    if (date >= today || date < logFrom || (score.usage && Object.keys(score.usage).length)) continue;
+    score.usage = { portal: fakeDayUsage(tears[date] ?? [], state.settings.unlock_minutes) };
+    filled++;
+  }
+  writeFileSync(file, JSON.stringify(state));
+  startLedger();
+  await untilUp();
+  await reportUsage();
+  return filled;
 }
 
 const send = (res, status, type, body) => { res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" }); res.end(body); };
@@ -193,19 +263,27 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/usage") {
       const u = readUsage();
       if (input.reset) writeUsage(placeholderUsage());
-      else if (input.clear) writeUsage({ minutes: {}, opens: {}, closedWithoutTearing: 0 });
+      else if (input.clear) writeUsage({ minutes: {}, opens: {}, closedWithoutTearing: 0, hours: {} });
       else {
-        if (input.app && input.minutes) u.minutes[input.app] = (u.minutes[input.app] ?? 0) + Number(input.minutes);
+        if (input.app && input.minutes) {
+          u.minutes[input.app] = (u.minutes[input.app] ?? 0) + Number(input.minutes);
+          // This hour's minutes for the Ledger's chart, at most 60.
+          u.hours = hoursOf(u);
+          const h = (u.hours[input.app] ??= Array(24).fill(0));
+          h[hourNow()] = Math.min(60, h[hourNow()] + Number(input.minutes));
+        }
         if (input.app && input.open) u.opens[input.app] = (u.opens[input.app] ?? 0) + 1;
         if (input.closed) u.closedWithoutTearing += 1;
         writeUsage(u);
       }
+      await reportUsage().catch(() => {});
       return send(res, 200, "application/json", JSON.stringify(usageReply()));
     }
     if (req.method === "POST" && req.url === "/api/minutes") return send(res, 200, "application/json", JSON.stringify(await addMinutes(input.source, Number(input.add))));
     if (req.method === "POST" && req.url === "/api/credit") return send(res, 200, "application/json", JSON.stringify(await call("POST", `/test/credit?count=${Number(input.count) || 1}`)));
     if (req.method === "POST" && req.url === "/api/task") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/complete", { source: input.source, title: input.title })));
     if (req.method === "POST" && req.url === "/api/grace") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/grace")));
+    if (req.method === "POST" && req.url === "/api/usage-history") return send(res, 200, "application/json", JSON.stringify({ filled: await backfillUsage() }));
     if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
     if (req.method === "POST" && req.url === "/api/reset") { await reset(); return send(res, 200, "application/json", "{}"); }
     send(res, 404, "text/plain", "not found");
@@ -266,7 +344,7 @@ const PAGE = String.raw`<!doctype html>
   <h2>Distraction time on this device (made up)</h2>
   <span class="note">What a dev build shows under "In Distractions today" and on the blocked-app screen, instead of what Android measures.</span>
   <div class="grid" id="usage"></div>
-  <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
+  <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="usagehistory">Fill in Distraction time for past Days</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
 <script>
 // Defaults for sources with no colour chosen; names come from the Ledger.
@@ -367,6 +445,7 @@ document.addEventListener("click", (e) => {
   if (b.dataset.uclear) act(() => api("POST", "/api/usage", { clear: true }), () => "Distraction time cleared");
   if (b.dataset.credit) act(() => api("POST", "/api/credit", { count: Number(b.dataset.credit) }), (c) => "+" + c.kept + " in the Bank" + (c.forfeited ? ", " + c.forfeited + " over the limit" : ""));
   if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added 4 more weeks of made-up Days, before the oldest");
+  if (b.id === "usagehistory") act(() => api("POST", "/api/usage-history"), (c) => "Distraction time made up for " + c.filled + " past Days");
   if (b.id === "grace") act(() => api("POST", "/api/grace"), () => "Grace period on: changes apply at once for 2 days");
   if (b.id === "reset") act(() => api("POST", "/api/reset"), () => "Fresh test Ledger: Bank and Day emptied");
 });
@@ -377,6 +456,7 @@ setInterval(refresh, 2000);
 startLedger();
 await untilUp();
 await finishSetup();
+await reportUsage().catch((e) => console.error("couldn't report today's Distraction time:", e.message));
 server.listen(PORT, () => {
   console.log(`test Ledger at ${LEDGER} (data in ${DATA}; access code in access.code)`);
   console.log(`portal at http://0.0.0.0:${PORT}`);

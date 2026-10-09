@@ -72,6 +72,7 @@ object Enforcer {
         }
         if (connection != null && status != null && fresh != null) {
             report(ctx, connection, status, zone, end, day)
+            reportUsage(ctx, connection, status, zone, end, day)
             // Silences between check-ins show in the Log as Gaps.
             runCatching { LedgerClient.post(connection, "/check-in?device=${android.net.Uri.encode(Store.deviceId(ctx))}") }
         }
@@ -203,14 +204,45 @@ object Enforcer {
      * `fromMillis`. Null without usage access.
      */
     fun foregroundMinutes(ctx: Context, packages: Set<String>, fromMillis: Long): Map<String, Int>? {
+        val millis = mutableMapOf<String, Long>()
+        foregroundSpans(ctx, packages, fromMillis) { pkg, start, end -> millis[pkg] = (millis[pkg] ?: 0) + (end - start) } ?: return null
+        return millis.mapValues { (it.value / 60_000).toInt() }
+    }
+
+    /**
+     * As foregroundMinutes, split into clock hours: per package, 24 numbers,
+     * midnight first, each at most 60. Null without usage access.
+     */
+    fun foregroundByHour(ctx: Context, packages: Set<String>, fromMillis: Long, toMillis: Long, zone: ZoneId): Map<String, IntArray>? {
+        val millis = mutableMapOf<String, LongArray>()
+        foregroundSpans(ctx, packages, fromMillis, toMillis) { pkg, start, end ->
+            val hours = millis.getOrPut(pkg) { LongArray(24) }
+            var at = start
+            while (at < end) {
+                val local = Instant.ofEpochMilli(at).atZone(zone)
+                val nextHour = local.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusHours(1).toInstant().toEpochMilli()
+                val until = minOf(end, nextHour)
+                hours[local.hour] += until - at
+                at = until
+            }
+        } ?: return null
+        return millis.mapValues { (_, ms) -> IntArray(24) { minOf(60, Math.round(ms[it] / 60_000.0).toInt()) } }
+    }
+
+    /**
+     * Calls `span` for each stretch one of `packages` spent in the foreground
+     * with the screen on since `fromMillis`. Null without usage access.
+     */
+    private fun foregroundSpans(
+        ctx: Context, packages: Set<String>, fromMillis: Long, toMillis: Long = System.currentTimeMillis(), span: (String, Long, Long) -> Unit,
+    ): Unit? {
         if (!Permissions.usageAccess(ctx)) return null
         val usm = ctx.getSystemService(UsageStatsManager::class.java)
-        val events = usm.queryEvents(fromMillis, System.currentTimeMillis())
-        val millis = mutableMapOf<String, Long>()
+        val events = usm.queryEvents(fromMillis, toMillis)
         var current: String? = null
         var since = 0L
         fun close(at: Long) {
-            current?.let { millis[it] = (millis[it] ?: 0) + (at - since) }
+            current?.let { if (at > since) span(it, since, at) }
             current = null
         }
         val e = UsageEvents.Event()
@@ -225,8 +257,39 @@ object Enforcer {
                 UsageEvents.Event.SCREEN_NON_INTERACTIVE -> close(e.timeStamp)
             }
         }
-        close(System.currentTimeMillis())
-        return millis.mapValues { (it.value / 60_000).toInt() }
+        close(minOf(toMillis, System.currentTimeMillis()))
+        return Unit
+    }
+
+    /**
+     * Sends this Day's Distraction minutes per app and clock hour, for Trends,
+     * when they have changed; once the Day turns, yesterday's last minutes too.
+     * Apps are named by their label, as "In Distractions today" shows them.
+     */
+    private fun reportUsage(ctx: Context, c: Connection, status: JSONObject, zone: ZoneId, end: LocalTime, day: String) {
+        val packages = blockedPackages(ctx, status)
+        if (packages.isEmpty()) return
+        val yesterday = LocalDate.parse(day).minusDays(1).toString()
+        for (d in listOf(yesterday, day)) {
+            if (d == yesterday && Store.flag(ctx, "usage_final_$d")) continue
+            // Each Day runs from Curfew's end to the next; yesterday's report stops where it did.
+            val from = LocalDate.parse(d).atTime(end).atZone(zone).toInstant().toEpochMilli()
+            val to = LocalDate.parse(d).plusDays(1).atTime(end).atZone(zone).toInstant().toEpochMilli()
+            val hours = foregroundByHour(ctx, packages, from, to, zone) ?: return
+            val pm = ctx.packageManager
+            val apps = JSONObject()
+            for ((pkg, h) in hours.toSortedMap()) {
+                if (h.all { it == 0 }) continue
+                val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+                apps.put(label, JSONArray(h.toList()))
+            }
+            val body = JSONObject().put("device", Store.deviceId(ctx)).put("day", d).put("apps", apps)
+            val text = apps.toString()
+            if (d == day && text == Store.usageSent(ctx, d)) continue
+            if (runCatching { LedgerClient.post(c, "/usage", body) }.getOrNull() == 200) {
+                if (d == yesterday) Store.setFlag(ctx, "usage_final_$d") else Store.setUsageSent(ctx, d, text)
+            }
+        }
     }
 
     /** The day's Distraction minutes and blocked opens, for Trends. */

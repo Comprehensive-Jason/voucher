@@ -290,6 +290,30 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
             ledger.end_grace();
             (200, status_json(&mut ledger, now))
         }
+        // A device's Distraction minutes for a Day, per app and clock hour.
+        (Method::Post, "/usage") => {
+            let mut body = String::new();
+            let parsed = request
+                .as_reader()
+                .read_to_string(&mut body)
+                .ok()
+                .and_then(|_| serde_json::from_str::<UsageReport>(&body).ok());
+            match parsed.map(|u| ledger.report_usage(&u.device, u.day, u.apps, now)) {
+                Some(true) => (200, json(&Message { message: "kept" })),
+                Some(false) => (
+                    400,
+                    json(&Message {
+                        message: "only today and yesterday, at most 24 hours of at most 60 minutes",
+                    }),
+                ),
+                None => (
+                    400,
+                    json(&Message {
+                        message: "body is not a usage report",
+                    }),
+                ),
+            }
+        }
         // The phone's running total of minutes for a Workout or Focus source.
         (Method::Post, "/report") => {
             let mut body = String::new();
@@ -501,6 +525,15 @@ struct TestTask {
     /// "todoist" or "clickup".
     source: String,
     title: String,
+}
+
+#[derive(serde::Deserialize)]
+struct UsageReport {
+    /// Which device measured this; each device's latest report stands.
+    device: String,
+    day: jiff::civil::Date,
+    /// Minutes per clock hour (midnight first), per app.
+    apps: std::collections::BTreeMap<String, Vec<u32>>,
 }
 
 #[derive(serde::Deserialize)]

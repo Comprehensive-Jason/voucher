@@ -1,4 +1,8 @@
 <script lang="ts">
+  // Two twins share this chart (`measure`): Vouchers earned, from the log,
+  // and Distraction time, from the minutes the phone reports per app and
+  // hour, drawn over a light grey outline of the time Unlocks allowed.
+  //
   // Zoom: Day shows one Day hour by hour (below); Week and Month show a bar
   // per Day across the week (Monday first) or calendar month, with the same
   // stacking, ticks, and list, and arrows that step a whole week or month.
@@ -15,7 +19,8 @@
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
   import { clock, dayLabel, hourOf, shiftDay } from "../time";
   import Marker from "../components/Marker.svelte";
-  import type { DaySummary, DayTotal } from "../types";
+  import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "../types";
+  import { blocklistColorOf } from "../blocklists";
   import ScrollCue from "../components/ScrollCue.svelte";
   import TodayButton from "../components/TodayButton.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
@@ -35,8 +40,14 @@
     return (first && parseFloat(getComputedStyle(first).width)) || el.clientWidth;
   }
 
-  let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable() }: {
+  let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable(), measure = "earned", blocklists = {}, device = null }: {
     today: DaySummary; timeZone: string; tall?: boolean;
+    /** What the bars count: Vouchers earned, or minutes in Distractions. */
+    measure?: "earned" | "distraction";
+    /** Distraction time only: each app takes its blocklist's colour. */
+    blocklists?: Record<string, Blocklist>;
+    /** Distraction time only: this device's blocked opens today, for the line under the list. */
+    device?: DeviceUsage | null;
     /** The oldest Day whose log the Ledger keeps; without it, only today shows. */
     firstDay?: string;
     /** A Day to scroll to (from the history grid); `at` makes each request new. */
@@ -72,11 +83,51 @@
   // first at the bottom). Days past the kept log come last.
   type Part = { id: string; name: string; color: string; n: number };
   const EARLIER = "Earlier, by source not kept";
+  const minutes = $derived(measure === "distraction");
+  /** An app's blocklist, so apps on one list stack together in its colour. */
+  const listOf = (app: string) => Object.values(blocklists).find((l) => l.apps.some((a) => a.label.toLowerCase() === app.toLowerCase()))?.name ?? "~";
+  const appPart = (app: string): Part => ({ id: app, name: app, color: blocklistColorOf(app, blocklists), n: 0 });
   function partsOf(counts: Map<string, Part>): Part[] {
-    return [...counts.values()].sort((a, b) => Number(a.id === EARLIER) - Number(b.id === EARLIER) || compareSources(a, b));
+    return [...counts.values()].sort((a, b) => minutes
+      ? listOf(a.name).localeCompare(listOf(b.name)) || a.name.localeCompare(b.name)
+      : Number(a.id === EARLIER) - Number(b.id === EARLIER) || compareSources(a, b));
+  }
+  /** Minutes Unlocked in each clock hour (midnight first): each tear runs on
+   *  from the Unlock before it, if that was still going. */
+  function unlockedByHour(log: Entry[]): number[] {
+    const out = Array<number>(24).fill(0);
+    const hourCache = new Map<number, number>();
+    const hourAt = (ms: number) => {
+      const key = Math.floor(ms / 1_800_000); // half hours, for zones a half hour off
+      if (!hourCache.has(key)) hourCache.set(key, hourOf(new Date(key * 1_800_000).toISOString(), timeZone));
+      return hourCache.get(key)!;
+    };
+    let end = 0;
+    const tears = log.filter((e): e is Extract<Entry, { kind: "redeemed" }> => e.kind === "redeemed").sort((a, b) => a.at.localeCompare(b.at));
+    for (const t of tears) {
+      const start = Math.max(Date.parse(t.at), end);
+      end = start + t.minutes * 60_000;
+      for (let at = start; at < end; at += 60_000) out[hourAt(at)]++;
+    }
+    return out;
   }
   function columnsOf(summary: DaySummary | undefined) {
-    const cols = Array.from({ length: HOURS }, () => ({ counts: new Map<string, Part>(), total: 0, redeemed: 0 }));
+    const cols = Array.from({ length: HOURS }, () => ({ counts: new Map<string, Part>(), total: 0, redeemed: 0, unlocked: 0 }));
+    const colOf = (h: number) => (h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1);
+    if (minutes) {
+      for (const [app, hours] of Object.entries(summary?.usage ?? {})) {
+        hours.forEach((m, h) => {
+          if (!m) return;
+          const col = cols[colOf(h)];
+          const part = col.counts.get(app) ?? appPart(app);
+          part.n += m;
+          col.counts.set(app, part);
+          col.total += m;
+        });
+      }
+      unlockedByHour(summary?.log ?? []).forEach((m, h) => (cols[colOf(h)].unlocked += m));
+      return cols.map((c) => ({ ...c, parts: partsOf(c.counts), segments: partsOf(c.counts).reverse() }));
+    }
     for (const e of summary?.log ?? []) {
       const h = hourOf(e.at, timeZone);
       const col = h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1;
@@ -97,7 +148,7 @@
       const c = cols[pick];
       const hour = FIRST_HOUR + pick;
       const label = pick === HOURS - 1 ? "23:00 onward" : `${String(hour).padStart(2, "0")}:00 to ${String(hour + 1).padStart(2, "0")}:00`;
-      return { label, parts: c.parts, redeemed: c.redeemed };
+      return { label, parts: c.parts, redeemed: c.redeemed, unlocked: c.unlocked };
     }
     const all = new Map<string, Part>();
     for (const c of cols) for (const p of c.parts) {
@@ -105,12 +156,12 @@
       sum.n += p.n;
       all.set(p.name, sum);
     }
-    return { label: "All day", parts: partsOf(all), redeemed: cols.reduce((n, c) => n + c.redeemed, 0) };
+    return { label: "All day", parts: partsOf(all), redeemed: cols.reduce((n, c) => n + c.redeemed, 0), unlocked: cols.reduce((n, c) => n + c.unlocked, 0) };
   }
   /** The top tick line's number: the smallest even number at or above the
    *  busiest hour, and at least 2, so the half-way line is a whole number. */
-  function topOf(cols: ReturnType<typeof columnsOf>): number {
-    const max = Math.max(0, ...cols.map((c) => c.total));
+  function topOf(cols: { total: number; unlocked: number }[]): number {
+    const max = Math.max(0, ...cols.map((c) => Math.max(c.total, c.unlocked)));
     return Math.max(2, max + (max % 2));
   }
   // Two tick lines that never move, at half and full height; their numbers
@@ -119,7 +170,7 @@
   const LABEL = 14;
   const MIN_SEGMENT = 3;
   const plot = $derived(chart - LABEL);
-  function unitOf(cols: ReturnType<typeof columnsOf>) {
+  function unitOf(cols: { total: number; unlocked: number }[]) {
     return plot / topOf(cols);
   }
 
@@ -166,9 +217,11 @@
     const day = breakdownOf(cols, null);
     const now = pick === null ? day : breakdownOf(cols, pick);
     const rows = day.parts.map((p) => ({ ...p, n: now.parts.find((q) => q.name === p.name)?.n ?? 0 }));
+    // Distraction time lists the most-used app first.
+    if (minutes) rows.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     // The Daily goal for the whole Day, whichever hour is picked: when it was met, or how far it got.
     const goal = !current ? "–" : current.goal_met_at ? `met ${clock(current.goal_met_at, timeZone)}` : `${current.earned} of ${current.goal}`;
-    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0, goal, goalMet: !!current?.goal_met };
+    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0, goal, goalMet: !!current?.goal_met, unlocked: now.unlocked };
   });
   /** The hour the Daily goal was met, on the Day in view (a gold mark under its bar). */
   function goalColOf(summary: DaySummary | undefined): number | null {
@@ -229,11 +282,17 @@
     }).catch(() => { fetched = false; });
   });
   const totalOf = (day: string): DayTotal | undefined => (day === today.day
-    ? { day, earned: today.earned, redeemed: today.redeemed, goal_met: today.goal_met, by_source: today.by_source } : totals[day]);
+    ? { day, earned: today.earned, redeemed: today.redeemed, goal_met: today.goal_met, by_source: today.by_source, unlocked_minutes: today.unlocked_minutes,
+        used: Object.fromEntries(Object.entries(today.usage ?? {}).map(([app, hours]) => [app, hours.reduce((a, b) => a + b, 0)])) } : totals[day]);
   function colsOf(start: string) {
     return daysOf(start).map((day) => {
       const t = totalOf(day);
       const counts = new Map<string, Part>();
+      if (minutes) {
+        for (const [app, n] of Object.entries(t?.used ?? {})) if (n) counts.set(app, { ...appPart(app), n });
+        const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
+        return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: 0, goal: false, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
+      }
       for (const [id, n] of Object.entries(t?.by_source ?? {})) {
         const { name, color } = styleOf(id);
         const part = counts.get(name) ?? { id: groupOf(id), name, color, n: 0 };
@@ -244,7 +303,7 @@
       const known = [...counts.values()].reduce((a, q) => a + q.n, 0);
       if (t && t.earned > known) counts.set(EARLIER, { id: EARLIER, name: EARLIER, color: "#6c7177", n: t.earned - known });
       const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
-      return { day, total, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
+      return { day, total, unlocked: 0, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
     });
   }
   const pageCols = $derived(pages[page] ? colsOf(pages[page]) : []);
@@ -253,10 +312,12 @@
     for (const c of pageCols) for (const q of c.parts) { const sum = all.get(q.name) ?? { ...q, n: 0 }; sum.n += q.n; all.set(q.name, sum); }
     const picked = periodPick === null ? null : pageCols[periodPick];
     const rows = partsOf(all).map((q) => ({ ...q, n: picked ? picked.parts.find((r) => r.name === q.name)?.n ?? 0 : q.n }));
+    if (minutes) rows.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     return { label: picked ? dayLabel(picked.day, today.day) : labelOf(page), total: rows.reduce((n, r) => n + r.n, 0), rows,
       redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0), anyRedeemed: pageCols.some((c) => c.redeemed > 0),
       goal: picked ? (picked.goal ? "met" : "–") : `${pageCols.filter((c) => c.goal).length} of ${pageCols.filter((c) => !c.future).length} days`,
-      goalMet: picked ? picked.goal : pageCols.some((c) => c.goal) };
+      goalMet: picked ? picked.goal : pageCols.some((c) => c.goal),
+      unlocked: picked ? picked.unlocked : pageCols.reduce((n, c) => n + c.unlocked, 0) };
   });
   const shownBreakdown = $derived(zoom === "day" ? breakdown : periodBreakdown);
 
@@ -392,19 +453,20 @@
           {#each cols as c, i}
             <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol}
               aria-label="{String(FIRST_HOUR + i).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
-              onclick={() => (pick = pick === i || !c.total ? null : i)}>
+              onclick={() => (pick = pick === i || (!c.total && !c.unlocked) ? null : i)}>
+              {#if minutes && c.unlocked}<i class="allow" style="height: {c.unlocked * unit}px"></i>{/if}
               {#if c.total}
                 <span class="mono n">{c.total}</span>
                 <div class="bar" style="height: {Math.max(c.total * unit, c.segments.length * MIN_SEGMENT)}px">
                   {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                 </div>
               {/if}
-              {#if i === goalCol}<i class="goalmark" title="Daily goal met"></i>{/if}
+              {#if !minutes && i === goalCol}<i class="goalmark" title="Daily goal met"></i>{/if}
             </button>
           {/each}
         </div>
         <div class="dots">
-          {#each cols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={tall ? 9 : 7} /><span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
+          {#each cols as c}<div>{#if !minutes && c.redeemed}<Marker kind="redeemed" size={tall ? 9 : 7} /><span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
         </div>
         <div class="mono axis"><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>23</span></div>
       </div>
@@ -415,7 +477,7 @@
       {#each pages as first, pi (first)}
         {@const cols = colsOf(first)}
         {@const busiest = Math.max(0, ...cols.map((c) => c.total))}
-        {@const top = Math.max(2, busiest + (busiest % 2))}
+        {@const top = topOf(cols)}
         {@const unit = plot / top}
         {@const n = cols.length}
         {@const here = pi === page}
@@ -428,7 +490,8 @@
               {@const picked = here && periodPick === i}
               <button class="col" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future} class:goal={c.goal}
                 style="--i: {i}" aria-label="{c.day}, {c.total} earned" aria-pressed={picked} disabled={c.future}
-                onclick={() => (periodPick = periodPick === i || !c.total ? null : i)}>
+                onclick={() => (periodPick = periodPick === i || (!c.total && !c.unlocked) ? null : i)}>
+                {#if minutes && c.unlocked}<i class="allow" style="height: {c.unlocked * unit}px"></i>{/if}
                 {#if c.total}
                   <!-- A month's bars are too narrow for every count: it labels the busiest Day and the picked one. -->
                   {#if n <= 7 || picked || ((!here || periodPick === null) && c.total === busiest)}<span class="mono n">{c.total}</span>{:else}<span class="mono n blank"></span>{/if}
@@ -436,13 +499,13 @@
                     {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                   </div>
                 {/if}
-                {#if c.goal}<i class="goalmark" title="Daily goal met"></i>{/if}
+                {#if !minutes && c.goal}<i class="goalmark" title="Daily goal met"></i>{/if}
               </button>
             {/each}
           </div>
           <div class="dots" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
             <!-- A month's columns only have room for the count; the list names the triangle. -->
-            {#each cols as c}<div>{#if c.redeemed}{#if n <= 7}<Marker kind="redeemed" size={tall ? 9 : 7} />{/if}<span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
+            {#each cols as c}<div>{#if !minutes && c.redeemed}{#if n <= 7}<Marker kind="redeemed" size={tall ? 9 : 7} />{/if}<span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
           </div>
           <div class="mono axis periodaxis" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
             {#each cols as c, i}
@@ -457,25 +520,33 @@
   {/key}
   <div class="legend">
     <!-- Outside the scrolling list, so it stays put when the list bounces. -->
-    <div class="row head"><span class="mono when">{shownBreakdown.label}</span><span class="mono">{shownBreakdown.total} earned</span></div>
+    <div class="row head"><span class="mono when">{shownBreakdown.label}</span><span class="mono">{minutes ? `${shownBreakdown.total} min used` : `${shownBreakdown.total} earned`}</span></div>
     <div class="lframe">
     <ScrollCue target={listEl} />
     <div class="list" aria-live="polite" bind:this={listEl}>
     {#each shownBreakdown.rows as row (row.name)}
-      <div class="row" class:zero={!row.n}><span class="mk"><Marker kind="source" color={row.color} /></span><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
+      <div class="row" class:zero={!row.n}><span class="mk"><Marker kind="source" color={row.color} /></span><span class="name">{row.name}</span><b class="mono">{row.n ? (minutes ? `${row.n} min` : row.n) : "–"}</b></div>
     {/each}
-    {#if shownBreakdown.anyRedeemed}
+    {#if minutes}
+      <!-- The grey outline behind the bars: time Unlocks allowed. -->
+      <div class="row" class:zero={!shownBreakdown.unlocked}><span class="mk"><i class="allowmark"></i></span><span class="name">Unlocked</span><b class="mono">{shownBreakdown.unlocked ? `${shownBreakdown.unlocked} min` : "–"}</b></div>
+    {/if}
+    {#if !minutes && shownBreakdown.anyRedeemed}
       <div class="row" class:zero={!shownBreakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Redeemed</span><b class="mono">{shownBreakdown.redeemed || "–"}</b></div>
     {/if}
     <!-- The gold mark under a bar: the hour the Daily goal was met, or a Day that met it. -->
-    <div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>
-    {#if !shownBreakdown.rows.length && !shownBreakdown.anyRedeemed}
+    {#if !minutes}<div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>{/if}
+    {#if minutes && !shownBreakdown.rows.length}
+      <div class="row none">{zoom !== "day" ? `No Distraction time ${zoom === "week" ? "this week" : "this month"}` : days[shown] === today.day ? "No Distraction time yet" : "No Distraction time this Day, or none kept this far back"}</div>
+    {:else if !minutes && !shownBreakdown.rows.length && !shownBreakdown.anyRedeemed}
       <div class="row none">{zoom !== "day" ? `Nothing earned ${zoom === "week" ? "this week" : "this month"}` : current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
     {/if}
     </div>
     </div>
     <!-- Stays at the bottom of the box, however long the list is. -->
-    {#if shownBreakdown.rows.length}<div class="hintline">{zoom === "day" ? (pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole day") : periodPick === null ? "Tap a bar to see that day" : `Tap it again for the whole ${zoom}`}</div>{/if}
+    {#if minutes && device?.measured === false}<div class="hintline">Minutes need usage access on this device: turn it on in Rules, under Protection.</div>
+    {:else if minutes && device && device.blockedOpens}<div class="hintline">Today on this device: <b>{device.blockedOpens}</b> blocked opens, <b>{Math.min(device.closedWithoutTearing, device.blockedOpens)}</b> left without unlocking</div>
+    {:else if shownBreakdown.rows.length}<div class="hintline">{zoom === "day" ? (pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole day") : periodPick === null ? "Tap a bar to see that day" : `Tap it again for the whole ${zoom}`}</div>{/if}
   </div>
 </section>
 
@@ -509,8 +580,11 @@
      the header say where you are. */
   .days { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
   .days::-webkit-scrollbar { display: none; }
-  /* Each page clips its own drawing, so nothing from a neighbour shows. */
-  .day { contain: paint; flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
+  /* Each page clips its own drawing, so nothing from a neighbour shows, and
+     keeps 2 px clear on its right: at a fractional pixel density (the
+     tablet's 1.75) a last bar flush with the edge bled a pixel-wide sliver
+     onto the next page. */
+  .day { contain: paint; box-sizing: border-box; padding-right: 2px; flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
   .chart { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid #3a3f45; }
   /* Bars, dots, and hours leave a gutter on the left for the tick numbers. */
   .chart, .dots, .axis { margin-left: 16px; }
@@ -528,7 +602,12 @@
   .col:focus-visible { outline: 2px solid var(--voucher); outline-offset: 2px; border-radius: 4px; }
   .n { font-size: 10px; line-height: 11px; text-align: center; color: var(--muted); }
   /* A bar grows to its new height, and its segments to their new shares, when an hour earns. */
-  .bar { display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
+  /* Distraction time: the minutes Unlocks allowed, as a light grey outline
+     drawn over the bar, so time used past it shows above its top edge. */
+  .allow { position: absolute; z-index: 2; left: -2px; right: -2px; bottom: 0; border: 1.5px solid #c3c8cd; border-top-width: 2.5px; border-bottom: 0; border-radius: 5px 5px 0 0; pointer-events: none; }
+  .allowmark { display: block; width: 10px; height: 10px; border: 1.5px solid #8b9198; border-radius: 3px; box-sizing: border-box; }
+  .hintline b { color: var(--ink); font-family: var(--mono); }
+  .bar { position: relative; display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
   .dots { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; height: 10px; }
   .dots div { display: flex; justify-content: center; align-items: center; gap: 2px; min-width: 0; }

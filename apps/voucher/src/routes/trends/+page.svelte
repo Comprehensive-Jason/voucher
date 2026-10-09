@@ -5,7 +5,6 @@
   import { deviceUsage, ledger } from "$lib/api";
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
-  import DistractionUsage from "$lib/panels/DistractionUsage.svelte";
   import { historyDays } from "$lib/time";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$lib/types";
 
@@ -52,7 +51,7 @@
   {:else if today}
     <HourChart {today} {timeZone} {firstDay} {focus} bind:shownDay />
     <Heatmap {history} goal={today.goal} {firstDay} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} />
-    <DistractionUsage {usage} unlockedMinutes={today.unlocked_minutes} {blocklists} />
+    <HourChart measure="distraction" {today} {timeZone} {firstDay} {focus} {blocklists} device={usage} />
   {/if}
 </main>
 

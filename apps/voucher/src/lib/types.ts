@@ -78,6 +78,9 @@ export interface DaySummary {
   /** Newest first. */
   log: Entry[];
   sources: SourceProgress[];
+  /** Minutes in each Distraction app per clock hour (24, midnight first), all
+   *  devices together; empty past the kept log, absent from older Ledgers. */
+  usage?: Record<string, number[]>;
 }
 
 /** One Day in the Ledger's `GET /history`. */
@@ -85,6 +88,10 @@ export interface DayTotal {
   day: string; earned: number; redeemed: number; goal_met: boolean;
   /** Vouchers earned per source; empty for Days older than the kept log. */
   by_source?: Record<string, number>;
+  /** Minutes Unlocked this Day; absent from older Ledgers. */
+  unlocked_minutes?: number;
+  /** Minutes in each Distraction app, all devices together. */
+  used?: Record<string, number>;
 }
 
 /** What the phone itself measured today, from the Android side. */
