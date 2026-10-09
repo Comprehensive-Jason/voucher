@@ -68,34 +68,27 @@
   $effect(() => { if (zoom === "weeks" && cardHeight) weeksHeight = cardHeight; });
   const levelOf = (d: DayTotal) => (d.goal_met ? 4 : d.earned === 0 ? 0 : Math.min(3, 1 + Math.floor((d.earned / goal) * 3)));
   const byDay = $derived(new Map(history.map((d) => [d.day, d])));
-  /** 53 week-columns ending with this week, Monday first; Days before the
-   *  Ledger's first or still to come are blank. */
+  /** The last 12 months, oldest first, one row each with a cell per Day of
+   *  the month (the "year in pixels" layout). Days before the Ledger's first or
+   *  still to come are blank. */
   const year = $derived.by(() => {
     const last = history.at(-1)?.day;
-    if (!last) return [] as { day: string; level: number; blank: boolean }[][];
-    const monday = shiftDay(last, -((new Date(`${last}T12:00:00Z`).getUTCDay() + 6) % 7));
-    const start = shiftDay(monday, -52 * 7);
-    return Array.from({ length: 53 }, (_, w) => Array.from({ length: 7 }, (_, i) => {
-      const day = shiftDay(start, w * 7 + i), t = byDay.get(day);
-      return { day, level: t ? levelOf(t) : 0, blank: !t || (!!firstDay && day < firstDay) || day > last };
-    }));
-  });
-  // Month names only over weeks with history, as at 12 weeks: the first such
-  // week names its month, and after that each week holding a 1st.
-  const yearMonths = $derived.by(() => {
-    let named = false;
-    return year.map((week) => {
-      const shown = week.filter((d) => !d.blank);
-      if (!shown.length) return "";
-      const first = shown.find((d) => d.day.slice(8) === "01") ?? (named ? undefined : shown[0]);
-      if (!first) return "";
-      named = true;
-      return MONTHS[Number(first.day.slice(5, 7)) - 1];
+    if (!last) return [] as { name: string; empty: boolean; days: { day: string; level: number; blank: boolean }[] }[];
+    const [y, m] = last.split("-").map(Number);
+    return Array.from({ length: 12 }, (_, k) => {
+      const first = new Date(Date.UTC(y, m - 12 + k, 1, 12));
+      const n = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0, 12)).getUTCDate();
+      const days = Array.from({ length: n }, (_, i) => {
+        const day = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), i + 1, 12)).toISOString().slice(0, 10), t = byDay.get(day);
+        return { day, level: t ? levelOf(t) : 0, blank: !t || (!!firstDay && day < firstDay) || day > last };
+      });
+      const label = MONTHS[first.getUTCMonth()] + (first.getUTCMonth() === 0 ? ` ${String(first.getUTCFullYear()).slice(2)}` : "");
+      return { name: label, empty: days.every((d) => d.blank), days };
     });
   });
   /** The year's numbers, under the grid. */
   const stats = $derived.by(() => {
-    const kept = year.flat().filter((d) => !d.blank).map((d) => byDay.get(d.day)!);
+    const kept = year.flatMap((m) => m.days).filter((d) => !d.blank).map((d) => byDay.get(d.day)!);
     let run = 0, best = 0;
     for (const d of kept) { run = d.goal_met ? run + 1 : 0; best = Math.max(best, run); }
     const months = new Map<string, number>();
@@ -118,31 +111,26 @@
   }
 </script>
 
-<section class="card" class:wide={!keyBelow} bind:offsetHeight={cardHeight} style={zoom === "year" && weeksHeight ? `box-sizing: border-box; min-height: ${weeksHeight}px` : ""}>
+<section class="card" class:wide={!keyBelow} bind:offsetHeight={cardHeight} style={zoom === "year" && weeksHeight ? `box-sizing: border-box; height: ${weeksHeight}px` : ""}>
   <div class="head">
     <span class="cap">Vouchers earned</span>
     <ZoomSwitch options={[{ id: "weeks", label: "12 weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => (zoom = z as "weeks" | "year")} />
   </div>
   {#if zoom === "year"}
-    <!-- Two half-years, older above, so the cells are twice the size a single row of 53 weeks would allow. -->
-    <div class="ybands">
-    {#each [[0, 26], [26, 53]] as [from, to]}
-      <div class="ygrid">
-        <div class="ylabels" aria-hidden="true"><span></span>{#each WEEKDAYS as w}<span>{w}</span>{/each}</div>
-        <div class="yweeks">
-          {#each year.slice(from, to) as week, k}
-            <div class="ycol">
-              <span class="ymonth">{yearMonths[from + k]}</span>
-              {#each week as c (c.day)}
-                {#if c.blank}<div class="y blank"></div>
-                {:else}<button class="y h{c.level}" class:sel={c.day === selected} title={c.day} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
-              {/each}
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/each}
-    </div>
+    <!-- A row per month, a column per Day of the month: no weekday labels to
+         repeat, and the cells as large as 31 columns allow. -->
+    <div class="ywrap"><div class="ygrid">
+      <span></span>
+      {#each Array.from({ length: 31 }, (_, i) => i) as i}<span class="yday">{[0, 7, 14, 21, 28].includes(i) ? i + 1 : ""}</span>{/each}
+      {#each year as month (month.name)}
+        <span class="yname" class:empty={month.empty}>{month.name}</span>
+        {#each month.days as c (c.day)}
+          {#if c.blank}<div class="y blank"></div>
+          {:else}<button class="y h{c.level}" class:sel={c.day === selected} title={c.day} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+        {/each}
+        {#each Array.from({ length: 31 - month.days.length }) as _}<div></div>{/each}
+      {/each}
+    </div></div>
     <!-- The year's numbers in one line, so the card keeps its 12-week height. -->
     <div class="yline"><b>{stats.earned.toLocaleString("en-US")}</b> earned · <b>{stats.goalDays}</b> goal days · longest streak <b>{stats.best}</b> · best <b>{stats.topMonth}</b></div>
   {:else}
@@ -210,21 +198,23 @@
   .scale { display: flex; align-items: center; gap: 4px; }
   .scale i { width: 12px; display: inline-block; }
   .wide { padding: 18px; border-radius: 18px; flex: none; }
-  /* Year: two rows of up to 27 week-columns, no scrolling. Square cells sized
-     from the grid's width (a size container): 100cqw less the labels (26),
-     the gap after them (4), the outline room (2 + 2), and 26 gaps (78). */
-  .ygrid { --y: min(calc((100cqw - 86px) / 27), 9.5px); container-type: inline-size; display: flex; align-items: start; gap: 4px; }
-  .ylabels { flex: none; width: 26px; display: grid; grid-template-rows: 14px repeat(7, var(--y)); gap: 2px; padding-top: 2px; font: 500 9px/1 var(--mono); color: var(--muted); }
-  .ylabels span { display: flex; align-items: center; white-space: nowrap; }
-  .yweeks { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(27, var(--y)); gap: 2px; padding: 2px; }
-  .ycol { display: grid; grid-template-rows: 14px repeat(7, var(--y)); gap: 2px; min-width: 0; }
-  .ymonth { font: 500 10px/1 var(--mono); color: var(--muted); white-space: nowrap; overflow: visible; align-self: end; }
-  .y { width: var(--y); height: var(--y); border-radius: 3px; background: #22262a; padding: 0; border: 0; display: block; cursor: pointer; }
+  /* Year: a row per month and a column per Day, no scrolling. Square cells
+     sized from the grid's width (a size container): 100cqw less the month
+     names (28) and 31 gaps (62), over 31 columns. */
+  /* The wrapper is the size container: a grid can't size its own columns from itself. */
+  .ywrap { container-type: inline-size; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  /* Rows share the card's height (it keeps its 12-week height), so each Day is
+     as wide as 31 columns allow and up to twice as tall. */
+  .ygrid { --y: calc((100cqw - 92px) / 31); flex: 1; min-height: 0; display: grid; grid-template-columns: 28px repeat(31, var(--y)); grid-template-rows: 12px repeat(12, minmax(0, 1fr)); gap: 2px; align-items: stretch; align-content: start; padding: 2px 0; }
+  .yname { align-self: center; }
+  .yday, .yname { font: 500 9px/1 var(--mono); color: var(--muted); white-space: nowrap; }
+  .yday { height: 10px; overflow: visible; }
+  .yname.empty { opacity: .4; }
+  .y { width: var(--y); height: 100%; max-height: calc(var(--y) * 2); align-self: center; border-radius: 3px; background: #22262a; padding: 0; border: 0; display: block; cursor: pointer; }
   .y.h1 { background: #1d4d33; } .y.h2 { background: #24804f; } .y.h3 { background: #2fb36b; } .y.h4 { background: #3ddc84; }
   .y.blank { background: transparent; cursor: default; }
   .y.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
   .y:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }
-  .ybands { display: flex; flex-direction: column; gap: 2px; }
   .yline { font-size: 12px; color: var(--muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .yline b { color: var(--ink); font: 700 12px var(--mono); }
 </style>
