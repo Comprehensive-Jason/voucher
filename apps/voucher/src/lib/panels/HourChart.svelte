@@ -181,7 +181,7 @@
   function labelOf(index: number): string {
     const start = pages[index], back = pages.length - 1 - index;
     if (!start) return "";
-    if (zoom === "week") return back === 0 ? "This week" : back === 1 ? "Last week" : `Week of ${dayLabel(start, today.day)}`;
+    if (zoom === "week") return back === 0 ? "This week" : back === 1 ? "Last week" : `Week of ${start}`;
     const [y, m] = start.split("-").map(Number);
     return `${MONTHS[m - 1]}${y !== Number(today.day.slice(0, 4)) ? " " + y : ""}`;
   }
@@ -307,18 +307,22 @@
 </script>
 
 <section class="card" class:tall>
-  <div class="head">
+  <div class="cardhead">
     <div class="switcher">
       <button class="nav" aria-label="Earlier {zoom}" disabled={atStart} onclick={() => step(-1)}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
       </button>
       <!-- The zoom switch says hours or days, so the title only names the time. -->
-      <span class="cap">{zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)}</span>
+      <!-- A date never breaks in the middle when the name wraps. -->
+      <span class="cap title">{#each (zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)).split(" ") as word, i}{i ? " " : ""}<span class="word">{word}</span>{/each}</span>
       <button class="nav" aria-label="Later {zoom}" disabled={onLatest} onclick={() => step(1)}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </button>
     </div>
-    <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => setZoom(z as Zoom)} />
+    <div class="tools">
+      <TodayButton show={!onLatest} onclick={backToToday} />
+      <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => setZoom(z as Zoom)} />
+    </div>
   </div>
   <!-- A new zoom level grows in from the old one's scale (larger when zooming
        out, smaller when zooming in), and its bars rise one after another. -->
@@ -399,8 +403,7 @@
   {/key}
   <div class="legend">
     <!-- Outside the scrolling list, so it stays put when the list bounces. -->
-    <!-- Today sits beside the period's name, where there's room on every screen. -->
-    <div class="row head"><span class="mono when">{shownBreakdown.label}</span><span class="todaycell"><TodayButton show={!onLatest} onclick={backToToday} /></span><span class="mono">{shownBreakdown.total} earned</span></div>
+    <div class="row head"><span class="mono when">{shownBreakdown.label}</span><span class="mono">{shownBreakdown.total} earned</span></div>
     <div class="lframe">
     <ScrollCue target={listEl} />
     <div class="list" aria-live="polite" bind:this={listEl}>
@@ -421,8 +424,8 @@
 </section>
 
 <style>
-  .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-  .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 28px; }
+  /* A named container, so the Today button can shrink to its arrow on a narrow card. */
+  .card { container: card / inline-size; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   .viewport { position: relative; transform-origin: 50% 100%; }
   /* After a zoom change, the bars on screen rise from the axis one after another. */
   .entering .bar { animation: rise var(--t-move) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 12ms); transform-origin: 50% 100%; }
@@ -432,7 +435,10 @@
   .periodaxis { display: grid; justify-content: stretch; }
   .periodaxis span { text-align: center; white-space: nowrap; }
   .periodaxis span.today { color: var(--ink); font-weight: 700; }
-  .switcher { display: flex; align-items: center; gap: 2px; margin-left: -8px; }
+  .switcher { display: flex; align-items: center; gap: 2px; margin-left: -8px; min-width: 0; }
+  /* A long name ("Week of 2026-07-27") breaks onto a second line on a narrow card. */
+  .title .word { white-space: nowrap; }
+  .title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.15; }
   .switcher:not(:has(.nav)) { margin-left: 0; }
   .nav { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; }
   .nav:disabled { opacity: .3; cursor: default; }
@@ -469,8 +475,7 @@
   .lframe { position: relative; display: flex; flex-direction: column; }
   .list { position: relative; display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
-  .row.head { grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 10px; border-top: 0; font-size: 11px; color: var(--muted); }
-  .todaycell { display: flex; height: 30px; align-items: center; }
+  .row.head { grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; border-top: 0; font-size: 11px; color: var(--muted); }
   .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
   .row.zero { color: var(--muted); } .row.zero b { color: var(--muted); }
@@ -484,7 +489,7 @@
      grid stays put level with the next column; the list scrolls inside
      whatever room is left, with its heading row pinned. */
   .tall { flex: 1; min-height: 0; }
-  .tall .head, .tall .days, .tall .viewport { flex: none; }
+  .tall .cardhead, .tall .days, .tall .viewport { flex: none; }
   .tall .legend { flex: 1; min-height: 96px; }
   .tall .lframe { flex: 1; min-height: 0; }
   .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }

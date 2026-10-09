@@ -49,6 +49,10 @@ html, body { margin: 0; background: var(--ground); color: var(--ink); font-famil
 button { font: inherit; color: inherit; }
 .cap { font: 600 11px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .mono { font-family: var(--mono); }
+/* A card's top row: its title on the left, its controls on the right, every
+   item centred on one line, and the same height on every card. */
+.cardhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.cardhead .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
 /* Every bar slides to a new value (lib/motion.ts sets the timing). */
 .bar > i { display: block; height: 100%; border-radius: 3px; transition: width var(--t-move) var(--ease-out); }
