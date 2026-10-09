@@ -25,6 +25,15 @@
     return { duration: ms("move"), easing: easeOut, css: (t: number) => `opacity: ${t}; transform: scale(${1 + (out ? 0.06 : -0.06) * (1 - t)})` };
   }
   let listEl = $state<HTMLDivElement>();
+  /** One page's exact width. Pages fill the scroller, which can be a fraction
+   *  of a pixel wide, while clientWidth is whole pixels: stepping by it drifts
+   *  a little per page, and far back in time the page before showed as a
+   *  sliver on the left until scroll snapping caught up. The computed width is
+   *  exact and ignores the zoom's scale transform. */
+  function pageWidth(el: HTMLElement): number {
+    const first = el.firstElementChild;
+    return (first && parseFloat(getComputedStyle(first).width)) || el.clientWidth;
+  }
 
   let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable() }: {
     today: DaySummary; timeZone: string; tall?: boolean;
@@ -138,13 +147,13 @@
         if (index === page) { periodPick = pick; return; }
         // Passing other pages would clear the pick, so it's made once the scroll lands.
         landing = { page: index, pick };
-        periodScroller.scrollTo({ left: index * periodScroller.clientWidth, behavior: "smooth" });
+        periodScroller.scrollTo({ left: index * pageWidth(periodScroller), behavior: "smooth" });
         return;
       }
       if (!scroller) return;
       let index = days.indexOf(want.day);
       if (index < 0) index = want.day < days[0] ? 0 : days.length - 1;
-      scroller.scrollTo({ left: index * scroller.clientWidth, behavior: "smooth" });
+      scroller.scrollTo({ left: index * pageWidth(scroller), behavior: "smooth" });
     });
   });
 
@@ -257,24 +266,24 @@
       let index = days.indexOf(anchor ?? today.day);
       if (index < 0) index = days.length - 1;
       shown = index; onToday = index >= days.length - 1;
-      if (scroller) scroller.scrollLeft = index * scroller.clientWidth;
+      if (scroller) scroller.scrollLeft = index * pageWidth(scroller);
       load(index - 1); load(index); load(index + 1);
     } else {
       const want = z === "week" ? mondayOf(anchor ?? today.day) : monthOf(anchor ?? today.day);
       let index = pages.indexOf(want);
       if (index < 0) index = pages.length - 1;
       page = index;
-      if (periodScroller) periodScroller.scrollLeft = index * periodScroller.clientWidth;
+      if (periodScroller) periodScroller.scrollLeft = index * pageWidth(periodScroller);
     }
   }
   /** A page the history grid sent the chart to, and the bar to pick there. */
   let landing: { page: number; pick: number | null } | null = null;
   function onPeriodScroll() {
     if (!periodScroller) return;
-    const now = Math.round(periodScroller.scrollLeft / periodScroller.clientWidth);
+    const now = Math.round(periodScroller.scrollLeft / pageWidth(periodScroller));
     if (landing) {
       page = now;
-      if (now === landing.page && Math.abs(periodScroller.scrollLeft - now * periodScroller.clientWidth) < 2) { periodPick = landing.pick; landing = null; }
+      if (now === landing.page && Math.abs(periodScroller.scrollLeft - now * pageWidth(periodScroller)) < 2) { periodPick = landing.pick; landing = null; }
       else periodPick = null;
       return;
     }
@@ -283,27 +292,27 @@
   }
   function step(by: number) {
     if (zoom === "day") go(by);
-    else periodScroller?.scrollTo({ left: (page + by) * periodScroller.clientWidth, behavior: "smooth" });
+    else periodScroller?.scrollTo({ left: (page + by) * pageWidth(periodScroller), behavior: "smooth" });
   }
   const onLatest = $derived(zoom === "day" ? shown >= days.length - 1 : page >= pages.length - 1);
   const atStart = $derived(zoom === "day" ? shown === 0 : page === 0);
   function backToToday() {
     if (zoom === "day") go(days.length - 1 - shown);
-    else periodScroller?.scrollTo({ left: (pages.length - 1) * periodScroller.clientWidth, behavior: "smooth" });
+    else periodScroller?.scrollTo({ left: (pages.length - 1) * pageWidth(periodScroller), behavior: "smooth" });
   }
 
   function onScroll() {
     if (!scroller) return;
-    const now = Math.round(scroller.scrollLeft / scroller.clientWidth);
+    const now = Math.round(scroller.scrollLeft / pageWidth(scroller));
     if (now !== shown) pick = null;
     shown = now;
-    if (Math.abs(scroller.scrollLeft - now * scroller.clientWidth) < 2) onToday = now >= days.length - 1;
+    if (Math.abs(scroller.scrollLeft - now * pageWidth(scroller)) < 2) onToday = now >= days.length - 1;
     load(shown - 1); load(shown); load(shown + 1);
   }
   function go(by: number) {
     const target = Math.max(0, Math.min(days.length - 1, shown + by));
     onToday = target >= days.length - 1;
-    scroller?.scrollTo({ left: target * scroller.clientWidth, behavior: "smooth" });
+    scroller?.scrollTo({ left: target * pageWidth(scroller), behavior: "smooth" });
   }
 
   // Open on today, and move on to the new today when a Day is added, unless
