@@ -18,6 +18,7 @@
   import type { DaySummary, DayTotal } from "../types";
   import ScrollCue from "../components/ScrollCue.svelte";
   import TodayButton from "../components/TodayButton.svelte";
+  import ZoomSwitch from "../components/ZoomSwitch.svelte";
   let listEl = $state<HTMLDivElement>();
 
   let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable() }: {
@@ -263,11 +264,7 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </button>
     </div>
-    <div class="zoom" role="group" aria-label="Zoom">
-      {#each [["day", "Day"], ["week", "Week"], ["month", "Month"]] as [z, label]}
-        <button class:on={zoom === z} aria-pressed={zoom === z} onclick={() => setZoom(z as Zoom)}>{label}</button>
-      {/each}
-    </div>
+    <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => setZoom(z as Zoom)} />
   </div>
   <div class="viewport">
   {#if zoom === "day"}
@@ -360,10 +357,6 @@
 <style>
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 28px; }
-  /* Day, Week, Month: a small segmented switch. */
-  .zoom { flex: none; display: flex; padding: 2px; border-radius: 10px; background: #1f2226; border: 1px solid var(--line); }
-  .zoom button { height: 26px; padding: 0 9px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: 700 11px var(--font); cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick); }
-  .zoom button.on { background: var(--line); color: var(--ink); }
   .viewport { position: relative; }
   .col.future { cursor: default; }
   .n.blank { height: 11px; }

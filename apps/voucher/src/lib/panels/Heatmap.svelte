@@ -2,9 +2,13 @@
   // Days as a grid, a column per week from Monday, twelve weeks in view.
   // Brightest means the goal was met. Swipe back through earlier weeks as far
   // as the Ledger's first Day; Days before it and Days to come stay blank.
+  // Zoomed out to Year, the last 53 weeks fit the width at once (no swiping),
+  // with the year's totals below so the card keeps its height.
   import type { DayTotal } from "../types";
   import { untrack } from "svelte";
   import TodayButton from "../components/TodayButton.svelte";
+  import ZoomSwitch from "../components/ZoomSwitch.svelte";
+  import { shiftDay } from "../time";
 
   let { history, goal, keyBelow = true, firstDay, selected, onpick }: {
     history: DayTotal[]; goal: number; keyBelow?: boolean;
@@ -56,6 +60,56 @@
   function onScroll() {
     if (scroller) atEnd = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 2;
   }
+  // ---- Year ----
+  let zoom = $state<"weeks" | "year">("weeks");
+  /** The card's height at 12 weeks, which the Year view keeps. */
+  let weeksHeight = $state(0);
+  let cardHeight = $state(0);
+  $effect(() => { if (zoom === "weeks" && cardHeight) weeksHeight = cardHeight; });
+  const levelOf = (d: DayTotal) => (d.goal_met ? 4 : d.earned === 0 ? 0 : Math.min(3, 1 + Math.floor((d.earned / goal) * 3)));
+  const byDay = $derived(new Map(history.map((d) => [d.day, d])));
+  /** 53 week-columns ending with this week, Monday first; Days before the
+   *  Ledger's first or still to come are blank. */
+  const year = $derived.by(() => {
+    const last = history.at(-1)?.day;
+    if (!last) return [] as { day: string; level: number; blank: boolean }[][];
+    const monday = shiftDay(last, -((new Date(`${last}T12:00:00Z`).getUTCDay() + 6) % 7));
+    const start = shiftDay(monday, -52 * 7);
+    return Array.from({ length: 53 }, (_, w) => Array.from({ length: 7 }, (_, i) => {
+      const day = shiftDay(start, w * 7 + i), t = byDay.get(day);
+      return { day, level: t ? levelOf(t) : 0, blank: !t || (!!firstDay && day < firstDay) || day > last };
+    }));
+  });
+  // Month names only over weeks with history, as at 12 weeks: the first such
+  // week names its month, and after that each week holding a 1st.
+  const yearMonths = $derived.by(() => {
+    let named = false;
+    return year.map((week) => {
+      const shown = week.filter((d) => !d.blank);
+      if (!shown.length) return "";
+      const first = shown.find((d) => d.day.slice(8) === "01") ?? (named ? undefined : shown[0]);
+      if (!first) return "";
+      named = true;
+      return MONTHS[Number(first.day.slice(5, 7)) - 1];
+    });
+  });
+  /** The year's numbers, under the grid. */
+  const stats = $derived.by(() => {
+    const kept = year.flat().filter((d) => !d.blank).map((d) => byDay.get(d.day)!);
+    let run = 0, best = 0;
+    for (const d of kept) { run = d.goal_met ? run + 1 : 0; best = Math.max(best, run); }
+    const months = new Map<string, number>();
+    for (const d of kept) months.set(d.day.slice(0, 7), (months.get(d.day.slice(0, 7)) ?? 0) + d.earned);
+    const top = [...months.entries()].sort((a, b) => b[1] - a[1])[0];
+    return {
+      earned: kept.reduce((n, d) => n + d.earned, 0),
+      goalDays: kept.filter((d) => d.goal_met).length,
+      days: kept.length,
+      best,
+      topMonth: top ? MONTHS[Number(top[0].slice(5, 7)) - 1] : "–",
+    };
+  });
+
   // "Today": back to the latest weeks, with today picked.
   const lastDay = $derived(history.at(-1)?.day);
   function backToToday() {
@@ -64,11 +118,34 @@
   }
 </script>
 
-<section class="card" class:wide={!keyBelow}>
+<section class="card" class:wide={!keyBelow} bind:offsetHeight={cardHeight} style={zoom === "year" && weeksHeight ? `box-sizing: border-box; min-height: ${weeksHeight}px` : ""}>
   <div class="head">
-    <span class="cap">Vouchers earned, 12 weeks</span>
-    {#if !keyBelow}<span class="cap earn">Brightest: {goal}+ (goal met)</span>{/if}
+    <span class="cap">Vouchers earned</span>
+    <ZoomSwitch options={[{ id: "weeks", label: "12 weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => (zoom = z as "weeks" | "year")} />
   </div>
+  {#if zoom === "year"}
+    <!-- Two half-years, older above, so the cells are twice the size a single row of 53 weeks would allow. -->
+    <div class="ybands">
+    {#each [[0, 26], [26, 53]] as [from, to]}
+      <div class="ygrid">
+        <div class="ylabels" aria-hidden="true"><span></span>{#each WEEKDAYS as w}<span>{w}</span>{/each}</div>
+        <div class="yweeks">
+          {#each year.slice(from, to) as week, k}
+            <div class="ycol">
+              <span class="ymonth">{yearMonths[from + k]}</span>
+              {#each week as c (c.day)}
+                {#if c.blank}<div class="y blank"></div>
+                {:else}<button class="y h{c.level}" class:sel={c.day === selected} title={c.day} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+              {/each}
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/each}
+    </div>
+    <!-- The year's numbers in one line, so the card keeps its 12-week height. -->
+    <div class="yline"><b>{stats.earned.toLocaleString("en-US")}</b> earned · <b>{stats.goalDays}</b> goal days · longest streak <b>{stats.best}</b> · best <b>{stats.topMonth}</b></div>
+  {:else}
   <div class="grid">
   <!-- Floats over the grid's right edge, where today is, so it never changes
        the card's height. -->
@@ -93,10 +170,11 @@
     </div>
   </div>
   </div>
-  {#if keyBelow}
+  {/if}
+  {#if keyBelow && zoom === "weeks"}
     <div class="heatkey">
       <span class="scale">Fewer<i class="h"></i><i class="h h1"></i><i class="h h2"></i><i class="h h3"></i><i class="h h4"></i>More</span>
-      <span>Brightest: {goal}+, goal met</span>
+      <span class="earn">Brightest: {goal}+, goal met</span>
     </div>
   {/if}
 </section>
@@ -132,4 +210,21 @@
   .scale { display: flex; align-items: center; gap: 4px; }
   .scale i { width: 12px; display: inline-block; }
   .wide { padding: 18px; border-radius: 18px; flex: none; }
+  /* Year: two rows of up to 27 week-columns, no scrolling. Square cells sized
+     from the grid's width (a size container): 100cqw less the labels (26),
+     the gap after them (4), the outline room (2 + 2), and 26 gaps (78). */
+  .ygrid { --y: min(calc((100cqw - 86px) / 27), 9.5px); container-type: inline-size; display: flex; align-items: start; gap: 4px; }
+  .ylabels { flex: none; width: 26px; display: grid; grid-template-rows: 14px repeat(7, var(--y)); gap: 2px; padding-top: 2px; font: 500 9px/1 var(--mono); color: var(--muted); }
+  .ylabels span { display: flex; align-items: center; white-space: nowrap; }
+  .yweeks { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(27, var(--y)); gap: 2px; padding: 2px; }
+  .ycol { display: grid; grid-template-rows: 14px repeat(7, var(--y)); gap: 2px; min-width: 0; }
+  .ymonth { font: 500 10px/1 var(--mono); color: var(--muted); white-space: nowrap; overflow: visible; align-self: end; }
+  .y { width: var(--y); height: var(--y); border-radius: 3px; background: #22262a; padding: 0; border: 0; display: block; cursor: pointer; }
+  .y.h1 { background: #1d4d33; } .y.h2 { background: #24804f; } .y.h3 { background: #2fb36b; } .y.h4 { background: #3ddc84; }
+  .y.blank { background: transparent; cursor: default; }
+  .y.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .y:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }
+  .ybands { display: flex; flex-direction: column; gap: 2px; }
+  .yline { font-size: 12px; color: var(--muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .yline b { color: var(--ink); font: 700 12px var(--mono); }
 </style>
