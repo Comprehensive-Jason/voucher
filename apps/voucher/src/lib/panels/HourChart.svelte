@@ -13,7 +13,7 @@
   import { tick, untrack } from "svelte";
   import { ledger } from "../api";
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
-  import { dayLabel, hourOf, shiftDay } from "../time";
+  import { clock, dayLabel, hourOf, shiftDay } from "../time";
   import Marker from "../components/Marker.svelte";
   import type { DaySummary, DayTotal } from "../types";
   import ScrollCue from "../components/ScrollCue.svelte";
@@ -166,8 +166,16 @@
     const day = breakdownOf(cols, null);
     const now = pick === null ? day : breakdownOf(cols, pick);
     const rows = day.parts.map((p) => ({ ...p, n: now.parts.find((q) => q.name === p.name)?.n ?? 0 }));
-    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0 };
+    // The Daily goal for the whole Day, whichever hour is picked: when it was met, or how far it got.
+    const goal = !current ? "–" : current.goal_met_at ? `met ${clock(current.goal_met_at, timeZone)}` : `${current.earned} of ${current.goal}`;
+    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0, goal, goalMet: !!current?.goal_met };
   });
+  /** The hour the Daily goal was met, on the Day in view (a gold mark under its bar). */
+  function goalColOf(summary: DaySummary | undefined): number | null {
+    if (!summary?.goal_met_at) return null;
+    const h = hourOf(summary.goal_met_at, timeZone);
+    return h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1;
+  }
   // ---- Week and Month ----
   // Each is a row of pages, one week (Monday first) or calendar month per
   // screen width, back to the Ledger's first Day: swipe or use the arrows,
@@ -236,7 +244,7 @@
       const known = [...counts.values()].reduce((a, q) => a + q.n, 0);
       if (t && t.earned > known) counts.set(EARLIER, { id: EARLIER, name: EARLIER, color: "#6c7177", n: t.earned - known });
       const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
-      return { day, total, redeemed: t?.redeemed ?? 0, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
+      return { day, total, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
     });
   }
   const pageCols = $derived(pages[page] ? colsOf(pages[page]) : []);
@@ -246,7 +254,9 @@
     const picked = periodPick === null ? null : pageCols[periodPick];
     const rows = partsOf(all).map((q) => ({ ...q, n: picked ? picked.parts.find((r) => r.name === q.name)?.n ?? 0 : q.n }));
     return { label: picked ? dayLabel(picked.day, today.day) : labelOf(page), total: rows.reduce((n, r) => n + r.n, 0), rows,
-      redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0), anyRedeemed: pageCols.some((c) => c.redeemed > 0) };
+      redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0), anyRedeemed: pageCols.some((c) => c.redeemed > 0),
+      goal: picked ? (picked.goal ? "met" : "–") : `${pageCols.filter((c) => c.goal).length} of ${pageCols.filter((c) => !c.future).length} days`,
+      goalMet: picked ? picked.goal : pageCols.some((c) => c.goal) };
   });
   const shownBreakdown = $derived(zoom === "day" ? breakdown : periodBreakdown);
 
@@ -374,12 +384,13 @@
       {@const cols = columnsOf(summaryOf(day))}
       {@const unit = unitOf(cols)}
       {@const here = days[shown] === day}
+      {@const goalCol = goalColOf(summaryOf(day))}
       <div class="day" class:here>
         <div class="chart" style="height: {chart}px">
           <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
           <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
           {#each cols as c, i}
-            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i}
+            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol}
               aria-label="{String(FIRST_HOUR + i).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
               onclick={() => (pick = pick === i || !c.total ? null : i)}>
               {#if c.total}
@@ -388,11 +399,12 @@
                   {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                 </div>
               {/if}
+              {#if i === goalCol}<i class="goalmark" title="Daily goal met"></i>{/if}
             </button>
           {/each}
         </div>
         <div class="dots">
-          {#each cols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={tall ? 10 : 8} />{/if}</div>{/each}
+          {#each cols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={tall ? 9 : 7} /><span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
         </div>
         <div class="mono axis"><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>23</span></div>
       </div>
@@ -414,7 +426,7 @@
             <div class="tick" style="bottom: {plot}px"><span class="mono">{top}</span></div>
             {#each cols as c, i (c.day)}
               {@const picked = here && periodPick === i}
-              <button class="col" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future}
+              <button class="col" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future} class:goal={c.goal}
                 style="--i: {i}" aria-label="{c.day}, {c.total} earned" aria-pressed={picked} disabled={c.future}
                 onclick={() => (periodPick = periodPick === i || !c.total ? null : i)}>
                 {#if c.total}
@@ -424,11 +436,13 @@
                     {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                   </div>
                 {/if}
+                {#if c.goal}<i class="goalmark" title="Daily goal met"></i>{/if}
               </button>
             {/each}
           </div>
           <div class="dots" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
-            {#each cols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={n > 7 ? 7 : tall ? 10 : 8} />{/if}</div>{/each}
+            <!-- A month's columns only have room for the count; the list names the triangle. -->
+            {#each cols as c}<div>{#if c.redeemed}{#if n <= 7}<Marker kind="redeemed" size={tall ? 9 : 7} />{/if}<span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
           </div>
           <div class="mono axis periodaxis" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
             {#each cols as c, i}
@@ -453,6 +467,8 @@
     {#if shownBreakdown.anyRedeemed}
       <div class="row" class:zero={!shownBreakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Redeemed</span><b class="mono">{shownBreakdown.redeemed || "–"}</b></div>
     {/if}
+    <!-- The gold mark under a bar: the hour the Daily goal was met, or a Day that met it. -->
+    <div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>
     {#if !shownBreakdown.rows.length && !shownBreakdown.anyRedeemed}
       <div class="row none">{zoom !== "day" ? `Nothing earned ${zoom === "week" ? "this week" : "this month"}` : current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
     {/if}
@@ -515,7 +531,17 @@
   .bar { display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
   .dots { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; height: 10px; }
-  .dots div { display: flex; justify-content: center; align-items: center; }
+  .dots div { display: flex; justify-content: center; align-items: center; gap: 2px; min-width: 0; }
+  /* How many were torn, beside the triangle (alone in a month's narrow columns). */
+  .tn { font-size: 9px; line-height: 1; font-weight: 700; color: var(--ink); }
+  .tall .tn { font-size: 10px; }
+  /* Gold just under the axis line below a bar: the Daily goal was met (that
+     Day, or in that hour). It sits in the gap above the triangles, so the bars
+     keep all their height. */
+  .goalmark { position: absolute; left: 0; right: 0; bottom: -7px; height: 3px; border-radius: 2px; background: var(--goal); pointer-events: none; }
+  .col.goal .n { color: var(--goal); font-weight: 700; }
+  .row.goalrow b { color: var(--goal); }
+  .row.goalrow.zero b { color: var(--muted); }
   .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
