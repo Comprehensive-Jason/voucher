@@ -2,6 +2,7 @@
   import type { Mode } from "../types";
   import { wins } from "../celebrate.svelte";
   import { untrack } from "svelte";
+  import { MOTION } from "../motion";
   // The Bank, then today's progress toward the Daily goal with the Streak it feeds.
   let { mode, bank, limit, goalDone, goalTarget, streakDays }: {
     mode: Mode; bank: number; limit: number; goalDone: number; goalTarget: number; streakDays: number;
@@ -23,7 +24,7 @@
       last = now;
     });
   });
-  const STAGGER_MS = 60;
+  const STAGGER_MS = MOTION.stagger;
   const delayOf = (i: number) => (shown > from ? (i - from) * STAGGER_MS : shown < from ? (from - 1 - i) * STAGGER_MS : 0);
   const toGo = $derived(Math.max(0, goalTarget - goalDone));
 </script>
@@ -56,8 +57,8 @@
   .count { display: flex; align-items: baseline; gap: 10px; }
   .big { font-size: 56px; font-weight: 700; line-height: 1; display: inline-block; transform-origin: left bottom; }
   /* Green for as long as a row says "+1 Voucher", with a pop as it lands. */
-  .big { transition: color .35s ease; }
-  .big.pop { animation: pop .45s ease; }
+  .big { transition: color var(--t-base) ease; }
+  .big.pop { animation: pop var(--t-move) var(--ease-out); }
   @keyframes pop { 40% { transform: scale(1.18); } }
   .big.full { color: var(--goal); }
   .big.night { color: var(--night-ink); }
@@ -69,11 +70,10 @@
   .cells i { height: 14px; border-radius: 3px; background: var(--line); overflow: hidden; }
   /* Each cell's colour grows in from the left when a Voucher lands, and
      shrinks back to the left when one is torn. */
-  .cells b { display: block; height: 100%; background: var(--voucher); transform: scaleX(0); transform-origin: left; transition: transform .4s cubic-bezier(.2, .8, .2, 1), background-color .3s; }
+  .cells b { display: block; height: 100%; background: var(--voucher); transform: scaleX(0); transform-origin: left; transition: transform var(--t-move) var(--ease-out), background-color var(--t-base); }
   .cells b.on { transform: scaleX(1); }
   .cells b.full { background: var(--goal); }
   .cells b.night { background: var(--night); }
-  @media (prefers-reduced-motion: reduce) { .cells b { transition: none; } }
   .goal { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--goal); }
   .what { flex: 1; min-width: 0; }
   .streak { display: flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--goal-bg); font-size: 12px; font-weight: 700; white-space: nowrap; }

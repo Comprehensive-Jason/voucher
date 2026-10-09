@@ -12,6 +12,9 @@
   import { dayLabel, hourOf, shiftDay } from "../time";
   import Marker from "../components/Marker.svelte";
   import type { DaySummary } from "../types";
+  import ScrollCue from "../components/ScrollCue.svelte";
+  import TodayButton from "../components/TodayButton.svelte";
+  let listEl = $state<HTMLDivElement>();
 
   let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable() }: {
     today: DaySummary; timeZone: string; tall?: boolean;
@@ -178,6 +181,7 @@
         </button>
       {/if}
     </div>
+    <TodayButton show={shown < days.length - 1} onclick={() => scroller?.scrollTo({ left: (days.length - 1) * scroller.clientWidth, behavior: "smooth" })} />
   </div>
   <div class="days" bind:this={scroller} onscroll={onScroll}>
     {#each days as day (day)}
@@ -211,7 +215,9 @@
   <div class="legend">
     <!-- Outside the scrolling list, so it stays put when the list bounces. -->
     <div class="row head"><span class="mono when">{breakdown.label}</span><span class="mono">{breakdown.total} earned</span></div>
-    <div class="list" aria-live="polite">
+    <div class="lframe">
+    <ScrollCue target={listEl} />
+    <div class="list" aria-live="polite" bind:this={listEl}>
     {#each breakdown.rows as row (row.name)}
       <div class="row" class:zero={!row.n}><span class="mk"><Marker kind="source" color={row.color} /></span><span class="name">{row.name}</span><b class="mono">{row.n || "–"}</b></div>
     {/each}
@@ -221,6 +227,7 @@
     {#if !breakdown.rows.length && !breakdown.anyRedeemed}
       <div class="row none">{current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
     {/if}
+    </div>
     </div>
     <!-- Stays at the bottom of the box, however long the list is. -->
     {#if breakdown.rows.length}<div class="hintline">{pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole day"}</div>{/if}
@@ -249,21 +256,23 @@
   .col {
     position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 3px;
     height: 100%; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
-    transition: opacity .2s ease;
+    transition: opacity var(--t-base) ease;
   }
   .col.faded { opacity: .3; }
   .col.picked .n { color: var(--ink); font-weight: 700; }
   .col:focus-visible { outline: 2px solid var(--voucher); outline-offset: 2px; border-radius: 4px; }
   .n { font-size: 10px; line-height: 11px; text-align: center; color: var(--muted); }
-  .bar { display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; }
-  .bar i { min-height: 0; }
+  /* A bar grows to its new height, and its segments to their new shares, when an hour earns. */
+  .bar { display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
+  .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
   .dots { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; height: 10px; }
   .dots div { display: flex; justify-content: center; align-items: center; }
   .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
   .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: #1f2226; font-size: 13px; color: #c9cdd1; }
-  .list { display: flex; flex-direction: column; }
+  .lframe { position: relative; display: flex; flex-direction: column; }
+  .list { position: relative; display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
   .row.head { grid-template-columns: minmax(0, 1fr) auto; border-top: 0; font-size: 11px; color: var(--muted); }
   .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -281,7 +290,8 @@
   .tall { flex: 1; min-height: 0; }
   .tall .head, .tall .days { flex: none; }
   .tall .legend { flex: 1; min-height: 96px; }
-  .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .tall .lframe { flex: 1; min-height: 0; }
+  .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .tall .hintline { flex: none; }
   .tall .row.head { flex: none; }
   .tall .chart, .tall .dots { gap: 6px; }

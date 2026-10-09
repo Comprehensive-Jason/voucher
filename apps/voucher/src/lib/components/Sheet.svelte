@@ -1,10 +1,17 @@
 <script lang="ts">
-  // A bottom sheet over a scrim. Tapping the scrim closes it.
+  // A bottom sheet over a scrim. Tapping the scrim closes it. It slides up as
+  // it opens and back down as it closes, as pages opening over others do, while
+  // the scrim fades. (Global transitions, so they play however the sheet is
+  // opened or closed.)
+  import { fade, fly } from "svelte/transition";
+  import { easeIn, easeOut, ms } from "../motion";
   let { onclose, children }: { onclose: () => void; children: import("svelte").Snippet } = $props();
 </script>
 
-<div class="scrim" role="presentation" onclick={onclose}></div>
-<div class="sheet" role="dialog" aria-modal="true">{@render children()}</div>
+<div class="scrim" role="presentation" onclick={onclose} transition:fade|global={{ duration: ms("base") }}></div>
+<div class="sheet" role="dialog" aria-modal="true"
+  in:fly|global={{ y: "100%", opacity: 1, duration: ms("move"), easing: easeOut }}
+  out:fly|global={{ y: "100%", opacity: 1, duration: ms("move"), easing: easeIn }}>{@render children()}</div>
 
 <style>
   .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); z-index: 10; }

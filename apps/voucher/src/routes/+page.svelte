@@ -82,6 +82,7 @@
   .usage { grid-area: usage; contain: size; }
   /* The box fills its cell; only its list of apps scrolls, so the totals stay at the bottom. */
   .usage :global(.card) { flex: 1; min-height: 0; }
-  .usage :global(.card .apps) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .usage :global(.card .frame) { flex: 1; min-height: 0; }
+  .usage :global(.card .apps) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .logcard { grid-area: log; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 12px; }
 </style>

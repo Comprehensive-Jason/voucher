@@ -1,13 +1,14 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import { EASE, MOTION } from "../motion";
   // A bar's fill that slides to new values. When the source has just earned
   // (`laps` went up), the full bar fades away where it stands while the new
   // progress grows in from the left underneath, instead of the bar snapping
   // empty or sliding backwards as if progress were lost.
   let { value, laps, color }: { value: number; laps: number; color: string } = $props();
 
-  const SLIDE_MS = 350;
-  const FADE_MS = 600;
+  const SLIDE_MS = MOTION.move;
+  const FADE_MS = MOTION.slow;
   // Start where the bar already is; later values arrive through the effect.
   let shown = $state(untrack(() => value));
   let sliding = $state(true);
@@ -38,7 +39,7 @@
 {#key ghost}
   {#if ghost}<i class="ghost" style="width: 100%; background: {color}; animation-duration: {FADE_MS}ms"></i>{/if}
 {/key}
-<i style="width: {Math.min(1, shown) * 100}%; background: {color}; transition: {sliding ? `width ${SLIDE_MS}ms ease ${regrow ? 120 : 0}ms` : 'none'}"></i>
+<i style="width: {Math.min(1, shown) * 100}%; background: {color}; transition: {sliding ? `width ${SLIDE_MS}ms ${EASE.out} ${regrow ? 120 : 0}ms` : 'none'}"></i>
 
 <style>
   /* Fades out and brightens a little, so it reads as spent, not lost. */

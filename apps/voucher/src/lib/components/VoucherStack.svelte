@@ -2,6 +2,7 @@
   // The Bank as a stack of Vouchers. Drag the right-hand part of the top Voucher
   // to the right to tear off `count` Vouchers; the stub's + and − set `count`.
   import { untrack } from "svelte";
+  import { MOTION } from "../motion";
   import type { Mode } from "../types";
 
   let { mode, bank, unlockMinutes, room = null, curfewStart = "22:00", ontear }: {
@@ -55,9 +56,9 @@
   // the top slot and each one behind moves up a place, STAGGER_MS apart
   // (MOVE_MS each); stubs of torn Vouchers fade, and new ones fade in at the
   // back. Then the new top Voucher's words fade in (FADE_MS).
-  const MOVE_MS = 300;
-  const STAGGER_MS = 70;
-  const FADE_MS = 250;
+  const MOVE_MS = MOTION.move;
+  const STAGGER_MS = MOTION.stagger;
+  const FADE_MS = MOTION.base;
   let phase = $state<"rest" | "rising" | "settling">("rest");
   let moves = $state<{ to: number; from: number; seen: boolean }[]>([]);
   let leavingStubs = $state<number[]>([]);
@@ -90,7 +91,7 @@
   // With the stack already three deep, the back one drops in again, so every
   // new Voucher shows. (The Bank this gets is held back until the earning
   // row says "+1 Voucher", so the drop lands with it.)
-  const ARRIVE_MS = 550;
+  const ARRIVE_MS = MOTION.slow;
   let arriving = $state<{ front: boolean; levels: number[] } | null>(null);
   let lastShown = untrack(() => shown);
   let arriveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -250,8 +251,8 @@
 </div>
 
 <style>
-  .stack { position: relative; height: 140px; touch-action: pan-y; user-select: none; -webkit-user-select: none; --move: .3s; }
-  .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed #3a3f45; animation: arrive .2s ease both; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+  .stack { position: relative; height: 140px; touch-action: pan-y; user-select: none; -webkit-user-select: none; --move: var(--t-move); }
+  .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed #3a3f45; animation: arrive var(--t-base) ease both; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
   .nonetitle { font-size: 17px; font-weight: 700; }
   .nonesub { font-size: 13px; color: var(--muted); }
   /* The Vouchers behind the top one: a stub and a right half each, notched
@@ -272,7 +273,7 @@
   .bhalf {
     flex: 1; margin-left: -2px; border-left: 2px solid transparent; background-clip: padding-box;
     border-radius: 0 16px 16px 0; transform-origin: 0 100%;
-    transition: transform .25s ease, opacity .25s ease, background-color .22s ease;
+    transition: transform var(--t-base) var(--ease-out), opacity var(--t-base) ease, background-color var(--t-base) ease;
     -webkit-mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     -webkit-mask-composite: xor, source-over;
     mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
@@ -281,17 +282,17 @@
   /* Picked to tear: brighter, and above the next column so
      it flies in front of it (but still under the top stub, z-index 6). */
   .bhalf.picked { position: relative; z-index: 4; background-color: color-mix(in oklab, var(--voucher) 70%, var(--c)); }
-  .bhalf.dragging { transition: background-color .22s ease; }
+  .bhalf.dragging { transition: background-color var(--t-base) ease; }
   .bhalf.torn { opacity: 0; }
   /* The cascade after a tear: each level slides from where it was to its new
      place, taking on its new colour. */
-  .back.moving { animation: settle-in var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
-  .back.moving > * { animation: retint var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
-  .back.moving > .bstub { animation: retint var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both, restub var(--move) cubic-bezier(.2, .8, .2, 1) var(--delay) both; }
-  .back.leaving { animation: leave .18s ease forwards; }
+  .back.moving { animation: settle-in var(--move) var(--ease-out) var(--delay) both; }
+  .back.moving > * { animation: retint var(--move) var(--ease-out) var(--delay) both; }
+  .back.moving > .bstub { animation: retint var(--move) var(--ease-out) var(--delay) both, restub var(--move) var(--ease-out) var(--delay) both; }
+  .back.leaving { animation: leave var(--t-quick) ease forwards; }
   /* A Voucher just earned drops into its place from above. */
-  .back.arrive { animation: drop-in .55s cubic-bezier(.2, .8, .2, 1) both; }
-  .voucher.drop { animation: drop-in .55s cubic-bezier(.2, .8, .2, 1) both; }
+  .back.arrive { animation: drop-in var(--t-slow) var(--ease-out) both; }
+  .voucher.drop { animation: drop-in var(--t-slow) var(--ease-out) both; }
   @keyframes drop-in { from { transform: translateY(-28px) scale(.95); opacity: 0; } }
   @keyframes settle-in {
     from { left: var(--from-x); right: var(--from-x); top: var(--from-y); opacity: var(--from-o); }
@@ -322,7 +323,7 @@
   .night .stub { align-items: center; gap: 8px; }
   .bridge {
     position: absolute; top: 0; left: calc(30% - 1px); width: 2px; height: 100%; background: var(--voucher);
-    pointer-events: none; transition: visibility 0s .25s;
+    pointer-events: none; transition: visibility 0s var(--t-base);
     -webkit-mask: var(--perforation) -1px 0/4px 116px no-repeat, radial-gradient(circle 11px at 1px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 1px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     -webkit-mask-composite: xor, source-over;
     mask: var(--perforation) -1px 0/4px 116px no-repeat, radial-gradient(circle 11px at 1px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 1px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
@@ -345,7 +346,7 @@
     flex: 1; margin-left: -2px; border-left: 2px solid transparent; background-clip: padding-box;
     border-radius: 0 16px 16px 0; padding: 16px 18px; display: flex; flex-direction: column;
     justify-content: space-between; cursor: grab; touch-action: none; transform-origin: 0 100%;
-    transition: transform .25s ease, opacity .25s ease;
+    transition: transform var(--t-base) var(--ease-out), opacity var(--t-base) ease;
     -webkit-mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;
     -webkit-mask-composite: xor, source-over;
     mask: var(--perforation) 0 0/4px 116px no-repeat, radial-gradient(circle 11px at 2px 0, transparent 98%, #000) top/100% 51% no-repeat, radial-gradient(circle 11px at 2px 100%, transparent 98%, #000) bottom/100% 51% no-repeat;

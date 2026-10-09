@@ -5,6 +5,9 @@
   import { ledger, RULES_CHANGED } from "../api";
   import { hhmm } from "../rules";
   import type { Status } from "../types";
+  import { reveal } from "../motion";
+
+  let { axis = "y" }: { axis?: "x" | "y" } = $props();
 
   let status = $state<Status | null>(null);
   let confirming = $state(false);
@@ -26,7 +29,7 @@
 </script>
 
 {#if until && status}
-  <div class="grace">
+  <div class="grace" transition:reveal={{ axis }}>
     <div class="text">
       <span class="cap">Grace period until {when}</span>
       <span>{confirming ? `From now on, loosening a rule waits for ${hhmm(status.settings.morning_boundary)}.` : "Every change applies at once while you tune your rules."}</span>

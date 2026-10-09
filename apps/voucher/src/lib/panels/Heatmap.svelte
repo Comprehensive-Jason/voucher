@@ -3,6 +3,8 @@
   // Brightest means the goal was met. Swipe back through earlier weeks as far
   // as the Ledger's first Day; Days before it and Days to come stay blank.
   import type { DayTotal } from "../types";
+  import { untrack } from "svelte";
+  import TodayButton from "../components/TodayButton.svelte";
 
   let { history, goal, keyBelow = true, firstDay, selected, onpick }: {
     history: DayTotal[]; goal: number; keyBelow?: boolean;
@@ -46,13 +48,19 @@
 
   // Open on the latest weeks, and stay there as weeks are added, unless scrolled back.
   let scroller = $state<HTMLDivElement>();
-  let atEnd = true;
+  let atEnd = $state(true);
   $effect(() => {
     cells.length;
-    if (scroller && atEnd) scroller.scrollLeft = scroller.scrollWidth;
+    if (scroller && untrack(() => atEnd)) scroller.scrollLeft = scroller.scrollWidth;
   });
   function onScroll() {
     if (scroller) atEnd = scroller.scrollLeft + scroller.clientWidth >= scroller.scrollWidth - 2;
+  }
+  // "Today": back to the latest weeks, with today picked.
+  const lastDay = $derived(history.at(-1)?.day);
+  function backToToday() {
+    scroller?.scrollTo({ left: scroller.scrollWidth, behavior: "smooth" });
+    if (lastDay) onpick?.(lastDay);
   }
 </script>
 
@@ -60,6 +68,7 @@
   <div class="head">
     <span class="cap">Vouchers earned, 12 weeks</span>
     {#if !keyBelow}<span class="cap earn">Brightest: {goal}+ (goal met)</span>{/if}
+    <TodayButton show={!atEnd || (!!selected && !!lastDay && selected !== lastDay)} onclick={backToToday} />
   </div>
   <div class="grid">
   <!-- Outside the scroller, so the weekday labels never move or bounce. -->
@@ -92,7 +101,7 @@
 
 <style>
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-  .head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 28px; }
   .earn { color: var(--voucher); }
   /* A fixed weekday column beside a scroller of week-columns: twelve fill the
      visible width, and earlier weeks sit off to the left. Cells are sized

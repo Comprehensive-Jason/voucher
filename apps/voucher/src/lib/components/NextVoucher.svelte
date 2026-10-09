@@ -12,11 +12,12 @@
   // the bar empties to what's left over and the row slides to its new place.
   import { onDestroy, tick, untrack } from "svelte";
   import { flip } from "svelte/animate";
-  import { cubicOut } from "svelte/easing";
   import { styleOf } from "../sources";
   import { WIN_HOLD_MS, wins } from "../celebrate.svelte";
+  import { MOTION, easeOut } from "../motion";
   import Marker from "./Marker.svelte";
   import ProgressFill from "./ProgressFill.svelte";
+  import ScrollCue from "./ScrollCue.svelte";
   import type { SourceProgress } from "../types";
 
   /** `bank` tells a kept Voucher from one a full Bank lost. */
@@ -86,7 +87,7 @@
     await tick();
     reveal(keys);
     // Let a bar finish filling before anything plays (a tally has no fill).
-    await wait(keys.some((k) => k !== "tasks") ? 520 : 200);
+    await wait(keys.some((k) => k !== "tasks") ? MOTION.move + 140 : MOTION.base);
     // The words, the Bank's count, and its green all start together and last
     // as long as each other.
     for (const k of keys) won[k] = true;
@@ -101,7 +102,7 @@
 
   // Closest to a Voucher first, Tasks pinned on top. Neighbours only swap
   // once one is 3 points ahead, so near-ties don't flicker back and forth.
-  const MOVE_MS = 450;
+  const MOVE_MS = MOTION.move;
   const shownFraction = (k: string) => (k === "tasks" ? Infinity : k in frozen ? 1 : byKey[k]?.fraction ?? 0);
   let order = $state<string[]>([]);
   let lifted = $state<Record<string, boolean>>({});
@@ -133,15 +134,9 @@
     });
   });
 
-  // On the tablet the list scrolls on its own: show how many rows are above
-  // the top, and bring a row that's earning into view.
+  // On the tablet the list scrolls on its own: bring a row that's earning
+  // into view (ScrollCue shows how many rows are out of view each way).
   let list = $state<HTMLDivElement>();
-  let above = $state(0);
-  function measure() {
-    if (!list) return;
-    const top = list.scrollTop;
-    above = top < 2 ? 0 : [...list.children].filter((el) => (el as HTMLElement).offsetTop + (el as HTMLElement).offsetHeight <= top + 6).length;
-  }
   function reveal(keys: string[]) {
     if (!list || list.scrollHeight <= list.clientHeight) return;
     const els = keys.map((k) => list!.querySelector<HTMLElement>(`[data-key="${k}"]`)).filter((el): el is HTMLElement => !!el);
@@ -157,16 +152,13 @@
 <section class="next">
   <div class="cap">Toward the next Voucher</div>
   <div class="frame">
-    <button class="above" class:on={above > 0} tabindex={above > 0 ? 0 : -1} onclick={() => list?.scrollTo({ top: 0, behavior: "smooth" })}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
-      {above} above
-    </button>
+    <ScrollCue target={list} />
     <!-- On the tablet only this list scrolls; the heading above it stays put. -->
-    <div class="list" bind:this={list} onscroll={measure}>
+    <div class="list" bind:this={list}>
       {#each order.filter((k) => byKey[k]) as key (key)}
         {@const s = byKey[key]}
         {@const held = key in frozen}
-        <div class="src" class:lift={lifted[key]} class:won={won[key]} data-key={key} style="--c: {s.color}" animate:flip={{ duration: MOVE_MS, easing: cubicOut }}>
+        <div class="src" class:lift={lifted[key]} class:won={won[key]} data-key={key} style="--c: {s.color}" animate:flip={{ duration: MOVE_MS, easing: easeOut }}>
           <span class="mk"><Marker kind="source" color={s.color} /><span class="ring"></span></span>
           <span class="name">{s.name}</span>
           <span class="mono detail"><span class="cnt">{held && s.tally === undefined ? s.full : s.detail}</span><span class="plus" class:lostit={lost[key]}>{lost[key] ? "Bank full" : "+1 Voucher"}</span></span>
@@ -189,25 +181,25 @@
   .frame { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; }
   .list { position: relative; display: flex; flex-direction: column; }
   .mk { position: relative; display: flex; align-items: center; justify-content: center; }
-  .src { position: relative; isolation: isolate; display: grid; grid-template-columns: 22px 1fr auto; column-gap: 10px; row-gap: 5px; align-items: center; padding: 5px 0; transition: scale .25s ease; }
+  .src { position: relative; isolation: isolate; display: grid; grid-template-columns: 22px 1fr auto; column-gap: 10px; row-gap: 5px; align-items: center; padding: 5px 0; transition: scale var(--t-base) var(--ease-out); }
   /* A backdrop 6 px past the row on each side, as much room as above and below. */
-  .src::before { content: ""; position: absolute; inset: 0 -6px; border-radius: 12px; z-index: -1; transition: background-color .25s, box-shadow .25s; }
+  .src::before { content: ""; position: absolute; inset: 0 -6px; border-radius: 12px; z-index: -1; transition: background-color var(--t-base), box-shadow var(--t-base); }
   /* Raised while it moves up past the others. */
   .src.lift { z-index: 2; scale: 1.04; }
   .src.lift::before { background: #1c1f23; box-shadow: 0 8px 22px rgba(0, 0, 0, .6); }
   .name { font-size: 14px; font-weight: 500; }
   /* The count and "+1 Voucher" share one spot and crossfade. */
   .detail { font-size: 12px; color: var(--muted); display: grid; justify-items: end; }
-  .detail > span { grid-area: 1 / 1; white-space: nowrap; transition: opacity .35s ease, transform .35s ease; }
+  .detail > span { grid-area: 1 / 1; white-space: nowrap; transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-out); }
   .plus { color: var(--voucher); font-weight: 700; opacity: 0; transform: translateY(7px); }
   .plus.lostit { color: var(--goal); }
   .won .cnt { opacity: 0; transform: translateY(-7px); }
   .won .plus { opacity: 1; transform: none; }
   /* One ring off the marker; the marker and the bar flash together. */
   .ring { position: absolute; width: 12px; height: 12px; border-radius: 4px; border: 2px solid var(--c); opacity: 0; pointer-events: none; }
-  .won .ring { animation: ring .9s ease-out; }
+  .won .ring { animation: ring var(--t-emphasis) ease-out; }
   @keyframes ring { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(3.2); opacity: 0; } }
-  .won .mk :global(.marker), .won .bar :global(i), .won .tally i:last-child { animation: flash .9s ease; }
+  .won .mk :global(.marker), .won .bar :global(i), .won .tally i:last-child { animation: flash var(--t-emphasis) ease; }
   @keyframes flash { 25% { filter: brightness(1.9) drop-shadow(0 0 6px var(--c)); } }
   .wide { grid-column: 2 / 4; }
   /* Visible, so the flash's glow isn't cut off at the track. */
@@ -217,10 +209,6 @@
      is 18 px until the track fills, then they narrow to fit, down to 3 px
      (about 45 on a phone); past that the rest are clipped. */
   .tally { height: 6px; border-radius: 3px; background: var(--line); display: flex; gap: 3px; overflow: hidden; }
-  .tally i { flex: 0 1 18px; min-width: 3px; border-radius: 3px; transform-origin: left; animation: grow .35s ease both; }
+  .tally i { flex: 0 1 18px; min-width: 3px; border-radius: 3px; transform-origin: left; animation: grow var(--t-move) var(--ease-out) both; }
   @keyframes grow { from { transform: scaleX(0); } }
-  /* "N above": shows once the list is scrolled; tap to go back to the top. */
-  .above { position: absolute; top: 4px; left: 50%; z-index: 5; height: 26px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line); background: #1c1f23; box-shadow: 0 4px 14px rgba(0, 0, 0, .5); color: var(--ink); font: 700 12px var(--font); display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: 0; pointer-events: none; transform: translate(-50%, -6px); transition: opacity .2s, transform .2s; }
-  .above.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
-  @media (prefers-reduced-motion: reduce) { .src { transition: none; } .won .ring, .won .mk :global(.marker), .won .bar :global(i) { animation: none; } }
 </style>

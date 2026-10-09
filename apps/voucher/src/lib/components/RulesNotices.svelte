@@ -9,8 +9,11 @@
   import GraceBanner from "./GraceBanner.svelte";
   import { describe, hhmm, until } from "../rules";
   import type { Protection, Status } from "../types";
+  import { reveal } from "../motion";
 
   let { row = false }: { row?: boolean } = $props();
+  /** Notices open out in a column, and fade in place in a row. */
+  const axis = $derived(row ? "x" as const : "y" as const);
 
   let status = $state<Status | null>(null);
   let guard = $state<Protection | null>(null);
@@ -61,7 +64,7 @@
 <div class="notices" class:row>
   {#if error}<p class="error">{error}</p>{/if}
   {#if missing}
-    <div class="warn {missing.level}">
+    <div class="warn {missing.level}" transition:reveal={{ axis }}>
       <div class="warnbody">
       <div class="warnhead">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" /><path d="M12 8v5M12 16v.01" /></svg>
@@ -75,22 +78,19 @@
 
   {#if status}
     {@const s = status.settings}
-    {#if status.pending.length === 1}
-      {@const p = status.pending[0]}
-      <div class="pending">
-        <div class="ptext">
-          <span class="cap">Waiting for {hhmm(s.morning_boundary)}, {until(p[1])}</span>
-          <span>{describe(p, s)}</span>
-        </div>
-        <button class="pcancel" onclick={() => cancel(0)}>Cancel</button>
-      </div>
-    {:else if status.pending.length > 1}
-      <div class="pending">
+    <!-- One card whether one change waits or several, so going from one to
+         two changes its words without the card leaving and coming back. -->
+    {#if status.pending.length}
+      <div class="pending" transition:reveal={{ axis }}>
         <div class="ptext">
           <span class="cap">Waiting for {hhmm(s.morning_boundary)}, {until(status.pending[0][1])}</span>
-          <span>{status.pending.length} looser rules</span>
+          <span>{status.pending.length === 1 ? describe(status.pending[0], s) : `${status.pending.length} looser rules`}</span>
         </div>
-        <button class="review" onclick={openReview}>Review</button>
+        {#if status.pending.length === 1}
+          <button class="pcancel" onclick={() => cancel(0)}>Cancel</button>
+        {:else}
+          <button class="review" onclick={openReview}>Review</button>
+        {/if}
       </div>
     {/if}
     {#if reviewing}
@@ -115,7 +115,7 @@
     {/if}
 
   {/if}
-  <GraceBanner />
+  <GraceBanner {axis} />
 </div>
 
 <style>

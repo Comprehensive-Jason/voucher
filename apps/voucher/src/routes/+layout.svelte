@@ -6,6 +6,16 @@
   import { onMount } from "svelte";
   import { goto, onNavigate } from "$app/navigation";
   import { connection, device } from "$lib/api";
+  import { motionVars } from "$lib/motion";
+
+  // Every animation's timing comes from lib/motion.ts, as CSS variables on the
+  // root, set before anything draws.
+  if (typeof document !== "undefined") {
+    for (const part of motionVars().split("; ")) {
+      const [name, value] = part.split(": ");
+      document.documentElement.style.setProperty(name, value);
+    }
+  }
 
   let { children } = $props();
   // Setup and the blocked-app screen stand alone, without the tab bar.
@@ -28,10 +38,16 @@
   });
   // On a wide screen Rules is a sheet over Today: it slides up from the
   // bottom when opened and back down when left (button or back gesture).
+  // Pages that open over another slide up from the bottom, and slide back
+  // down when closed: Rules over Today on the tablet, and a source's or a
+  // blocklist's editor over Rules everywhere.
+  const editor = (path?: string) => !!path && /^\/rules\/(sources\/group|distractions\/(edit|new))/.test(path);
   onNavigate((nav) => {
     const from = nav.from?.url.pathname, to = nav.to?.url.pathname;
-    const direction = from === "/" && to === "/rules" ? "up" : from === "/rules" && to === "/" ? "down" : null;
-    if (!wide.on || !direction || !document.startViewTransition) return;
+    const overToday = wide.on && (from === "/" && to === "/rules" ? "up" : from === "/rules" && to === "/" ? "down" : null);
+    const overRules = editor(to) && !editor(from) ? "up" : editor(from) && !editor(to) ? "down" : null;
+    const direction = overToday || overRules;
+    if (!direction || !document.startViewTransition) return;
     document.documentElement.dataset.slide = direction;
     return new Promise((resolve) => {
       const transition = document.startViewTransition(async () => { resolve(); await nav.complete; });

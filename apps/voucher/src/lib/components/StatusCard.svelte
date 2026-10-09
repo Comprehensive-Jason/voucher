@@ -67,7 +67,7 @@
 </div>
 
 <style>
-  .card { height: 104px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; }
+  .card { height: 104px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; transition: background-color var(--t-base), border-color var(--t-base); }
   .card.running { background: var(--unlocked-bg); border-color: var(--unlocked-line); }
   .card.curfew { background: var(--night-bg); border-color: var(--night-voucher); }
   .card.full { background: var(--goal-bg); border-color: var(--goal-line); }

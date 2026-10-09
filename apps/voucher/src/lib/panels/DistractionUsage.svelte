@@ -2,6 +2,8 @@
   // Time in Distractions today, measured on this device.
   import type { Blocklist, DeviceUsage } from "../types";
   import { blocklistColorOf } from "../blocklists";
+  import ScrollCue from "../components/ScrollCue.svelte";
+  let apps = $state<HTMLDivElement>();
 
   let { usage, unlockedMinutes, blocklists = {} }: {
     usage: DeviceUsage | null; unlockedMinutes: number;
@@ -21,7 +23,9 @@
   {#if usage && !usage.measured}
     <div class="note">Minutes need usage access on this device: turn it on in Rules, under Protection.</div>
   {:else if usage}
-    <div class="apps">
+    <div class="frame">
+    <ScrollCue target={apps} />
+    <div class="apps" bind:this={apps}>
       {#each usage.apps as a}
         <div class="app">
           <div class="name">{a.label}</div>
@@ -31,6 +35,7 @@
       {:else}
         <div class="note">No time in Distractions today.</div>
       {/each}
+    </div>
     </div>
   {:else}
     <div class="note">Needs usage access on this device. Turn it on in Rules, under Protection.</div>
@@ -54,7 +59,8 @@
   .name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .min { font-size: 12px; text-align: right; color: var(--muted); }
   .note { font-size: 12px; color: var(--muted); }
-  .apps { display: flex; flex-direction: column; gap: 10px; }
+  .frame { position: relative; display: flex; flex-direction: column; }
+  .apps { position: relative; display: flex; flex-direction: column; gap: 10px; }
   .stats { margin-top: auto; display: flex; flex-wrap: wrap; gap: 4px 16px; padding-top: 10px; border-top: 1px solid var(--divider); font-size: 12px; color: var(--muted); }
   .stats b { color: var(--ink); font-size: 13px; }
   .card { gap: 10px; }

@@ -9,11 +9,16 @@
   import Marker, { type MarkerKind } from "../components/Marker.svelte";
   import { clock, dayLabel, shiftDay } from "../time";
   import type { DaySummary } from "../types";
+  import ScrollCue from "../components/ScrollCue.svelte";
+  import { fade } from "svelte/transition";
+  import { ms } from "../motion";
+  import TodayButton from "../components/TodayButton.svelte";
+  let list = $state<HTMLDivElement>();
 
   let { compact = false }: { compact?: boolean } = $props();
 
   /** The Ledger keeps half a year of entries; older Days have totals only. */
-  const OLDEST = 30;
+  const OLDEST = 183;
 
   let today = $state<string | null>(null);
   let timeZone = $state("UTC");
@@ -87,6 +92,8 @@
 <div class="log" class:compact>
   <header>
     {#if compact}<span class="cap">Log</span>{:else}<h1>Log</h1>{/if}
+    <span class="spacer"></span>
+    <TodayButton show={back > 0} onclick={() => { back = 0; load(); }} />
     <div class="switcher">
       <button class="day" aria-label="Previous day" disabled={back >= OLDEST} onclick={() => step(1)}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
@@ -109,7 +116,11 @@
     </div>
     {/if}
 
-    <div class="rows">
+    <div class="frame">
+    <ScrollCue target={list} />
+    <!-- A different Day's rows fade in, rather than replacing these at once. -->
+    {#key day}
+    <div class="rows" bind:this={list} in:fade={{ duration: ms("base") }}>
       {#each rows as r}
         <div class="row">
           <span class="mono time">{r.time}</span>
@@ -124,6 +135,8 @@
         <p class="empty">{shown.earned > 0 ? "Only this Day's totals are kept now." : "Nothing earned or torn this Day."}</p>
       {/each}
     </div>
+    {/key}
+    </div>
 
     {#if before && day && today && !compact}
       <footer>
@@ -136,7 +149,7 @@
 
 <style>
   .log { display: flex; flex-direction: column; gap: 14px; }
-  header { display: flex; align-items: center; justify-content: space-between; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   h1 { margin: 0; font-size: 26px; font-weight: 700; }
   .switcher { display: flex; align-items: center; }
   .label { color: var(--ink); min-width: 92px; text-align: center; }
@@ -148,7 +161,9 @@
   .big { font-size: 24px; font-weight: 700; line-height: 1; }
   .earn { color: var(--voucher); }
   .spend { color: var(--goal); }
-  .rows { display: flex; flex-direction: column; }
+  .spacer { flex: 1; }
+  .frame { position: relative; display: flex; flex-direction: column; }
+  .rows { position: relative; display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 44px 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; height: 43px; border-bottom: 1px solid var(--divider); }
   .time { font-size: 12px; color: var(--muted); }
   .dot { display: flex; align-items: center; justify-content: center; }
@@ -167,6 +182,7 @@
      header sits above them, outside the scrolling part. */
   .compact { flex: 1; height: 100%; min-height: 0; }
   .compact header { flex: none; margin: 0 -12px 0 0; padding: 8px 0 6px; }
+  .compact .frame { flex: 1; min-height: 0; }
   .compact .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -8px; padding-right: 8px; }
   .compact .label { min-width: 0; }
   .compact .row { height: auto; padding: 9px 0; grid-template-columns: 44px 12px minmax(0, 1fr) 28px; }

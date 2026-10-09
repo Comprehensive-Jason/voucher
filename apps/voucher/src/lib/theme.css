@@ -38,11 +38,11 @@ input, textarea, [contenteditable] { -webkit-user-select: text; user-select: tex
 
 /* Rules as a sheet on wide screens (see the layout's onNavigate): the new
    page rises over the old one, and leaving lowers it off the old page. */
-html[data-slide]::view-transition-group(root) { animation-duration: .38s; }
+html[data-slide]::view-transition-group(root) { animation-duration: var(--t-move); }
 html[data-slide="up"]::view-transition-old(root) { animation: none; }
-html[data-slide="up"]::view-transition-new(root) { animation: sheet-up .38s cubic-bezier(.2, .8, .2, 1) both; }
+html[data-slide="up"]::view-transition-new(root) { animation: sheet-up var(--t-move) var(--ease-out) both; }
 html[data-slide="down"]::view-transition-new(root) { animation: none; }
-html[data-slide="down"]::view-transition-old(root) { animation: sheet-down .32s cubic-bezier(.4, 0, .8, .4) both; z-index: 1; }
+html[data-slide="down"]::view-transition-old(root) { animation: sheet-down var(--t-move) var(--ease-in) both; z-index: 1; }
 @keyframes sheet-up { from { transform: translateY(100%); } }
 @keyframes sheet-down { to { transform: translateY(100%); } }
 html, body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--font); }
@@ -50,4 +50,5 @@ button { font: inherit; color: inherit; }
 .cap { font: 600 11px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .mono { font-family: var(--mono); }
 .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.bar > i { display: block; height: 100%; border-radius: 3px; }
+/* Every bar slides to a new value (lib/motion.ts sets the timing). */
+.bar > i { display: block; height: 100%; border-radius: 3px; transition: width var(--t-move) var(--ease-out); }
