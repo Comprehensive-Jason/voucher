@@ -466,7 +466,11 @@
 <style>
   /* A named container, so the Today button can shrink to its arrow on a narrow card. */
   .card { container: card / inline-size; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-  .viewport { position: relative; transform-origin: 50% 100%; }
+  /* Clipped to its own box while it zooms in: Android's WebView kept the
+     scroller's clip at the unscaled size, so a few pixels of the page before
+     showed at the left edge as the view grew or shrank into place. This clip
+     scales with the view. */
+  .viewport { position: relative; transform-origin: 50% 100%; clip-path: inset(0); }
   /* After a zoom change, the bars on screen rise from the axis one after another. */
   /* Only the page in view plays it: animating every page's bars put them on
      their own layers, and Android's WebView let the page before flicker
