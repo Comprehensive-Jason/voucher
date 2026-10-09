@@ -13,6 +13,14 @@
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import LogPanel from "$lib/panels/LogPanel.svelte";
+  import TrendLines from "$lib/panels/trends/TrendLines.svelte";
+  import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
+  import PaceToGoal from "$lib/panels/trends/PaceToGoal.svelte";
+  import MorningRunway from "$lib/panels/trends/MorningRunway.svelte";
+  import HabitStrength from "$lib/panels/trends/HabitStrength.svelte";
+  import StreakLadder from "$lib/panels/trends/StreakLadder.svelte";
+  import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
+  import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
   import type { DayTotal, DeviceUsage, Status } from "$lib/types";
 
   const live = new Live();
@@ -72,7 +80,15 @@
     {:else if status}
       {#if id === "earned"}<HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} {focus} bind:shownDay tall />
       {:else if id === "heat"}<Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} keyBelow={false} />
-      {:else if id === "distraction"}<HourChart measure="distraction" today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} {focus} blocklists={status.settings.blocklists} device={usage} tall />{/if}
+      {:else if id === "distraction"}<HourChart measure="distraction" today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} {focus} blocklists={status.settings.blocklists} device={usage} tall />
+      {:else if id === "trend"}<TrendLines {history} goal={status.today.goal} />
+      {:else if id === "when"}<WhenYouEarn {history} />
+      {:else if id === "pace"}<PaceToGoal {history} today={status.today} timeZone={status.settings.time_zone} />
+      {:else if id === "runway"}<MorningRunway {history} timeZone={status.settings.time_zone} />
+      {:else if id === "strength"}<HabitStrength {history} />
+      {:else if id === "ladder"}<StreakLadder {history} />
+      {:else if id === "streaks"}<SourceStreaks {history} sources={status.today.sources} />
+      {:else if id === "records"}<PersonalRecords {history} timeZone={status.settings.time_zone} />{/if}
     {/if}
   {/snippet}
   <div class="wide">

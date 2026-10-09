@@ -98,3 +98,19 @@ fn the_history_counts_minutes_unlocked() {
     ledger.redeem_many(2, now).unwrap();
     assert_eq!(ledger.history(1, now)[0].unlocked_minutes, 20);
 }
+
+#[test]
+fn the_history_has_each_days_goal_hours_and_first_tear() {
+    let mut ledger = fresh();
+    let now = at("2026-10-02T15:30-07:00");
+    ledger.record(&[voucher_ledger::Completion { task: "todoist:a".into(), title: "A".into(), at: at("2026-10-02T09:10-07:00") }], at("2026-10-02T09:10-07:00"));
+    ledger.record(&[voucher_ledger::Completion { task: "todoist:b".into(), title: "B".into(), at: at("2026-10-02T09:40-07:00") }], at("2026-10-02T09:40-07:00"));
+    ledger.credit(2, at("2026-10-02T11:00-07:00"));
+    ledger.redeem_many(1, at("2026-10-02T12:05-07:00")).unwrap();
+    ledger.redeem_many(1, at("2026-10-02T14:00-07:00")).unwrap();
+    let day = &ledger.history(1, now)[0];
+    assert_eq!(day.goal, 3);
+    assert_eq!(day.hours[9], 2);
+    assert_eq!(day.hours.iter().sum::<u32>(), 2);
+    assert_eq!(day.first_tear, Some(at("2026-10-02T12:05-07:00")));
+}

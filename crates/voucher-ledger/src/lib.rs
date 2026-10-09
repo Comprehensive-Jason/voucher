@@ -650,6 +650,13 @@ pub struct DayTotal {
     /// Minutes in each Distraction app, every device's added together:
     /// empty for Days older than the log keeps.
     pub used: BTreeMap<String, u32>,
+    /// The Day's Daily goal.
+    pub goal: u32,
+    /// Vouchers earned in each clock hour (24, midnight first), from the log:
+    /// empty for Days older than it keeps.
+    pub hours: Vec<u32>,
+    /// The Day's first tear, if the log still holds it.
+    pub first_tear: Option<Timestamp>,
 }
 
 /// What one Day earned, and the goal it had.
@@ -1184,17 +1191,31 @@ impl Ledger {
         self.settle(now);
         let today = day_of(&self.state.settings, now);
         let goal_today = self.state.settings.daily_goal;
-        // Each Day's earnings per source, in one pass over the log.
+        // Each Day's earnings per source and per hour, and its first tear,
+        // in one pass over the log.
         let settings = &self.state.settings;
+        let tz = settings.time_zone.clone();
         let mut sources: BTreeMap<Date, BTreeMap<String, u32>> = BTreeMap::new();
+        let mut hours: BTreeMap<Date, Vec<u32>> = BTreeMap::new();
+        let mut first_tears: BTreeMap<Date, Timestamp> = BTreeMap::new();
         for entry in &self.state.log {
-            if let Entry::Earned { task, at, .. } = entry {
-                let source = group_of(settings, task).unwrap_or(source_of(task));
-                *sources
-                    .entry(day_of(settings, *at))
-                    .or_default()
-                    .entry(source.to_string())
-                    .or_insert(0) += 1;
+            match entry {
+                Entry::Earned { task, at, .. } => {
+                    let day = day_of(settings, *at);
+                    let source = group_of(settings, task).unwrap_or(source_of(task));
+                    *sources
+                        .entry(day)
+                        .or_default()
+                        .entry(source.to_string())
+                        .or_insert(0) += 1;
+                    let hour = usize::try_from(at.to_zoned(tz.clone()).hour()).unwrap_or(0);
+                    hours.entry(day).or_insert_with(|| vec![0; 24])[hour] += 1;
+                }
+                Entry::Redeemed { at, .. } => {
+                    let first = first_tears.entry(day_of(settings, *at)).or_insert(*at);
+                    *first = (*first).min(*at);
+                }
+                _ => {}
             }
         }
         (0..i64::from(days))
@@ -1216,6 +1237,9 @@ impl Ledger {
                     goal_met: earned >= goal,
                     by_source: sources.remove(&day).unwrap_or_default(),
                     unlocked_minutes: score.map_or(0, |s| s.unlocked_minutes),
+                    goal,
+                    hours: hours.remove(&day).unwrap_or_default(),
+                    first_tear: first_tears.remove(&day),
                     used: score
                         .map(usage_of)
                         .unwrap_or_default()

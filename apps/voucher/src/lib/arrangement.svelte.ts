@@ -5,19 +5,28 @@
 // falls back to the default.
 import { remember, remembered } from "./storage";
 
-export type PanelId = "earned" | "heat" | "distraction" | "log";
+export type PanelId = "earned" | "heat" | "distraction" | "log"
+  | "trend" | "when" | "pace" | "runway" | "strength" | "ladder" | "streaks" | "records";
 
 export const PANELS: Record<PanelId, { name: string; /** Takes the column's spare height. */ grows: boolean }> = {
   earned: { name: "Vouchers earned", grows: true },
   heat: { name: "Activity graph", grows: false },
   distraction: { name: "Distraction time", grows: true },
   log: { name: "Log", grows: true },
+  pace: { name: "Pace to goal", grows: false },
+  trend: { name: "Trend lines", grows: false },
+  when: { name: "When you earn", grows: false },
+  runway: { name: "Morning runway", grows: false },
+  strength: { name: "Habit strength", grows: false },
+  ladder: { name: "Streak ladder", grows: false },
+  streaks: { name: "Source streaks", grows: false },
+  records: { name: "Personal records", grows: false },
 };
 
 /** At most this many panels share a column. */
 export const PER_COLUMN = 2;
 
-const DEFAULT: PanelId[][] = [["earned", "heat"], ["distraction"], ["log"]];
+const DEFAULT: PanelId[][] = [["earned", "heat"], ["distraction"], ["log"], ["pace", "trend"], ["when", "runway"], ["strength", "ladder"], ["streaks", "records"]];
 const KEY = "tablet-arrangement";
 
 /** Drops unknown and repeated panels, splits overfull columns, and removes empty ones. */
@@ -31,10 +40,17 @@ function tidy(columns: PanelId[][]): PanelId[][] {
   return out;
 }
 
+/** A saved arrangement, with any panel added since it was saved placed as
+ *  the default places it (hidden ones stay hidden). The first saves didn't
+ *  list which panels they knew, so those knew the first four. */
 function load(): PanelId[][] {
   try {
-    const saved = JSON.parse(remembered(KEY) ?? "null");
-    if (Array.isArray(saved) && saved.every(Array.isArray)) return tidy(saved);
+    const raw = JSON.parse(remembered(KEY) ?? "null");
+    const saved = Array.isArray(raw) ? { columns: raw, seen: ["earned", "heat", "distraction", "log"] } : raw;
+    if (saved && Array.isArray(saved.columns) && saved.columns.every(Array.isArray)) {
+      const fresh = DEFAULT.map((c) => c.filter((id) => !saved.seen?.includes(id))).filter((c) => c.length);
+      return tidy([...saved.columns, ...fresh]);
+    }
   } catch { /* the default, below */ }
   return DEFAULT.map((c) => [...c]);
 }
@@ -45,7 +61,7 @@ class Arrangement {
 
   #set(next: PanelId[][]) {
     this.columns = tidy(next);
-    remember(KEY, JSON.stringify(this.columns));
+    remember(KEY, JSON.stringify({ columns: this.columns, seen: Object.keys(PANELS) }));
   }
   #where(id: PanelId): [number, number] {
     const col = this.columns.findIndex((c) => c.includes(id));

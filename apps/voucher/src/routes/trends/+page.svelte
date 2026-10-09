@@ -4,6 +4,14 @@
   import { onMount } from "svelte";
   import { deviceUsage, ledger } from "$lib/api";
   import HourChart from "$lib/panels/HourChart.svelte";
+  import TrendLines from "$lib/panels/trends/TrendLines.svelte";
+  import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
+  import PaceToGoal from "$lib/panels/trends/PaceToGoal.svelte";
+  import MorningRunway from "$lib/panels/trends/MorningRunway.svelte";
+  import HabitStrength from "$lib/panels/trends/HabitStrength.svelte";
+  import StreakLadder from "$lib/panels/trends/StreakLadder.svelte";
+  import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
+  import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import { historyDays } from "$lib/time";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$lib/types";
@@ -52,6 +60,14 @@
     <HourChart {today} {timeZone} {firstDay} {focus} bind:shownDay />
     <Heatmap {history} goal={today.goal} {firstDay} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} />
     <HourChart measure="distraction" {today} {timeZone} {firstDay} {focus} {blocklists} device={usage} />
+    <PaceToGoal {history} {today} {timeZone} />
+    <TrendLines {history} goal={today.goal} />
+    <WhenYouEarn {history} />
+    <MorningRunway {history} {timeZone} />
+    <HabitStrength {history} />
+    <StreakLadder {history} />
+    <SourceStreaks {history} sources={today.sources} />
+    <PersonalRecords {history} {timeZone} />
   {/if}
 </main>
 

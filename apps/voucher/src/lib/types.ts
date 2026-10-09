@@ -92,6 +92,12 @@ export interface DayTotal {
   unlocked_minutes?: number;
   /** Minutes in each Distraction app, all devices together. */
   used?: Record<string, number>;
+  /** The Day's Daily goal; absent from older Ledgers. */
+  goal?: number;
+  /** Vouchers earned per clock hour (24, midnight first); empty past the kept log. */
+  hours?: number[];
+  /** The Day's first tear, if the log still holds it. */
+  first_tear?: string | null;
 }
 
 /** What the phone itself measured today, from the Android side. */

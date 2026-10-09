@@ -86,7 +86,13 @@ function history(n: number): DayTotal[] {
     const spent = Math.max(0, unlocked + ((seed % 23) - 9));
     const used: Record<string, number> = {};
     if (spent) { used.Instagram = Math.round(spent * 0.45); used.YouTube = Math.round(spent * 0.3); used.Reddit = spent - used.Instagram - used.YouTube; }
-    out.push({ day: d, earned, redeemed: Math.floor(earned / 3), goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used });
+    // Earnings spread over the hours, busiest mid-morning, and the first tear around midday.
+    const hours = Array<number>(24).fill(0);
+    for (let i = 0; i < earned; i++) hours[[8, 9, 10, 10, 11, 13, 14, 15, 16, 19, 20, 21][(i * 7 + seed) % 12]]++;
+    const redeemed = Math.floor(earned / 3);
+    const tearAt = 10 + ((seed >> 3) % 5), tearMin = (seed >> 5) % 60;
+    const first_tear = redeemed ? `${d}T${String(tearAt).padStart(2, "0")}:${String(tearMin).padStart(2, "0")}:00-07:00` : null;
+    out.push({ day: d, earned, redeemed, goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used, goal: 16, hours, first_tear });
   }
   return out;
 }
