@@ -10,7 +10,7 @@
   // the whole Day's). Today shows first; swipe (or the arrows) back through
   // earlier Days, as far as the Ledger keeps logs. Past Days load as they
   // come near the screen.
-  import { onMount, tick, untrack } from "svelte";
+  import { tick, untrack } from "svelte";
   import { ledger } from "../api";
   import { SOURCES, sourceOf, styleOf } from "../sources";
   import { dayLabel, hourOf, shiftDay } from "../time";
@@ -19,6 +19,11 @@
   import ScrollCue from "../components/ScrollCue.svelte";
   import TodayButton from "../components/TodayButton.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
+  import { easeOut, ms } from "../motion";
+  /** The new zoom level fades in from a little larger (zooming out) or smaller (zooming in). */
+  function zoomIn(_node: Element, { out }: { out: boolean }) {
+    return { duration: ms("move"), easing: easeOut, css: (t: number) => `opacity: ${t}; transform: scale(${1 + (out ? 0.06 : -0.06) * (1 - t)})` };
+  }
   let listEl = $state<HTMLDivElement>();
 
   let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable() }: {
@@ -143,79 +148,128 @@
     return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0 };
   });
   // ---- Week and Month ----
+  // Each is a row of pages, one week (Monday first) or calendar month per
+  // screen width, back to the Ledger's first Day: swipe or use the arrows,
+  // as with Days. Switching zoom keeps the time in view: Week opens on the
+  // week holding the Day you were on, and Day opens on the Day you picked.
   type Zoom = "day" | "week" | "month";
   let zoom = $state<Zoom>("day");
-  /** Weeks or months back from the current one. */
-  let offset = $state(0);
   let periodPick = $state<number | null>(null);
   let totals = $state<Record<string, DayTotal>>({});
+  let periodScroller = $state<HTMLDivElement>();
+  let page = $state(0);
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const weekdayOf = (d: string) => (new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7; // Monday 0
-  /** The Days of the week or month in view, future ones included (they stay blank). */
-  const period = $derived.by(() => {
-    if (zoom === "week") {
-      const start = shiftDay(shiftDay(today.day, -weekdayOf(today.day)), -7 * offset);
-      return Array.from({ length: 7 }, (_, i) => shiftDay(start, i));
-    }
-    const [y, m] = today.day.split("-").map(Number);
-    const first = new Date(Date.UTC(y, m - 1 - offset, 1, 12));
-    const n = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0, 12)).getUTCDate();
-    return Array.from({ length: n }, (_, i) => new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), i + 1, 12)).toISOString().slice(0, 10));
+  const mondayOf = (d: string) => shiftDay(d, -weekdayOf(d));
+  const monthOf = (d: string) => `${d.slice(0, 7)}-01`;
+  const nextMonth = (first: string) => { const [y, m] = first.split("-").map(Number); return new Date(Date.UTC(y, m, 1, 12)).toISOString().slice(0, 10); };
+  /** The first Day of every page, oldest first. */
+  const pages = $derived.by(() => {
+    if (zoom === "day") return [] as string[];
+    const oldest = firstDay && firstDay < today.day ? firstDay : today.day;
+    const out: string[] = [];
+    if (zoom === "week") for (let d = mondayOf(oldest); d <= today.day && out.length < 400; d = shiftDay(d, 7)) out.push(d);
+    else for (let d = monthOf(oldest); d <= today.day && out.length < 120; d = nextMonth(d)) out.push(d);
+    return out;
   });
-  const periodLabel = $derived.by(() => {
-    if (zoom === "week") return offset === 0 ? "This week" : offset === 1 ? "Last week" : `Week of ${dayLabel(period[0], today.day)}`;
-    const [y, m] = period[0].split("-").map(Number);
+  function daysOf(start: string): string[] {
+    if (zoom === "week") return Array.from({ length: 7 }, (_, i) => shiftDay(start, i));
+    const out: string[] = [];
+    for (let d = start; d < nextMonth(start); d = shiftDay(d, 1)) out.push(d);
+    return out;
+  }
+  function labelOf(index: number): string {
+    const start = pages[index], back = pages.length - 1 - index;
+    if (!start) return "";
+    if (zoom === "week") return back === 0 ? "This week" : back === 1 ? "Last week" : `Week of ${dayLabel(start, today.day)}`;
+    const [y, m] = start.split("-").map(Number);
     return `${MONTHS[m - 1]}${y !== Number(today.day.slice(0, 4)) ? " " + y : ""}`;
-  });
-  const atStart = $derived(!!firstDay && period[0] <= firstDay);
-  // History for the Days in view: fetched back to the period's first Day.
+  }
+  // The whole history, fetched once when Week or Month is first opened;
+  // today's numbers come live from `today`.
+  let fetched = false;
   $effect(() => {
-    if (zoom === "day") return;
-    const start = period[0];
-    if (totals[start] || (firstDay && start < firstDay && totals[firstDay])) return;
-    const span = Math.round((Date.parse(`${today.day}T12:00:00Z`) - Date.parse(`${start}T12:00:00Z`)) / 86_400_000) + 1;
-    ledger<DayTotal[]>("GET", `/history?days=${Math.max(1, span)}`).then((list) => {
-      const next = { ...untrack(() => totals) };
+    if (zoom === "day" || fetched) return;
+    fetched = true;
+    const span = firstDay && firstDay < today.day ? Math.round((Date.parse(`${today.day}T12:00:00Z`) - Date.parse(`${firstDay}T12:00:00Z`)) / 86_400_000) + 1 : 1;
+    ledger<DayTotal[]>("GET", `/history?days=${Math.min(1100, span)}`).then((list) => {
+      const next: Record<string, DayTotal> = {};
       for (const t of list) next[t.day] = t;
       totals = next;
-    }).catch(() => {});
+    }).catch(() => { fetched = false; });
   });
-  const periodCols = $derived(period.map((day) => {
-    const t = totals[day];
-    const counts = new Map<string, Part>();
-    for (const [id, n] of Object.entries(t?.by_source ?? {})) {
-      const { name, color } = styleOf(id);
-      const part = counts.get(name) ?? { name, color, n: 0 };
-      part.n += n;
-      counts.set(name, part);
-    }
-    // Days past the kept log have a total but no sources: one grey segment.
-    const known = [...counts.values()].reduce((a, p) => a + p.n, 0);
-    if (t && t.earned > known) counts.set("Earlier, by source not kept", { name: "Earlier, by source not kept", color: "#6c7177", n: t.earned - known });
-    const total = [...counts.values()].reduce((a, p) => a + p.n, 0);
-    return { day, counts, total, redeemed: t?.redeemed ?? 0, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
-  }));
+  const totalOf = (day: string): DayTotal | undefined => (day === today.day
+    ? { day, earned: today.earned, redeemed: today.redeemed, goal_met: today.goal_met, by_source: today.by_source } : totals[day]);
+  function colsOf(start: string) {
+    return daysOf(start).map((day) => {
+      const t = totalOf(day);
+      const counts = new Map<string, Part>();
+      for (const [id, n] of Object.entries(t?.by_source ?? {})) {
+        const { name, color } = styleOf(id);
+        const part = counts.get(name) ?? { name, color, n: 0 };
+        part.n += n;
+        counts.set(name, part);
+      }
+      // Days past the kept log have a total but no sources: one grey segment.
+      const known = [...counts.values()].reduce((a, q) => a + q.n, 0);
+      if (t && t.earned > known) counts.set("Earlier, by source not kept", { name: "Earlier, by source not kept", color: "#6c7177", n: t.earned - known });
+      const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
+      return { day, total, redeemed: t?.redeemed ?? 0, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
+    });
+  }
+  const pageCols = $derived(pages[page] ? colsOf(pages[page]) : []);
   const periodBreakdown = $derived.by(() => {
     const all = new Map<string, Part>();
-    for (const c of periodCols) for (const p of c.parts) { const sum = all.get(p.name) ?? { ...p, n: 0 }; sum.n += p.n; all.set(p.name, sum); }
-    const picked = periodPick === null ? null : periodCols[periodPick];
-    const rows = partsOf(all).map((p) => ({ ...p, n: picked ? picked.parts.find((q) => q.name === p.name)?.n ?? 0 : p.n }));
-    return { label: picked ? dayLabel(picked.day, today.day) : periodLabel, total: rows.reduce((n, r) => n + r.n, 0), rows,
-      redeemed: picked ? picked.redeemed : periodCols.reduce((n, c) => n + c.redeemed, 0), anyRedeemed: periodCols.some((c) => c.redeemed > 0) };
+    for (const c of pageCols) for (const q of c.parts) { const sum = all.get(q.name) ?? { ...q, n: 0 }; sum.n += q.n; all.set(q.name, sum); }
+    const picked = periodPick === null ? null : pageCols[periodPick];
+    const rows = partsOf(all).map((q) => ({ ...q, n: picked ? picked.parts.find((r) => r.name === q.name)?.n ?? 0 : q.n }));
+    return { label: picked ? dayLabel(picked.day, today.day) : labelOf(page), total: rows.reduce((n, r) => n + r.n, 0), rows,
+      redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0), anyRedeemed: pageCols.some((c) => c.redeemed > 0) };
   });
   const shownBreakdown = $derived(zoom === "day" ? breakdown : periodBreakdown);
-  function setZoom(z: Zoom) {
+
+  /** Bumped on each zoom change, so the new view plays its entrance once. */
+  let entrance = $state(0);
+  let zoomedOut = $state(true);
+  const LEVELS: Zoom[] = ["day", "week", "month"];
+  async function setZoom(z: Zoom) {
     if (z === zoom) return;
-    zoom = z; offset = 0; periodPick = null; pick = null;
+    // The time in view now: the Day on screen, or the picked (else last) Day of the page.
+    const anchor = zoom === "day" ? days[shown]
+      : periodPick !== null ? pageCols[periodPick]?.day
+      : pageCols.filter((c) => !c.future).at(-1)?.day ?? today.day;
+    zoomedOut = LEVELS.indexOf(z) > LEVELS.indexOf(zoom);
+    zoom = z; periodPick = null; pick = null; entrance++;
+    await tick();
+    if (z === "day") {
+      let index = days.indexOf(anchor ?? today.day);
+      if (index < 0) index = days.length - 1;
+      shown = index; onToday = index >= days.length - 1;
+      if (scroller) scroller.scrollLeft = index * scroller.clientWidth;
+      load(index - 1); load(index); load(index + 1);
+    } else {
+      const want = z === "week" ? mondayOf(anchor ?? today.day) : monthOf(anchor ?? today.day);
+      let index = pages.indexOf(want);
+      if (index < 0) index = pages.length - 1;
+      page = index;
+      if (periodScroller) periodScroller.scrollLeft = index * periodScroller.clientWidth;
+    }
+  }
+  function onPeriodScroll() {
+    if (!periodScroller) return;
+    const now = Math.round(periodScroller.scrollLeft / periodScroller.clientWidth);
+    if (now !== page) periodPick = null;
+    page = now;
   }
   function step(by: number) {
     if (zoom === "day") go(by);
-    else { offset = Math.max(0, offset - by); periodPick = null; }
+    else periodScroller?.scrollTo({ left: (page + by) * periodScroller.clientWidth, behavior: "smooth" });
   }
-  const onLatest = $derived(zoom === "day" ? shown >= days.length - 1 : offset === 0);
+  const onLatest = $derived(zoom === "day" ? shown >= days.length - 1 : page >= pages.length - 1);
+  const atStart = $derived(zoom === "day" ? shown === 0 : page === 0);
   function backToToday() {
-    if (zoom === "day") scroller?.scrollTo({ left: (days.length - 1) * scroller.clientWidth, behavior: "smooth" });
-    else { offset = 0; periodPick = null; }
+    if (zoom === "day") go(days.length - 1 - shown);
+    else periodScroller?.scrollTo({ left: (pages.length - 1) * periodScroller.clientWidth, behavior: "smooth" });
   }
 
   function onScroll() {
@@ -223,50 +277,53 @@
     const now = Math.round(scroller.scrollLeft / scroller.clientWidth);
     if (now !== shown) pick = null;
     shown = now;
+    if (Math.abs(scroller.scrollLeft - now * scroller.clientWidth) < 2) onToday = now >= days.length - 1;
     load(shown - 1); load(shown); load(shown + 1);
   }
   function go(by: number) {
-    scroller?.scrollTo({ left: (shown + by) * scroller.clientWidth, behavior: "smooth" });
+    const target = Math.max(0, Math.min(days.length - 1, shown + by));
+    onToday = target >= days.length - 1;
+    scroller?.scrollTo({ left: target * scroller.clientWidth, behavior: "smooth" });
   }
 
-  // Open on today, and stay on today as Days are added, unless scrolled back.
-  let onToday = true;
-  // Only the number of Days and the scroller re-run this; reading `shown`
-  // here would snap every scroll straight back to today.
+  // Open on today, and move on to the new today when a Day is added, unless
+  // scrolled back. Only a change in the number of Days does this: Today's
+  // numbers refresh every few seconds, and snapping on each refresh pulled the
+  // view back to today in the middle of a slide to yesterday.
+  let onToday = $state(true);
+  let lastCount = 0;
   $effect(() => {
     const count = days.length;
     const el = scroller;
     untrack(() => {
-      if (!el) return;
-      // Back from Week or Month, the Day in view before is still in view.
-      if (!onToday) { el.scrollLeft = shown * el.clientWidth; return; }
+      if (!el || count === lastCount) return;
+      lastCount = count;
+      if (!onToday) return;
       el.scrollLeft = el.scrollWidth;
       shown = count - 1;
       load(shown - 1);
     });
-  });
-  onMount(() => {
-    const track = () => { onToday = shown >= days.length - 1; };
-    scroller?.addEventListener("scrollend", track);
-    return () => scroller?.removeEventListener("scrollend", track);
   });
 </script>
 
 <section class="card" class:tall>
   <div class="head">
     <div class="switcher">
-      <button class="nav" aria-label="Earlier {zoom}" disabled={zoom === "day" ? shown === 0 : atStart} onclick={() => step(-1)}>
+      <button class="nav" aria-label="Earlier {zoom}" disabled={atStart} onclick={() => step(-1)}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
       </button>
       <!-- The zoom switch says hours or days, so the title only names the time. -->
-      <span class="cap">{zoom === "day" ? dayLabel(days[shown], today.day) : periodLabel}</span>
+      <span class="cap">{zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)}</span>
       <button class="nav" aria-label="Later {zoom}" disabled={onLatest} onclick={() => step(1)}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
       </button>
     </div>
     <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => setZoom(z as Zoom)} />
   </div>
-  <div class="viewport">
+  <!-- A new zoom level grows in from the old one's scale (larger when zooming
+       out, smaller when zooming in), and its bars rise one after another. -->
+  {#key entrance}
+  <div class="viewport" class:entering={entrance > 0} in:zoomIn={{ out: zoomedOut }}>
   {#if zoom === "day"}
   <div class="days" bind:this={scroller} onscroll={onScroll}>
     {#each days as day (day)}
@@ -278,7 +335,7 @@
           <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
           <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
           {#each cols as c, i}
-            <button class="col" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i}
+            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i}
               aria-label="{String(FIRST_HOUR + i).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
               onclick={() => (pick = pick === i || !c.total ? null : i)}>
               {#if c.total}
@@ -298,39 +355,48 @@
     {/each}
   </div>
   {:else}
-    {@const top = Math.max(2, Math.max(0, ...periodCols.map((c) => c.total)) + (Math.max(0, ...periodCols.map((c) => c.total)) % 2))}
-    {@const unit = plot / top}
-    {@const n = periodCols.length}
-    {@const busiest = Math.max(0, ...periodCols.map((c) => c.total))}
-    <div class="day period">
-      <div class="chart" style="height: {chart}px; grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {n > 7 ? 2 : tall ? 10 : 8}px">
-        <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{top / 2}</span></div>
-        <div class="tick" style="bottom: {plot}px"><span class="mono">{top}</span></div>
-        {#each periodCols as c, i (c.day)}
-          <button class="col" class:faded={periodPick !== null && periodPick !== i} class:picked={periodPick === i} class:future={c.future}
-            aria-label="{c.day}, {c.total} earned" aria-pressed={periodPick === i} disabled={c.future}
-            onclick={() => (periodPick = periodPick === i || !c.total ? null : i)}>
-            {#if c.total}
-              <!-- A month's bars are too narrow for every count: it labels the busiest Day and the picked one. -->
-              {#if n <= 7 || i === periodPick || (periodPick === null && c.total === busiest)}<span class="mono n">{c.total}</span>{:else}<span class="mono n blank"></span>{/if}
-              <div class="bar" style="height: {Math.max(c.total * unit, c.segments.length * MIN_SEGMENT)}px">
-                {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
-              </div>
-            {/if}
-          </button>
-        {/each}
-      </div>
-      <div class="dots" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {n > 7 ? 2 : tall ? 10 : 8}px">
-        {#each periodCols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={n > 7 ? 7 : tall ? 10 : 8} />{/if}</div>{/each}
-      </div>
-      <div class="mono axis periodaxis" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {n > 7 ? 2 : tall ? 10 : 8}px">
-        {#each periodCols as c, i}
-          <span class:today={c.day === today.day}>{zoom === "week" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i] : [0, 7, 14, 21, 28].includes(i) ? i + 1 : ""}</span>
-        {/each}
-      </div>
+    <div class="days" bind:this={periodScroller} onscroll={onPeriodScroll}>
+      {#each pages as first, pi (first)}
+        {@const cols = colsOf(first)}
+        {@const busiest = Math.max(0, ...cols.map((c) => c.total))}
+        {@const top = Math.max(2, busiest + (busiest % 2))}
+        {@const unit = plot / top}
+        {@const n = cols.length}
+        {@const here = pi === page}
+        {@const gap = n > 7 ? 2 : tall ? 10 : 8}
+        <div class="day period">
+          <div class="chart" style="height: {chart}px; grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
+            <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{top / 2}</span></div>
+            <div class="tick" style="bottom: {plot}px"><span class="mono">{top}</span></div>
+            {#each cols as c, i (c.day)}
+              {@const picked = here && periodPick === i}
+              <button class="col" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future}
+                style="--i: {i}" aria-label="{c.day}, {c.total} earned" aria-pressed={picked} disabled={c.future}
+                onclick={() => (periodPick = periodPick === i || !c.total ? null : i)}>
+                {#if c.total}
+                  <!-- A month's bars are too narrow for every count: it labels the busiest Day and the picked one. -->
+                  {#if n <= 7 || picked || ((!here || periodPick === null) && c.total === busiest)}<span class="mono n">{c.total}</span>{:else}<span class="mono n blank"></span>{/if}
+                  <div class="bar" style="height: {Math.max(c.total * unit, c.segments.length * MIN_SEGMENT)}px">
+                    {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
+                  </div>
+                {/if}
+              </button>
+            {/each}
+          </div>
+          <div class="dots" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
+            {#each cols as c}<div>{#if c.redeemed}<Marker kind="redeemed" size={n > 7 ? 7 : tall ? 10 : 8} />{/if}</div>{/each}
+          </div>
+          <div class="mono axis periodaxis" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
+            {#each cols as c, i}
+              <span class:today={c.day === today.day}>{zoom === "week" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i] : [0, 7, 14, 21, 28].includes(i) ? i + 1 : ""}</span>
+            {/each}
+          </div>
+        </div>
+      {/each}
     </div>
   {/if}
   </div>
+  {/key}
   <div class="legend">
     <!-- Outside the scrolling list, so it stays put when the list bounces. -->
     <!-- Today sits beside the period's name, where there's room on every screen. -->
@@ -357,7 +423,10 @@
 <style>
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 28px; }
-  .viewport { position: relative; }
+  .viewport { position: relative; transform-origin: 50% 100%; }
+  /* After a zoom change, the bars on screen rise from the axis one after another. */
+  .entering .bar { animation: rise var(--t-move) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 12ms); transform-origin: 50% 100%; }
+  @keyframes rise { from { transform: scaleY(0); } }
   .col.future { cursor: default; }
   .n.blank { height: 11px; }
   .periodaxis { display: grid; justify-content: stretch; }
