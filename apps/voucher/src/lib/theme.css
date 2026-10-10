@@ -13,13 +13,25 @@
   --divider: #23272b;
   --ink: #f2f2f0;
   --muted: #a3a8ad;
-  --voucher: #3ddc84;          /* Vouchers and Unlocks */
+  --voucher: #3ddc84;          /* Vouchers, and good news */
   --voucher-ink: #07170d;
   --voucher-deep: #2b9a5e;     /* Vouchers further down the stack */
   --voucher-deeper: #1f5c3c;
   --unlocked-bg: #14251b;
   --unlocked-line: #23573a;
-  --spend: #ff8a7a;            /* Vouchers redeemed, wherever they're counted */
+  --spend: #ff8a7a;            /* Unlocks, and Vouchers torn: reserved, no source or blocklist may look like it */
+  --spend-bg: #2a1b19;         /* a running Unlock's card */
+  --spend-line: #5a3330;
+  --danger: #f04438;           /* destructive actions and warnings, rare on purpose */
+  --danger-bg: #2b1513;
+  --danger-line: #6b2620;
+  --worse: #8b9198;            /* a measure that went the wrong way (down arrows, "No" answers) */
+  --raised: #1f2226;           /* controls and boxes raised on a surface */
+  --marker: #e9e6dc;           /* Markers by hand (rule changes use --muted) */
+  --heat-0: #22262a;           /* heat grids, fewer to more */
+  --heat-1: #1d4d33;
+  --heat-2: #24804f;
+  --heat-3: #2fb36b;
   --goal: #ffb547;             /* daily goal and streak */
   --goal-bg: #2a2116;
   --goal-line: #6b4a17;
@@ -76,3 +88,21 @@ button { font: inherit; color: inherit; }
 .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
 /* Every bar slides to a new value (lib/motion.ts sets the timing). */
 .bar > i { display: block; height: 100%; border-radius: 3px; transition: width var(--t-move) var(--ease-out); }
+
+/* Buttons, one look per role, in two sizes. Primary is the one main action;
+   ghost is quiet; danger destroys or weakens something. */
+.btn { height: 44px; padding: 0 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 700 15px var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base), scale var(--t-quick) var(--ease-out); }
+.btn:active:not(:disabled) { scale: .97; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--voucher); border-color: transparent; color: var(--voucher-ink); }
+.btn.ghost { background: none; color: var(--muted); }
+.btn.danger { color: var(--danger); border-color: var(--danger-line); background: var(--danger-bg); }
+.btn.small { height: 34px; padding: 0 12px; border-radius: 11px; font-size: 13px; }
+.btn.wide { width: 100%; }
+/* Icon-only buttons, in the same two sizes. */
+.iconbtn { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base); }
+.iconbtn.small { width: 32px; height: 32px; border-radius: 10px; }
+.iconbtn.bare { border-color: transparent; background: none; color: var(--muted); }
+.iconbtn:disabled { opacity: .35; cursor: default; }
+/* An empty list that will fill in (apps, sites): a dashed placeholder. Plain empty states use .empty alone. */
+.empty.box { display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 12px; border: 1.5px dashed var(--line); border-radius: 14px; text-align: center; }

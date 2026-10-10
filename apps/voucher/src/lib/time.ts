@@ -19,13 +19,18 @@ export function hourOf(at: string, timeZone: string): number {
   return Number(clock(at, timeZone).slice(0, 2));
 }
 
+/** A date as "09-18", with the year only when it isn't this one ("2025-09-18"): the one date format on every screen. */
+export function shortDate(day: string, today: string): string {
+  return day.slice(0, 4) === today.slice(0, 4) ? day.slice(5) : day;
+}
+
 /** "Today", "Yesterday", "Two days ago", or the date with its weekday ("Fri 09-18"; the year only when it isn't this one). */
 export function dayLabel(day: string, today: string): string {
   if (day === today) return "Today";
   if (day === shiftDay(today, -1)) return "Yesterday";
-  if (day === shiftDay(today, -2)) return "Two days ago";
+  if (day === shiftDay(today, -2)) return "Two Days ago";
   const weekday = new Date(`${day}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
-  return `${weekday} ${sameYear(day, today) ? day.slice(5) : day}`;
+  return `${weekday} ${shortDate(day, today)}`;
 }
 
 const sameYear = (a: string, b: string) => a.slice(0, 4) === b.slice(0, 4);
