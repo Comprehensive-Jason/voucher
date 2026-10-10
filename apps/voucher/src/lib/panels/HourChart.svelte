@@ -92,6 +92,17 @@
       ? listOf(a.name).localeCompare(listOf(b.name)) || a.name.localeCompare(b.name)
       : Number(a.id === EARLIER) - Number(b.id === EARLIER) || compareSources(a, b));
   }
+  /** A bar's segments, top to bottom: neighbours of one colour (apps on the
+   *  same blocklist) join into one block, so a bar doesn't turn to stripes. */
+  function segmentsOf(counts: Map<string, Part>): Part[] {
+    const out: Part[] = [];
+    for (const p of partsOf(counts).reverse()) {
+      const last = out.at(-1);
+      if (minutes && last && last.color === p.color) out[out.length - 1] = { ...last, n: last.n + p.n };
+      else out.push(p);
+    }
+    return out;
+  }
   /** Minutes Unlocked in each clock hour (midnight first): each tear runs on
    *  from the Unlock before it, if that was still going. */
   function unlockedByHour(log: Entry[]): number[] {
@@ -126,7 +137,7 @@
         });
       }
       unlockedByHour(summary?.log ?? []).forEach((m, h) => (cols[colOf(h)].unlocked += m));
-      return cols.map((c) => ({ ...c, parts: partsOf(c.counts), segments: partsOf(c.counts).reverse() }));
+      return cols.map((c) => ({ ...c, parts: partsOf(c.counts), segments: segmentsOf(c.counts) }));
     }
     for (const e of summary?.log ?? []) {
       const h = hourOf(e.at, timeZone);
@@ -140,7 +151,7 @@
       } else if (e.kind === "redeemed") cols[col].redeemed += e.tickets;
     }
     // Bars draw top to bottom, so the first source in the order ends up lowest.
-    return cols.map((c) => ({ ...c, parts: partsOf(c.counts), segments: partsOf(c.counts).reverse() }));
+    return cols.map((c) => ({ ...c, parts: partsOf(c.counts), segments: segmentsOf(c.counts) }));
   }
   /** What the line under the chart lists: the picked hour, or the whole Day. */
   function breakdownOf(cols: ReturnType<typeof columnsOf>, pick: number | null) {
@@ -291,7 +302,7 @@
       if (minutes) {
         for (const [app, n] of Object.entries(t?.used ?? {})) if (n) counts.set(app, { ...appPart(app), n });
         const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
-        return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: 0, goal: false, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
+        return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: 0, goal: false, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
       }
       for (const [id, n] of Object.entries(t?.by_source ?? {})) {
         const { name, color } = styleOf(id);
@@ -303,7 +314,7 @@
       const known = [...counts.values()].reduce((a, q) => a + q.n, 0);
       if (t && t.earned > known) counts.set(EARLIER, { id: EARLIER, name: EARLIER, color: "#6c7177", n: t.earned - known });
       const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
-      return { day, total, unlocked: 0, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: partsOf(counts).reverse(), future: day > today.day };
+      return { day, total, unlocked: 0, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
     });
   }
   const pageCols = $derived(pages[page] ? colsOf(pages[page]) : []);
