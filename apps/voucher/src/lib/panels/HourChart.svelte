@@ -639,10 +639,11 @@
   .days { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .days::-webkit-scrollbar { display: none; }
   /* Each page clips its own drawing, so nothing from a neighbour shows, and
-     keeps 2 px clear on its right: at a fractional pixel density (the
-     tablet's 1.75) a last bar flush with the edge bled a pixel-wide sliver
-     onto the next page. */
-  .day { contain: paint; box-sizing: border-box; padding-right: 2px; flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
+     keeps clear space at both sides: at a fractional pixel density (the
+     tablet's 1.75) a page can sit a pixel off, and the Unlock outline, which
+     reaches 2 px past its bar, showed as a sliver of the page before. The
+     3 px each side is wider than that outline's reach plus the pixel. */
+  .day { contain: paint; box-sizing: border-box; padding-inline: 3px; flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
   .chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid #3a3f45; }
   /* Bars, dots, and hours leave a gutter on the left for the tick numbers. */
   .chart, .dots, .axis { margin-left: 16px; }
