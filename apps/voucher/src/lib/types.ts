@@ -112,6 +112,8 @@ export interface DayTotal {
   hours?: number[];
   /** The Day's first tear, if the log still holds it. */
   first_tear?: string | null;
+  /** How many times Vouchers were torn: each tear is one Unlock (or an extension), however many it spent. */
+  tears?: number;
   /** Vouchers earned per clock hour for each source; empty past the kept log. */
   source_hours?: Record<string, number[]>;
   /** Every unbroken stretch in a focus app, in minutes; empty past the kept log. */

@@ -1,7 +1,7 @@
 <script lang="ts">
   // How did a week, month, or year go, in six averages (never totals):
   // Vouchers a Day, the top source's share, how often the goal was met;
-  // Distraction a Day, the busiest hour, and how often a Day went well (the
+  // Distracted per Day, the busiest hour, and how often a Day went well (the
   // Curfew question). It replays the period holding the Day picked on any
   // card, and its Week/Month switch moves with the others'. Today counts only
   // once it's the period's only Day, since it's still going.
@@ -57,7 +57,7 @@
   const settled = $derived(days.length > 1 ? days.filter((d) => d.day !== today) : days);
   const perDay = (list: DayTotal[], f: (d: DayTotal) => number) => (list.length ? sum(list, f) / list.length : null);
   const one = (v: number) => v.toFixed(1).replace(/\.0$/, "");
-  /** Six averages, never totals: Vouchers a Day, the top source's share, the goal rate; Distraction a Day, the busiest hour, the good-Day rate. Each says what it is in a few words. */
+  /** Six averages, never totals: Vouchers a Day, the top source's share, the goal rate; Distracted per Day, the busiest hour, the good-Day rate. Each says what it is in a few words. */
   const cards = $derived.by((): Card[] => {
     if (!period || !settled.length) return [];
     const rate = perDay(settled, (d) => d.earned)!;
@@ -77,7 +77,7 @@
       { big: one(rate), line: "Vouchers a Day" },
       { big: top && total ? styleOf(top[0]).name : "–", line: top && total ? `${Math.round((top[1] / total) * 100)}% of Vouchers` : "Top source" },
       { big: `${Math.round((met / settled.length) * 100)}%`, line: "Days met the goal", gold: true },
-      { big: used === null ? "–" : `${Math.round(used)} min`, line: "Distracted a Day" },
+      { big: used === null ? "–" : `${Math.round(used)} min`, line: "Distracted per Day" },
       { big: busiest === null ? "–" : `${String(busiest).padStart(2, "0")}:00`, line: "Busiest hour" },
       { big: answered.length ? `${Math.round((good / answered.length) * 100)}%` : "–", line: "Days went well" },
     ];

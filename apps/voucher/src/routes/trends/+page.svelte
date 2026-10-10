@@ -19,7 +19,6 @@
   import GoodDays from "$lib/panels/trends/GoodDays.svelte";
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
-  import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
@@ -117,7 +116,6 @@
     {:else if id === "gooddays"}<GoodDays {history} />
     {:else if id === "replay"}<Replay {history} />
     {:else if id === "focus"}<FocusStretches {history} />
-    {:else if id === "walkaway"}<WalkAway {history} />
     {:else if id === "verdicts"}<Verdicts {history} />
     {:else if id === "compare"}<Compare {history} />
     {:else if id === "reasons"}<Reasons {history} />{/if}

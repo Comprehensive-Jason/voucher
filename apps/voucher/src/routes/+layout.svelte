@@ -35,7 +35,11 @@
     followDevice();
     const onVisible = () => document.visibilityState === "visible" && followDevice();
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    // A notification's action tapped while Voucher is already in front (the
+    // shade pulled down over it) never hides the page; the window only loses
+    // and regains focus, so ask then too.
+    window.addEventListener("focus", followDevice);
+    return () => { document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("focus", followDevice); };
   });
   // On a wide screen Rules is a sheet over Today: it slides up from the
   // bottom when opened and back down when left (button or back gesture).

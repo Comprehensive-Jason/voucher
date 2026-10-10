@@ -8,12 +8,18 @@
   import VoucherStack from "../components/VoucherStack.svelte";
   import StatusCard from "../components/StatusCard.svelte";
   import NextVoucher from "../components/NextVoucher.svelte";
+  import MarkerButton from "../components/MarkerButton.svelte";
   import MomentSheet from "../components/MomentSheet.svelte";
   import ReasonChips from "../components/ReasonChips.svelte";
   import type { Live } from "../live.svelte";
   import { wins } from "../celebrate.svelte";
 
-  let { live, wide = false }: { live: Live; wide?: boolean } = $props();
+  let { live, wide = false, markerAt = "foot", onmarker }: {
+    live: Live; wide?: boolean;
+    /** Where the tablet's Marker button sits: beside the status card ("status"), or in the foot row (Home draws it there). */
+    markerAt?: "foot" | "status";
+    onmarker?: () => void;
+  } = $props();
 </script>
 
 {#if live.data}
@@ -22,7 +28,11 @@
   <BankMeter brand={wide} mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
   <VoucherStack mode={live.mode} bank={Math.max(0, data.bank - wins.held)} unlockMinutes={data.unlockMinutes} room={data.curfewRoomMinutes} curfewStart={data.curfewStart} ontear={live.tear} />
   <ReasonChips tornAt={live.tornAt} />
-  <StatusCard mode={live.mode} now={live.now} {data} />
+  {#if wide && markerAt === "status"}
+    <div class="statusrow"><MarkerButton tall onclick={onmarker} /><StatusCard mode={live.mode} now={live.now} {data} /></div>
+  {:else}
+    <StatusCard mode={live.mode} now={live.now} {data} />
+  {/if}
   <NextVoucher sources={data.sources} bank={data.bank} />
   <MomentSheet {data} />
 {:else if live.error}
@@ -30,5 +40,7 @@
 {/if}
 
 <style>
+  .statusrow { display: flex; gap: 12px; }
+  .statusrow > :global(:last-child) { flex: 1; min-width: 0; }
   .error { color: var(--goal); }
 </style>

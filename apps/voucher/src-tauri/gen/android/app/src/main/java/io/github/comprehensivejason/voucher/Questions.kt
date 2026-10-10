@@ -13,7 +13,10 @@ import org.json.JSONObject
  * The two one-tap questions Voucher asks outside the app: at Curfew, "Did
  * today go the way you wanted?", and just after an Unlock from the
  * notification, tile, or widget, "Why now?". Both are skippable: ignoring
- * one records nothing, and neither earns or costs anything.
+ * one records nothing, and neither earns or costs anything. An answer to the
+ * Curfew question turns its notification into "Anything new today?", whose
+ * "Add a Marker" opens the app on the Curfew sheet's Marker chips (a
+ * notification shows at most three actions, so it can't sit beside the answers).
  */
 object Questions {
     private const val CHANNEL = "questions"
@@ -21,6 +24,8 @@ object Questions {
     private const val REASON_ID = 4
     const val VERDICT = "io.github.comprehensivejason.voucher.VERDICT"
     const val REASON = "io.github.comprehensivejason.voucher.REASON"
+    /** Curfew indigo (--night). */
+    private val NIGHT = 0xFF7D8CFF.toInt()
 
     /** The reasons offered on the notification; the app offers more. */
     private val REASONS = listOf("Bored", "Avoiding a task", "Tired")
@@ -52,7 +57,8 @@ object Questions {
             .setSmallIcon(R.drawable.ic_voucher)
             .setContentTitle("Did today go the way you wanted?")
             .setContentText("One tap, or let it go.")
-            .setColor(0xFF7D8CFF.toInt())
+            .setColor(NIGHT)
+            .setContentIntent(openSheet(ctx, "verdict", 13))
             .setAutoCancel(true)
             .setTimeoutAfter(6 * 60 * 60 * 1000L)
         listOf("yes" to "Yes", "mostly" to "Mostly", "no" to "No").forEachIndexed { i, (value, label) ->
@@ -63,6 +69,29 @@ object Questions {
         }
         ctx.getSystemService(NotificationManager::class.java).notify(VERDICT_ID, b.build())
     }
+
+    /** After an answer: anything new today? A Marker needs the app's chips, so its action opens the app on them. */
+    private fun askMarker(ctx: Context) {
+        val open = openSheet(ctx, "marker", 14)
+        val text = "A new dose, being sick, travel, an exam, or a new term: a Marker lets Trends compare before and after."
+        val b = Notification.Builder(ctx, CHANNEL)
+            .setSmallIcon(R.drawable.ic_voucher)
+            .setContentTitle("Kept. Anything new today?")
+            .setContentText(text)
+            .setStyle(Notification.BigTextStyle().bigText(text))
+            .setColor(NIGHT)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setTimeoutAfter(60 * 60 * 1000L)
+            .addAction(Notification.Action.Builder(null, "Add a Marker", open).build())
+        ctx.getSystemService(NotificationManager::class.java).notify(VERDICT_ID, b.build())
+    }
+
+    /** Opens the app on the Curfew sheet: "verdict" asks the question, "marker" goes straight to the Marker chips. */
+    private fun openSheet(ctx: Context, ask: String, code: Int): PendingIntent =
+        PendingIntent.getActivity(ctx, code, Intent(ctx, MainActivity::class.java).putExtra("route", "/?ask=$ask"),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
     /** After an Unlock from outside the app: why now? Gone after three minutes if ignored. */
     fun askReason(ctx: Context) {
@@ -88,7 +117,7 @@ object Questions {
         when (intent.action) {
             VERDICT -> {
                 runCatching { LedgerClient.post(c, "/verdict", JSONObject().put("day", intent.getStringExtra("day")).put("verdict", answer)) }
-                ctx.getSystemService(NotificationManager::class.java).cancel(VERDICT_ID)
+                askMarker(ctx)
             }
             REASON -> {
                 runCatching { LedgerClient.post(c, "/reason", JSONObject().put("reason", answer.lowercase())) }

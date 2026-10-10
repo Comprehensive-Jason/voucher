@@ -696,6 +696,10 @@ pub struct DayTotal {
     pub hours: Vec<u32>,
     /// The Day's first tear, if the log still holds it.
     pub first_tear: Option<Timestamp>,
+    /// How many times Vouchers were torn this Day (each tear is one Unlock,
+    /// or one extension of it, however many Vouchers it spent), from the log.
+    #[serde(default)]
+    pub tears: u32,
     /// Vouchers earned per clock hour for each source, from the log.
     pub source_hours: BTreeMap<String, Vec<u32>>,
     /// Every unbroken stretch in a focus app, in minutes, all devices together.
@@ -1340,6 +1344,7 @@ impl Ledger {
         let mut hours: BTreeMap<Date, Vec<u32>> = BTreeMap::new();
         let mut source_hours: BTreeMap<Date, BTreeMap<String, Vec<u32>>> = BTreeMap::new();
         let mut first_tears: BTreeMap<Date, Timestamp> = BTreeMap::new();
+        let mut tears: BTreeMap<Date, u32> = BTreeMap::new();
         let mut reasons: BTreeMap<Date, Vec<(u32, String)>> = BTreeMap::new();
         for r in &self.state.reasons {
             let hour = u32::try_from(r.at.to_zoned(tz.clone()).hour()).unwrap_or(0);
@@ -1369,6 +1374,7 @@ impl Ledger {
                 Entry::Redeemed { at, .. } => {
                     let first = first_tears.entry(day_of(settings, *at)).or_insert(*at);
                     *first = (*first).min(*at);
+                    *tears.entry(day_of(settings, *at)).or_insert(0) += 1;
                 }
                 _ => {}
             }
@@ -1395,6 +1401,7 @@ impl Ledger {
                     goal,
                     hours: hours.remove(&day).unwrap_or_default(),
                     first_tear: first_tears.remove(&day),
+                    tears: tears.remove(&day).unwrap_or(0),
                     source_hours: source_hours.remove(&day).unwrap_or_default(),
                     stretches: score
                         .map(|s| s.stretches.values().flatten().copied().collect())

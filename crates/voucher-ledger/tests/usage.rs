@@ -184,6 +184,18 @@ fn the_history_has_each_days_goal_hours_and_first_tear() {
 }
 
 #[test]
+fn the_history_counts_tears_not_vouchers() {
+    let mut ledger = fresh();
+    let now = at("2026-10-02T15:30-07:00");
+    ledger.credit(3, at("2026-10-02T11:00-07:00"));
+    ledger.redeem_many(2, at("2026-10-02T12:05-07:00")).unwrap();
+    ledger.redeem_many(1, at("2026-10-02T14:00-07:00")).unwrap();
+    let day = &ledger.history(1, now)[0];
+    assert_eq!(day.redeemed, 3);
+    assert_eq!(day.tears, 2);
+}
+
+#[test]
 fn apps_keep_the_blocklist_their_device_named() {
     let mut ledger = fresh();
     let now = at("2026-10-02T15:30-07:00");

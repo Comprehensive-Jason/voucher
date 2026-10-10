@@ -38,8 +38,8 @@
   const MEASURES: Measure[] = [
     { name: "Vouchers a Day", of: (w) => mean(w.map((d) => d.earned)), unit: "", better: "up", digits: 1 },
     { name: "Goal Days", of: (w) => (w.length ? (w.filter((d) => d.goal_met).length / w.length) * 100 : null), unit: "%", better: "up" },
-    { name: "Distraction a Day", of: (w) => mean(w.filter(measured).map((d) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0))), unit: " min", better: "down" },
-    { name: "Unlocked a Day", of: (w) => mean(w.map((d) => d.unlocked_minutes ?? 0)), unit: " min", better: "down" },
+    { name: "Distracted per Day", of: (w) => mean(w.filter(measured).map((d) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0))), unit: " min", better: "down" },
+    { name: "Unlocked per Day", of: (w) => mean(w.map((d) => d.unlocked_minutes ?? 0)), unit: " min", better: "down" },
     { name: "Walked away", of: (w) => { const o = w.reduce((a, d) => a + (d.opens ?? 0), 0); return o ? (w.reduce((a, d) => a + (d.walked ?? 0), 0) / o) * 100 : null; }, unit: "%", better: "up" },
     { name: "Longest focus", of: (w) => middle(w.filter((d) => d.stretches?.length).map((d) => Math.max(...d.stretches!))), unit: " min", better: "up" },
   ];

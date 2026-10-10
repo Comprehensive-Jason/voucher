@@ -5,7 +5,12 @@
   // moves it 1/19th of the way toward 100% (goal met) or 0% (missed), which
   // halves a gap in about 13 Days. Ticks along the bottom mark goal Days.
   // The line ends in today's value, and a faint ring two weeks back carries
-  // that Day's, so the comparison reads off the chart.
+  // that Day's, so the comparison reads off the chart. A label at the top
+  // right, in a lane of its own over the plot, says how long a lapse (missed
+  // Days in a row, ended by a goal Day) usually lasts: the median of every
+  // finished lapse, once there are 3. From 9 on it gives the last 6 lapses'
+  // median instead, and the earlier ones' beside it ("down from 3") when the
+  // two differ, so a miss reads as information.
   import TrendCard from "../../components/TrendCard.svelte";
   import ChartAxis from "../../components/ChartAxis.svelte";
   import { monthOf } from "../../trends";
@@ -25,10 +30,39 @@
   const now = $derived(scores.at(-1) ?? 0);
   const then = $derived(scores.at(-15) ?? 0);
 
-  const W = 600, y1 = 8;
+  // ---- Lapses ----
+  /** Settled Days: today only once its goal is met, since it can still be. */
+  const settled = $derived(history.at(-1)?.goal_met ? history : history.slice(0, -1));
+  /** Lengths of finished lapses: missed Days in a row, ended by a goal Day. */
+  const lapses = $derived.by(() => {
+    const out: number[] = [];
+    let run = 0, seenGoal = false;
+    for (const d of settled) {
+      if (d.goal_met) { if (run && seenGoal) out.push(run); run = 0; seenGoal = true; }
+      else run++;
+    }
+    return out;
+  });
+  /** The middle length (the upper one of an even count), so it's always a whole number of Days. */
+  const middle = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+  const nDays = (n: number) => `${n} ${n === 1 ? "Day" : "Days"}`;
+  const lapse = $derived.by(() => {
+    if (lapses.length < 3) return null;
+    if (lapses.length >= 9) {
+      const recent = middle(lapses.slice(-6)), earlier = middle(lapses.slice(0, -6));
+      if (recent !== earlier) return { usual: nDays(recent), change: `, ${recent < earlier ? "down" : "up"} from ${earlier}`,
+        title: `Your last 6 lapses usually lasted ${nDays(recent)}; the ${lapses.length - 6} before them, ${nDays(earlier)}` };
+    }
+    const usual = middle(lapses);
+    return { usual: nDays(usual), change: "", title: `Over ${lapses.length} lapses, a lapse usually lasted ${nDays(usual)}` };
+  });
+
+  const W = 600;
   const H = $derived(fit ? drawHeight(pw, ph, 170) : 170);
   /** Drawing units per screen pixel: chart text is 11px on screen, 11 * k here. */
   const k = $derived(W / (pw || W));
+  /** The plot's top: lower when the lapse label needs its lane above it. */
+  const y1 = $derived(lapse ? Math.round(8 + 13 * k) : 8);
   // Room at the left for the axis's name and "100%", and below for the goal
   // ticks and the months, held in screen pixels so a narrow card doesn't
   // crowd them together.
@@ -78,6 +112,7 @@
       <circle cx={back.x} cy={back.y} r={3 * k} fill="var(--surface)" stroke="var(--goal)" stroke-width={1.4 * k} opacity=".7" />
       <text class="tag" x={back.lx} y={back.ly} style="fill: var(--goal); opacity: .65">{back.text}</text>
     {/if}
+    {#if lapse}<text class="tag lapse" x={W} y={9 * k} text-anchor="end"><title>{lapse.title}</title>Lapses: usually <tspan>{lapse.usual}</tspan>{lapse.change}</text>{/if}
     {#if days.length}<text class="tag end" x={x1 + 4 * k} y={yAt(now) + 3.2 * k} style="fill: var(--goal)">{pct(now)}</text>{/if}
   </svg>
   </div>
@@ -90,4 +125,6 @@
      where they cross a grid line or the line itself. */
   svg.chart text.tag { paint-order: stroke; stroke: var(--surface); stroke-width: calc(3px * var(--k, 1)); stroke-linejoin: round; }
   svg.chart text.end { font-weight: 700; }
+  svg.chart text.lapse { fill: var(--muted); }
+  svg.chart text.lapse tspan { fill: var(--ink); font-weight: 700; }
 </style>

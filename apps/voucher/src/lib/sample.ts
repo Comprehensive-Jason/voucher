@@ -117,7 +117,7 @@ function history(n: number): DayTotal[] {
     const silent: Record<string, number[]> = {};
     if (seed % 11 === 0) { const h = Array<number>(24).fill(0); h[14] = 60; h[15] = 35; silent.phone = h; }
     const reported = back < 150;
-    out.push({ day: d, earned, redeemed, goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used: reported ? used : {}, goal: 16, hours, first_tear, source_hours, stretches, opens, walked,
+    out.push({ day: d, earned, redeemed, goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used: reported ? used : {}, goal: 16, hours, first_tear, tears: redeemed ? Math.max(1, Math.round(redeemed / 2)) : 0, source_hours, stretches, opens, walked,
       reported, verdict: back === 0 ? null : verdict as DayTotal["verdict"], reasons, silent });
   }
   return out;

@@ -17,6 +17,11 @@
   // the whole Day's). Today shows first; swipe (or the arrows) back through
   // earlier Days, as far as the Ledger keeps logs. Past Days load as they
   // come near the screen.
+  //
+  // Distraction time's list also says how often a blocked open (opening a
+  // blocklisted app while nothing is unlocked) ended without an Unlock:
+  // "Walked away 49 of 67", over the Day, week, or month in view (or the
+  // picked Day), whichever hour is picked, since opens aren't kept by hour.
   import { tick, untrack } from "svelte";
   import { ledger } from "../api";
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
@@ -49,7 +54,7 @@
     measure?: "earned" | "distraction";
     /** Distraction time only: each app takes its blocklist's colour. */
     blocklists?: Record<string, Blocklist>;
-    /** Distraction time only: this device's blocked opens today, for the line under the list. */
+    /** Distraction time only: this device's blocked opens today, fresher than the Ledger's for today. */
     device?: DeviceUsage | null;
     /** The oldest Day whose log the Ledger keeps; without it, only today shows. */
     firstDay?: string;
@@ -272,7 +277,9 @@
     if (minutes) rows.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     // The Daily goal for the whole Day, whichever hour is picked: when it was met, or how far it got.
     const goal = !current ? "–" : current.goal_met_at ? `met ${clock(current.goal_met_at, timeZone)}` : `${current.earned} of ${current.goal}`;
-    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, goal, goalMet: !!current?.goal_met, unlocked: now.unlocked };
+    // Opens aren't kept by hour, so the whole Day's show whichever hour is picked, as the goal does.
+    const opens = minutes ? opensOf(days[shown]) : { opens: 0, walked: 0 };
+    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, goal, goalMet: !!current?.goal_met, unlocked: now.unlocked, opens };
   });
   /** The hour the Daily goal was met, on the Day in view (a gold star under its
    *  bar). Vouchers earned only: Distraction time's strip holds the Unlocks. */
@@ -318,11 +325,12 @@
     if (!start) return "";
     return periodLabel(zoom === "month" ? "month" : "week", start, today.day);
   }
-  // The whole history, fetched once when Week or Month is first opened;
+  // The whole history, fetched once when Week or Month is first opened (or
+  // at once on Distraction time, whose Day view lists its walk-aways);
   // today's numbers come live from `today`.
   let fetched = false;
   $effect(() => {
-    if (zoom === "day" || fetched) return;
+    if ((zoom === "day" && !minutes) || fetched) return;
     fetched = true;
     const span = firstDay && firstDay < today.day ? Math.round((Date.parse(`${today.day}T12:00:00Z`) - Date.parse(`${firstDay}T12:00:00Z`)) / 86_400_000) + 1 : 1;
     ledger<DayTotal[]>("GET", `/history?days=${Math.min(1100, span)}`).then((list) => {
@@ -356,6 +364,18 @@
       return { day, total, unlocked: 0, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
     });
   }
+  /** A Day's blocked opens and how many ended without an Unlock, all devices
+   *  together. Today's history is fetched once, so this device's own live
+   *  counts stand in where they're ahead of it. */
+  function opensOf(day: string): { opens: number; walked: number } {
+    const t = totals[day];
+    let opens = t?.opens ?? 0, walked = t?.walked ?? 0;
+    if (day === today.day && device) { opens = Math.max(opens, device.blockedOpens); walked = Math.max(walked, device.closedWithoutTearing); }
+    return { opens, walked: Math.min(walked, opens) };
+  }
+  function opensOver(list: string[]): { opens: number; walked: number } {
+    return list.reduce((sum, d) => { const o = opensOf(d); return { opens: sum.opens + o.opens, walked: sum.walked + o.walked }; }, { opens: 0, walked: 0 });
+  }
   const pageCols = $derived(pages[page] ? colsOf(pages[page]) : []);
   const periodBreakdown = $derived.by(() => {
     const all = new Map<string, Part>();
@@ -367,7 +387,8 @@
       redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0),
       goal: picked ? (picked.goal ? "met" : "–") : `${pageCols.filter((c) => c.goal).length} of ${pageCols.filter((c) => !c.future).length} Days`,
       goalMet: picked ? picked.goal : pageCols.some((c) => c.goal),
-      unlocked: picked ? picked.unlocked : pageCols.reduce((n, c) => n + c.unlocked, 0) };
+      unlocked: picked ? picked.unlocked : pageCols.reduce((n, c) => n + c.unlocked, 0),
+      opens: minutes ? opensOver(picked ? [picked.day] : pageCols.filter((c) => !c.future).map((c) => c.day)) : { opens: 0, walked: 0 } };
   });
   const shownBreakdown = $derived(zoom === "day" ? breakdown : periodBreakdown);
 
@@ -588,7 +609,15 @@
       <!-- Unlocks: the minutes they allowed (the salmon outline on the bars) and the Vouchers torn (the triangles under them). -->
       {@const u = shownBreakdown.unlocked}
       {@const r = shownBreakdown.redeemed}
+      {@const o = shownBreakdown.opens}
       <div class="row" class:zero={!u && !r}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Unlocked</span><b class="mono">{[u ? `${u} min` : "", r ? `${r} torn` : ""].filter(Boolean).join(" · ") || "–"}</b></div>
+      <!-- Blocked opens that ended without an Unlock: a green arrow turning back. -->
+      {#if o.opens}
+        <div class="row" title="Opened a blocked app {o.opens} {o.opens === 1 ? 'time' : 'times'} while nothing was unlocked, and left {o.walked} of them without unlocking">
+          <span class="mk"><svg class="walkmark" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M10.4 10V6.6a2.6 2.6 0 0 0-2.6-2.6H2.2M4.6 1.4 2 4l2.6 2.6" fill="none" stroke="var(--voucher)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg></span>
+          <span class="name">Walked away</span><b class="mono">{o.walked} of {o.opens}</b>
+        </div>
+      {/if}
     {/if}
     <!-- The gold star under a bar: the hour the Daily goal was met, or a Day that met it. -->
     {#if !minutes}<div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>{/if}
@@ -609,7 +638,6 @@
     </div>
     <!-- Stays at the bottom of the box, however long the list is. -->
     {#if minutes && device?.measured === false}<p class="foot">Minutes need usage access on this device: turn it on in Rules, under Protection.</p>
-    {:else if minutes && device && device.blockedOpens}<p class="foot">Today on this device: <b>{device.blockedOpens}</b> blocked opens, <b>{Math.min(device.closedWithoutTearing, device.blockedOpens)}</b> left without unlocking</p>
     {:else if shownBreakdown.rows.length}<p class="foot">{zoom === "day" ? (pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole Day") : periodPick === null ? "Tap a bar to see that Day" : `Tap it again for the whole ${zoom}`}</p>{/if}
   </div>
 </section>
@@ -705,6 +733,7 @@
   /* The shared .foot (theme.css), with a little room under it in the box. */
   .foot { padding: 10px 0 6px; }
   .mk { display: flex; align-items: center; }
+  .walkmark { flex: none; display: block; }
   .row.zero .mk { opacity: .35; }
   .tall { gap: 14px; padding: 18px; border-radius: 18px; }
   /* On the tablet the card fills the column above the history grid, so the

@@ -22,6 +22,8 @@
   import { historyDays } from "$lib/time";
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
   import RulesNotices from "$lib/components/RulesNotices.svelte";
+  import MarkerButton from "$lib/components/MarkerButton.svelte";
+  import MarkerSheet from "$lib/components/MarkerSheet.svelte";
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import { selection } from "$lib/selection.svelte";
@@ -38,7 +40,6 @@
   import GoodDays from "$lib/panels/trends/GoodDays.svelte";
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
-  import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import VerdictSheet from "$lib/components/VerdictSheet.svelte";
   import CardTab from "$lib/components/CardTab.svelte";
   import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
@@ -59,6 +60,10 @@
   // The tablet's other columns refresh less often than the Voucher stack.
   // An answer that hasn't changed is dropped, so the cards don't all redraw
   // (a long pause on the tablet) for nothing.
+  // The Marker button: in the foot row, or beside the status card
+  // (`?marker=status` previews that, while Jason chooses).
+  const markerAt: "foot" | "status" = typeof location !== "undefined" && new URLSearchParams(location.search).get("marker") === "status" ? "status" : "foot";
+  let addingMarker = $state(false);
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   async function loadWide() {
     try {
@@ -295,9 +300,12 @@
 {#if wide.on}
   <!-- Rules opens from the foot of the Today column, left of the page bar. -->
   {#snippet rulesButton()}
+    <span class="footleft">
     <a class="iconbtn" href="/rules" aria-label="Rules">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
     </a>
+    {#if markerAt === "foot"}<MarkerButton onclick={() => (addingMarker = true)} />{/if}
+    </span>
   {/snippet}
   {#snippet panel(id: PanelId)}
     {#if id === "log"}<div class="logcard tile"><LogPanel compact /></div>
@@ -316,7 +324,6 @@
       {:else if id === "gooddays"}<GoodDays {history} />
       {:else if id === "replay"}<Replay {history} />
       {:else if id === "focus"}<FocusStretches {history} />
-      {:else if id === "walkaway"}<WalkAway {history} />
       {:else if id === "verdicts"}<Verdicts {history} />
       {:else if id === "compare"}<Compare {history} />
       {:else if id === "reasons"}<Reasons {history} />{/if}
@@ -327,7 +334,7 @@
        down, in Arrange's order and sizes (a third is about a landscape
        third's height). -->
   <div class="wide portrait">
-    <section class="col today"><TodayColumn {live} wide /><RulesNotices /><div class="leftfoot">{@render rulesButton()}</div></section>
+    <section class="col today"><TodayColumn {live} wide {markerAt} onmarker={() => (addingMarker = true)} /><RulesNotices /><div class="leftfoot">{@render rulesButton()}</div></section>
     <div class="vstrip" role="group" aria-label="Charts">
       {#each arrangement.order as id (id)}
         <div class="slot" role="group" aria-label={PANELS[id].name} style="height: calc({arrangement.size(id)} * var(--third) + {arrangement.size(id) - 1} * var(--gap)); flex: none">
@@ -340,7 +347,7 @@
   {:else}
   <div class="wide">
     <section class="col today">
-      <TodayColumn {live} wide />
+      <TodayColumn {live} wide {markerAt} onmarker={() => (addingMarker = true)} />
       <!-- Above the page bar, Rules' notices (Protection off, a Loosening
            waiting for the morning, the grace period): the list above gives
            them room, so nothing over them moves when they come or go. -->
@@ -420,6 +427,7 @@
   <main><TodayColumn {live} /></main>
 {/if}
 <VerdictSheet curfewActive={live.data?.curfewActive ?? false} />
+{#if addingMarker}<MarkerSheet onclose={() => (addingMarker = false)} />{/if}
 
 <style>
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
@@ -474,7 +482,7 @@
      cross-fade they share the right cell, overlapping, instead of the
      second wrapping onto a row of its own and pushing the column up. */
   .leftfoot > * { grid-row: 1; }
-  .leftfoot > a.iconbtn { grid-column: 1; justify-self: start; }
+  .leftfoot > .footleft { grid-column: 1; justify-self: start; display: flex; gap: 8px; }
   .leftfoot .pages { grid-column: 2; }
   .leftfoot .arrangepill, .leftfoot .donepill { grid-column: 3; justify-self: end; }
   .arrangepill { height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }

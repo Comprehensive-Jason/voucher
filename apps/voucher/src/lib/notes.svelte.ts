@@ -59,6 +59,12 @@ export const clock = (at: string) => {
 /** Answers the Curfew question for a Day (null clears it). */
 export const answerVerdict = (day: string, verdict: Verdict | null) => ledger("POST", "/verdict", { day, verdict });
 
+/** The Day it is now. */
+export const dayNow = () => dayOfMoment(new Date().toISOString());
+
+/** Life events offered as one-tap Markers (after the Curfew question, for now); "Other…" takes any text. */
+export const MARKER_CHOICES = ["New medication or dose", "Sick", "Travel", "Exam or deadline", "New term"];
+
 /** The reasons offered after an Unlock; the phone's notification offers the first three. */
 export const REASONS = ["Bored", "Avoiding a task", "Tired", "Anxious", "Urgent", "Habit"];
 
