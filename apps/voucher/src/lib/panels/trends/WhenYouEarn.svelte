@@ -4,7 +4,8 @@
   // Newest at the bottom; scroll up for earlier ones, as far as the log
   // keeps them. The busiest hour's column is outlined, with its time and
   // "busiest over N Days" over it (every Day the log keeps hours for). The hours sit under the rows, outside the scroller,
-  // so they never move.
+  // so they never move. A row holding a Marker has a small notched flag after
+  // its date (grey when all are rule changes), the texts in its tooltip.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import HourAxis from "../../components/HourAxis.svelte";
@@ -14,7 +15,8 @@
   import { inCurfew } from "../../curfew.svelte";
   import { selection } from "../../selection.svelte";
   import { untrack } from "svelte";
-  import type { DayTotal } from "../../types";
+  import type { DayTotal, Marker } from "../../types";
+  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import { shortDate } from "../../time";
   const fit = fitsSlot();
@@ -59,20 +61,35 @@
   };
   // Only Days whose hours the log still holds.
   const kept = $derived(history.filter((d) => d.hours && d.hours.length));
+  // Markers by Day, oldest first.
+  $effect(() => { notes.load(); });
+  const marksOn = $derived.by(() => {
+    const out = new Map<string, Marker[]>();
+    for (const m of notes.markers) { const d = dayOfMoment(m.at); out.set(d, [...(out.get(d) ?? []), m]); }
+    return out;
+  });
   const rows = $derived.by(() => {
-    if (by === "day") return kept.map((d) => ({ key: d.day, label: shortDate(d.day, lastDay), cells: cols(d.hours!) }));
-    const groups = new Map<string, number[][]>();
+    if (by === "day") return kept.map((d) => ({ key: d.day, label: shortDate(d.day, lastDay), cells: cols(d.hours!), marks: marksOn.get(d.day) ?? [] }));
+    const groups = new Map<string, DayTotal[]>();
     for (const d of kept) {
       const key = by === "week" ? mondayOf(d.day) : d.day.slice(0, 7);
-      groups.set(key, [...(groups.get(key) ?? []), cols(d.hours!)]);
+      groups.set(key, [...(groups.get(key) ?? []), d]);
     }
-    return [...groups.entries()].map(([key, list]) => ({
-      key, label: by === "week" ? shortDate(key, lastDay) : `${monthOf(key + "-01")}${key.slice(0, 4) === lastDay.slice(0, 4) ? "" : ` ${key.slice(0, 4)}`}`,
-      cells: Array.from({ length: COLS }, (_, c) => list.reduce((a, r) => a + r[c], 0) / list.length),
-    }));
+    return [...groups.entries()].map(([key, list]) => {
+      const hours = list.map((d) => cols(d.hours!));
+      return {
+        key, label: by === "week" ? shortDate(key, lastDay) : `${monthOf(key + "-01")}${key.slice(0, 4) === lastDay.slice(0, 4) ? "" : ` ${key.slice(0, 4)}`}`,
+        cells: Array.from({ length: COLS }, (_, c) => hours.reduce((a, r) => a + r[c], 0) / hours.length),
+        marks: list.flatMap((d) => marksOn.get(d.day) ?? []),
+      };
+    });
   });
-  /** The label column: room for "09-18", or for a date or month with its year ("2025-09-18", "Sep 2025"). */
-  const lead = $derived(rows.some((r) => r.label.length > 6) ? 58 : 44);
+  const marks = $derived(rows.flatMap((r) => r.marks));
+  /** A row's flag tooltip: its Markers' texts, each after its Day's date in a week or month. */
+  const flagTip = (ms: Marker[]) => ms.map((m) => (by === "day" ? m.text : `${shortDate(dayOfMoment(m.at), lastDay)}: ${m.text}`)).join("\n");
+  /** The label column: room for "09-18", or for a date or month with its year ("2025-09-18", "Sep 2025"),
+   *  and for a Marker's flag after a long one. */
+  const lead = $derived(rows.some((r) => r.label.length > 6) ? (marks.length ? 70 : 58) : 44);
   const max = $derived(Math.max(1e-9, ...rows.flatMap((r) => r.cells)));
   const SHADES = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--voucher)"];
   /** An empty hour during Curfew. */
@@ -114,7 +131,7 @@
         {/if}
         <div class="rows" bind:this={scroller}>
           {#each rows as r (r.key)}
-            <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
+            <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}{#if r.marks.length}{@const color = r.marks.every((m) => m.rule) ? "var(--muted)" : "var(--marker)"}<svg class="flag" width="9" height="11" viewBox="0 0 10 12" role="img" aria-label="Markers: {flagTip(r.marks)}"><title>{flagTip(r.marks)}</title><path d="M1.6 11.2V1" stroke={color} stroke-width="1.6" stroke-linecap="round" /><path d="M1.6 1h7l-2 2.75 2 2.75h-7z" fill={color} /></svg>{/if}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
           {/each}
         </div>
         <!-- Over the scroller, not in it, so the outline stays put while the rows scroll. -->
@@ -127,7 +144,7 @@
       <HourAxis {lead} />
     </div>
     {/key}
-    <Legend scale={{ from: "Fewer", colors: SHADES, to: `More Vouchers${by === "day" ? "" : ", per Day on average"}` }} />
+    <Legend scale={{ from: "Fewer", colors: SHADES, to: `More Vouchers${by === "day" ? "" : ", per Day on average"}` }} items={markerKeys(marks)} />
   {/if}
 </TrendCard>
 
@@ -150,7 +167,8 @@
   .rows { position: relative; display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .rows::-webkit-scrollbar { display: none; }
   .row i { display: block; height: 14px; border-radius: 3px; }
-  .label { font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); }
+  .label { display: flex; align-items: center; gap: 3px; min-width: 0; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); white-space: nowrap; }
+  .label .flag { flex: none; }
   /* The row holding the Day picked on any card. */
   .row.chosen .label { color: var(--ink); font-weight: 700; }
   .row.chosen i { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 50%, transparent); }

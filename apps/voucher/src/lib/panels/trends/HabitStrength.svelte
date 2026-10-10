@@ -15,6 +15,9 @@
   // usual a faint red band behind the line, so the long ones stand out.
   import TrendCard from "../../components/TrendCard.svelte";
   import ChartAxis from "../../components/ChartAxis.svelte";
+  import Legend from "../../components/Legend.svelte";
+  import MarkerLines from "../../components/MarkerLines.svelte";
+  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
   import { monthOf } from "../../trends";
   import type { DayTotal } from "../../types";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
@@ -30,6 +33,12 @@
     return days.map((d) => (s += ((d.goal_met ? 1 : 0) - s) * STEP));
   });
   const now = $derived(scores.at(-1) ?? 0);
+  $effect(() => { notes.load(); });
+  /** Markers on the chart's Days, at their Day's place on the line. */
+  const marks = $derived.by(() => {
+    const at = new Map(days.map((d, i) => [d.day, i]));
+    return notes.markers.flatMap((m) => { const i = at.get(dayOfMoment(m.at)); return i === undefined ? [] : [{ ...m, i }]; });
+  });
   const then = $derived(scores.at(-15) ?? 0);
 
   // ---- Lapses ----
@@ -124,6 +133,7 @@
       {#if long}<rect x={xAt(r.from) - half} y={y1} width={xAt(r.to) - xAt(r.from) + 2 * half} height={y0 - y1} fill="var(--worse)" opacity=".16" />{/if}
       <rect x={xAt(r.from) - half + 0.6} y={y0 + 5} width={Math.max(1.2, xAt(r.to) - xAt(r.from) + 2 * half - 1.2)} height="4" rx="1" fill="var(--worse)" opacity={long ? 1 : 0.7}><title>A lapse of {nDays(r.to - r.from + 1)}</title></rect>
     {/each}
+    <MarkerLines marks={marks.map((m) => ({ x: xAt(m.i), text: m.text, rule: m.rule }))} {y0} {y1} />
     {#each days as d, i}{#if d.goal_met}<rect x={xAt(i) - 0.9} y={y0 + 4} width="1.8" height="6" fill="var(--voucher)" />{/if}{/each}
     <path d={scores.map((s, i) => `${i ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(s).toFixed(1)}`).join("")} fill="none" stroke="var(--goal)" stroke-width="2.4" stroke-linejoin="round" />
     {#each months as m}<text x={xAt(m.i)} y={H - 4}>{monthOf(m.d.day)}</text>{/each}
@@ -136,6 +146,8 @@
     {#if days.length}<text class="tag end" x={x1 + 4 * k} y={yAt(now) + 3.2 * k} style="fill: var(--goal)">{pct(now)}</text>{/if}
   </svg>
   </div>
+  <!-- Only when a Marker is in view: the card has no other keys, and its slot no spare line. -->
+  {#if marks.length}<Legend items={markerKeys(marks)} />{/if}
   <!-- What the score is can't be drawn, so it keeps one line of definition. -->
   {#snippet foot()}Goal Days lift it; misses dent it. Red: lapses, shaded if long.{/snippet}
 </TrendCard>

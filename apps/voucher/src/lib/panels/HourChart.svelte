@@ -26,7 +26,7 @@
   import { ledger } from "../api";
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
   import { blocklistOf } from "../blocklists";
-  import { clock, dayLabel, hourOf, periodLabel, shiftDay } from "../time";
+  import { clock, dayLabel, hourOf, periodLabel, shiftDay, shortDate } from "../time";
   import CardHead from "../components/CardHead.svelte";
   import Marker from "../components/Marker.svelte";
   import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "../types";
@@ -35,7 +35,8 @@
   import { ms, zoomFade } from "../motion";
   import { selection } from "../selection.svelte";
   import { inCurfew } from "../curfew.svelte";
-  import { clock as clockOf, hourOfMoment, notes } from "../notes.svelte";
+  import { clock as clockOf, dayOfMoment, hourOfMoment, notes } from "../notes.svelte";
+  import type { Marker as MarkerNote } from "../types";
 
   let listEl = $state<HTMLDivElement>();
   /** One page's exact width. Pages fill the scroller, which can be a fraction
@@ -131,6 +132,16 @@
     Math.max(0, ...Object.values(summary?.silent ?? {}).map((hours) => hours[h] ?? 0));
   /** Markers in clock hour `h` of `day`. */
   const marksAt = (day: string, h: number) => notes.on(day).filter((m) => Math.floor(hourOfMoment(m.at)) === h);
+  /** A bar's Marker flag stands centred at the top of its column, unless the
+   *  bar's count reaches up into the flag's height: then it stands just right
+   *  of the count, so it never covers the number. */
+  const FLAG = 14;
+  function flagAside(total: number, barHeight: number, counted: boolean): string | undefined {
+    if (!counted || !total || chart - barHeight - 3 - 11 >= FLAG) return undefined;
+    return `left: calc(50% + ${Math.ceil(String(total).length * (tall ? 3.4 : 3.1)) + 3}px)`;
+  }
+  /** A bar's tooltip lines for its Markers: each one's time and text. */
+  const markTitle = (marks: MarkerNote[]) => marks.map((m) => `${clockOf(m.at)} ${m.text}`);
   $effect(() => { notes.load(); });
 
   /** Minutes Unlocked in each clock hour (midnight first): each tear runs on
@@ -349,7 +360,7 @@
       if (minutes) {
         for (const [app, n] of Object.entries(t?.used ?? {})) if (n) addTo(counts, app, n, t?.used_lists);
         const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
-        return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: t?.redeemed ?? 0, goal: false, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
+        return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: t?.redeemed ?? 0, goal: false, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day, marks: notes.on(day) };
       }
       for (const [id, n] of Object.entries(t?.by_source ?? {})) {
         const { name, color } = styleOf(id);
@@ -361,7 +372,7 @@
       const known = [...counts.values()].reduce((a, q) => a + q.n, 0);
       if (t && t.earned > known) counts.set(EARLIER, { id: EARLIER, name: EARLIER, color: "#6c7177", n: t.earned - known });
       const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
-      return { day, total, unlocked: 0, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
+      return { day, total, unlocked: 0, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day, marks: notes.on(day) };
     });
   }
   /** A Day's blocked opens and how many ended without an Unlock, all devices
@@ -391,6 +402,16 @@
       opens: minutes ? opensOver(picked ? [picked.day] : pageCols.filter((c) => !c.future).map((c) => c.day)) : { opens: 0, walked: 0 } };
   });
   const shownBreakdown = $derived(zoom === "day" ? breakdown : periodBreakdown);
+  /** Week and Month: the Markers of the picked Day, or else of the whole
+   *  page, newest first. Past 3 the list keeps the 3 newest and a count of
+   *  the rest, so a busy month doesn't push the sources out of view. */
+  const MARK_ROWS = 3;
+  const periodMarks = $derived.by(() => {
+    if (zoom === "day") return { rows: [] as MarkerNote[], more: [] as MarkerNote[] };
+    const picked = periodPick === null ? null : pageCols[periodPick];
+    const all = [...(picked ? picked.marks : pageCols.flatMap((c) => c.marks))].sort((a, b) => b.at.localeCompare(a.at));
+    return all.length > MARK_ROWS ? { rows: all.slice(0, MARK_ROWS), more: all.slice(MARK_ROWS) } : { rows: all, more: [] };
+  });
 
   /** Bumped on each zoom change, so the new view plays its entrance once. */
   let entrance = $state(0);
@@ -521,7 +542,7 @@
             {@const quiet = minutes && silentAt(summaryOf(day), hourOfColumn(i)) >= 15}
             {@const marks = marksAt(day, hourOfColumn(i))}
             <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol} class:night={inCurfew(hourOfColumn(i))} class:silent={quiet}
-              title={[quiet ? "Voucher wasn't watching for part of this hour, so its minutes may be missing" : "", ...marks.map((m) => `${clockOf(m.at)} ${m.text}`)].filter(Boolean).join("\n") || undefined}
+              title={[quiet ? "Voucher wasn't watching for part of this hour, so its minutes may be missing" : "", ...markTitle(marks)].filter(Boolean).join("\n") || undefined}
               aria-label="{String(hourOfColumn(i)).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
               onclick={() => (pick = pick === i || (!c.total && !c.unlocked) ? null : i)}>
               {#if minutes && c.unlocked}<i class="allow" style="height: {c.unlocked * unit}px"></i>{/if}
@@ -531,7 +552,7 @@
                   {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                 </div>
               {/if}
-              {#if marks.length}<i class="flag" class:rule={marks.every((m) => m.rule)}></i>{/if}
+              {#if marks.length}<i class="flag" class:rule={marks.every((m) => m.rule)} style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), true)}></i>{/if}
             </button>
           {/each}
         </div>
@@ -563,17 +584,20 @@
             <div class="tick" style="bottom: {plot}px"><span class="mono">{top}</span></div>
             {#each cols as c, i (c.day)}
               {@const picked = here && periodPick === i}
+              {@const counted = n <= 7 || picked || ((!here || periodPick === null) && c.total === busiest)}
               <button class="col" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future} class:goal={c.goal}
                 style="--i: {i}" aria-label="{c.day}, {c.total} earned" aria-pressed={picked} disabled={c.future}
+                title={c.marks.length ? markTitle(c.marks).join("\n") : undefined}
                 onclick={() => { periodPick = periodPick === i || (!c.total && !c.unlocked) ? null : i; share(c.day, periodPick !== null); }}>
                 {#if minutes && c.unlocked}<i class="allow" style="height: {c.unlocked * unit}px"></i>{/if}
                 {#if c.total}
                   <!-- A month's bars are too narrow for every count: it labels the busiest Day and the picked one. -->
-                  {#if n <= 7 || picked || ((!here || periodPick === null) && c.total === busiest)}<span class="mono n">{c.total}</span>{:else}<span class="mono n blank"></span>{/if}
+                  {#if counted}<span class="mono n">{c.total}</span>{:else}<span class="mono n blank"></span>{/if}
                   <div class="bar" style="height: {Math.max(c.total * unit, c.segments.length * MIN_SEGMENT)}px">
                     {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                   </div>
                 {/if}
+                {#if c.marks.length}<i class="flag" class:rule={c.marks.every((m) => m.rule)} style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), counted)}></i>{/if}
               </button>
             {/each}
           </div>
@@ -628,6 +652,15 @@
       {#each notes.on(days[shown]) as m (m.at)}
         <div class="row"><span class="mk"><Marker kind={m.rule ? "rule" : "note"} /></span><span class="name">{m.text}</span><b class="mono">{clockOf(m.at)}</b></div>
       {/each}
+    {/if}
+    <!-- Week and Month: the Markers on the page (or the picked Day), each with its Day's date and time. -->
+    {#each periodMarks.rows as m (m.at)}
+      <div class="row" title={m.text}><span class="mk"><Marker kind={m.rule ? "rule" : "note"} /></span><span class="name">{m.text}</span><b class="mono">{shortDate(dayOfMoment(m.at), today.day)} {clockOf(m.at)}</b></div>
+    {/each}
+    {#if periodMarks.more.length}
+      <div class="row zero more" title={periodMarks.more.map((m) => `${shortDate(dayOfMoment(m.at), today.day)} ${clockOf(m.at)} ${m.text}`).join("\n")}>
+        <span class="mk"></span><span class="name">+{periodMarks.more.length} more {periodMarks.more.length === 1 ? "Marker" : "Markers"}</span><b class="mono"></b>
+      </div>
     {/if}
     {#if minutes && !shownBreakdown.rows.length}
       <div class="row none empty">{zoom !== "day" ? `No Distraction time ${zoom === "week" ? "this week" : "this month"}` : days[shown] === today.day ? "No Distraction time yet" : "No Distraction time this Day, or none kept this far back"}</div>
@@ -698,7 +731,7 @@
   .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .09) 0 3px, transparent 3px 7px); pointer-events: none; }
   .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
   /* A Marker: a short flag at the top of its hour; the Marker colour for one written by hand, grey for a rule change. */
-  .flag { position: absolute; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: var(--marker); border-radius: 1px; pointer-events: none; }
+  .flag { position: absolute; z-index: 3; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: var(--marker); border-radius: 1px; pointer-events: none; }
   /* The notched flag of every Marker (the button, the Log, the keys). */
   .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 7px; height: 6px; background: inherit; clip-path: polygon(0 0, 100% 0, 72% 50%, 100% 100%, 0 100%); }
   .flag.rule { background: var(--muted); }

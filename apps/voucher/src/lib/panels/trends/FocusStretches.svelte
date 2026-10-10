@@ -16,7 +16,8 @@
   import { shortDate } from "../../time";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   import { zoomFade } from "../../motion";
-  import type { DayTotal } from "../../types";
+  import type { DayTotal, Marker } from "../../types";
+  import { clock, dayOfMoment, markerKeys, notes } from "../../notes.svelte";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();
@@ -38,10 +39,25 @@
     for (const d of days) map.set(keyOf(d.day), [...(map.get(keyOf(d.day)) ?? []), ...d.stretches!]);
     return [...map.entries()].slice(-COUNT[range]).map(([key, list]) => ({ key, lo: quantile(list, 0.25), mid: median(list), hi: quantile(list, 0.75) }));
   });
+  $effect(() => { notes.load(); });
+  /** Each column's Markers (by the Day each belongs to), oldest first. */
+  const marksOf = $derived.by(() => {
+    const shown = new Set(weeks.map((w) => w.key)), out = new Map<string, Marker[]>();
+    for (const m of notes.markers) {
+      const day = dayOfMoment(m.at), key = keyOf(day);
+      if (shown.has(key)) out.set(key, [...(out.get(key) ?? []), m]);
+    }
+    return out;
+  });
+  const marksShown = $derived([...marksOf.values()].flat());
+  /** A column's flag tooltip: each Marker's date, time, and text. */
+  const flagTitle = (list: Marker[]) => list.map((m) => `${shortDate(dayOfMoment(m.at), today)} ${clock(m.at)} ${m.text}`).join("\n");
   /** The label under a column: the weekday's date, the week's Monday, or the month. */
   const labelOf = (key: string) => (range === "year" ? monthOf(key + "-01") : shortDate(key, today));
 
   const W = 600, y1 = 8;
+  /** A Marker flag's pole, in screen pixels (the bar graph's flag). */
+  const FLAG = 14;
   const H = $derived(fit ? drawHeight(pw, ph, 180) : 180);
   const y0 = $derived(H - 22);
   /** Drawing units per screen pixel: chart text is 11px on screen, 11 * k here. */
@@ -66,7 +82,9 @@
   const startY = $derived.by(() => {
     if (weeks.length < 4) return null;
     const above = yAt(weeks[0].hi) - 4 * k;
-    return above - 6.7 * k >= y1 - 2 * k ? above : Math.min(yAt(weeks[0].lo) + 11 * k, y0 - 2 * k);
+    // Under the first column's flag, if it has one, rather than through its pole.
+    const roof = marksOf.has(weeks[0].key) ? y1 + FLAG * k + 2 * k : y1 - 2 * k;
+    return above - 6.7 * k >= roof ? above : Math.min(yAt(weeks[0].lo) + 11 * k, y0 - 2 * k);
   });
 </script>
 
@@ -87,6 +105,20 @@
         <path d={weeks.map((w, j) => `${j ? "L" : "M"}${x0 + slot * j + slot / 2},${yAt(w.mid)}`).join("")} fill="none" stroke="var(--ink)" stroke-width="2" />
         {#if startY !== null}<text class="tag" x={x0 + slot / 2} y={startY} text-anchor="middle" style="fill: var(--ink); opacity: .6">{firstTypical}</text>{/if}
         <text class="tag end" x={x0 + slot * (weeks.length - 0.2) + 3 * k} y={yAt(weeks.at(-1)!.mid) + 3.2 * k} style="fill: var(--ink)">{endText}</text>
+        <!-- A notched flag at the top of each column holding a Marker, as on the bar graph's bars; grey if all are rule changes. -->
+        {#each weeks as w, j (w.key)}
+          {@const list = marksOf.get(w.key)}
+          {#if list}
+            {@const cx = x0 + slot * j + slot / 2}
+            {@const color = list.every((m) => m.rule) ? "var(--muted)" : "var(--marker)"}
+            <g class="flag"><title>{flagTitle(list)}</title>
+              <rect x={cx - 0.8 * k} y={y1} width={1.6 * k} height={FLAG * k} rx={0.8 * k} fill={color} />
+              <path d="M{cx},{y1} h{7 * k} l{-2 * k},{3 * k} {2 * k},{3 * k} h{-7 * k} z" fill={color} />
+              <!-- A wider invisible target, so the tooltip doesn't need a pixel-exact hover. -->
+              <rect x={cx - 3 * k} y={y1 - 2 * k} width={12 * k} height={(FLAG + 4) * k} fill="transparent" />
+            </g>
+          {/if}
+        {/each}
         {#each weeks as w, j (w.key)}
           <text x={x0 + slot * j + slot / 2} y={H - 4} text-anchor="middle">{labelOf(w.key)}</text>
         {/each}
@@ -94,8 +126,9 @@
     </div>
     {/key}
     <Legend items={[
-      { kind: "box", color: "color-mix(in srgb, var(--muted) 30%, transparent)", label: `One ${range === "week" ? "Day" : range === "month" ? "week" : "month"}: the middle half of its stretches` },
+      { kind: "box", color: "color-mix(in srgb, var(--muted) 30%, transparent)", label: `Middle half of a ${range === "week" ? "Day" : range === "month" ? "week" : "month"}'s stretches` },
       { kind: "line", color: "var(--ink)", label: "Typical stretch" },
+      ...markerKeys(marksShown),
     ]} />
   {/if}
   {#snippet foot()}A stretch: unbroken time in a source; breaks under 2 min don't end it.{/snippet}

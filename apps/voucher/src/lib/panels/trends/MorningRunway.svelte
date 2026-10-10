@@ -11,14 +11,17 @@
   // the two are 10 minutes or more apart. The hours sit under the scroller
   // and never move, drawn as HourAxis draws them.
   // It follows the shared Day: that Day's dot is ringed and its week scrolled
-  // into view, and tapping a dot shares its Day.
+  // into view, and tapping a dot shares its Day. A week holding a Marker has
+  // a small notched flag beside its date (grey when all are rule changes),
+  // the Markers' Days and texts in its tooltip and in their Days' dots'.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
   import { inCurfew } from "../../curfew.svelte";
   import { clock, shortDate } from "../../time";
   import { clockOfHours, median, mondayOf } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
-  import type { DayTotal } from "../../types";
+  import type { DayTotal, Marker } from "../../types";
+  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
   import { selection } from "../../selection.svelte";
   import { untrack } from "svelte";
 
@@ -43,6 +46,18 @@
   /** The 4 weeks before, drawn only when they differ from lately by 10 minutes or more. */
   const showBefore = $derived(!Number.isNaN(recent) && !Number.isNaN(before) && Math.abs(recent - before) * 60 >= 10);
 
+  // Markers on the Days drawn, by Day, oldest first.
+  $effect(() => { notes.load(); });
+  const marksOn = $derived.by(() => {
+    const have = new Set(days.map((d) => d.day));
+    const out = new Map<string, Marker[]>();
+    for (const m of notes.markers) { const d = dayOfMoment(m.at); if (have.has(d)) out.set(d, [...(out.get(d) ?? []), m]); }
+    return out;
+  });
+  const marks = $derived([...marksOn.values()].flat());
+  /** A Day's Markers as tooltip lines, after its own line. */
+  const markLines = (day: string) => (marksOn.get(day) ?? []).map((m) => `\n${m.text}`).join("");
+
   // Drawn 600 wide; each week a 22-high row.
   const W = 600, x1 = 560, ROW = 22;
   const H = $derived(weeks.length * ROW);
@@ -51,7 +66,9 @@
   const k = $derived(W / (width || W));
   /** Where the hours start: room for the widest week's date ("09-07", or
    *  "2025-09-07" from another year) at the axis size, however narrow the card. */
-  const x0 = $derived(Math.max(52, Math.round((10 + 5.6 * Math.max(5, ...weeks.map((w) => shortDate(w.monday, today).length))) * k)));
+  /** Room between the dates and the hours for a week's Marker flag, when any week has one. */
+  const flagRoom = $derived(marks.length ? Math.round(12 * k) : 0);
+  const x0 = $derived(Math.max(52, Math.round((10 + 5.6 * Math.max(5, ...weeks.map((w) => shortDate(w.monday, today).length))) * k)) + flagRoom);
   const xAt = (h: number) => x0 + ((Math.min(h, END) - START) / (END - START)) * (x1 - x0);
   /** The Day's hours, 6 to 29 (29 is 05:00), and which fall in Curfew. */
   const HOURS = Array.from({ length: END - START }, (_, i) => START + i);
@@ -100,7 +117,18 @@
           {#if chosenRow >= 0}<rect x="0" y={chosenRow * ROW} width={W} height={ROW} rx="4" fill="#ffffff" opacity=".045" />{/if}
           {#each weeks as w, r (w.monday)}
             {@const y = r * ROW + ROW / 2}
-            <text x={x0 - 8} y={y + 3} text-anchor="end">{shortDate(w.monday, today)}</text>
+            {@const wm = w.list.flatMap((d) => marksOn.get(d.day) ?? [])}
+            <text x={x0 - 8 - flagRoom} y={y + 3} text-anchor="end">{shortDate(w.monday, today)}</text>
+            {#if wm.length}
+              {@const color = wm.every((m) => m.rule) ? "var(--muted)" : "var(--marker)"}
+              <!-- The week's Markers: a notched flag, as in the keys, in the Marker colour, grey for rule changes only. -->
+              <g class="flag" transform="translate({x0 - 4 - 10 * k} {y - 6 * k}) scale({k})">
+                <title>{wm.map((m) => `${shortDate(dayOfMoment(m.at), today)}: ${m.text}`).join("\n")}</title>
+                <rect x="-1" y="-1" width="12" height="14" fill="transparent" />
+                <path d="M1.6 11.2V1" stroke={color} stroke-width="1.6" stroke-linecap="round" />
+                <path d="M1.6 1h7l-2 2.75 2 2.75h-7z" fill={color} />
+              </g>
+            {/if}
             <line x1={x0} x2={x1} y1={y} y2={y} stroke="var(--divider)" />
             {#each w.list as d, i (d.day)}
               {@const cx = d.t === null ? x1 + 22 : xAt(d.t)}
@@ -109,8 +137,8 @@
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <g class="dot" onclick={() => pick(d.day)}>
                 <circle {cx} {cy} r="9" fill="transparent" />
-                {#if d.t === null}<circle {cx} {cy} r="4" fill="none" stroke="var(--spend)" stroke-width="1.5"><title>{shortDate(d.day, today)}: no Unlock</title></circle>
-                {:else}<circle {cx} {cy} r="4" fill="var(--spend)" opacity=".8"><title>{shortDate(d.day, today)}: first Unlock {clockOfHours(d.t)}</title></circle>{/if}
+                {#if d.t === null}<circle {cx} {cy} r="4" fill="none" stroke="var(--spend)" stroke-width="1.5"><title>{shortDate(d.day, today)}: no Unlock{markLines(d.day)}</title></circle>
+                {:else}<circle {cx} {cy} r="4" fill="var(--spend)" opacity=".8"><title>{shortDate(d.day, today)}: first Unlock {clockOfHours(d.t)}{markLines(d.day)}</title></circle>{/if}
               </g>
             {/each}
           {/each}
@@ -122,10 +150,10 @@
         <text class="hour" x={x1 + 22} y="13" text-anchor="middle">none</text>
       </svg>
     </div>
-    <!-- The note fits the legend's one line only beside three keys; a fourth pushes it out. -->
+    <!-- The note fits the legend's one line only beside three keys; a fourth (the 4 weeks before, or a Marker's) pushes it out. -->
     <Legend
-      items={[{ kind: "dot", color: "var(--spend)", label: "A Day's first Unlock" }, { kind: "ring", color: "var(--spend)", label: "No Unlock" }, { kind: "usual", color: "var(--goal)", label: "Usual lately" }, ...(showBefore ? [{ kind: "usual" as const, color: "var(--muted)", label: "4 weeks before" }] : [])]}
-      note={showBefore ? undefined : "further right: a longer morning"} />
+      items={[{ kind: "dot", color: "var(--spend)", label: "A Day's first Unlock" }, { kind: "ring", color: "var(--spend)", label: "No Unlock" }, { kind: "usual", color: "var(--goal)", label: "Usual lately" }, ...(showBefore ? [{ kind: "usual" as const, color: "var(--muted)", label: "4 weeks before" }] : []), ...markerKeys(marks)]}
+      note={showBefore || marks.length ? undefined : "further right: a longer morning"} />
   {/if}
 </TrendCard>
 

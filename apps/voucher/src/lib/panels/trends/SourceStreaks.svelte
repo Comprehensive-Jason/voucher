@@ -7,15 +7,20 @@
   // one starts and each Monday's date ("09-14") along the top; it opens at
   // today. It follows the shared Day (that Day's column
   // is outlined and scrolled into view), and tapping a cell shares its Day.
+  // A Day with a Marker carries Activity's corner tick on each of its cells
+  // (the Marker colour, grey when all are rule changes), the texts in their
+  // tooltips, with a key under the grid while any is drawn.
   import { untrack } from "svelte";
   import TrendCard from "../../components/TrendCard.svelte";
+  import Legend from "../../components/Legend.svelte";
+  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
   import { compareSources, styleOf } from "../../sources";
   import { MONTHS } from "../../trends";
   import { shortDate } from "../../time";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import { heat } from "../../heat.svelte";
-  import type { DayTotal, SourceProgress } from "../../types";
+  import type { DayTotal, Marker, SourceProgress } from "../../types";
   const fit = fitsSlot();
 
   let { history, sources }: { history: DayTotal[]; sources: SourceProgress[] } = $props();
@@ -38,6 +43,19 @@
       for (let i = hit.length - 1; i >= 0; i--) { if (hit[i]) run++; else if (i < hit.length - 1) break; }
       return { ...s, hit, run };
     }));
+  // Markers on the Days drawn, by Day, oldest first.
+  $effect(() => { notes.load(); });
+  const marksOn = $derived.by(() => {
+    const have = new Set(days.map((d) => d.day));
+    const out = new Map<string, Marker[]>();
+    for (const m of notes.markers) { const d = dayOfMoment(m.at); if (have.has(d)) out.set(d, [...(out.get(d) ?? []), m]); }
+    return out;
+  });
+  const marks = $derived([...marksOn.values()].flat());
+  /** Whether a Day's Markers are all rule changes, which tick in grey. */
+  const ruleOnly = (day: string) => !!marksOn.get(day)?.every((m) => m.rule);
+  /** A Day's Markers as tooltip lines, after the cell's own line. */
+  const markLines = (day: string) => (marksOn.get(day) ?? []).map((m) => `\n${m.text}`).join("");
   /** The longest current run, in Days; 0 when no source is on a run. */
   const longest = $derived(Math.max(0, ...rows.map((r) => r.run)));
 
@@ -82,7 +100,7 @@
         {#each days as d (d.day)}<span class="date" class:month={d.day.endsWith("-01")} class:on={d.day === chosen}>{#if label(d.day)}<b>{label(d.day)}</b>{/if}</span>{/each}
         {#each rows as r (r.id)}
           {#each r.hit as on, i (days[i].day)}
-            <button class="cell" class:on={days[i].day === chosen} style={on ? `background: ${r.color}` : ""} title="{shortDate(days[i].day, today)}: {r.name} {on ? 'earned' : 'did not earn'}" aria-label="{days[i].day}, {r.name}" onclick={() => pick(days[i].day)}></button>
+            <button class="cell" class:on={days[i].day === chosen} class:marked={marksOn.has(days[i].day)} class:rule={ruleOnly(days[i].day)} style={on ? `background: ${r.color}` : ""} title="{shortDate(days[i].day, today)}: {r.name} {on ? 'earned' : 'did not earn'}{markLines(days[i].day)}" aria-label="{days[i].day}, {r.name}" onclick={() => pick(days[i].day)}></button>
           {/each}
         {/each}
       </div>
@@ -92,6 +110,7 @@
       {#each rows as r (r.id)}<span class="run" class:best={longest > 0 && r.run === longest}>{r.run ? `${r.run} ${r.run === 1 ? "Day" : "Days"}` : "–"}</span>{/each}
     </div>
   </div>
+  {#if marks.length}<Legend items={markerKeys(marks, "corner")} />{/if}
 </TrendCard>
 
 <style>
@@ -120,7 +139,12 @@
   .date b { position: absolute; left: 0; bottom: 1px; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); white-space: nowrap; }
   .date.month b { color: var(--muted); font-weight: 700; }
   .date.on b { color: var(--ink); }
-  .cell { display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 4px; background: var(--heat-0); cursor: pointer; }
+  .cell { position: relative; display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 4px; background: var(--heat-0); cursor: pointer; }
+  /* A Day with a Marker: Activity's corner, in the Marker colour, grey for rule changes only. */
+  .cell.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
+  .cell.marked.rule::after { border-top-color: var(--muted); }
+  /* A dark edge along the tick's slant, so grey still reads on a source's light colour. */
+  .cell.marked::after { filter: drop-shadow(-1px 1px 0 var(--surface)); }
   /* The shared Day, outlined as Activity outlines it. */
   .cell.on { outline: 2px solid var(--ink); outline-offset: 1px; }
 </style>

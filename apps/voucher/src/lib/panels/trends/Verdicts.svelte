@@ -8,11 +8,14 @@
   // wrong things. A strip of the last four weeks shows each Day's answer,
   // framed in gold where the goal was met, with its dates under it and a key;
   // "No" answers take the --worse colour, in the table and the strip. With
-  // enough answers, one line under it says what the mismatch suggests.
+  // enough answers, one line under it says what the mismatch suggests. A Day
+  // in the strip with a Marker carries Activity's corner tick (the Marker
+  // colour, grey when all are rule changes), the texts in its tooltip.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
   import { fitsSlot } from "../../fit.svelte";
-  import type { DayTotal, Verdict } from "../../types";
+  import type { DayTotal, Marker, Verdict } from "../../types";
+  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
   import { shortDate } from "../../time";
 
   let { history }: { history: DayTotal[] } = $props();
@@ -36,6 +39,17 @@
   });
   const strip = $derived(history.slice(-28));
   const today = $derived(history.at(-1)?.day ?? "");
+  // Markers on the strip's Days, by Day, oldest first.
+  $effect(() => { notes.load(); });
+  const marksOn = $derived.by(() => {
+    const have = new Set(strip.map((d) => d.day));
+    const out = new Map<string, Marker[]>();
+    for (const m of notes.markers) { const d = dayOfMoment(m.at); if (have.has(d)) out.set(d, [...(out.get(d) ?? []), m]); }
+    return out;
+  });
+  const marks = $derived([...marksOn.values()].flat());
+  /** A Day's Markers as tooltip lines, after its answer. */
+  const markLines = (day: string) => (marksOn.get(day) ?? []).map((m) => `\n${m.text}`).join("");
   const LABEL: Record<Verdict, string> = { yes: "Yes", mostly: "Mostly", no: "No" };
 </script>
 
@@ -53,7 +67,7 @@
     </div>
     <div class="days">
       <div class="strip" aria-label="Each Day's answer, last four weeks">
-        {#each strip as d (d.day)}<i class={d.verdict ?? "none"} class:met={d.goal_met} title="{shortDate(d.day, today)}: {d.verdict ? LABEL[d.verdict] : 'no answer'}{d.goal_met ? ', goal met' : ''}"></i>{/each}
+        {#each strip as d (d.day)}<i class={d.verdict ?? "none"} class:met={d.goal_met} class:marked={marksOn.has(d.day)} class:rule={!!marksOn.get(d.day)?.every((m) => m.rule)} title="{shortDate(d.day, today)}: {d.verdict ? LABEL[d.verdict] : 'no answer'}{d.goal_met ? ', goal met' : ''}{markLines(d.day)}"></i>{/each}
       </div>
       <div class="ends"><span>{strip[0] ? shortDate(strip[0].day, today) : ""}</span><span>Today</span></div>
     </div>
@@ -63,6 +77,7 @@
       { kind: "box", color: "var(--worse)", label: "No" },
       { kind: "box", color: "var(--heat-0)", label: "No answer" },
       { kind: "frame", color: "var(--goal)", label: "Goal met" },
+      ...markerKeys(marks, "corner"),
     ]} />
   {/if}
 </TrendCard>
@@ -82,7 +97,12 @@
   .n { text-align: center; padding: 8px 10px; border-radius: 10px; background: var(--raised); font: 700 18px/1.1 var(--mono); min-width: 0; }
   .n.yes { color: var(--voucher); } .n.mostly { color: var(--mostly-ink); } .n.no { color: var(--worse); }
   .strip { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: 3px; }
-  .strip i { aspect-ratio: 1; border-radius: 3px; background: var(--heat-0); box-sizing: border-box; }
+  .strip i { position: relative; aspect-ratio: 1; border-radius: 3px; background: var(--heat-0); box-sizing: border-box; }
+  /* A Day with a Marker: Activity's corner, in the Marker colour, grey for rule changes only. */
+  .strip i.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
+  .strip i.marked.rule::after { border-top-color: var(--muted); }
+  /* A dark edge along the tick's slant, so grey still reads on the light greens (as in Source streaks). */
+  .strip i.marked::after { filter: drop-shadow(-1px 1px 0 var(--surface)); }
   .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: var(--mostly); } .strip i.no { background: var(--worse); }
   .strip i.met { outline: 1.5px solid var(--goal); outline-offset: -1.5px; }
 </style>
