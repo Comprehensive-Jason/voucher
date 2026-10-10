@@ -81,6 +81,8 @@ export interface DaySummary {
   /** Minutes in each Distraction app per clock hour (24, midnight first), all
    *  devices together; empty past the kept log, absent from older Ledgers. */
   usage?: Record<string, number[]>;
+  /** The blocklist (id) each of those apps is on, where a device said. */
+  usage_lists?: Record<string, string>;
 }
 
 /** One Day in the Ledger's `GET /history`. */
@@ -92,6 +94,8 @@ export interface DayTotal {
   unlocked_minutes?: number;
   /** Minutes in each Distraction app, all devices together. */
   used?: Record<string, number>;
+  /** The blocklist (id) each of those apps is on, where a device said. */
+  used_lists?: Record<string, string>;
   /** The Day's Daily goal; absent from older Ledgers. */
   goal?: number;
   /** Vouchers earned per clock hour (24, midnight first); empty past the kept log. */

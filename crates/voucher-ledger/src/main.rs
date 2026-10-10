@@ -298,7 +298,7 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 .read_to_string(&mut body)
                 .ok()
                 .and_then(|_| serde_json::from_str::<UsageReport>(&body).ok());
-            match parsed.map(|u| ledger.report_usage(&u.device, u.day, u.apps, now)) {
+            match parsed.map(|u| ledger.report_usage_in_lists(&u.device, u.day, u.apps, u.lists, now)) {
                 Some(true) => (200, json(&Message { message: "kept" })),
                 Some(false) => (
                     400,
@@ -534,6 +534,9 @@ struct UsageReport {
     day: jiff::civil::Date,
     /// Minutes per clock hour (midnight first), per app.
     apps: std::collections::BTreeMap<String, Vec<u32>>,
+    /// The blocklist id each app is on, where the device knows it.
+    #[serde(default)]
+    lists: std::collections::BTreeMap<String, String>,
 }
 
 #[derive(serde::Deserialize)]

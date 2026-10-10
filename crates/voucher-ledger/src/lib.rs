@@ -618,6 +618,8 @@ pub struct DaySummary {
     /// first), every device's added together: empty for Days older than the
     /// log keeps.
     pub usage: BTreeMap<String, Vec<u32>>,
+    /// The blocklist each of those apps belongs to, where a device said.
+    pub usage_lists: BTreeMap<String, String>,
 }
 
 /// One source's standing for a Day.
@@ -650,6 +652,8 @@ pub struct DayTotal {
     /// Minutes in each Distraction app, every device's added together:
     /// empty for Days older than the log keeps.
     pub used: BTreeMap<String, u32>,
+    /// The blocklist each of those apps belongs to, where a device said.
+    pub used_lists: BTreeMap<String, String>,
     /// The Day's Daily goal.
     pub goal: u32,
     /// Vouchers earned in each clock hour (24, midnight first), from the log:
@@ -678,6 +682,10 @@ struct DayScore {
     /// device's latest report replaces its last one.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     usage: BTreeMap<String, BTreeMap<String, Vec<u32>>>,
+    /// Which blocklist each of those apps belongs to, as the device that
+    /// measured it saw it (by package, or Android's game category).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    usage_lists: BTreeMap<String, String>,
 }
 
 impl DayScore {
@@ -690,6 +698,7 @@ impl DayScore {
             progress: BTreeMap::new(),
             reported: BTreeMap::new(),
             usage: BTreeMap::new(),
+            usage_lists: BTreeMap::new(),
         }
     }
 }
@@ -953,6 +962,19 @@ impl Ledger {
         apps: BTreeMap<String, Vec<u32>>,
         now: Timestamp,
     ) -> bool {
+        self.report_usage_in_lists(device, day, apps, BTreeMap::new(), now)
+    }
+
+    /// As `report_usage`, also saying which blocklist (by id) each app is on,
+    /// so Trends can count Distraction time by blocklist.
+    pub fn report_usage_in_lists(
+        &mut self,
+        device: &str,
+        day: Date,
+        apps: BTreeMap<String, Vec<u32>>,
+        lists: BTreeMap<String, String>,
+        now: Timestamp,
+    ) -> bool {
         self.settle(now);
         let today = day_of(&self.state.settings, now);
         let fresh_day = day == today || Some(day) == today.yesterday().ok();
@@ -971,6 +993,7 @@ impl Ledger {
         let goal = self.state.settings.daily_goal;
         let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
         score.usage.insert(device.to_string(), apps);
+        score.usage_lists.extend(lists);
         self.forget_old_entries(today);
         true
     }
@@ -1174,6 +1197,7 @@ impl Ledger {
             day,
             sources,
             usage,
+            usage_lists: score.usage_lists.clone(),
             earned: score.earned,
             redeemed: score.redeemed,
             unlocked_minutes: score.unlocked_minutes,
@@ -1246,6 +1270,7 @@ impl Ledger {
                         .into_iter()
                         .map(|(app, hours)| (app, hours.iter().sum()))
                         .collect(),
+                    used_lists: score.map(|s| s.usage_lists.clone()).unwrap_or_default(),
                 }
             })
             .collect()
@@ -1318,6 +1343,7 @@ impl Ledger {
         // Distraction minutes go with the log.
         for (_, score) in self.state.days.range_mut(..oldest) {
             score.usage.clear();
+            score.usage_lists.clear();
         }
     }
 

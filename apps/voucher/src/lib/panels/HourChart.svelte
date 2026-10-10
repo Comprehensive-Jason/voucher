@@ -1,7 +1,8 @@
 <script lang="ts">
   // Two twins share this chart (`measure`): Vouchers earned, from the log,
   // and Distraction time, from the minutes the phone reports per app and
-  // hour, drawn over a light grey outline of the time Unlocks allowed.
+  // hour (shown by blocklist), drawn over a light grey outline of the time
+  // Unlocks allowed.
   //
   // Zoom: Day shows one Day hour by hour (below); Week and Month show a bar
   // per Day across the week (Monday first) or calendar month, with the same
@@ -20,7 +21,6 @@
   import { clock, dayLabel, hourOf, shiftDay } from "../time";
   import Marker from "../components/Marker.svelte";
   import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "../types";
-  import { blocklistColorOf } from "../blocklists";
   import ScrollCue from "../components/ScrollCue.svelte";
   import TodayButton from "../components/TodayButton.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
@@ -84,12 +84,27 @@
   type Part = { id: string; name: string; color: string; n: number };
   const EARLIER = "Earlier, by source not kept";
   const minutes = $derived(measure === "distraction");
-  /** An app's blocklist, so apps on one list stack together in its colour. */
-  const listOf = (app: string) => Object.values(blocklists).find((l) => l.apps.some((a) => a.label.toLowerCase() === app.toLowerCase()))?.name ?? "~";
-  const appPart = (app: string): Part => ({ id: app, name: app, color: blocklistColorOf(app, blocklists), n: 0 });
+  /** Distraction time counts by blocklist, not by app: each app's minutes go
+   *  to the blocklist the measuring device said it was on (it knows each
+   *  app's package, and which apps are games), or else to the blocklist
+   *  naming an app of that name, or else to Other. That keeps the bars and
+   *  the list to a handful of rows, each in its blocklist's colour. */
+  const OTHER: Part = { id: "~other", name: "Other", color: "#9aa0a6", n: 0 };
+  function listPart(app: string, said?: string): Part {
+    const id = said && blocklists[said] ? said
+      : Object.entries(blocklists).find(([, l]) => l.apps.some((a) => a.label.toLowerCase() === app.toLowerCase()))?.[0];
+    return id ? { id, name: blocklists[id].name, color: blocklists[id].color, n: 0 } : { ...OTHER };
+  }
+  /** Adds an app's minutes to its blocklist's part. */
+  function addTo(counts: Map<string, Part>, app: string, m: number, lists?: Record<string, string>) {
+    const fresh = listPart(app, lists?.[app]);
+    const part = counts.get(fresh.id) ?? fresh;
+    part.n += m;
+    counts.set(fresh.id, part);
+  }
   function partsOf(counts: Map<string, Part>): Part[] {
     return [...counts.values()].sort((a, b) => minutes
-      ? listOf(a.name).localeCompare(listOf(b.name)) || a.name.localeCompare(b.name)
+      ? Number(a.id === OTHER.id) - Number(b.id === OTHER.id) || a.name.localeCompare(b.name)
       : Number(a.id === EARLIER) - Number(b.id === EARLIER) || compareSources(a, b));
   }
   /** A bar's segments, top to bottom: neighbours of one colour (apps on the
@@ -130,9 +145,7 @@
         hours.forEach((m, h) => {
           if (!m) return;
           const col = cols[colOf(h)];
-          const part = col.counts.get(app) ?? appPart(app);
-          part.n += m;
-          col.counts.set(app, part);
+          addTo(col.counts, app, m, summary?.usage_lists);
           col.total += m;
         });
       }
@@ -294,13 +307,13 @@
   });
   const totalOf = (day: string): DayTotal | undefined => (day === today.day
     ? { day, earned: today.earned, redeemed: today.redeemed, goal_met: today.goal_met, by_source: today.by_source, unlocked_minutes: today.unlocked_minutes,
-        used: Object.fromEntries(Object.entries(today.usage ?? {}).map(([app, hours]) => [app, hours.reduce((a, b) => a + b, 0)])) } : totals[day]);
+        used: Object.fromEntries(Object.entries(today.usage ?? {}).map(([app, hours]) => [app, hours.reduce((a, b) => a + b, 0)])), used_lists: today.usage_lists } : totals[day]);
   function colsOf(start: string) {
     return daysOf(start).map((day) => {
       const t = totalOf(day);
       const counts = new Map<string, Part>();
       if (minutes) {
-        for (const [app, n] of Object.entries(t?.used ?? {})) if (n) counts.set(app, { ...appPart(app), n });
+        for (const [app, n] of Object.entries(t?.used ?? {})) if (n) addTo(counts, app, n, t?.used_lists);
         const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
         return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: 0, goal: false, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
       }

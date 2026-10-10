@@ -65,13 +65,28 @@ function hoursOf(u) {
   }
   return hours;
 }
+/** The made-up apps that are games, which a phone would know from Android's app category. */
+const GAMES = new Set(["Genshin Impact", "WoT Blitz", "Mindustry", "Plague Inc.", "After Inc."]);
+/** Which switched-on blocklist each app is on, as a phone would say: the one
+ *  naming it, or for a game, one blocking every game. Unlisted apps are left out. */
+function listsFor(apps, blocklists) {
+  const on = Object.entries(blocklists).filter(([, l]) => l.on);
+  const out = {};
+  for (const app of apps) {
+    const named = on.find(([, l]) => l.apps.some((a) => a.label.toLowerCase() === app.toLowerCase()));
+    const games = GAMES.has(app) ? on.find(([, l]) => l.apps.some((a) => a.package === "category:game")) : null;
+    const hit = named ?? games;
+    if (hit) out[app] = hit[0];
+  }
+  return out;
+}
 /** Sends today's made-up minutes to the Ledger, as a phone would. */
 async function reportUsage() {
   const u = readUsage();
   u.hours = hoursOf(u);
   writeUsage(u);
-  const day = (await call("GET", "/status")).today.day;
-  return call("POST", "/usage", { device: "portal", day, apps: u.hours });
+  const status = await call("GET", "/status");
+  return call("POST", "/usage", { device: "portal", day: status.today.day, apps: u.hours, lists: listsFor(Object.keys(u.hours), status.settings.blocklists) });
 }
 /** A made-up Day of Distraction time: a few apps, mostly in the hours the Day
  *  tore Vouchers, sometimes running past what was unlocked. */
@@ -215,6 +230,7 @@ async function seedHistory(days) {
       state.log.push({ kind: "redeemed", at: at(hour, Math.floor(Math.random() * 60)), tickets: 1, minutes: state.settings.unlock_minutes });
     }
     state.days[date].usage = { portal: fakeDayUsage(tearHours, state.settings.unlock_minutes) };
+    state.days[date].usage_lists = listsFor(Object.keys(state.days[date].usage.portal), state.settings.blocklists);
   }
   state.log.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   if (earliest && Date.parse(state.started_at) > Date.parse(earliest + "T00:00:00Z")) state.started_at = earliest + "T00:00:00Z";
@@ -238,8 +254,11 @@ async function backfillUsage() {
   const logFrom = new Date(Date.parse(today + "T12:00:00Z") - 183 * 86400_000).toISOString().slice(0, 10);
   let filled = 0;
   for (const [date, score] of Object.entries(state.days)) {
+    // Days filled before the blocklists were sent get them now.
+    if (score.usage?.portal && !score.usage_lists) score.usage_lists = listsFor(Object.keys(score.usage.portal), state.settings.blocklists);
     if (date >= today || date < logFrom || (score.usage && Object.keys(score.usage).length)) continue;
     score.usage = { portal: fakeDayUsage(tears[date] ?? [], state.settings.unlock_minutes) };
+    score.usage_lists = listsFor(Object.keys(score.usage.portal), state.settings.blocklists);
     filled++;
   }
   writeFileSync(file, JSON.stringify(state));

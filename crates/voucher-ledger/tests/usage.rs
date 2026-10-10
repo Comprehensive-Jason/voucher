@@ -114,3 +114,14 @@ fn the_history_has_each_days_goal_hours_and_first_tear() {
     assert_eq!(day.hours.iter().sum::<u32>(), 2);
     assert_eq!(day.first_tear, Some(at("2026-10-02T12:05-07:00")));
 }
+
+#[test]
+fn apps_keep_the_blocklist_their_device_named() {
+    let mut ledger = fresh();
+    let now = at("2026-10-02T15:30-07:00");
+    let day = date(2026, 10, 2);
+    let lists: BTreeMap<String, String> = [("Genshin Impact".to_string(), "games".to_string())].into();
+    assert!(ledger.report_usage_in_lists("phone", day, apps(&[("Genshin Impact", hours(&[(20, 30)]))]), lists, now));
+    assert_eq!(ledger.day(day, now).usage_lists["Genshin Impact"], "games");
+    assert_eq!(ledger.history(1, now)[0].used_lists["Genshin Impact"], "games");
+}

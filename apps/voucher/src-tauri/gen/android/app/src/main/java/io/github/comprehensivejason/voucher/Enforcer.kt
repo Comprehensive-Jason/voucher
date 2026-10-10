@@ -278,12 +278,14 @@ object Enforcer {
             val hours = foregroundByHour(ctx, packages, from, to, zone) ?: return
             val pm = ctx.packageManager
             val apps = JSONObject()
+            val lists = JSONObject()
             for ((pkg, h) in hours.toSortedMap()) {
                 if (h.all { it == 0 }) continue
                 val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
                 apps.put(label, JSONArray(h.toList()))
+                blocklistOf(ctx, status, pkg)?.let { lists.put(label, it) }
             }
-            val body = JSONObject().put("device", Store.deviceId(ctx)).put("day", d).put("apps", apps)
+            val body = JSONObject().put("device", Store.deviceId(ctx)).put("day", d).put("apps", apps).put("lists", lists)
             val text = apps.toString()
             if (d == day && text == Store.usageSent(ctx, d)) continue
             if (runCatching { LedgerClient.post(c, "/usage", body) }.getOrNull() == 200) {
@@ -320,6 +322,20 @@ object Enforcer {
             .put("apps", list)
             .put("blockedOpens", attempts.values.sum())
             .put("closedWithoutTearing", Store.closedWithoutTearing(ctx, decision))
+    }
+
+    /** The switched-on blocklist (its id) that blocks `pkg`: the one naming
+     *  it, or, for a game, one that blocks every game. Null if neither. */
+    private fun blocklistOf(ctx: Context, status: JSONObject, pkg: String): String? {
+        val lists = status.optJSONObject("settings")?.optJSONObject("blocklists") ?: return null
+        val on = lists.keys().asSequence().filter { lists.optJSONObject(it)?.optBoolean("on") == true }.toList()
+        fun names(id: String, entry: String): Boolean {
+            val apps = lists.optJSONObject(id)?.optJSONArray("apps") ?: return false
+            return (0 until apps.length()).any { apps.optJSONObject(it)?.optString("package") == entry }
+        }
+        on.firstOrNull { names(it, pkg) }?.let { return it }
+        val game = runCatching { ctx.packageManager.getApplicationInfo(pkg, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME }.getOrDefault(false)
+        return if (game) on.firstOrNull { names(it, "category:game") } else null
     }
 
     /** Today's Day from a cached status, without contacting the Ledger. */
