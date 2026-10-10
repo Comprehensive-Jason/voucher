@@ -3,7 +3,7 @@
   // week or month), a cell per hour from 06:00, brighter for more Vouchers.
   // Newest at the bottom; scroll up for earlier ones, as far as the log
   // keeps them. The busiest hour's column is outlined, with its time and
-  // "busiest" over it. The hours sit under the rows, outside the scroller,
+  // "busiest over N Days" over it (every Day the log keeps hours for). The hours sit under the rows, outside the scroller,
   // so they never move.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
@@ -82,7 +82,8 @@
   // Opens on the row holding the shared Day (today's, at first), and goes back to it after a switch.
   let scroller = $state<HTMLDivElement>();
 
-  /** The column of the busiest hour across everything in view, or null with nothing earned. */
+  /** The column of the busiest hour across every Day the log keeps hours for
+   *  (not only the rows in view), or null with nothing earned. */
   const busiest = $derived.by(() => {
     const sums = Array.from({ length: COLS }, (_, c) => rows.reduce((a, r) => a + r.cells[c], 0));
     const top = Math.max(...sums);
@@ -108,7 +109,8 @@
         <!-- The busiest hour: a label beside its column, on the same columns as the rows. -->
         {#if busiest !== null}
           {@const time = `${String(hourOf(busiest)).padStart(2, "0")}:00`}
-          <div class="cols peak" aria-hidden="true"><span style="grid-column: {peakSpan}" class:end={busiest >= COLS / 2}>{#if busiest >= COLS / 2}busiest <b>{time}</b>{:else}<b>{time}</b> busiest{/if}</span></div>
+          {@const over = `over ${kept.length} ${kept.length === 1 ? "Day" : "Days"}`}
+          <div class="cols peak" aria-hidden="true"><span style="grid-column: {peakSpan}" class:end={busiest >= COLS / 2}>{#if busiest >= COLS / 2}busiest {over} <b>{time}</b>{:else}<b>{time}</b> busiest {over}{/if}</span></div>
         {/if}
         <div class="rows" bind:this={scroller}>
           {#each rows as r (r.key)}

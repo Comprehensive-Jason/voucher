@@ -14,6 +14,7 @@
   import { shortDate } from "../../time";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
+  import { heat } from "../../heat.svelte";
   import type { DayTotal, SourceProgress } from "../../types";
   const fit = fitsSlot();
 
@@ -51,7 +52,8 @@
     return date === 2 || date >= last - 1 ? "" : shortDate(day, today);
   };
 
-  const CELL = 13, GAP = 3;
+  // Squares as big as Activity's, so both grids read the same.
+  const CELL = $derived(heat.cell), GAP = $derived(heat.gap);
   let scroller = $state<HTMLDivElement>();
   /** Scrolls a Day's column to the middle (or the end, for today). */
   function reveal(day: string, smooth: boolean) {
@@ -101,19 +103,23 @@
   .side:not(.runs) { width: 96px; }
   /* As wide as its longest run ("12 Days"), so the words fit. */
   .runs { min-width: 34px; }
-  .name { font-size: 12.5px; line-height: var(--cell); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .run { font: 500 11px/var(--cell) var(--mono); color: var(--muted); text-align: right; white-space: nowrap; }
+  .name { font-size: 13px; line-height: var(--cell); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .run { font: 500 12px/var(--cell) var(--mono); color: var(--muted); text-align: right; white-space: nowrap; }
   /* The longest run going: name and run in ink. */
   .name.best { color: var(--ink); font-weight: 600; }
   .run.best { color: var(--ink); font-weight: 700; }
-  /* The Days scroll sideways, inside the card. */
-  .scroll { flex: 1; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  /* The Days scroll sideways, inside the card, with room inside the edges
+     for the shared Day's outline, which the scroller would otherwise clip.
+     The names and runs beside it move down by the same room. */
+  .scroll { flex: 1; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 3px; }
+  .side { padding-top: 3px; }
   .scroll::-webkit-scrollbar { display: none; }
   .track { display: grid; grid-auto-rows: var(--cell); grid-template-rows: 14px; gap: var(--gap); }
   .date { position: relative; }
   .date b { position: absolute; left: 0; bottom: 1px; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); white-space: nowrap; }
   .date.month b { color: var(--muted); font-weight: 700; }
   .date.on b { color: var(--ink); }
-  .cell { display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 3px; background: var(--heat-0); cursor: pointer; }
-  .cell.on { outline: 1.5px solid var(--ink); outline-offset: 0; }
+  .cell { display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 4px; background: var(--heat-0); cursor: pointer; }
+  /* The shared Day, outlined as Activity outlines it. */
+  .cell.on { outline: 2px solid var(--ink); outline-offset: 1px; }
 </style>

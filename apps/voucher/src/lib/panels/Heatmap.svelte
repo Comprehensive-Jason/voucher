@@ -6,6 +6,7 @@
   // Days to come stay blank. Zoomed out to Year, the last 53 weeks squeeze
   // into the same width; the rows never change height, so zooming only
   // squishes the grid sideways. Under either, four numbers for what's in view.
+  import { heat } from "../heat.svelte";
   import type { DayTotal } from "../types";
   import { untrack } from "svelte";
   import TodayButton from "../components/TodayButton.svelte";
@@ -49,6 +50,8 @@
   const fromWidth = $derived(width ? Math.max(14, Math.floor((width - 50) / 12 - 12 / 7)) : 20);
   const cell = $derived(inSlot && graphHeight ? Math.max(8, Math.min(fromWidth, Math.floor((graphHeight - 48) / 7))) : fromWidth);
   const pitch = $derived(cell + GAP);
+  // Other day grids draw their squares this size too.
+  $effect(() => { if (width) heat.cell = cell; });
   /** Weeks that fit across at once. */
   const fit = $derived(Math.max(1, Math.floor((width - 2 * PAD + GAP) / pitch)));
   const yearCell = $derived(Math.max(1, (width - 2 * PAD - (YEAR_WEEKS - 1) * YGAP) / YEAR_WEEKS));
