@@ -14,7 +14,7 @@
   import { monthOf, rolling } from "../../trends";
   import { zoomFade } from "../../motion";
   import type { DayTotal } from "../../types";
-  import { dayOfMoment, notes } from "../../notes.svelte";
+  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
@@ -151,8 +151,7 @@
       { kind: "line", color: "var(--voucher)", label: "Earned" },
       { kind: "line", color: "var(--spend)", label: "Torn" },
       { kind: "dash", color: "var(--ink)", label: "Kept" },
-      ...(marks.some((m) => !m.rule) ? [{ kind: "flag" as const, color: "var(--marker)", label: "Marker" }] : []),
-      ...(marks.some((m) => m.rule) ? [{ kind: "flag" as const, color: "var(--muted)", label: "Rule change" }] : []),
+      ...markerKeys(marks),
     ]} />
   {/if}
 </TrendCard>

@@ -15,7 +15,7 @@
   import { shiftDay, shortDate } from "../time";
   import { easeOut, ms } from "../motion";
   import { fitsSlot } from "../fit.svelte";
-  import { dayOfMoment, notes } from "../notes.svelte";
+  import { markerKeys, dayOfMoment, notes } from "../notes.svelte";
   /** In a tablet slot, the squares also fit the slot's height. */
   const inSlot = fitsSlot();
   let graphHeight = $state(0);
@@ -179,8 +179,7 @@
   {#if keyBelow || inSlot}
     <Legend scale={{ from: "Fewer", colors: HEAT, to: "More" }} items={[
       { kind: "box", color: "var(--goal)", label: `Goal met, ${goal}+` },
-      ...(byHand.size ? [{ kind: "corner" as const, color: "var(--marker)", label: "Marker" }] : []),
-      ...(marked.size > byHand.size ? [{ kind: "corner" as const, color: "var(--muted)", label: "Rule change" }] : []),
+      ...markerKeys(notes.markers, "corner"),
     ]} />
   {/if}
 </section>

@@ -16,7 +16,7 @@
   import { ledger } from "../../api";
   import { inCurfew } from "../../curfew.svelte";
   import { selection } from "../../selection.svelte";
-  import { notes } from "../../notes.svelte";
+  import { markerKeys, notes } from "../../notes.svelte";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
@@ -188,6 +188,7 @@
     <Legend items={[
       { kind: "line", color: "var(--voucher)", label: dayLabel(chosen, today.day) },
       { kind: "box", color: "color-mix(in srgb, var(--voucher) 16%, transparent)", label: `Your usual Day (middle half of the last ${perDay.length})` },
+      ...markerKeys(marks),
     ]} />
   {/if}
 </TrendCard>
