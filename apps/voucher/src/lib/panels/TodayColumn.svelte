@@ -14,10 +14,9 @@
   import type { Live } from "../live.svelte";
   import { wins } from "../celebrate.svelte";
 
-  let { live, wide = false, markerAt = "foot", onmarker }: {
+  let { live, wide = false, onmarker }: {
     live: Live; wide?: boolean;
-    /** Where the tablet's Marker button sits: beside the status card ("status"), or in the foot row (Home draws it there). */
-    markerAt?: "foot" | "status";
+    /** The tablet's Marker button, beside the status card, was tapped. */
     onmarker?: () => void;
   } = $props();
 </script>
@@ -28,7 +27,7 @@
   <BankMeter brand={wide} mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
   <VoucherStack mode={live.mode} bank={Math.max(0, data.bank - wins.held)} unlockMinutes={data.unlockMinutes} room={data.curfewRoomMinutes} curfewStart={data.curfewStart} ontear={live.tear} />
   <ReasonChips tornAt={live.tornAt} />
-  {#if wide && markerAt === "status"}
+  {#if wide}
     <div class="statusrow"><MarkerButton tall onclick={onmarker} /><StatusCard mode={live.mode} now={live.now} {data} /></div>
   {:else}
     <StatusCard mode={live.mode} now={live.now} {data} />

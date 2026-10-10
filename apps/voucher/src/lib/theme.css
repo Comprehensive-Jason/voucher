@@ -26,6 +26,8 @@
   --danger-bg: color-mix(in oklab, var(--danger) 12%, var(--surface));
   --danger-line: color-mix(in oklab, var(--danger) 40%, var(--surface));
   --worse: #b32146;            /* a measure that went the wrong way (down arrows, "No" answers) */
+  --mostly: var(--heat-1);     /* a "Mostly" answer: a weaker yes, the dim green */
+  --mostly-ink: #4fa376;       /* its numbers: the same green, light enough to read (5.2:1 on --raised) */
   --raised: #1f2226;           /* controls and boxes raised on a surface */
   --marker: #e9e6dc;           /* Markers by hand (rule changes use --muted) */
   --heat-0: #22262a;           /* heat grids, fewer to more */

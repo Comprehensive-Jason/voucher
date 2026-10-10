@@ -32,7 +32,7 @@
     if (answered.length < 10) return null;
     if (met.n >= 4 && pct(met.n - met.good, met.n) >= 30) return "Many goal Days went badly: the goal may count the wrong work.";
     if (missed.n >= 4 && pct(missed.good, missed.n) >= 50) return "Many missed Days went well: the goal may ask too much.";
-    return "Goal Days and good Days mostly agree.";
+    return "Goal Days mostly went well, and missed Days mostly didn't.";
   });
   const strip = $derived(history.slice(-28));
   const today = $derived(history.at(-1)?.day ?? "");
@@ -41,7 +41,7 @@
 
 {#snippet summary()}{hint}{/snippet}
 
-<TrendCard title="Goal Days vs good Days" foot={answered.length >= 3 && hint ? summary : undefined}>
+<TrendCard title="Goal vs how the Day went" foot={answered.length >= 3 && hint ? summary : undefined}>
   {#if answered.length < 3}
     <p class="empty">Your answers to the Curfew question ("Did today go the way you wanted?") show here after a few nights.</p>
   {:else}
@@ -59,7 +59,7 @@
     </div>
     <Legend items={[
       { kind: "box", color: "var(--heat-3)", label: "Yes" },
-      { kind: "box", color: "#8f8640", label: "Mostly" },
+      { kind: "box", color: "var(--mostly)", label: "Mostly" },
       { kind: "box", color: "var(--worse)", label: "No" },
       { kind: "box", color: "var(--heat-0)", label: "No answer" },
       { kind: "frame", color: "var(--goal)", label: "Goal met" },
@@ -80,9 +80,9 @@
   .row.gold { color: var(--goal); }
   /* Each count in a box with the shared stat boxes' look (theme.css .stats). */
   .n { text-align: center; padding: 8px 10px; border-radius: 10px; background: var(--raised); font: 700 18px/1.1 var(--mono); min-width: 0; }
-  .n.yes { color: var(--voucher); } .n.mostly { color: #d9c65b; } .n.no { color: var(--worse); }
+  .n.yes { color: var(--voucher); } .n.mostly { color: var(--mostly-ink); } .n.no { color: var(--worse); }
   .strip { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: 3px; }
   .strip i { aspect-ratio: 1; border-radius: 3px; background: var(--heat-0); box-sizing: border-box; }
-  .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: #8f8640; } .strip i.no { background: var(--worse); }
+  .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: var(--mostly); } .strip i.no { background: var(--worse); }
   .strip i.met { outline: 1.5px solid var(--goal); outline-offset: -1.5px; }
 </style>

@@ -107,7 +107,7 @@
   /* The shared button, tinted for the Curfew sheet; each answer warms to its own colour when pressed. */
   .answers .btn { background: #1f2440; border-color: var(--night-voucher); }
   .answers .yes:hover, .answers .yes:active { background: var(--heat-1); }
-  .answers .mostly:hover, .answers .mostly:active { background: #3a3a1f; }
+  .answers .mostly:hover, .answers .mostly:active { background: var(--mostly); }
   .answers .no:hover, .answers .no:active { background: #4a2626; }
   .later { align-self: center; }
   /* The Markers step: the sheet's own gap between its parts, the chips tinted like the answers. */

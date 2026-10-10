@@ -22,7 +22,6 @@
   import { historyDays } from "$lib/time";
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
   import RulesNotices from "$lib/components/RulesNotices.svelte";
-  import MarkerButton from "$lib/components/MarkerButton.svelte";
   import MarkerSheet from "$lib/components/MarkerSheet.svelte";
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
@@ -60,9 +59,7 @@
   // The tablet's other columns refresh less often than the Voucher stack.
   // An answer that hasn't changed is dropped, so the cards don't all redraw
   // (a long pause on the tablet) for nothing.
-  // The Marker button: in the foot row, or beside the status card
-  // (`?marker=status` previews that, while Jason chooses).
-  const markerAt: "foot" | "status" = typeof location !== "undefined" && new URLSearchParams(location.search).get("marker") === "status" ? "status" : "foot";
+  /** The Marker button beside the status card opens the Marker choices. */
   let addingMarker = $state(false);
   const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   async function loadWide() {
@@ -304,7 +301,6 @@
     <a class="iconbtn" href="/rules" aria-label="Rules">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
     </a>
-    {#if markerAt === "foot"}<MarkerButton onclick={() => (addingMarker = true)} />{/if}
     </span>
   {/snippet}
   {#snippet panel(id: PanelId)}
@@ -334,7 +330,7 @@
        down, in Arrange's order and sizes (a third is about a landscape
        third's height). -->
   <div class="wide portrait">
-    <section class="col today"><TodayColumn {live} wide {markerAt} onmarker={() => (addingMarker = true)} /><RulesNotices /><div class="leftfoot">{@render rulesButton()}</div></section>
+    <section class="col today"><TodayColumn {live} wide onmarker={() => (addingMarker = true)} /><RulesNotices /><div class="leftfoot">{@render rulesButton()}</div></section>
     <div class="vstrip" role="group" aria-label="Charts">
       {#each arrangement.order as id (id)}
         <div class="slot" role="group" aria-label={PANELS[id].name} style="height: calc({arrangement.size(id)} * var(--third) + {arrangement.size(id) - 1} * var(--gap)); flex: none">
@@ -347,7 +343,7 @@
   {:else}
   <div class="wide">
     <section class="col today">
-      <TodayColumn {live} wide {markerAt} onmarker={() => (addingMarker = true)} />
+      <TodayColumn {live} wide onmarker={() => (addingMarker = true)} />
       <!-- Above the page bar, Rules' notices (Protection off, a Loosening
            waiting for the morning, the grace period): the list above gives
            them room, so nothing over them moves when they come or go. -->

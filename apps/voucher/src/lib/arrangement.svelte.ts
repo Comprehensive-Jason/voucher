@@ -31,7 +31,7 @@ export const PANELS: Record<PanelId, { name: string; min: number; max: number; s
   gooddays: { name: "What goes with a good Day", min: 1, max: 2, size: 1 },
   replay: { name: "Replay", min: 1, max: 1, size: 1 },
   focus: { name: "Focus stretches", min: 1, max: 2, size: 1 },
-  verdicts: { name: "Goal Days vs good Days", min: 1, max: 2, size: 1 },
+  verdicts: { name: "Goal vs how the Day went", min: 1, max: 2, size: 1 },
   compare: { name: "Before and after", min: 1, max: 2, size: 1 },
   reasons: { name: "Why you unlock", min: 1, max: 2, size: 1 },
 };
