@@ -1,16 +1,16 @@
 <script lang="ts">
-  // How did a week, month, or year go, as averages (never totals): Vouchers
-  // a Day (against the period before), the top source's share, how often
-  // the goal was met, Distraction a Day, the best Day, and over a year the
-  // best month. It replays the period holding the Day picked on any card,
-  // and its Week/Month switch moves with the others'. Today counts only once
-  // it's the period's only Day, since it's still going.
+  // How did a week, month, or year go, in six averages (never totals):
+  // Vouchers a Day, the top source's share, how often the goal was met;
+  // Distraction a Day, the busiest hour, and how often a Day went well (the
+  // Curfew question). It replays the period holding the Day picked on any
+  // card, and its Week/Month switch moves with the others'. Today counts only
+  // once it's the period's only Day, since it's still going.
   import { untrack } from "svelte";
   import TrendCard from "../../components/TrendCard.svelte";
   import { measured } from "../../notes.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { styleOf } from "../../sources";
-  import { MONTHS, goalRuns, mondayOf } from "../../trends";
+  import { mondayOf } from "../../trends";
   import { zoomFade } from "../../motion";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
@@ -32,24 +32,23 @@
   const shift = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
   const monthStart = (d: string, back = 0) => { const [y, m] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1 - back, 1, 12)).toISOString().slice(0, 10); };
 
-  /** The week, month, or year holding the shared Day, and the one before it. */
+  /** The week, month, or year holding the shared Day. */
   const period = $derived.by(() => {
     const day = selection.day ?? today;
     if (!day) return null;
     if (span === "week") {
       const start = mondayOf(day);
-      return { start, end: shift(start, 6), prevStart: shift(start, -7), prevEnd: shift(start, -1) };
+      return { start, end: shift(start, 6) };
     }
     if (span === "year") {
       const y = Number(day.slice(0, 4));
-      return { start: `${y}-01-01`, end: `${y}-12-31`, prevStart: `${y - 1}-01-01`, prevEnd: `${y - 1}-12-31` };
+      return { start: `${y}-01-01`, end: `${y}-12-31` };
     }
     const start = monthStart(day);
-    return { start, end: shift(monthStart(day, -1), -1), prevStart: monthStart(day, 1), prevEnd: shift(start, -1) };
+    return { start, end: shift(monthStart(day, -1), -1) };
   });
   const inRange = (a: string, b: string) => history.filter((d) => d.day >= a && d.day <= b);
   const days = $derived(period ? inRange(period.start, period.end) : []);
-  const prev = $derived(period ? inRange(period.prevStart, period.prevEnd) : []);
   const sum = (list: DayTotal[], f: (d: DayTotal) => number) => list.reduce((n, d) => n + f(d), 0);
 
   type Card = { big: string; line: string; tone?: "goal" | "spend" };
@@ -57,35 +56,30 @@
   const settled = $derived(days.length > 1 ? days.filter((d) => d.day !== today) : days);
   const perDay = (list: DayTotal[], f: (d: DayTotal) => number) => (list.length ? sum(list, f) / list.length : null);
   const one = (v: number) => v.toFixed(1).replace(/\.0$/, "");
-  /** Averages only, never totals: Vouchers a Day, the top source's share, the goal rate, Distraction a Day, the best Day, and over a year the best month. */
+  /** Six averages, never totals: Vouchers a Day, the top source's share, the goal rate; Distraction a Day, the busiest hour, the good-Day rate. Each says what it is in a few words. */
   const cards = $derived.by((): Card[] => {
     if (!period || !settled.length) return [];
-    const out: Card[] = [];
-    const rate = perDay(settled, (d) => d.earned)!, before = perDay(prev, (d) => d.earned);
-    const span_ = span === "week" ? "week" : span === "month" ? "month" : "year";
-    out.push({ big: one(rate), line: `Vouchers a Day${before !== null ? `, ${rate >= before ? "up" : "down"} from ${one(before)} the ${span_} before` : ""}` });
+    const rate = perDay(settled, (d) => d.earned)!;
     const bySource = new Map<string, number>();
     for (const d of settled) for (const [id, n] of Object.entries(d.by_source ?? {})) bySource.set(id, (bySource.get(id) ?? 0) + n);
     const total = [...bySource.values()].reduce((a, b) => a + b, 0);
     const top = [...bySource.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (top && total) out.push({ big: styleOf(top[0]).name, line: `Top source: ${Math.round((top[1] / total) * 100)}% of Vouchers, about ${one(top[1] / settled.length)} a Day` });
     const met = settled.filter((d) => d.goal_met).length;
-    const longest = Math.max(0, ...goalRuns(settled).map((r) => r.length));
-    out.push({ big: `${Math.round((met / settled.length) * 100)}%`, line: `of Days met the goal${longest > 1 ? `; longest streak ${longest} Days` : ""}`, tone: "goal" });
     // Days no device reported are left out, not counted as none.
-    const kept = settled.filter(measured);
-    const used = perDay(kept, (d) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0));
-    const unlocked = perDay(settled, (d) => d.unlocked_minutes ?? 0)!;
-    out.push({ big: used === null ? "Unknown" : `${Math.round(used)} min`, line: `In Distractions a Day, of ${Math.round(unlocked)} min unlocked${kept.length < settled.length ? `; ${settled.length - kept.length} not measured` : ""}`, tone: "spend" });
-    const best = settled.reduce((a, b) => (b.earned > a.earned ? b : a));
-    out.push({ big: String(best.earned), line: `Best Day, ${best.day.slice(5)}` });
-    if (span === "year") {
-      const months = new Map<string, DayTotal[]>();
-      for (const d of settled) months.set(d.day.slice(0, 7), [...(months.get(d.day.slice(0, 7)) ?? []), d]);
-      const topMonth = [...months.entries()].map(([m, l]) => [m, sum(l, (d) => d.earned) / l.length] as const).sort((a, b) => b[1] - a[1])[0];
-      if (topMonth) out.push({ big: MONTHS[Number(topMonth[0].slice(5, 7)) - 1], line: `Best month, ${one(topMonth[1])} Vouchers a Day` });
-    }
-    return out;
+    const used = perDay(settled.filter(measured), (d) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0));
+    const byHour = Array<number>(24).fill(0);
+    for (const d of settled) (d.hours ?? []).forEach((n, h) => (byHour[h] += n));
+    const busiest = byHour.some((n) => n) ? byHour.indexOf(Math.max(...byHour)) : null;
+    const answered = settled.filter((d) => d.verdict);
+    const good = answered.filter((d) => d.verdict !== "no").length;
+    return [
+      { big: one(rate), line: "Vouchers a Day" },
+      { big: top && total ? styleOf(top[0]).name : "–", line: top && total ? `${Math.round((top[1] / total) * 100)}% of Vouchers` : "Top source" },
+      { big: `${Math.round((met / settled.length) * 100)}%`, line: "Days met the goal", tone: "goal" },
+      { big: used === null ? "–" : `${Math.round(used)} min`, line: "Distracted a Day", tone: "spend" },
+      { big: busiest === null ? "–" : `${String(busiest).padStart(2, "0")}:00`, line: "Busiest hour" },
+      { big: answered.length ? `${Math.round((good / answered.length) * 100)}%` : "–", line: "Days went well" },
+    ];
   });
 </script>
 
@@ -122,5 +116,6 @@
   .tile b { font: 700 22px/1.1 var(--font); color: var(--voucher); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tile b.goal { color: var(--goal); }
   .tile b.spend { color: var(--spend); }
-  .tile span { font-size: 12px; line-height: 1.35; color: var(--muted); }
+  /* One short line under the number, never wrapping into it. */
+  .tile span { font-size: 12px; line-height: 1.3; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>

@@ -129,7 +129,7 @@
     {#if inSlot}<span></span>{:else}<span class="cap">Activity</span>{/if}
     <div class="tools">
       <TodayButton show={awayFromToday} onclick={backToToday} />
-      <ZoomSwitch options={[{ id: "weeks", label: "12 weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />
+      <ZoomSwitch options={[{ id: "weeks", label: `${fit} weeks` }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />
     </div>
   </div>
   <div class="graph" class:fit={inSlot} bind:clientHeight={graphHeight}>
