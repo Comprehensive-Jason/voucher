@@ -5,7 +5,7 @@
   // Log in whatever arrangement was chosen here (see arrangement.svelte.ts).
   import { onMount, tick } from "svelte";
   import { fade } from "svelte/transition";
-  import { arrangement, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
+  import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
   import { fillSlots } from "$lib/fit.svelte";
   import { EASE, ms } from "$lib/motion";
   import { deviceUsage, ledger } from "$lib/api";
@@ -135,48 +135,38 @@
     const left = box.left - strip.scrollLeft + el.offsetLeft, top = box.top + el.offsetTop;
     el.style.transform = `translate(${d.x - d.ox - left}px, ${d.y - d.oy - top}px) scale(1.03)`;
   }
-  /** Where the drop would put it, shown while dragging and applied on release:
-   *  into a column with room (at the finger's height), a column of its own
-   *  (near the side of a full column, or past the last), or a trade of places
-   *  with a panel the same height. Positions are in the strip's own pixels. */
-  type Target = { change: () => void; ghost?: { left: number; top: number; width: number; height: number }; bar?: number; swap?: PanelId };
+  /** Where the drop would put it, shown while dragging and applied on release.
+   *  Panels flow in reading order (down each column, then across), so the
+   *  drop is a place in that order: on a panel's upper half, before it; on
+   *  its lower half, after it; in empty space, after whatever comes before
+   *  that spot. The dashed outline shows where it would end up once the
+   *  panels flow again. Positions are in the strip's own pixels. */
+  type Target = { at: number; ghost: { left: number; top: number; width: number; height: number } };
   let target = $state<Target | null>(null);
   function retarget() {
     const d = dragging;
     if (!d || !strip) return;
-    const snaps = [...strip.querySelectorAll<HTMLElement>(":scope > .snap")];
     const box = strip.getBoundingClientRect();
     const x = d.x - box.left + strip.scrollLeft, y = d.y - box.top;
-    const width = snaps[0] ? (strip.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0) : 0;
+    const width = strip.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0, pitch = width + 24;
     const gap = 20, rowH = (strip.clientHeight - gap * (ROWS - 1)) / ROWS;
-    const heightOf = (thirds: number) => thirds * rowH + (thirds - 1) * gap;
+    const colUnder = Math.max(0, Math.floor(x / pitch));
+    const others = arrangement.order.filter((p) => p !== d.id);
+    const at = others.filter((p) => {
+      const el = slotOf(p);
+      if (!el) return false;
+      const col = Math.round(el.offsetLeft / pitch);
+      return col < colUnder || (col === colUnder && el.offsetTop + el.offsetHeight / 2 < y);
+    }).length;
+    const next = [...others];
+    next.splice(at, 0, d.id);
+    if (next.join() === arrangement.order.join()) { target = null; return; }
+    // Where it would land.
+    const cols = flow(next, arrangement.sizes);
+    const col = cols.findIndex((c) => c.includes(d.id));
+    const row = cols[col].slice(0, cols[col].indexOf(d.id)).reduce((n, p) => n + arrangement.size(p), 0);
     const size = arrangement.size(d.id);
-    const from = arrangement.columns.findIndex((c) => c.includes(d.id));
-    const col = snaps.findIndex((el) => x < el.offsetLeft + width + 12);
-    // Past the last column: a column of its own at the end.
-    if (col < 0) {
-      const last = arrangement.columns.at(-1)!;
-      target = from === arrangement.columns.length - 1 && last.length === 1 ? null
-        : { change: () => arrangement.place(d.id, arrangement.columns.length, 0), ghost: { left: strip.querySelector<HTMLElement>(".endcol")!.offsetLeft, top: 0, width, height: heightOf(size) } };
-      return;
-    }
-    const left = snaps[col].offsetLeft, rel = (x - left) / width;
-    const others = arrangement.columns[col].filter((p) => p !== d.id);
-    if (arrangement.fits(d.id, col) && rel >= 0.15 && rel <= 0.85) {
-      const at = others.filter((p) => { const el = slotOf(p); return el && el.offsetTop + el.offsetHeight / 2 < y; }).length;
-      const top = others.slice(0, at).reduce((n, p) => n + arrangement.size(p), 0);
-      const same = from === col && arrangement.columns[col].indexOf(d.id) === at;
-      target = same ? null : { change: () => arrangement.place(d.id, col, at), ghost: { left, top: top * (rowH + gap), width, height: heightOf(size) } };
-      return;
-    }
-    if (rel < 0.15 || rel > 0.85) {
-      const at = rel < 0.15 ? col : col + 1;
-      const alone = from >= 0 && arrangement.columns[from].length === 1 && (from === at || from === at - 1);
-      target = alone ? null : { change: () => arrangement.column(d.id, at), bar: rel < 0.15 ? left - 12 : left + width + 12 };
-      return;
-    }
-    const over = others.find((p) => { const el = slotOf(p); return el && y >= el.offsetTop && y < el.offsetTop + el.offsetHeight; });
-    target = over && arrangement.size(over) === size ? { change: () => arrangement.swap(d.id, over), swap: over } : null;
+    target = { at, ghost: { left: col * pitch, top: row * (rowH + gap), width, height: size * rowH + (size - 1) * gap } };
   }
   /** Held at either edge of the strip while dragging (a quarter second, so
    *  passing near it doesn't count), the strip scrolls. */
@@ -211,7 +201,7 @@
     // Everything, the dragged panel too, slides from where it is to its new
     // place (or back to its old one): measured with the drag's offset, which
     // then comes off.
-    rearrange(() => { dragging = null; el.style.transform = ""; drop?.change(); });
+    rearrange(() => { dragging = null; el.style.transform = ""; if (drop) arrangement.move(el.dataset.id as PanelId, drop.at); });
   }
   // Once a drag is under way the finger mustn't scroll the strip too.
   $effect(() => {
@@ -275,7 +265,7 @@
              into another column stays the same element under the finger. -->
         {#each placed as p (p.id)}
           {@const id = p.id}
-          <div class="slot" role="group" aria-label={PANELS[id].name} class:lifted={dragging?.id === id} class:swapping={dragging && target?.swap === id} data-id={id}
+          <div class="slot" role="group" aria-label={PANELS[id].name} class:lifted={dragging?.id === id} data-id={id}
             style="grid-column: {p.col + 1}; grid-row: {p.row + 1} / span {p.size}; --jiggle: {(p.col * 3 + p.row) % 4}"
             onpointerdown={(e) => onPress(e, id)}>
             {@render panel(id)}
@@ -297,7 +287,6 @@
         {/each}
         <!-- Where a drop would land. -->
         {#if dragging && target?.ghost}<div class="ghost" style="left: {target.ghost.left}px; top: {target.ghost.top}px; width: {target.ghost.width}px; height: {target.ghost.height}px"></div>{/if}
-        {#if dragging && target?.bar !== undefined}<div class="bar" style="left: {target.bar - 2}px"></div>{/if}
         <!-- The end of the row: hidden panels come back here. -->
         <div class="endcol" style="grid-column: {arrangement.columns.length + 1}">
           {#if arranging}
@@ -330,7 +319,8 @@
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
   /* The Today column takes a third of the width and stays put; the strip
      beside it scrolls, with two columns in view. */
-  .wide { height: 100%; display: flex; gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 0 28px 28px; box-sizing: border-box; }
+  /* The bottom margin is deep enough to hold the "more" and Done pills well clear of the screen's edge. */
+  .wide { height: 100%; display: flex; gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 0 calc(64px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
   .wide > .today { flex: 0 0 calc((100% - 28px - 48px) / 3); }
   .stripwrap { position: relative; flex: 1; min-width: 0; display: flex; }
   /* One grid: a column per arrangement column (two in view), three equal
@@ -348,10 +338,8 @@
   .arranging .slot > :global(*:not(.tools)) { pointer-events: none; opacity: .5; }
   .slot > :global(*:not(.tools)) { transition: opacity var(--t-base); }
   @keyframes jiggle { from { rotate: -0.3deg; } to { rotate: 0.3deg; } }
-  /* Drop markers: a dashed place in a column, a bar between columns, or the panel it would trade with. */
+  /* Where a drop would land: a dashed outline of the panel's place. */
   .ghost { position: absolute; z-index: 4; border-radius: 18px; border: 2px dashed var(--voucher); background: rgba(61, 220, 132, .08); pointer-events: none; transition: left var(--t-quick) var(--ease-out), top var(--t-quick) var(--ease-out), height var(--t-quick) var(--ease-out); }
-  .bar { position: absolute; z-index: 4; top: 0; bottom: 0; width: 4px; border-radius: 2px; background: var(--voucher); pointer-events: none; }
-  .slot.swapping { outline: 2px dashed var(--voucher); outline-offset: 4px; border-radius: 18px; }
   .slot.lifted { z-index: 10; animation: none; filter: drop-shadow(0 14px 28px rgba(0, 0, 0, .6)); }
   .tools { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 18px; border: 2px dashed #3a3f45; cursor: grab; animation: toolsin var(--t-base) var(--ease-out); }
   @keyframes toolsin { from { opacity: 0; } }
@@ -367,10 +355,10 @@
   .endcol .reset { color: var(--muted); font-weight: 500; font-size: 13px; }
   .endcol .arrange { color: var(--muted); }
   .endcol .hint { font-size: 12px; color: #6f757b; }
-  .donepill { position: absolute; right: 28px; bottom: -32px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
+  .donepill { position: absolute; right: 28px; bottom: -42px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
   /* Columns off to the right: how many, and a tap to slide one over. */
   /* Just under the cards, in the page's bottom margin, so it covers nothing. */
-  .morecue { position: absolute; right: 28px; bottom: -27px; z-index: 6; height: 24px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #1f2226; color: var(--ink); font: 700 12px var(--font); display: flex; align-items: center; gap: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
+  .morecue { position: absolute; right: 28px; bottom: -40px; z-index: 6; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #1f2226; color: var(--ink); font: 700 12px var(--font); display: flex; align-items: center; gap: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
   /* Everything in the Today column keeps its size; the list of sources takes
      what's left and scrolls under its fixed heading when it's long. */

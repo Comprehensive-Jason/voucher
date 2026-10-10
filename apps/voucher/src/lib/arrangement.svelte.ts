@@ -1,6 +1,8 @@
-// Which panels the tablet shows right of the Today column, and where: a row
-// of columns that scrolls sideways. Each column is three equal rows high, and
-// each panel takes one, two, or all three of them; some have one size, others
+// Which panels the tablet shows right of the Today column, and in what
+// order. They flow into a row of columns that scrolls sideways: each column is
+// three equal rows high, each panel takes one, two, or all three of them, and
+// panels pack top to bottom, then left to right, so a column only keeps a gap
+// when the next panel is too tall for it. Some panels have one size, others
 // can be resized within a range. You arrange them on the tablet itself; the
 // arrangement is kept on this device (a phone shows its own layout), and
 // anything it can't read falls back to the default.
@@ -29,135 +31,91 @@ export const PANELS: Record<PanelId, { name: string; min: number; max: number; s
 /** Thirds in a column. */
 export const ROWS = 3;
 
-const DEFAULT: PanelId[][] = [["earned", "heat"], ["distraction", "pace"], ["log"], ["when", "trend"], ["runway", "strength", "ladder"], ["records", "streaks"]];
+const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "ladder", "records", "streaks"];
 const KEY = "tablet-arrangement";
 
 type Sizes = Partial<Record<PanelId, number>>;
 const clampSize = (id: PanelId, n: unknown) => Math.min(PANELS[id].max, Math.max(PANELS[id].min, Number(n) || PANELS[id].size));
 
-/** Drops unknown and repeated panels, and moves whatever doesn't fit in a
- *  column into a new column right after it; empty columns go. */
-function tidy(columns: PanelId[][], sizes: Sizes): PanelId[][] {
-  const seen = new Set<PanelId>();
+/** Panels in order into columns: each joins the current column if it fits,
+ *  otherwise starts the next. */
+export function flow(order: PanelId[], sizes: Sizes): PanelId[][] {
   const out: PanelId[][] = [];
-  for (const column of columns) {
-    let current: PanelId[] = [], used = 0;
-    for (const id of column) {
-      if (!(id in PANELS) || seen.has(id)) continue;
-      seen.add(id);
-      const size = clampSize(id, sizes[id]);
-      if (used + size > ROWS && current.length) { out.push(current); current = []; used = 0; }
-      current.push(id);
-      used += size;
-    }
-    if (current.length) out.push(current);
+  let current: PanelId[] = [], used = 0;
+  for (const id of order) {
+    const size = clampSize(id, sizes[id]);
+    if (used + size > ROWS && current.length) { out.push(current); current = []; used = 0; }
+    current.push(id);
+    used += size;
   }
+  if (current.length) out.push(current);
   return out;
 }
 
-/** A saved arrangement, with any panel added since it was saved placed as
- *  the default places it (hidden ones stay hidden). The first saves were a
- *  bare list of columns and knew the first four panels. */
-function load(): { columns: PanelId[][]; sizes: Sizes } {
+/** Known panels, each once. */
+const clean = (list: unknown[]) => [...new Set(list.filter((id): id is PanelId => typeof id === "string" && id in PANELS))];
+
+/** A saved arrangement, with any panel added since it was saved placed where
+ *  the default places it (hidden ones stay hidden). Earlier saves kept
+ *  columns (the first, a bare list of them, knew the first four panels);
+ *  their order is read top to bottom, left to right. */
+function load(): { order: PanelId[]; sizes: Sizes } {
   try {
     const raw = JSON.parse(remembered(KEY) ?? "null");
     const saved = Array.isArray(raw) ? { columns: raw, seen: ["earned", "heat", "distraction", "log"], sizes: {} } : raw;
-    if (saved && Array.isArray(saved.columns) && saved.columns.every(Array.isArray)) {
-      const sizes: Sizes = saved.sizes ?? {};
-      const fresh = DEFAULT.map((c) => c.filter((id) => !saved.seen?.includes(id))).filter((c) => c.length);
-      return { columns: tidy([...saved.columns, ...fresh], sizes), sizes };
+    if (saved && (Array.isArray(saved.order) || Array.isArray(saved.columns))) {
+      const order = clean(Array.isArray(saved.order) ? saved.order : saved.columns.flat());
+      const seen: string[] = saved.seen ?? [];
+      for (const id of DEFAULT) {
+        if (seen.includes(id) || order.includes(id)) continue;
+        // After the panel the default puts before it, or first.
+        const before = DEFAULT.slice(0, DEFAULT.indexOf(id)).reverse().find((p) => order.includes(p));
+        order.splice(before ? order.indexOf(before) + 1 : 0, 0, id);
+      }
+      return { order, sizes: saved.sizes ?? {} };
     }
   } catch { /* the default, below */ }
-  return { columns: DEFAULT.map((c) => [...c]), sizes: {} };
+  return { order: [...DEFAULT], sizes: {} };
 }
 
 class Arrangement {
   #start = load();
-  columns = $state<PanelId[][]>(this.#start.columns);
+  order = $state<PanelId[]>(this.#start.order);
   sizes = $state<Sizes>(this.#start.sizes);
-  hidden = $derived((Object.keys(PANELS) as PanelId[]).filter((id) => !this.columns.some((c) => c.includes(id))));
+  columns = $derived(flow(this.order, this.sizes));
+  hidden = $derived((Object.keys(PANELS) as PanelId[]).filter((id) => !this.order.includes(id)));
 
   /** Its height in thirds. */
   size(id: PanelId): number { return clampSize(id, this.sizes[id]); }
-  #used(column: PanelId[]): number { return column.reduce((n, id) => n + this.size(id), 0); }
 
-  #set(next: PanelId[][]) {
-    this.columns = tidy(next, this.sizes);
-    remember(KEY, JSON.stringify({ columns: this.columns, sizes: this.sizes, seen: Object.keys(PANELS) }));
+  #save() {
+    remember(KEY, JSON.stringify({ order: this.order, sizes: this.sizes, seen: Object.keys(PANELS) }));
   }
-  #where(id: PanelId): [number, number] {
-    const col = this.columns.findIndex((c) => c.includes(id));
-    return [col, col < 0 ? -1 : this.columns[col].indexOf(id)];
+  /** Where a dragged panel goes: position `at` among the others. */
+  move(id: PanelId, at: number) {
+    const rest = this.order.filter((p) => p !== id);
+    rest.splice(Math.max(0, Math.min(at, rest.length)), 0, id);
+    this.order = rest;
+    this.#save();
   }
-
-  /** Into the column before (-1) or after (+1), at its bottom, if there's
-   *  room; past either end it starts a new column. */
-  sideways(id: PanelId, by: -1 | 1) {
-    const [col] = this.#where(id);
-    if (col < 0) return;
-    const next = this.columns.map((c) => c.filter((p) => p !== id));
-    const to = col + by;
-    if (to < 0) next.unshift([id]);
-    else if (to >= next.length) next.push([id]);
-    else if (this.#used(next[to]) + this.size(id) <= ROWS) next[to].push(id);
-    // No room: a column of its own between the two, or, if it was alone
-    // (so that would be where it already is), past the neighbour.
-    else {
-      const alone = next[col].length === 0;
-      next.splice(by > 0 ? (alone ? to + 1 : to) : alone ? to : to + 1, 0, [id]);
-    }
-    this.#set(next);
-  }
-  /** Whether it fits in column `col` (leaving its own place, if it's there). */
-  fits(id: PanelId, col: number): boolean {
-    const column = this.columns[col];
-    return !column || this.#used(column.filter((p) => p !== id)) + this.size(id) <= ROWS;
-  }
-  /** Where a dragged panel goes: into column `col` at position `at`, or a new
-   *  last column when `col` is past the end. */
-  place(id: PanelId, col: number, at: number) {
-    const next = this.columns.map((c) => c.filter((p) => p !== id));
-    if (col >= next.length) next.push([id]);
-    else next[col].splice(Math.min(at, next[col].length), 0, id);
-    this.#set(next);
-  }
-  /** Two panels trade places (a drag onto one the same height). */
-  swap(a: PanelId, b: PanelId) {
-    this.#set(this.columns.map((c) => c.map((p) => (p === a ? b : p === b ? a : p))));
-  }
-  /** A dragged panel as a column of its own, before column `col`. */
-  column(id: PanelId, col: number) {
-    const next = this.columns.map((c) => c.filter((p) => p !== id));
-    next.splice(col, 0, [id]);
-    this.#set(next);
-  }
-  /** Up (-1) or down (+1) past its neighbour in the column. */
-  shift(id: PanelId, by: -1 | 1) {
-    const [col, at] = this.#where(id);
-    const to = at + by;
-    if (col < 0 || to < 0 || to >= this.columns[col].length) return;
-    this.#set(this.columns.map((c, i) => {
-      if (i !== col) return c;
-      const out = [...c];
-      [out[at], out[to]] = [out[to], out[at]];
-      return out;
-    }));
-  }
-  /** A new height in thirds; anything it pushes out of its column moves to a new column after it. */
+  /** A new height in thirds; the panels after it flow on from there. */
   resize(id: PanelId, thirds: number) {
     this.sizes = { ...this.sizes, [id]: clampSize(id, thirds) };
-    this.#set(this.columns);
+    this.#save();
   }
   hide(id: PanelId) {
-    this.#set(this.columns.map((c) => c.filter((p) => p !== id)));
+    this.order = this.order.filter((p) => p !== id);
+    this.#save();
   }
-  /** Back in, as a column of its own at the end. */
+  /** Back in, at the end. */
   show(id: PanelId) {
-    this.#set([...this.columns, [id]]);
+    this.order = [...this.order.filter((p) => p !== id), id];
+    this.#save();
   }
   reset() {
     this.sizes = {};
-    this.#set(DEFAULT.map((c) => [...c]));
+    this.order = [...DEFAULT];
+    this.#save();
   }
 }
 
