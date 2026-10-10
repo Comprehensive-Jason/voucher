@@ -97,5 +97,5 @@
   .col i { display: block; width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: #2fb36b; opacity: .5; transition: height var(--t-move) var(--ease-out); }
   .col i.now { background: var(--voucher); opacity: 1; }
   .col i.best { outline: 2px solid var(--goal); outline-offset: -2px; opacity: 1; }
-  .axis { display: flex; justify-content: space-between; font: 500 10px var(--mono); color: var(--muted); }
+  .axis { display: flex; justify-content: space-between; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); }
 </style>

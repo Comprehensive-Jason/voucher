@@ -122,7 +122,7 @@
   .rows { position: relative; display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .rows::-webkit-scrollbar { display: none; }
   .row i { display: block; height: 14px; border-radius: 3px; }
-  .label { font: 500 10px var(--mono); color: var(--muted); }
+  .label { font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); }
   /* The row holding the Day picked on any card. */
   .row.chosen .label { color: var(--ink); font-weight: 700; }
   .row.chosen i { box-shadow: 0 0 0 1px rgba(242, 242, 240, .5); }

@@ -103,7 +103,7 @@
   .scroll::-webkit-scrollbar { display: none; }
   .track { display: grid; grid-auto-rows: var(--cell); grid-template-rows: 14px; gap: var(--gap); }
   .date { position: relative; }
-  .date b { position: absolute; left: 0; bottom: 1px; font: 500 9px var(--mono); color: #6f757b; white-space: nowrap; }
+  .date b { position: absolute; left: 0; bottom: 1px; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); white-space: nowrap; }
   .date.month b { color: var(--muted); font-weight: 700; }
   .date.on b { color: var(--ink); }
   .cell { display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 3px; background: #22262a; cursor: pointer; }

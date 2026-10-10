@@ -43,11 +43,10 @@
   // grid, so the cells are a little smaller and more weeks fit across. Both
   // views share the rows; only the columns differ.
   let width = $state(0); // the grid's width, right of the weekday labels
-  let tilesHeight = $state(64);
   const GAP = 4, YGAP = 2, PAD = 3, YEAR_WEEKS = 53;
   // In a slot, no taller than its height allows: the month row (14), the
   // outline room (6), and 7 gaps (28), with 7 rows of squares.
-  const fromWidth = $derived(width ? Math.max(14, Math.floor((width - 50) / 12 - (12 + tilesHeight) / 7)) : 20);
+  const fromWidth = $derived(width ? Math.max(14, Math.floor((width - 50) / 12 - 12 / 7)) : 20);
   const cell = $derived(inSlot && graphHeight ? Math.max(8, Math.min(fromWidth, Math.floor((graphHeight - 48) / 7))) : fromWidth);
   const pitch = $derived(cell + GAP);
   /** Weeks that fit across at once. */
@@ -109,27 +108,6 @@
 
   // ---- Numbers ----
   /** The weeks on screen: all of the year, or the weeks scrolled into view. */
-  const inView = $derived.by(() => {
-    if (zoom === "year") return year;
-    const first = Math.max(0, Math.min(weeks.length - fit, Math.round(scrollLeft / pitch)));
-    return weeks.slice(first, first + fit);
-  });
-  const stats = $derived.by(() => {
-    const kept = inView.flatMap((w) => w.days).filter((d) => !d.blank).map((d) => byDay.get(d.day)!);
-    let run = 0, best = 0;
-    for (const d of kept) { run = d.goal_met ? run + 1 : 0; best = Math.max(best, run); }
-    const months = new Map<string, number>();
-    for (const d of kept) months.set(d.day.slice(0, 7), (months.get(d.day.slice(0, 7)) ?? 0) + d.earned);
-    const top = [...months.entries()].sort((a, b) => b[1] - a[1])[0];
-    const earned = kept.reduce((n, d) => n + d.earned, 0);
-    return {
-      earned,
-      goalDays: kept.filter((d) => d.goal_met).length,
-      best,
-      average: kept.length ? (earned / kept.length).toFixed(1) : "–",
-      topMonth: top ? MONTHS[Number(top[0].slice(5, 7)) - 1] : "–",
-    };
-  });
 
   // "Today": back to the latest weeks, with today picked.
   const awayFromToday = $derived((zoom === "weeks" && !atEnd) || (!!selected && !!lastDay && selected !== lastDay));
@@ -153,14 +131,6 @@
       <TodayButton show={awayFromToday} onclick={backToToday} />
       <ZoomSwitch options={[{ id: "weeks", label: "12 weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />
     </div>
-  </div>
-  <!-- What's in view, in numbers. -->
-  <div class="stats" bind:offsetHeight={tilesHeight}>
-    <div><b>{stats.earned.toLocaleString("en-US")}</b><span>earned</span></div>
-    <div class="gold"><b>{stats.goalDays}</b><span>goal Days</span></div>
-    <div class="gold"><b>{stats.best}</b><span>best streak</span></div>
-    {#if zoom === "year"}<div><b>{stats.topMonth}</b><span>best month</span></div>
-    {:else}<div><b>{stats.average}</b><span>per Day</span></div>{/if}
   </div>
   <div class="graph" class:fit={inSlot} bind:clientHeight={graphHeight}>
     <!-- Shared by both views and outside the scroller, so they never move or bounce. -->
@@ -208,7 +178,7 @@
   /* In a tablet slot the grid takes the spare height and sizes its squares to it. */
   .graph.fit { flex: 1; min-height: 0; overflow: hidden; }
   .labels { flex: none; width: 26px; display: grid; grid-template-rows: 14px repeat(7, var(--cell)); gap: 4px; padding: 3px 0; }
-  .weekday, .month { font: 500 10px/1 var(--mono); color: var(--muted); display: flex; align-items: center; white-space: nowrap; }
+  .weekday, .month { font: 500 var(--axis-size)/1 var(--mono); color: var(--axis-ink); display: flex; align-items: center; white-space: nowrap; }
   /* The two views overlap here. Clipped on the left only, where a squeezing
      view would spill over the labels; the last month's name may run into
      the card's padding on the right. */

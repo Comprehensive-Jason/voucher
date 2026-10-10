@@ -650,7 +650,7 @@
   .chart { position: relative; }
   /* Tick lines sit behind the bars (the columns come later and are positioned). */
   .tick { position: absolute; left: -16px; right: 0; border-top: 1px dashed #2c3036; pointer-events: none; }
-  .tick span { position: absolute; left: 0; bottom: -5px; font-size: 9px; line-height: 1; color: #6f757b; background: var(--surface); padding-right: 3px; }
+  .tick span { position: absolute; left: 0; bottom: -5px; font-size: var(--axis-size); line-height: 1; color: var(--axis-ink); background: var(--surface); padding-right: 3px; }
   .col {
     position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 3px;
     height: 100%; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
@@ -689,7 +689,7 @@
   .col.goal .n { color: var(--goal); font-weight: 700; }
   .row.goalrow b { color: var(--goal); }
   .row.goalrow.zero b { color: var(--muted); }
-  .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  .axis { display: flex; justify-content: space-between; font-size: var(--axis-size); color: var(--axis-ink); }
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
   .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: #1f2226; font-size: 13px; color: #c9cdd1; }

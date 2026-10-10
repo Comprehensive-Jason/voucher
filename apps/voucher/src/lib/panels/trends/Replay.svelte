@@ -10,7 +10,7 @@
   import { measured } from "../../notes.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { styleOf } from "../../sources";
-  import { goalRuns, mondayOf } from "../../trends";
+  import { MONTHS, goalRuns, mondayOf } from "../../trends";
   import { zoomFade } from "../../motion";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
@@ -18,26 +18,31 @@
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();
-  type Span = "week" | "month";
+  type Span = "week" | "month" | "year";
   let span = $state<Span>("week");
-  // Follows the shared Week or Month (Day leaves it as it is).
+  // Follows the shared Week or Month (Day leaves it as it is). Year is this
+  // card's own: no other card shows a year, so it isn't shared.
   $effect(() => {
     selection.seq;
     untrack(() => { if (selection.from !== "replay" && selection.span !== "day") span = selection.span; });
   });
-  function pick(next: Span) { span = next; selection.set("replay", { span: next, picked: false }); }
+  function pick(next: Span) { span = next; if (next !== "year") selection.set("replay", { span: next, picked: false }); }
 
   const today = $derived(history.at(-1)?.day ?? "");
   const shift = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
   const monthStart = (d: string, back = 0) => { const [y, m] = d.split("-").map(Number); return new Date(Date.UTC(y, m - 1 - back, 1, 12)).toISOString().slice(0, 10); };
 
-  /** The week or month holding the shared Day, and the one before it. */
+  /** The week, month, or year holding the shared Day, and the one before it. */
   const period = $derived.by(() => {
     const day = selection.day ?? today;
     if (!day) return null;
     if (span === "week") {
       const start = mondayOf(day);
       return { start, end: shift(start, 6), prevStart: shift(start, -7), prevEnd: shift(start, -1) };
+    }
+    if (span === "year") {
+      const y = Number(day.slice(0, 4));
+      return { start: `${y}-01-01`, end: `${y}-12-31`, prevStart: `${y - 1}-01-01`, prevEnd: `${y - 1}-12-31` };
     }
     const start = monthStart(day);
     return { start, end: shift(monthStart(day, -1), -1), prevStart: monthStart(day, 1), prevEnd: shift(start, -1) };
@@ -67,8 +72,16 @@
     if (used || unlocked) out.push({ big: kept.length ? `${used} min` : "Unknown", line: `In Distractions, of ${unlocked} min unlocked${gap ? `; ${gap} ${gap === 1 ? "Day" : "Days"} not measured` : ""}`, tone: "spend" });
     const best = days.reduce((a, b) => (b.earned > a.earned ? b : a));
     out.push({ big: String(best.earned), line: `Best Day, ${best.day}` });
-    // The question: the weekday that earned least on average (a month has every weekday more than once).
-    if (span === "month") {
+    // Over a month or a year: the everyday rate, and over a year its best month (what Activity's year view used to sum up).
+    if (span !== "week") out.push({ big: (earned / days.length).toFixed(1), line: "Vouchers per Day on average" });
+    if (span === "year") {
+      const months = new Map<string, number>();
+      for (const d of days) months.set(d.day.slice(0, 7), (months.get(d.day.slice(0, 7)) ?? 0) + d.earned);
+      const topMonth = [...months.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (topMonth) out.push({ big: MONTHS[Number(topMonth[0].slice(5, 7)) - 1], line: `Best month, ${topMonth[1]} Vouchers` });
+    }
+    // The question: the weekday that earned least on average (a month or a year has every weekday more than once).
+    if (span !== "week") {
       const weekdays = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
       const per = weekdays.map((_, i) => days.filter((d) => (new Date(`${d.day}T12:00:00Z`).getUTCDay() + 6) % 7 === i));
       const avg = per.map((l) => (l.length ? sum(l, (d) => d.earned) / l.length : Infinity));
@@ -81,7 +94,7 @@
 
 <TrendCard title="Replay" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: span, onpick: (d) => selection.set("replay", { day: d === today ? null : d, picked: false }) }}>
   {#snippet tools()}
-    <ZoomSwitch options={[{ id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onchange={(v) => pick(v as Span)} />
+    <ZoomSwitch options={[{ id: "week", label: "Week" }, { id: "month", label: "Month" }, { id: "year", label: "Year" }]} value={span} onchange={(v) => pick(v as Span)} />
   {/snippet}
   {#if !cards.length}
     <p class="empty">Nothing in this {span} yet.</p>

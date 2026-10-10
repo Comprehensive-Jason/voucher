@@ -122,6 +122,6 @@
   .axis { flex: none; }
   .dot { cursor: pointer; }
   /* HourAxis's look: 10px mono hour labels, Curfew's in the night colour. */
-  .axis text.hour { font-size: calc(10px * var(--k, 1)); font-weight: 500; }
+  .axis text.hour { font-size: calc(var(--axis-size) * var(--k, 1)); font-weight: 500; }
   .axis text.hour.night { fill: #7d8cff; }
 </style>

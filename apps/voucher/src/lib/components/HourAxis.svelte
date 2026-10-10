@@ -17,6 +17,6 @@
 
 <style>
   .hours { display: grid; }
-  span { font: 500 10px var(--mono); color: var(--muted); white-space: nowrap; }
+  span { font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); white-space: nowrap; }
   span.night { color: #7d8cff; }
 </style>

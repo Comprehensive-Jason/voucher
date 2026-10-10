@@ -1,9 +1,9 @@
 // What a dated card's switcher shows and does for the shared Day: one Day,
-// week, or month back or forward, never past today or before the card's
+// week, month, or year back or forward, never past today or before the card's
 // oldest Day. CardHead draws it.
 import { periodLabel, shiftDay } from "./time";
 
-export type Unit = "day" | "week" | "month";
+export type Unit = "day" | "week" | "month" | "year";
 /** A dated card's Day, today, how far back it goes, what one step is, and what to do with the Day it moves to. */
 export type DateProps = { day: string; today: string; oldest?: string; unit?: Unit; onpick: (day: string) => void };
 
@@ -22,11 +22,11 @@ function shiftMonth(d: string, n: number) {
 export function stepper({ day, today, oldest, unit = "day", onpick }: DateProps) {
   if (!isDay(day) || !isDay(today)) return null;
   const step = (n: number) => {
-    const next = unit === "day" ? shiftDay(day, n) : unit === "week" ? shiftDay(day, 7 * n) : shiftMonth(day, n);
+    const next = unit === "day" ? shiftDay(day, n) : unit === "week" ? shiftDay(day, 7 * n) : shiftMonth(day, unit === "year" ? 12 * n : n);
     return next > today ? today : next;
   };
   const label = periodLabel(unit, day, today);
-  const current = label === "Today" || label === "This week" || label === "This month";
+  const current = label === "Today" || label === "This week" || label === "This month" || label === "This year";
   const atStart = !!oldest && isDay(oldest) && (unit === "day" ? day <= oldest : periodLabel(unit, oldest, today) === label);
   return {
     nav: { label, back: !atStart, forward: !current, onback: () => onpick(step(-1)), onforward: () => onpick(step(1)) },

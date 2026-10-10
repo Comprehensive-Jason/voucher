@@ -36,8 +36,12 @@ const mondayOf = (day: string) => shiftDay(day, -((new Date(`${day}T12:00:00Z`).
 /** What a date switcher shows for the Day, week, or month holding `day`:
  *  "Today", "This week", "Last week", "Week of 09-14", "This month", "Sep",
  *  "Sep 2025". The same words on every card. */
-export function periodLabel(unit: "day" | "week" | "month", day: string, today: string): string {
+export function periodLabel(unit: "day" | "week" | "month" | "year", day: string, today: string): string {
   if (unit === "day") return dayLabel(day, today);
+  if (unit === "year") {
+    const y = Number(day.slice(0, 4)), ty = Number(today.slice(0, 4));
+    return y === ty ? "This year" : y === ty - 1 ? "Last year" : String(y);
+  }
   if (unit === "week") {
     const monday = mondayOf(day), now = mondayOf(today);
     if (monday === now) return "This week";

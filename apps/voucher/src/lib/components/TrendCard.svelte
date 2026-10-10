@@ -26,9 +26,9 @@
   /* Charts draw in SVG; their text keeps the app's mono figures. */
   .card :global(svg.chart) { display: block; width: 100%; height: auto; overflow: visible; }
   /* Text inside a chart stays one size however wide the card is: each chart
-     sets --k to its drawing's units per pixel (W / its width), so 11px
-     on screen is 11 * --k units in the drawing. */
-  .card :global(svg.chart text) { font-family: var(--mono); font-size: calc(11px * var(--k, 1)); fill: var(--muted); }
+     sets --k to its drawing's units per pixel (W / its width), so the
+     axis size on screen is that many px times --k in the drawing. */
+  .card :global(svg.chart text) { font-family: var(--mono); font-size: calc(var(--axis-size) * var(--k, 1)); fill: var(--axis-ink); }
   /* Filling a tablet slot: the chart's box takes the spare height and its
      drawing is redrawn to that shape (see drawHeight). */
   .fit :global(.plot) { flex: 1; min-height: 0; }

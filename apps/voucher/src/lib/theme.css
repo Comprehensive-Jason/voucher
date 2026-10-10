@@ -58,6 +58,10 @@ button { font: inherit; color: inherit; }
 .empty { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
 .lead b { color: var(--ink); font-family: var(--mono); }
+/* Axis labels (hours, dates, ticks) on every chart: small and dim, so they
+   give scale without competing with the data. Axis names stay their own
+   style (ChartAxis). */
+:root { --axis-size: 9px; --axis-ink: #6f757b; }
 /* A dashboard tile (Trends cards, the bar graphs, Activity, the Log): one
    shell, so every heading sits at the same height. A named container, so
    controls can shrink on a narrow tile. */

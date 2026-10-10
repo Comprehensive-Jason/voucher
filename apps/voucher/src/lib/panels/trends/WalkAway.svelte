@@ -69,6 +69,6 @@
      instead; green, from the bottom, for the walk-aways; a grey stub for none. */
   .bar { width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
   .bar i { display: block; background: var(--voucher); }
-  .label { position: absolute; bottom: -18px; font: 500 10px var(--mono); color: var(--muted); }
+  .label { position: absolute; bottom: -18px; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); }
   .label.chosen { color: var(--ink); font-weight: 700; }
 </style>
