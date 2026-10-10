@@ -4,13 +4,13 @@
   // wide screen, Apps, Sites, and the installed apps sit side by side.
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
   import { ledger } from "$lib/api";
   import Tag from "$lib/components/Tag.svelte";
   import EntryList from "$lib/components/EntryList.svelte";
   import AddEntrySheets from "$lib/components/AddEntrySheets.svelte";
   import AppPicker from "$lib/components/AppPicker.svelte";
   import ColorButton from "$lib/components/ColorButton.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import ColorSheet from "$lib/components/ColorSheet.svelte";
   import SiteField from "$lib/components/SiteField.svelte";
   import { wide } from "$lib/wide.svelte";
@@ -72,13 +72,9 @@
 </script>
 
 <main class:split={wide.on}>
-  <header>
-    <button class="back" aria-label="Back to blocklists" onclick={() => goto("/rules/distractions")}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-    </button>
-    <h1>Edit blocklist</h1>
+  <PageHeader title="Edit blocklist" back="/rules/distractions" backLabel="Back to Distractions">
     {#if list}<Tag premade={list.premade} />{/if}
-  </header>
+  </PageHeader>
   {#if error}<p class="error">{error}</p>{/if}
 
   {#if list}
@@ -99,14 +95,14 @@
 
         {#if !wide.on}{@render sites()}{/if}
 
-        <div class="foot">Adding an entry applies now. Switching one off, or removing one you added, waits for {morning}.</div>
-        {#if note}<div class="foot">{note}</div>{/if}
+        <div class="footnote">Adding: now. Switching off or removing: at {morning}.</div>
+        {#if note}<div class="footnote">{note}</div>{/if}
 
         <div class="actions">
           {#if list.premade}
-            <button class="ghost" onclick={() => send({ ResetBlocklist: id })}>Reset to the premade list</button>
+            <button class="btn wide" onclick={() => send({ ResetBlocklist: id })}>Reset to the premade list</button>
           {:else}
-            <button class="ghost danger" onclick={async () => { await send({ DeleteBlocklist: id }); }}>Delete blocklist (at {morning})</button>
+            <button class="btn wide danger" onclick={async () => { await send({ DeleteBlocklist: id }); }}>Delete blocklist at {morning}</button>
           {/if}
         </div>
       </div>
@@ -133,27 +129,22 @@
 <AddEntrySheets mode={adding} onclose={() => (adding = null)} onapp={addApp} onsite={addSite} />
 
 {#if coloring && list}
-  <ColorSheet title="{list.name} colour" current={list.color} onpick={(c) => { coloring = false; if (c) send({ BlocklistColor: { id, color: c } }); }} onclose={() => (coloring = false)} />
+  <ColorSheet title="{list.name} color" current={list.color} onpick={(c) => { coloring = false; if (c) send({ BlocklistColor: { id, color: c } }); }} onclose={() => (coloring = false)} />
 {/if}
 
 <style>
-  main { min-height: 100%; padding: calc(12px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 10px; }
+  main { min-height: 100%; padding: 0 20px 12px; display: flex; flex-direction: column; gap: 10px; }
   .namerow { display: flex; gap: 10px; }
   .namerow input { flex: 1; min-width: 0; }
   .panes, .pane { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
   /* Wide: Apps, Sites, and the installed apps, each scrolling on its own. */
-  main.split { height: 100%; min-height: 0; padding: 24px 32px; gap: 16px; }
+  main.split { height: 100%; min-height: 0; padding: 0 32px 24px; gap: 16px; }
   main.split .panes { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; }
   main.split .pane { min-height: 0; overflow-y: auto; }
-  header { display: flex; align-items: center; gap: 4px; margin-left: -12px; }
-  .back { width: 44px; height: 44px; padding: 0; background: none; border: 0; color: var(--ink); display: flex; align-items: center; justify-content: center; }
-  h1 { flex: 1; margin: 0; font-size: 22px; font-weight: 700; }
   .field { display: flex; flex-direction: column; gap: 6px; }
-  input { height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 14px; font: 700 15px var(--font); }
+  input { height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 14px; font: 700 15px var(--font); }
   input:focus { outline: none; border-color: var(--voucher); }
-  .foot { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .ghost { min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: none; color: var(--ink); font: 700 14px var(--font); }
-  .danger { color: #ff8a7a; }
-  .error { color: var(--goal); }
+  .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .error { margin: 0; color: var(--danger); }
 </style>

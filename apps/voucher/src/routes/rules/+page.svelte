@@ -1,11 +1,12 @@
 <script lang="ts">
+  // Rules. On a phone: the Limits tab (the Rules layout draws the title and
+  // tabs). On a wide screen: Limits, Sources, and Distractions side by side,
+  // then Extras (preview and export), as a sheet over Today that slides back
+  // down to it.
+  import { goto } from "$app/navigation";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import RulesNotices from "$lib/components/RulesNotices.svelte";
   import { NOTICES_IN_HEADER } from "$lib/notices";
-  // Rules. On a phone: Limits, with tabs for Sources and Distractions. On a
-  // wide screen: all three side by side, then Extras (preview and export), as
-  // a sheet over Today that slides back down to it.
-  import { goto } from "$app/navigation";
-  import RulesTabs from "$lib/components/RulesTabs.svelte";
   import LimitsPanel from "$lib/panels/LimitsPanel.svelte";
   import SourcesPanel from "$lib/panels/SourcesPanel.svelte";
   import DistractionsPanel from "$lib/panels/DistractionsPanel.svelte";
@@ -15,40 +16,27 @@
 
 {#if wide.on}
   <div class="wide">
-    <header>
-      <button class="back" aria-label="Back to Today" onclick={() => goto("/")}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-      </button>
-      <h1>Rules</h1>
+    <PageHeader title="Rules" back={() => goto("/")} backIcon="down" backLabel="Back to Today">
+      <!-- Page-wide notices fill the header beside the title. -->
       {#if NOTICES_IN_HEADER}<div class="noticeslot"><RulesNotices row /></div>{/if}
-    </header>
+    </PageHeader>
     <div class="cols">
-      <section><LimitsPanel heading /></section>
-      <section><SourcesPanel heading /></section>
-      <section><DistractionsPanel heading /></section>
-      <section><ExtrasPanel heading /></section>
+      <div class="col"><LimitsPanel heading /></div>
+      <div class="col"><SourcesPanel heading /></div>
+      <div class="col"><DistractionsPanel heading /></div>
+      <div class="col"><ExtrasPanel heading /></div>
     </div>
   </div>
 {:else}
-  <main>
-    <RulesTabs active="limits" />
-    <LimitsPanel />
-  </main>
+  <LimitsPanel />
 {/if}
 
 <style>
-  main { padding: calc(20px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 12px; }
   /* On a wide screen the page itself never scrolls: each column scrolls on
      its own (and bounces at its ends), under a heading that stays put. */
-  .wide { height: 100%; padding: calc(24px + env(safe-area-inset-top)) 28px 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
-  header { display: flex; align-items: center; gap: 4px; margin-left: -12px; }
-  .back { width: 44px; height: 44px; padding: 0; background: none; border: 0; color: var(--ink); display: flex; align-items: center; justify-content: center; }
-  h1 { margin: 0; font-size: 26px; font-weight: 700; }
-  /* Page-wide notices fill the header beside the title. */
-  .noticeslot { flex: 1; min-width: 0; margin-left: 28px; }
-  header { flex: none; }
+  .wide { height: 100%; padding: 0 28px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+  .noticeslot { flex: 1; min-width: 0; margin-left: 16px; }
   /* Extras holds two rows, so it gets less width than the rules beside it. */
   .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, .75fr); gap: 24px; }
-  /* Each panel scrolls under its own heading. */
-  section { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .col { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 </style>

@@ -42,7 +42,7 @@
   // Pages that open over another slide up from the bottom, and slide back
   // down when closed: Rules over Today on the tablet, and a source's or a
   // blocklist's editor over Rules everywhere.
-  const editor = (path?: string) => !!path && /^\/rules\/(sources\/group|distractions\/(edit|new))/.test(path);
+  const editor = (path?: string) => !!path && /^\/rules\/(sources\/group|distractions\/(edit|new)|preview)/.test(path);
   onNavigate((nav) => {
     const from = nav.from?.url.pathname, to = nav.to?.url.pathname;
     const overToday = wide.on && (from === "/" && to === "/rules" ? "up" : from === "/rules" && to === "/" ? "down" : null);

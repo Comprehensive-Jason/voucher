@@ -4,12 +4,13 @@
   // The hatched part is the room left on the strict side. Moving toward the
   // strict end applies now; moving toward the loose end waits for 06:00 and
   // leaves a dashed ghost knob where the pending value will land.
+  // `kind="unlock"` is the same with a salmon fill, since salmon means Unlock.
   // `kind="goal"` draws a plain amber fill instead, with no strict or loose side.
   // `strict="right"` flips the sides, for rates where a bigger number is
   // stricter (more minutes per Voucher). `small` is the compact source slider.
   let { min, max, step = 1, value, pending = null, kind = "limit", strict = "left", small = false, onpreview, onchange }: {
     min: number; max: number; step?: number; value: number; pending?: number | null;
-    kind?: "limit" | "goal"; strict?: "left" | "right"; small?: boolean;
+    kind?: "limit" | "unlock" | "goal"; strict?: "left" | "right"; small?: boolean;
     /** Told the value the knob is snapped to while dragging, for the label to show; null when let go. */
     onpreview?: (value: number | null) => void;
     onchange: (value: number) => void;
@@ -43,6 +44,7 @@
 <div
   class="track"
   class:small
+  class:unlock={kind === "unlock"}
   bind:this={track}
   onpointerdown={down}
   onpointermove={move}
@@ -75,6 +77,8 @@
   .room { background: repeating-linear-gradient(135deg, #3a3f45 0 4px, #22262a 4px 8px); }
   .knob { position: absolute; top: 2px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px rgba(61, 220, 132, .25); }
   .knob.goal { box-shadow: 0 0 0 4px rgba(255, 181, 71, .25); }
+  .unlock .strictness { background: var(--spend); }
+  .unlock .knob { box-shadow: 0 0 0 4px rgba(255, 138, 122, .25); }
   .small .knob { top: 4px; width: 20px; height: 20px; margin-left: -10px; box-shadow: none; }
   .small .ghost { top: 4px; width: 18px; height: 18px; margin-left: -9px; }
   .ghost { position: absolute; top: 2px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; border: 2px dashed var(--goal); }

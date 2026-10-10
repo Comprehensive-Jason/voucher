@@ -8,14 +8,14 @@ export interface SourceStyle { name: string; short: string; color: string; sub?:
 
 /** Defaults for the sources Voucher ships with, and for ones from before
  *  groups (`readwise`, `moonreader`) that older log entries still name. None
- *  may sit near salmon, the Unlock colour (see palette.ts). */
+ *  may sit near salmon (Unlocks) or gold (the Daily goal); see palette.ts. */
 export const SOURCES: Record<string, SourceStyle> = {
   tasks: { name: "Tasks", short: "Tasks", color: "#5b9cff" },
   obsidian: { name: "Obsidian", short: "Obsidian", color: "#b08cff" },
-  workout: { name: "Workout", short: "Workout", color: "#c08f08" },
-  reading: { name: "Reading", short: "Reading", color: "#ffd166" },
-  readwise: { name: "Readwise Reader", short: "Reader", color: "#ffd166" },
-  moonreader: { name: "Moon+ Reader", short: "Moon+", color: "#e0a82e" },
+  workout: { name: "Workout", short: "Workout", color: "#e2781f" },
+  reading: { name: "Reading", short: "Reading", color: "#c1d58a" },
+  readwise: { name: "Readwise Reader", short: "Reader", color: "#c1d58a" },
+  moonreader: { name: "Moon+ Reader", short: "Moon+", color: "#8ba60c" },
   anki: { name: "Anki", short: "Anki", color: "#f3b2e6" },
   steps: { name: "Steps", short: "Steps", color: "#05afa5" },
 };
@@ -27,8 +27,10 @@ const SERVICES: Record<string, SourceStyle> = {
 };
 
 /** Colours for groups the user makes, in the order new ones take them (light
- *  swatches from the palette, so the picker shows them as chosen). */
-export const SPARE = ["#7dd9fb", "#c1d58a", "#f3b2e6", "#d1bfff", "#e9c57d", "#76e0d6", "#feb98c"];
+ *  swatches from the palette, so the picker shows them as chosen). A group
+ *  without a saved colour takes one by its id's hash, so entries keep their
+ *  places: the two near gold were swapped in place for light blue and pale orange. */
+export const SPARE = ["#7dd9fb", "#c1d58a", "#f3b2e6", "#d1bfff", "#aeccfe", "#76e0d6", "#e6c2ae"];
 
 /** Earnings name a service; they count toward the Tasks group. */
 export const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);

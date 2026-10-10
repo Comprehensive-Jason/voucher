@@ -1,11 +1,11 @@
 <script lang="ts">
-  // The phone's Distractions tab (the Rules layout draws the title and tabs). On a
+  // The phone's Extras tab (the Rules layout draws the title and tabs). On a
   // wide screen every Rules panel shares one page.
   import { goto } from "$app/navigation";
-  import DistractionsPanel from "$lib/panels/DistractionsPanel.svelte";
+  import ExtrasPanel from "$lib/panels/ExtrasPanel.svelte";
   import { wide } from "$lib/wide.svelte";
 
   $effect(() => { if (wide.on) goto("/rules", { replaceState: true }); });
 </script>
 
-<DistractionsPanel />
+<ExtrasPanel />

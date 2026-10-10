@@ -65,5 +65,5 @@
   .state { width: 30px; height: 30px; flex: none; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; }
   .state.on { border-color: var(--voucher); background: var(--voucher); color: var(--voucher-ink); }
   .row:focus-visible { outline: 2px solid var(--voucher); outline-offset: 2px; border-radius: 8px; }
-  .empty { margin: 8px 0; font-size: 13px; color: var(--muted); }
+  .list .empty { margin: 8px 0; }
 </style>

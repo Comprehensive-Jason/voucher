@@ -91,7 +91,7 @@ button { font: inherit; color: inherit; }
 
 /* Buttons, one look per role, in two sizes. Primary is the one main action;
    ghost is quiet; danger destroys or weakens something. */
-.btn { height: 44px; padding: 0 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 700 15px var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base), scale var(--t-quick) var(--ease-out); }
+.btn { text-decoration: none; height: 44px; padding: 0 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 700 15px var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base), scale var(--t-quick) var(--ease-out); }
 .btn:active:not(:disabled) { scale: .97; }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.primary { background: var(--voucher); border-color: transparent; color: var(--voucher-ink); }

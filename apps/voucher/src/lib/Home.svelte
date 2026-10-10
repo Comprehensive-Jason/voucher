@@ -41,6 +41,7 @@
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import VerdictSheet from "$lib/components/VerdictSheet.svelte";
   import CardTab from "$lib/components/CardTab.svelte";
+  import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
@@ -375,19 +376,17 @@
               <div class="tools" role="group" aria-label="Arrange {PANELS[id].name}">
                 <span class="pname">{PANELS[id].name}</span>
                 {#if PANELS[id].max > PANELS[id].min}
-                  <div class="sizes" role="group" aria-label="Height">
-                    {#each [1, 2, 3].filter((n) => n >= PANELS[id].min && n <= PANELS[id].max) as n}
-                      <button class:on={arrangement.size(id) === n} aria-pressed={arrangement.size(id) === n} onclick={() => rearrange(() => arrangement.resize(id, n))}>{n === 3 ? "Full" : `${n}/3`}</button>
-                    {/each}
+                  <div class="sizes">
+                    <ZoomSwitch size="large" label="Height" options={[1, 2, 3].filter((n) => n >= PANELS[id].min && n <= PANELS[id].max).map((n) => ({ id: String(n), label: n === 3 ? "Full" : `${n}/3` }))} value={String(arrangement.size(id))} onchange={(v) => rearrange(() => arrangement.resize(id, Number(v)))} />
                   </div>
                 {/if}
-                <button class="hide" aria-label="Hide {PANELS[id].name}" onclick={() => hide(id)}>Hide</button>
+                <button class="btn small ghost" aria-label="Hide {PANELS[id].name}" onclick={() => hide(id)}>Hide</button>
               </div>
             {/if}
           </div>
         {/each}
         <!-- Where a drop would land. -->
-        {#if dragging && target?.ghost}<div class="ghost" style="left: {target.ghost.left}px; top: {target.ghost.top}px; width: {target.ghost.width}px; height: {target.ghost.height}px"></div>{/if}
+        {#if dragging && target?.ghost}<div class="dropghost" style="left: {target.ghost.left}px; top: {target.ghost.top}px; width: {target.ghost.width}px; height: {target.ghost.height}px"></div>{/if}
         <!-- While arranging, one more column at the end: hidden panels come back here. -->
         {#if arranging}
           <div class="endcol" style="grid-column: {arrangement.columns.length + 1}" transition:fade={{ duration: ms("base") }}>
@@ -412,7 +411,7 @@
      beside it scrolls, with two columns in view. */
   /* The right margin sits outside the strip, so every page (two columns)
      scrolls exactly into place, the last one too. The bottom margin is deep enough to hold the "more" and Done pills well clear of the screen's edge. */
-  .wide { --gap: 20px; height: 100%; display: flex; gap: var(--gap); padding: calc(21px + env(safe-area-inset-top)) 28px calc(21px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
+  .wide { --gap: 20px; height: 100%; display: flex; gap: var(--gap); padding: calc(10px + env(safe-area-inset-top)) 28px calc(21px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
   .wide > .today { flex: 0 0 calc((100% - 2 * var(--gap)) / 3); }
   /* Upright: two equal columns, the cards scrolling up and down; no page bar, so less room at the bottom. */
   .wide.portrait { --third: 300px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
@@ -442,15 +441,13 @@
   .slot > :global(*:not(.tools)) { transition: opacity var(--t-base); }
   @keyframes jiggle { from { rotate: -0.3deg; } to { rotate: 0.3deg; } }
   /* Where a drop would land: a dashed outline of the panel's place. */
-  .ghost { position: absolute; z-index: 4; border-radius: 18px; border: 2px dashed var(--voucher); background: rgba(61, 220, 132, .08); pointer-events: none; transition: left var(--t-quick) var(--ease-out), top var(--t-quick) var(--ease-out), height var(--t-quick) var(--ease-out); }
+  .dropghost { position: absolute; z-index: 4; border-radius: 18px; border: 2px dashed var(--voucher); background: rgba(61, 220, 132, .08); pointer-events: none; transition: left var(--t-quick) var(--ease-out), top var(--t-quick) var(--ease-out), height var(--t-quick) var(--ease-out); }
   .slot.lifted { z-index: 10; animation: none; filter: drop-shadow(0 14px 28px rgba(0, 0, 0, .6)); }
   .tools { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 18px; border: 2px dashed #3a3f45; cursor: grab; animation: toolsin var(--t-base) var(--ease-out); }
   @keyframes toolsin { from { opacity: 0; } }
   .pname { font: 700 15px var(--font); color: var(--ink); }
-  .tools .hide { height: 36px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 13px var(--font); cursor: pointer; }
-  .sizes { display: flex; padding: 2px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); }
-  .sizes button { height: 34px; min-width: 52px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: 700 13px var(--font); cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick); }
-  .sizes button.on { background: var(--line); color: var(--ink); }
+  /* The size picker is the shared switch at its large size. */
+  .sizes { width: 200px; }
   /* A whole column wide, so the row still stops on a column's edge at its end. */
   .endcol { grid-row: 1 / -1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; }
   .endcol > button { width: 100%; max-width: 240px; min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 700 14px var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; }

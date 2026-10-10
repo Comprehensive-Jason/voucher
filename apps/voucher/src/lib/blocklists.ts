@@ -27,7 +27,8 @@ export function siteName(site: string): string {
   return lists[site] ?? site;
 }
 
-export const LIST_COLORS = ["#e5609b", "#9d3d5b", "#e2781f", "#7d8cff", "#5bc8ff", "#9be36d", "#c3a6ff"];
+/** Colours new blocklists take in turn. None is the Curfew indigo, salmon, or gold. */
+export const LIST_COLORS = ["#e5609b", "#9d3d5b", "#e2781f", "#d26ec1", "#5bc8ff", "#9be36d", "#c3a6ff"];
 
 /** The colour of the blocklist an app is on, matched by its name, or grey
  *  when it's on none (Distraction time and the blocked-app screen use it). */

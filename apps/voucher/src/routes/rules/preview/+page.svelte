@@ -4,11 +4,13 @@
   // Tile proposed for the Galaxy Watch (the Bank as the outer ring, the three
   // sources closest to their next Voucher as rings inside it). The switches
   // try it in other states. Only a preview: neither is installed from here.
+  // Opened from Rules' Extras, so it lives under /rules and Back returns there.
   import { onMount } from "svelte";
-  import { goto } from "$app/navigation";
   import { Live } from "$lib/live.svelte";
   import { styleOf } from "$lib/sources";
   import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
+  import { wide } from "$lib/wide.svelte";
   import type { Today } from "$lib/types";
 
   const live = new Live();
@@ -77,21 +79,18 @@
   const bank = $derived(ring(88, data ? data.bank / (data.bankLimit || 24) : 0));
 </script>
 
-<main>
-  <header>
-    <button class="back" aria-label="Back" onclick={() => goto("/")}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-    </button>
-    <h1>Wallpaper and watch</h1>
+<main class:wide={wide.on}>
+  <PageHeader title="Wallpaper and watch" back={wide.on ? "/rules" : "/rules/extras"} backLabel="Back to Rules" />
+  <div class="states">
     <ZoomSwitch label="State" options={[{ id: "now", label: "Now" }, { id: "curfew", label: "Curfew" }, { id: "empty", label: "Empty Bank" }, { id: "full", label: "Full Bank" }]} value={look} onchange={(v) => (look = v as Look)} />
-  </header>
+  </div>
   <p class="note">A preview from today's numbers. The wallpaper is installed with the app and chosen in Android's wallpaper picker; the watch Tile isn't built yet.</p>
   {#if data}
     <div class="row">
       <figure>
         <!-- The S24 Ultra's screen shape, at a third of its pixels. -->
         <div class="phone"><canvas bind:this={canvas} width="480" height="1040"></canvas></div>
-        <figcaption>Live wallpaper: the Bank as a fill in today's source colours</figcaption>
+        <figcaption>Live wallpaper: the Bank as a fill in today's source colors</figcaption>
       </figure>
       <figure>
         <div class="watch" class:night={data.curfewActive}>
@@ -118,10 +117,9 @@
 </main>
 
 <style>
-  main { padding: calc(24px + env(safe-area-inset-top)) 28px 28px; display: flex; flex-direction: column; gap: 16px; }
-  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  h1 { margin: 0; font-size: 24px; flex: 1; }
-  .back { width: 40px; height: 40px; border: 0; border-radius: 12px; background: none; color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  main { padding: 0 20px 28px; display: flex; flex-direction: column; gap: 16px; }
+  main.wide { padding: 0 32px 28px; }
+  .states { display: flex; }
   .note { margin: 0; color: var(--muted); font-size: 14px; }
   .row { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
   figure { margin: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }

@@ -148,7 +148,7 @@ const settings = {
         site("list:invidious", "Known public instances, kept up to date"), site("list:piped", "Known public instances, kept up to date")] },
     reddit: { name: "Reddit", color: "#e2781f", premade: true, on: true,
       apps: [app("com.reddit.frontpage", "Reddit")], sites: [site("reddit.com", "All subdomains")] },
-    games: { name: "Games", color: "#7d8cff", premade: false, on: true,
+    games: { name: "Games", color: "#d26ec1", premade: false, on: true,
       apps: [app("com.example.chess", "Chess", null, true), app("com.example.puzzle", "Puzzle", null, true),
         app("com.example.cards", "Cards", null, true), app("com.example.words", "Words", null, true)], sites: [] },
   } as Record<string, Blocklist>,

@@ -1,8 +1,9 @@
 <script lang="ts">
-  // One source group: its name, colour, and what it counts. With no `id` it
+  // One source group: its name, color, and what it counts. With no `id` it
   // makes a new group, sent to the Ledger on Save. On a wide screen the
-  // installed apps stay open beside the group, so adding one is a single tap. Taking an app out, renaming, or
-  // deleting applies now; a new group, or a new app in one, waits for 06:00.
+  // installed apps stay open beside the group, so adding one is a single tap.
+  // Taking an app out, renaming, or deleting applies now; a new group, or a
+  // new app in one, waits for 06:00.
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -11,6 +12,7 @@
   import AddEntrySheets from "$lib/components/AddEntrySheets.svelte";
   import AppPicker from "$lib/components/AppPicker.svelte";
   import ColorButton from "$lib/components/ColorButton.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import ColorSheet from "$lib/components/ColorSheet.svelte";
   import RuleSlider from "$lib/components/RuleSlider.svelte";
   import { RATE_RANGE, SPARE, defaultColorOf, rateText, styleOf } from "$lib/sources";
@@ -29,7 +31,7 @@
   /** A new group's rate, and the rate a knob is snapped to while dragging. */
   let draftEvery = $state(30);
   let ratePreview = $state<number | null>(null);
-  /** A new group's colour, once picked here. */
+  /** A new group's color, once picked here. */
   let draftColor = $state<string | null>(null);
   /** A new group's apps, before Save. */
   let draft = $state<{ package: string; label: string }[]>([]);
@@ -75,7 +77,7 @@
     send({ SourceApps: { id, packages, labels } });
   }
 
-  /** The first spare colour no source is drawn in yet, for a new group. */
+  /** The first spare color no source is drawn in yet, for a new group. */
   const spare = $derived.by(() => {
     const used = new Set(Object.keys(status?.settings.sources ?? {}).map((s) => styleOf(s).color.toLowerCase()));
     return SPARE.find((c) => !used.has(c.toLowerCase())) ?? SPARE[0];
@@ -126,12 +128,7 @@
 </script>
 
 <main class:split class:solo={wide.on && !split}>
-  <header>
-    <button class="back" aria-label="Back to sources" onclick={back}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-    </button>
-    <h1>{id ? "Edit source" : "New source"}</h1>
-  </header>
+  <PageHeader title={id ? "Edit source" : "New source"} back={back} backLabel="Back to Sources" />
   {#if error}<p class="error">{error}</p>{/if}
 
   {#if !id || group}
@@ -161,37 +158,37 @@
         </div>
 
         {#if !id}
-          <EntryList title="Apps" icons empty={split ? "Tap apps on the right to add them" : "Time in any of these apps counts toward one Voucher"} switches={false}
+          <EntryList title="Apps" icons empty={split ? "Tap apps on the right to add them" : "No apps yet"} switches={false}
             onadd={split ? undefined : () => (adding = true)}
             rows={draft.map((a) => ({ key: a.package, name: a.label, note: a.package, on: true, added: true }))}
             onremove={(key) => (draft = draft.filter((a) => a.package !== key))} />
-          <div class="foot">Time in these apps adds up toward one Voucher. A new source starts counting at {morning}.</div>
-          <button class="primary" disabled={!newId || !draft.length} onclick={save}>Save source</button>
+          <div class="footnote">Time in these apps adds up. A new source counts from {morning}.</div>
+          <button class="btn primary wide save" disabled={!newId || !draft.length} onclick={save}>Save source</button>
         {:else if group}
           {#if group.kind === "focus"}
             <EntryList title="Apps" icons empty="No apps: this source counts nothing" switches={false} onadd={split ? undefined : () => (adding = true)}
               rows={members.map((p) => ({ key: p, name: labelOf(p), note: p.startsWith("win:") ? "Windows" : p, on: true, added: true,
                 waiting: group.packages.includes(p) ? null : `Counts from ${morning}, ${until(queued!.at)}` }))}
               onremove={(key) => setMembers(members.filter((p) => p !== key))} />
-            <div class="foot">Time in these apps adds up toward one Voucher. Taking an app out applies now; adding one waits for {morning}.</div>
+            <div class="footnote">Taking an app out: now. Adding one: at {morning}.</div>
           {:else if group.kind === "tasks"}
             <EntryList title="Services" empty="No services"
               rows={["todoist", "clickup"].map((p) => ({ key: p, name: p === "todoist" ? "Todoist" : "ClickUp", note: null, on: members.includes(p), added: false,
                 waiting: !group.packages.includes(p) && members.includes(p) ? `Counts from ${morning}` : null }))}
               ontoggle={(key, on) => setMembers(on ? [...members, key] : members.filter((p) => p !== key), { todoist: "Todoist", clickup: "ClickUp" })} />
-            <div class="foot">Finished tasks from these services add up toward one Voucher. Switching one off applies now; on waits for {morning}.</div>
+            <div class="footnote">Switching a service off: now. On: at {morning}.</div>
           {:else}
-            <div class="foot">{group.kind === "workout" ? "Heart rate zone minutes" : "Steps"} from Health Connect, reported by your phone.</div>
+            <div class="footnote">{group.kind === "workout" ? "Heart rate zone minutes" : "Steps"} from Health Connect, reported by your phone.</div>
           {/if}
-          {#if note}<div class="foot">{note}</div>{/if}
+          {#if note}<div class="footnote">{note}</div>{/if}
 
           {#if group.kind === "focus"}
             <div class="actions">
               {#if confirming}
-                <button class="ghost danger" onclick={async () => { await send({ DeleteSource: id }); back(); }}>Delete {group.name} now</button>
-                <div class="foot">Deleting applies at once. Adding it back later waits for {morning}.</div>
+                <button class="btn wide danger" onclick={async () => { await send({ DeleteSource: id }); back(); }}>Delete {group.name} now</button>
+                <div class="footnote">Deleting applies now. Adding it back later waits for {morning}.</div>
               {:else}
-                <button class="ghost danger" onclick={() => (confirming = true)}>Delete source</button>
+                <button class="btn wide danger" onclick={() => (confirming = true)}>Delete source</button>
               {/if}
             </div>
           {/if}
@@ -207,36 +204,30 @@
 <AddEntrySheets mode={adding ? "app" : null} games={false} {taken} onclose={() => (adding = false)} onapp={addApp} />
 
 {#if coloring}
-  <ColorSheet title="{name || "New source"} colour" current={color} fallback={id ? defaultColorOf(id) : null}
+  <ColorSheet title="{name || "New source"} color" current={color} fallback={id ? defaultColorOf(id) : null}
     onpick={pickColor} onclose={() => (coloring = false)} />
 {/if}
 
 <style>
-  main { min-height: 100%; padding: calc(12px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 10px; }
+  main { min-height: 100%; padding: 0 20px 12px; display: flex; flex-direction: column; gap: 10px; }
   .panes, .pane { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .namerow { display: flex; gap: 10px; }
   .namerow input { flex: 1; min-width: 0; }
-  .ratecard { border-radius: 14px; background: var(--surface); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .ratecard { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .rate { display: grid; grid-template-columns: minmax(130px, max-content) 1fr; gap: 14px; align-items: center; }
   .rtext { font-size: 14px; font-weight: 700; white-space: nowrap; }
   .rtext.preview { color: var(--muted); }
   .waiting { font-size: 12px; color: var(--goal); }
   .actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
   /* Wide: the group on the left, the installed apps on the right, each scrolling on its own. */
-  main.split { height: 100%; min-height: 0; padding: 24px 32px; gap: 16px; }
+  main.split { height: 100%; min-height: 0; padding: 0 32px 24px; gap: 16px; }
   main.split .panes { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 24px; }
   main.split .pane { min-height: 0; overflow-y: auto; }
   main.solo { width: 100%; max-width: 640px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 4px; margin-left: -12px; }
-  .back { width: 44px; height: 44px; padding: 0; background: none; border: 0; color: var(--ink); display: flex; align-items: center; justify-content: center; }
-  h1 { flex: 1; margin: 0; font-size: 22px; font-weight: 700; }
   .field { display: flex; flex-direction: column; gap: 6px; }
-  input { height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 14px; font: 700 15px var(--font); }
+  input { height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 14px; font: 700 15px var(--font); }
   input:focus { outline: none; border-color: var(--voucher); }
-  .foot { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .primary { margin-top: auto; min-height: 48px; border-radius: 14px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 15px var(--font); }
-  .primary:disabled { background: var(--line); color: var(--muted); }
-  .ghost { min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: none; color: var(--ink); font: 700 14px var(--font); }
-  .danger { color: #ff8a7a; }
-  .error { color: var(--goal); }
+  .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .save { margin-top: auto; }
+  .error { margin: 0; color: var(--danger); }
 </style>

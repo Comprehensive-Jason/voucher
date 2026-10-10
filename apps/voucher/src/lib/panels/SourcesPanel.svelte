@@ -7,6 +7,8 @@
   import { ledger, RULES_CHANGED } from "../api";
   import RuleSlider from "../components/RuleSlider.svelte";
   import Switch from "../components/Switch.svelte";
+  import RulesColumn from "../components/RulesColumn.svelte";
+  import RulesCard from "../components/RulesCard.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
   import { RATE_RANGE, compareSources, defaultColorOf, needsToken, rateText, serviceOf, styleOf } from "../sources";
@@ -17,7 +19,7 @@
   let error = $state<string | null>(null);
   let reconnecting = $state<string | null>(null);
   let note = $state<string | null>(null);
-  /** The source whose colour is being picked. */
+  /** The source whose color is being picked. */
   let coloring = $state<string | null>(null);
   /** The rate a source's knob is snapped to while dragging, shown greyed. */
   let ratePreview = $state<Record<string, number | null>>({});
@@ -88,20 +90,19 @@
   let { heading = false }: { heading?: boolean } = $props();
 </script>
 
-<div class="panel" class:headed={heading}>
-  {#if heading}<div class="colhead"><span class="coltitle">Sources</span><span class="colhint">{status?.grace_until ? "Grace: changes apply now" : `On or faster waits for ${status ? hhmm(status.settings.morning_boundary) : "06:00"}`}</span></div>{/if}
-  <div class="body">
+<RulesColumn title="Sources" column={heading}>
   {#if error}<p class="error">{error}</p>{/if}
 
   {#if status}
+    <span class="cap">Sources · {groups.filter(([, s]) => s.on).length} on</span>
     {#each groups as [id, s] (id)}
       {@const style = styleOf(id)}
       {@const problem = problemOf(s)}
       {@const broken = brokenServices(s)}
       {@const waiting = pendingFor(id)}
-      <div class="card">
+      <RulesCard>
         <div class="line">
-          <button class="dot" style="background: {style.color}" aria-label="{style.name} colour" onclick={() => (coloring = id)}></button>
+          <button class="dot" style="background: {style.color}" aria-label="{style.name} color" onclick={() => (coloring = id)}></button>
           <a class="open" href="/rules/sources/group?id={encodeURIComponent(id)}" aria-label="Edit {style.name}">
             <span class="label">
               <span class="name" class:off={!s.on}>{style.name}</span>
@@ -122,38 +123,35 @@
           {@const hr = s.max_heart_rate ?? 195}
           <div class="hr">
             <span class="hrlabel">Max heart rate</span>
-            <button class="step" aria-label="Lower maximum heart rate" onclick={() => maxHeartRate(hr - 1)}>−</button>
+            <button class="iconbtn small" aria-label="Lower maximum heart rate" onclick={() => maxHeartRate(hr - 1)}>−</button>
             <span class="mono hrval">{hr}</span>
-            <button class="step" aria-label="Higher maximum heart rate" onclick={() => maxHeartRate(hr + 1)}>+</button>
+            <button class="iconbtn small" aria-label="Higher maximum heart rate" onclick={() => maxHeartRate(hr + 1)}>+</button>
           </div>
         {/if}
         {#if waiting}
           <div class="waiting">{waiting.on ? (s.on ? `${rate(s.kind, waiting.every)}` : "On") : "Off"} at {hhmm(status.settings.morning_boundary)}, {until(waiting.at)}</div>
         {/if}
         {#each broken as service}
-          <button class="reconnect" onclick={() => (reconnecting = service)}>Reconnect {serviceOf(service).name}</button>
+          <button class="btn small" onclick={() => (reconnecting = service)}>Reconnect {serviceOf(service).name}</button>
         {/each}
-      </div>
+      </RulesCard>
     {/each}
     {#each comingUp as g (g.id)}
-      <div class="card coming">
-        <div class="line">
-          <span class="dot static" style="background: {g.source.color ?? defaultColorOf(g.id)}"></span>
-          <span class="label">
-            <span class="name">{g.source.name}</span>
-            <span class="sub warn">Starts at {hhmm(status.settings.morning_boundary)}, {until(g.at)} · {members(g.source)}</span>
-          </span>
-        </div>
-      </div>
+      <RulesCard tone="coming" row>
+        <span class="dot static" style="background: {g.source.color ?? defaultColorOf(g.id)}"></span>
+        <span class="label">
+          <span class="name">{g.source.name}</span>
+          <span class="sub warn">Starts at {hhmm(status.settings.morning_boundary)}, {until(g.at)} · {members(g.source)}</span>
+        </span>
+      </RulesCard>
     {/each}
-    <a class="new" href="/rules/sources/group">
+    <a class="btn wide" href="/rules/sources/group">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>New source
     </a>
-    <div class="foot">Tap a source to rename it or change its apps. Off or slower applies now. On, faster, or new waits for {hhmm(status.settings.morning_boundary)}.</div>
-    {#if note}<div class="foot">{note}</div>{/if}
+    <div class="footnote">Off or slower: now. On, faster, or new: at {hhmm(status.settings.morning_boundary)}.</div>
+    {#if note}<div class="footnote">{note}</div>{/if}
   {/if}
-  </div>
-</div>
+</RulesColumn>
 
 {#if reconnecting}
   <TokenSheet source={reconnecting} onclose={() => (reconnecting = null)}
@@ -162,17 +160,14 @@
 
 {#if coloring && status}
   {@const style = styleOf(coloring)}
-  <ColorSheet title="{style.name} colour" current={style.color} fallback={defaultColorOf(coloring)}
+  <ColorSheet title="{style.name} color" current={style.color} fallback={defaultColorOf(coloring)}
     onpick={(c) => setColor(coloring!, c)} onclose={() => (coloring = null)} />
 {/if}
 
 <style>
-  .panel { display: flex; flex-direction: column; gap: 10px; }
-  .card { border-radius: 14px; background: var(--surface); border: 1px solid var(--line); padding: 8px 14px; display: flex; flex-direction: column; gap: 6px; }
-  .card.coming { border-style: dashed; background: none; }
   .line { display: flex; align-items: center; gap: 10px; min-height: 40px; }
   .open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; }
-  /* The colour dot opens the colour picker; its tap area is bigger than it looks. */
+  /* The color dot opens the color picker; its tap area is bigger than it looks. */
   .dot { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; border: 0; padding: 0; cursor: pointer; box-shadow: 0 0 0 7px transparent; }
   .dot.static { cursor: default; }
   .dot:focus-visible { outline: 2px solid var(--voucher); outline-offset: 3px; }
@@ -187,20 +182,10 @@
   .hr { display: flex; align-items: center; gap: 10px; font-size: 13px; }
   .hrlabel { flex: 1; color: var(--muted); }
   .hrval { min-width: 36px; text-align: center; font-weight: 700; }
-  .step { width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--ink); font: 700 16px var(--font); }
+  .hr .iconbtn { font: 700 16px var(--font); }
   .waiting { font-size: 12px; color: var(--goal); }
-  .reconnect { height: 32px; border-radius: 10px; border: 1px solid var(--goal-line); background: var(--goal-bg); color: var(--goal); font: 700 13px var(--font); }
-  .new { min-height: 48px; border-radius: 14px; border: 2px dashed #3a3f45; color: var(--ink); font: 700 14px var(--font); display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
-  .foot { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .error { color: var(--goal); }
-  /* On the tablet the heading stays put and only what's under it scrolls,
-     so it never moves or bounces with the list. */
-  .body { display: contents; }
-  .headed { height: 100%; min-height: 0; }
-  .headed .colhead { flex: none; }
-  .headed .body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: inherit; overflow-y: auto; overscroll-behavior-y: contain; padding-bottom: 28px; scrollbar-width: none; }
-  .headed .body::-webkit-scrollbar { display: none; }
-  .colhead { display: flex; justify-content: space-between; align-items: baseline; height: 24px; }
-  .coltitle { font-size: 18px; font-weight: 700; line-height: 24px; }
-  .colhint { font-size: 12px; color: var(--muted); }
+  /* The shared .btn, as a link. */
+  a.btn { text-decoration: none; }
+  .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .error { margin: 0; color: var(--danger); }
 </style>

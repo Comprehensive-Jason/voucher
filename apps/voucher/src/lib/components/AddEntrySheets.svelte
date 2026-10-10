@@ -39,7 +39,7 @@
         <span>{a.label}</span><span class="mono pkg">{taken[a.package] ? `Already in ${taken[a.package]}` : a.package}</span>
       </button>
     {:else}
-      <p class="body">No apps to show.</p>
+      <p class="empty">No apps to show.</p>
     {/each}
   </Sheet>
 {:else if mode === "site"}
@@ -47,18 +47,16 @@
     <h2>Add a site</h2>
     <p class="body">Blocks the site and all its subdomains in your browsers.</p>
     <input class="mono" placeholder="example.com" autocapitalize="off" autocomplete="off" bind:value={site} />
-    <button class="primary" disabled={!valid} onclick={() => { onsite?.(domain); site = ""; }}>Add {valid ? domain : "site"}</button>
+    <button class="btn primary wide" disabled={!valid} onclick={() => { onsite?.(domain); site = ""; }}>Add {valid ? domain : "site"}</button>
   </Sheet>
 {/if}
 
 <style>
   h2 { margin: 0; font-size: 22px; }
   .body { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
-  input { height: 48px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); padding: 0 14px; font: 500 15px var(--font); }
+  input { height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); padding: 0 14px; font: 500 15px var(--font); }
   input.mono { font-family: var(--mono); }
   .pick { min-height: 52px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: none; color: var(--ink); text-align: left; }
   .pick:disabled { opacity: .45; }
   .pkg { font-size: 11px; color: var(--muted); }
-  .primary { min-height: 52px; border-radius: 14px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 16px var(--font); }
-  .primary:disabled { background: var(--line); color: var(--muted); }
 </style>

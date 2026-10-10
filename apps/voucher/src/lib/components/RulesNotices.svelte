@@ -1,6 +1,6 @@
 <script lang="ts">
   // The notices that concern all of Rules: Protection off or partly on, the
-  // looser rules waiting for the morning (one card, or a Review sheet for
+  // Loosenings waiting for the morning (one card, or a Review sheet for
   // several), and the grace period after setup. `row` lays them side by side
   // for the tablet's page header; otherwise they stack.
   import { onMount } from "svelte";
@@ -72,7 +72,7 @@
       </div>
       <div class="warntext">{missing.text}</div>
       </div>
-      <button onclick={() => missing && fixProtection(missing.part)}>{missing.action}</button>
+      <button class="btn fix" class:small={row} onclick={() => missing && fixProtection(missing.part)}>{missing.action}</button>
     </div>
   {/if}
 
@@ -84,12 +84,12 @@
       <div class="pending" transition:reveal={{ axis }}>
         <div class="ptext">
           <span class="cap">Waiting for {hhmm(s.morning_boundary)}, {until(status.pending[0][1])}</span>
-          <span>{status.pending.length === 1 ? describe(status.pending[0], s) : `${status.pending.length} looser rules`}</span>
+          <span>{status.pending.length === 1 ? describe(status.pending[0], s) : `${status.pending.length} Loosenings`}</span>
         </div>
         {#if status.pending.length === 1}
-          <button class="pcancel" onclick={() => cancel(0)}>Cancel</button>
+          <button class="btn small" onclick={() => cancel(0)}>Cancel</button>
         {:else}
-          <button class="review" onclick={openReview}>Review</button>
+          <button class="btn small" onclick={openReview}>Review</button>
         {/if}
       </div>
     {/if}
@@ -97,17 +97,17 @@
       {@const left = cancelled.filter((c) => !c).length}
       <Sheet onclose={() => (reviewing = false)}>
         <div class="shead">
-          <div class="stitle"><h2>Looser rules</h2><span class="cap">Waiting for {hhmm(s.morning_boundary)}{reviewList.length ? `, ${until(reviewList[0][1])}` : ""}</span></div>
+          <div class="stitle"><h2>Loosenings</h2><span class="cap">Waiting for {hhmm(s.morning_boundary)}{reviewList.length ? `, ${until(reviewList[0][1])}` : ""}</span></div>
           <div class="sactions">
-            {#if left > 1}<button class="cancelall" onclick={cancelAll}>Cancel all {left}</button>{/if}
-            <button class="done" onclick={() => (reviewing = false)}>Done</button>
+            {#if left > 1}<button class="btn small" onclick={cancelAll}>Cancel all {left}</button>{/if}
+            <button class="btn small primary" onclick={() => (reviewing = false)}>Done</button>
           </div>
         </div>
         <div class="plist">
           {#each reviewList as p, j (j)}
             <div class="pcard" class:gone={cancelled[j]}>
               <span class="pdesc">{describe(p, s)}</span>
-              {#if cancelled[j]}<span class="cap gonelabel">Cancelled</span>{:else}<button class="pcancel" onclick={() => cancelListed(j)}>Cancel</button>{/if}
+              {#if cancelled[j]}<span class="cap gonelabel">Cancelled</span>{:else}<button class="btn small" onclick={() => cancelListed(j)}>Cancel</button>{/if}
             </div>
           {/each}
         </div>
@@ -127,10 +127,8 @@
   .row .warn { flex-direction: row; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; }
   .row .warn .warnbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .row .warn .warntext { font-size: 13px; }
-  .row .warn button { flex: none; min-height: 40px; padding: 0 14px; }
   .warnbody { display: flex; flex-direction: column; gap: 10px; }
   .pending { border-radius: 16px; background: var(--goal-bg); border: 1px solid var(--goal-line); padding: 10px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .review { flex: none; min-height: 40px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--goal); color: #2a1a04; font: 700 14px var(--font); cursor: pointer; }
   .shead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   .stitle { display: flex; flex-direction: column; gap: 4px; }
   .stitle h2 { margin: 0; font-size: 18px; }
@@ -141,16 +139,15 @@
   .pcard.gone { background: transparent; border-color: var(--line); color: var(--muted); }
   .pcard.gone .pdesc { text-decoration: line-through; }
   .gonelabel { color: var(--muted); padding-right: 6px; }
-  .pcancel { flex: none; min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--goal-line); background: transparent; color: var(--goal); font: 700 13px var(--font); cursor: pointer; }
-  .cancelall { min-height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--goal-line); background: var(--goal-bg); color: var(--goal); font: 700 14px var(--font); cursor: pointer; }
-  .done { min-height: 40px; padding: 0 18px; border-radius: 12px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 14px var(--font); cursor: pointer; }
+  .pending .btn, .pcard .btn { flex: none; }
   .ptext { display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
   .ptext .cap { color: var(--goal); letter-spacing: .06em; }
   .warn { border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-  .warn.off { background: #2a1616; border: 1px solid #6b2320; --tone: #ff8a7a; }
+  .warn.off { background: var(--danger-bg); border: 1px solid var(--danger-line); --tone: var(--danger); }
   .warn.partial { background: var(--goal-bg); border: 1px solid var(--goal-line); --tone: var(--goal); }
   .warnhead { display: flex; align-items: center; gap: 10px; color: var(--tone); font-size: 16px; font-weight: 700; }
   .warntext { font-size: 14px; line-height: 1.4; }
-  .warn button { min-height: 44px; border-radius: 12px; border: 0; background: var(--tone); color: var(--ground); font: 700 14px var(--font); }
-  .error { color: var(--goal); }
+  /* The fix, in the warning's own color. */
+  .warn .fix { flex: none; border-color: transparent; background: var(--tone); color: var(--ground); }
+  .error { margin: 0; color: var(--danger); }
 </style>

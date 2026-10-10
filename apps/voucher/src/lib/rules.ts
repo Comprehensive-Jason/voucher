@@ -48,8 +48,8 @@ export function describe([change]: Pending, s: Settings): string {
     case "ResetBlocklist": return `Reset ${s.blocklists[v]?.name ?? v}`;
     case "DeleteBlocklist": return `Delete ${s.blocklists[v]?.name ?? v}`;
     case "ReleaseDevice": return `Release ${v}`;
-    case "SourceColor": return `${sourceName(v.id)} colour`;
-    case "BlocklistColor": return `${s.blocklists[v.id]?.name ?? v.id} colour`;
+    case "SourceColor": return `${sourceName(v.id)} color`;
+    case "BlocklistColor": return `${s.blocklists[v.id]?.name ?? v.id} color`;
     default: return kind;
   }
 }
