@@ -397,10 +397,12 @@
   /* A stop at every column, so a view can sit across two pages. */
   .filler { grid-row: 1; height: 0; }
   .snap { grid-row: 1; align-self: start; height: 0; scroll-snap-align: start; pointer-events: none; }
-  /* Room at the top of each slot for its card's name tab (CardTab), which
-     rises 14 px above the card's top border, clear of the rounded corner. */
-  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 14px; }
-  .tab { position: absolute; z-index: 1; top: 0; left: 22px; }
+  /* Room at the top of each slot for its card's folder tab (CardTab), which
+     rises 16 px above the card, flush with its left side; the card's
+     top-left corner is square so its left edge runs straight up into the tab. */
+  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 16px; }
+  .slot > :global(.tile) { border-top-left-radius: 0; }
+  .tab { position: absolute; z-index: 1; top: 0; left: 0; }
   .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
   /* Arranging: panels sit still under their buttons, a touch on one drags it
      rather than scrolling, and they jiggle to say they can move. */

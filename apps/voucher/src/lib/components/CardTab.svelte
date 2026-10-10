@@ -1,19 +1,20 @@
 <script lang="ts">
-  // A card's name on a tab that grows out of its top edge, drawn as one
-  // outline: the card's border runs along, bends up through a small inward
-  // curve into the tab's side, over its rounded top, and back down into the
-  // border on the far side. The tab's fill covers the stretch of the card's
-  // border between the two curves, so card and tab read as one shape. It
-  // sits on the card's top border line: `rise` px above it.
-  let { name, rise = 14 }: { name: string; rise?: number } = $props();
-  /** Inward curve where the border bends up, and the tab's top corners. */
-  const F = 7, R = 7, PAD = 9;
+  // A card's name on a folder tab: the card's left edge carries straight on
+  // up into the tab, rounds over its top, and the tab's right side ramps
+  // smoothly back down into the card's top edge, as on a paper folder. Drawn
+  // as one outline; the tab's fill covers the card's border under it, so
+  // card and tab read as one shape. It stands on the card's top border line,
+  // `rise` px above it, flush with the card's left side (whose top-left
+  // corner is square, so the edge runs on without a break).
+  let { name, rise = 16 }: { name: string; rise?: number } = $props();
+  /** The tab's top-left corner, the width of the ramp down on its right, and the name's inset (the card's own padding, so it lines up with what's below). */
+  const R = 10, RAMP = 22, PAD = 18;
   let textWidth = $state(0);
-  const w = $derived(Math.ceil(textWidth) + 2 * PAD + 2 * F);
-  // The border line's centre is half a pixel below the tab's foot.
+  const w = $derived(Math.ceil(textWidth) + 2 * PAD + RAMP);
+  // Border lines' centres sit half a pixel in from the edges.
   const y = $derived(rise + 0.5);
-  /** The outline, open at the bottom: concave curve up, side, rounded top, side, concave curve down. */
-  const outline = $derived(`M0,${y} A${F},${F} 0 0 0 ${F - 0.5},${y - F} L${F - 0.5},${R + 0.5} A${R},${R} 0 0 1 ${F - 0.5 + R},0.5 L${w - F + 0.5 - R},0.5 A${R},${R} 0 0 1 ${w - F + 0.5},${R + 0.5} L${w - F + 0.5},${y - F} A${F},${F} 0 0 0 ${w},${y}`);
+  /** Up the left side, over the rounded corner, along the top, and down the ramp into the card's top edge. */
+  const outline = $derived(`M0.5,${rise + 1} L0.5,${R + 0.5} A${R},${R} 0 0 1 ${R + 0.5},0.5 L${w - RAMP},0.5 C${w - RAMP * 0.45},0.5 ${w - RAMP * 0.55},${y} ${w},${y}`);
 </script>
 
 <span class="cardtab" style="width: {w}px; height: {rise + 1}px">
@@ -22,11 +23,11 @@
     <path d="{outline} L{w},{rise + 1} L0,{rise + 1} Z" fill="var(--surface)" />
     <path d={outline} fill="none" stroke="var(--line)" stroke-width="1" />
   </svg>
-  <span class="cap name" bind:clientWidth={textWidth} style="left: {F + PAD}px; height: {rise}px">{name}</span>
+  <span class="cap name" bind:clientWidth={textWidth} style="left: {PAD}px; height: {rise + 1}px">{name}</span>
 </span>
 
 <style>
-  .cardtab { position: absolute; display: block; pointer-events: auto; }
+  .cardtab { position: absolute; display: block; }
   svg { position: absolute; inset: 0; display: block; overflow: visible; }
   .name { position: absolute; top: 1px; display: flex; align-items: center; font-size: 10px; line-height: 1; white-space: nowrap; }
 </style>
