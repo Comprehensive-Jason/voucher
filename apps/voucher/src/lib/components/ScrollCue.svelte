@@ -39,7 +39,7 @@
 </button>
 
 <style>
-  .cue { position: absolute; left: 50%; z-index: 5; height: 26px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line); background: #1c1f23; box-shadow: 0 4px 14px rgba(0, 0, 0, .5); color: var(--ink); font: 700 12px var(--font); display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity var(--t-base), transform var(--t-base) var(--ease-out); }
+  .cue { position: absolute; left: 50%; z-index: 5; height: 26px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); box-shadow: 0 4px 14px rgba(0, 0, 0, .5); color: var(--ink); font: 700 12px var(--font); display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity var(--t-base), transform var(--t-base) var(--ease-out); }
   .top { top: 4px; transform: translate(-50%, -6px); }
   .bottom { bottom: 4px; transform: translate(-50%, 6px); }
   .cue.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }

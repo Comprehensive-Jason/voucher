@@ -186,7 +186,7 @@
   .src::before { content: ""; position: absolute; inset: 0 -6px; border-radius: 12px; z-index: -1; transition: background-color var(--t-base), box-shadow var(--t-base); }
   /* Raised while it moves up past the others. */
   .src.lift { z-index: 2; scale: 1.04; }
-  .src.lift::before { background: #1c1f23; box-shadow: 0 8px 22px rgba(0, 0, 0, .6); }
+  .src.lift::before { background: var(--raised); box-shadow: 0 8px 22px rgba(0, 0, 0, .6); }
   .name { font-size: 14px; font-weight: 500; }
   /* The count and "+1 Voucher" share one spot and crossfade. */
   .detail { font-size: 12px; color: var(--muted); display: grid; justify-items: end; }

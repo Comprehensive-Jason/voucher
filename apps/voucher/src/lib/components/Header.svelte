@@ -6,12 +6,12 @@
 
 <header>
   <div class="brand">
-    <svg width="22" height="22" viewBox="0 0 24 22" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" fill={night ? "#9aa6ff" : "var(--voucher)"} /><path d="M8.2 7.6l3.8 6.8 3.8-6.8" fill="none" stroke="var(--ground)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+    <svg width="22" height="22" viewBox="0 0 24 22" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" fill={night ? "var(--night-ink)" : "var(--voucher)"} /><path d="M8.2 7.6l3.8 6.8 3.8-6.8" fill="none" stroke="var(--ground)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
     <span class="mono word">VOUCHER</span>
   </div>
   <div class="right">
     {#if rules}
-      <a class="rules" href="/rules" aria-label="Rules">
+      <a class="iconbtn" href="/rules" aria-label="Rules">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
       </a>
     {/if}
@@ -23,6 +23,5 @@
   .brand { display: flex; align-items: center; gap: 8px; }
   .word { font-size: 15px; font-weight: 700; letter-spacing: .2em; }
   .right { display: flex; align-items: center; gap: 8px; }
-  .rules { width: 44px; height: 44px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); display: flex; align-items: center; justify-content: center; }
   header { min-height: 44px; }
 </style>

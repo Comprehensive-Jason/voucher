@@ -62,16 +62,16 @@
 
 {#if data && mode === "curfew"}
   <main class="night">
-    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#9aa6ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--night-ink)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
     <div class="mono bigclock">{clock}</div>
     <h1>Time to sleep.</h1>
     <p>{label} and everything else wake up at {data.curfewEnd}. Put the phone down; it will all be here in the morning.</p>
-    <div class="foot"><button class="close night" onclick={() => close(false)}>Good night</button></div>
+    <div class="foot"><button class="btn wide night" onclick={() => close(false)}>Good night</button></div>
   </main>
 {:else}
   <main>
     <div class="head">
-      <div class="tile" style={!icon && named ? `background: ${tileColor(named)}` : ""}>
+      <div class="appicon" style={!icon && named ? `background: ${tileColor(named)}` : ""}>
         {#if icon}<img src={icon} alt="" />
         {:else if named}<span>{named.slice(0, 1)}</span>
         {:else}<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6v12M15 6v12" /></svg>{/if}
@@ -117,7 +117,7 @@
     {#if error}<p class="error">{error}</p>{/if}
 
     <div class="foot">
-      <button class="close" onclick={() => close(true)}>{named ? `Close ${named}` : "Close"}</button>
+      <button class="btn wide" onclick={() => close(true)}>{named ? `Close ${named}` : "Close"}</button>
       <div class="hint">{data?.bank === 0 ? "Come back when there is a Voucher to tear." : `${named ?? "It"} opens the moment the Voucher tears.`}</div>
     </div>
   </main>
@@ -126,8 +126,9 @@
 <style>
   main { min-height: 100%; padding: calc(40px + env(safe-area-inset-top)) 20px 28px; display: flex; flex-direction: column; gap: 22px; }
   .head { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
-  .tile { width: 76px; height: 76px; border-radius: 22px; background: var(--line); display: flex; align-items: center; justify-content: center; color: #fff; font: 700 34px var(--font); overflow: hidden; }
-  .tile img { width: 100%; height: 100%; }
+  /* Not `.tile`, the shared card shell, whose padding would squeeze the icon. */
+  .appicon { width: 76px; height: 76px; border-radius: 22px; background: var(--line); display: flex; align-items: center; justify-content: center; color: #fff; font: 700 34px var(--font); overflow: hidden; }
+  .appicon img { width: 100%; height: 100%; }
   h1 { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.15; }
   .head p { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.4; }
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -139,12 +140,11 @@
   .stack { display: flex; flex-direction: column; gap: 10px; }
   .bankline { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; width: 100%; }
-  .close { min-height: 52px; width: 100%; border-radius: 14px; border: 1px solid #3a3f45; background: var(--surface); color: var(--ink); font: 700 16px var(--font); }
   .hint { font-size: 13px; color: var(--muted); text-align: center; }
   .error { color: var(--goal); }
   main.night { background: #0b0d1a; color: #eef0ff; padding: calc(120px + env(safe-area-inset-top)) 28px 28px; align-items: center; text-align: center; gap: 18px; }
   .bigclock { font-size: 72px; font-weight: 700; line-height: 1; letter-spacing: -2px; }
   .night h1 { font-size: 30px; }
   .night p { margin: 0; font-size: 16px; color: #b8bde6; line-height: 1.45; max-width: 300px; }
-  .close.night { background: var(--night); color: #0c1033; border: 0; }
+  .btn.night { background: var(--night); border-color: transparent; color: #0c1033; }
 </style>

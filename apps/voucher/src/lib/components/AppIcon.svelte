@@ -10,10 +10,11 @@
 {#if src}
   <img {src} alt="" width={size} height={size} style="width: {size}px; height: {size}px" />
 {:else}
-  <span class="tile" style="width: {size}px; height: {size}px; background: {tint}; font-size: {Math.round(size * 0.42)}px" aria-hidden="true">{label.trim().charAt(0).toUpperCase()}</span>
+  <span class="letter" style="width: {size}px; height: {size}px; background: {tint}; font-size: {Math.round(size * 0.42)}px" aria-hidden="true">{label.trim().charAt(0).toUpperCase()}</span>
 {/if}
 
 <style>
   img { flex: none; border-radius: 22%; }
-  .tile { flex: none; border-radius: 22%; display: grid; place-items: center; color: #fff; font-weight: 700; opacity: .85; }
+  /* Not `.tile`, the shared card shell, whose padding would squeeze the letter. */
+  .letter { flex: none; border-radius: 22%; display: grid; place-items: center; color: #fff; font-weight: 700; opacity: .85; }
 </style>

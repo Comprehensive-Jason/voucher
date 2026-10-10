@@ -3,6 +3,7 @@
   import { wins } from "../celebrate.svelte";
   import { untrack } from "svelte";
   import { MOTION } from "../motion";
+  import StreakPill from "./StreakPill.svelte";
   // The Bank, then today's progress toward the Daily goal with the Streak it feeds.
   let { mode, bank, limit, goalDone, goalTarget, streakDays }: {
     mode: Mode; bank: number; limit: number; goalDone: number; goalTarget: number; streakDays: number;
@@ -41,14 +42,11 @@
   </div>
   <div class="goal">
     {#if toGo === 0}
-      <span class="what">Today's goal met: {goalDone} of {goalTarget}</span>
+      <span class="what">Daily goal met: {goalDone} of {goalTarget}</span>
     {:else}
-      <span class="what">Today's goal: {goalDone} of {goalTarget}</span><span class="mono">{toGo} to go</span>
+      <span class="what">Daily goal: {goalDone} of {goalTarget}</span><span class="mono">{toGo} to go</span>
     {/if}
-    <span class="streak">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-5 1-8z" /></svg>
-      {streakDays > 0 ? `${streakDays} day streak` : "No streak"}
-    </span>
+    <StreakPill days={streakDays} />
   </div>
 </section>
 
@@ -76,5 +74,4 @@
   .cells b.night { background: var(--night); }
   .goal { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--goal); }
   .what { flex: 1; min-width: 0; }
-  .streak { display: flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--goal-bg); font-size: 12px; font-weight: 700; white-space: nowrap; }
 </style>

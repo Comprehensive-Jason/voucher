@@ -56,7 +56,7 @@
     });
   });
 
-  const active = $derived((page.url.pathname.split("/")[1] || "today") as "today" | "trends" | "log" | "rules");
+  const active = $derived((page.url.pathname.split("/")[1] || "today") as "today" | "trends" | "rules");
   // Today (and on the tablet, the dashboard) lives here, not in the route: on
   // the tablet it stays mounted under Rules and its editors, so leaving them
   // (button or back gesture) shows it exactly as it was, same page of cards,

@@ -7,7 +7,9 @@
   import { Live } from "$lib/live.svelte";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
 
-  const label = $derived(page.url.searchParams.get("label") ?? "This program");
+  // Known when the guard named the program; otherwise it is "This program".
+  const named = $derived(page.url.searchParams.get("label"));
+  const label = $derived(named ?? "This program");
   const path = $derived(page.url.searchParams.get("path") ?? "");
   const site = $derived(page.url.searchParams.get("site") === "1");
   const live = new Live();
@@ -23,7 +25,7 @@
 </script>
 
 <main>
-  <svg width="44" height="44" viewBox="0 0 24 22" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" fill={live.mode === "curfew" ? "#9aa6ff" : "var(--voucher)"} /><path d="M8.2 7.6l3.8 6.8 3.8-6.8" fill="none" stroke="var(--voucher-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+  <svg width="44" height="44" viewBox="0 0 24 22" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" fill={live.mode === "curfew" ? "var(--night-ink)" : "var(--voucher)"} /><path d="M8.2 7.6l3.8 6.8 3.8-6.8" fill="none" stroke="var(--voucher-ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
   <h1>{label} is paused</h1>
   {#if live.data}
     {@const d = live.data}
@@ -36,7 +38,7 @@
     <div class="voucher"><VoucherStack mode={live.mode} bank={d.bank} unlockMinutes={d.unlockMinutes} room={d.curfewRoomMinutes} curfewStart={d.curfewStart} ontear={onTear} /></div>
   {/if}
   {#if live.error}<p class="error">{live.error}</p>{/if}
-  <button class="close" onclick={() => device("goHome", { closed: true, closeTab: site })}>{site ? "Close this tab" : `Close ${label}`}</button>
+  <button class="btn wide" onclick={() => device("goHome", { closed: true, closeTab: site })}>{site ? "Close this tab" : named ? `Close ${named}` : "Close"}</button>
 </main>
 
 <style>
@@ -45,6 +47,5 @@
   p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.4; }
   .bankline { width: 100%; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
   .voucher { width: 100%; text-align: left; }
-  .close { min-height: 44px; width: 100%; border-radius: 12px; border: 1px solid #3a3f45; background: var(--surface); color: var(--ink); font: 700 14px var(--font); cursor: pointer; }
   .error { color: var(--goal); }
 </style>

@@ -238,7 +238,7 @@
         <div class="mono minutes">{curfewStart}</div>
         <div class="hint"><span>Your Vouchers stay in the Bank</span></div>
       {:else}
-      <div class="cap bodycap">{running ? "Extend this Unlock" : "All distractions"}</div>
+      <div class="cap bodycap">{running ? "Extend this Unlock" : "All Distractions"}</div>
       <div class="mono minutes">{running ? "+" : ""}{minutes} min</div>
       <div class="hint">
         {#if mode === "curfew"}

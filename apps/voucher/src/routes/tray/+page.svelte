@@ -6,6 +6,7 @@
   import { Live } from "$lib/live.svelte";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
   import { styleOf } from "$lib/sources";
+  import StreakPill from "$lib/components/StreakPill.svelte";
 
   const live = new Live();
   onMount(() => live.start());
@@ -15,7 +16,7 @@
   const left = $derived(d?.unlockEndsAt ? Math.max(0, d.unlockEndsAt - live.now) : 0);
   const hm = (unix: number) => new Date(unix * 1000).toTimeString().slice(0, 5);
   const fill = $derived(mode === "curfew" ? "night" : mode === "full" ? "amber" : "on");
-  // Bank cells, then outlines for the Vouchers the running Unlock is using.
+  // Bank cells, then salmon outlines for the Vouchers the running Unlock is using.
   const cells = $derived.by(() => {
     if (!d) return [];
     const inUse = mode === "running" ? d.unlockVouchers : 0;
@@ -24,7 +25,7 @@
   const status = $derived.by(() => {
     if (!d) return { label: "", right: "", tone: "" };
     if (mode === "curfew") return { label: "Curfew", right: `${d.curfewStart} to ${d.curfewEnd}`, tone: "night" };
-    if (mode === "running") return { label: `Unlocked · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left`, right: `locks ${hm(d.unlockEndsAt!)}`, tone: "on" };
+    if (mode === "running") return { label: `Unlocked · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")} left`, right: `locks ${hm(d.unlockEndsAt!)}`, tone: "spend" };
     if (mode === "full") {
       const lost = d.log.filter((e) => e.kind === "earned" && !e.kept);
       return { label: "Bank full", right: lost.length ? `${lost.length} lost at ${new Date(lost[0].at).toTimeString().slice(0, 5)}` : `Curfew at ${d.curfewStart}`, tone: "amber" };
@@ -42,13 +43,10 @@
   {#if d}
     <header>
       <div class="brand">
-        <svg width="20" height="20" viewBox="0 0 24 22" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" fill={mode === "curfew" ? "#9aa6ff" : "var(--voucher)"} /><path d="M8.2 7.6l3.8 6.8 3.8-6.8" fill="none" stroke="var(--ground)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <svg width="20" height="20" viewBox="0 0 24 22" aria-hidden="true"><path d="M3 8a2 2 0 0 0 0 4v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0 0-4V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z" fill={mode === "curfew" ? "var(--night-ink)" : "var(--voucher)"} /><path d="M8.2 7.6l3.8 6.8 3.8-6.8" fill="none" stroke="var(--ground)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" /></svg>
         <span class="mono word">VOUCHER</span>
       </div>
-      <div class="streak">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-5 1-8z" /></svg>
-        {d.streakDays > 0 ? `${d.streakDays} day streak` : "No streak"}
-      </div>
+      <StreakPill days={d.streakDays} />
     </header>
 
     <div class="bank">
@@ -74,8 +72,8 @@
     </div>
 
     <footer>
-      <button class="open" onclick={() => device("showMain")}>Open Voucher</button>
-      <button class="rules" aria-label="Rules" onclick={() => device("showMain", { route: "/rules" })}>
+      <button class="btn small" onclick={() => device("showMain")}>Open Voucher</button>
+      <button class="iconbtn small" aria-label="Rules" onclick={() => device("showMain", { route: "/rules" })}>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
       </button>
     </footer>
@@ -89,7 +87,6 @@
   header { display: flex; align-items: center; justify-content: space-between; }
   .brand { display: flex; align-items: center; gap: 8px; }
   .word { font-size: 14px; font-weight: 700; letter-spacing: .2em; }
-  .streak { display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: var(--goal-bg); color: var(--goal); font-size: 12px; font-weight: 700; }
   .bank { display: flex; flex-direction: column; gap: 8px; }
   .count { display: flex; align-items: baseline; gap: 10px; }
   .big { font-size: 44px; font-weight: 700; line-height: 1; }
@@ -98,16 +95,14 @@
   .cells { display: grid; gap: 3px; }
   .cells i { height: 12px; border-radius: 3px; background: var(--line); }
   .cells i.on { background: var(--voucher); } .cells i.amber { background: var(--goal); } .cells i.night { background: var(--night); }
-  .cells i.use { background: transparent; box-shadow: inset 0 0 0 2px var(--voucher); }
+  .cells i.use { background: transparent; box-shadow: inset 0 0 0 2px var(--spend); }
   .status { display: flex; justify-content: space-between; align-items: center; }
-  .status .cap.on { color: var(--voucher); } .status .cap.amber { color: var(--goal); } .status .cap.night { color: #9aa6ff; }
+  .status .cap.spend { color: var(--spend); } .status .cap.amber { color: var(--goal); } .status .cap.night { color: var(--night-ink); }
   .right { font-size: 12px; color: var(--muted); }
   .near { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; row-gap: 10px; }
   .src { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
   .srcline { display: flex; justify-content: space-between; font-size: 12px; }
   .left { color: var(--muted); }
   footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--divider); padding-top: 10px; }
-  .open { height: 36px; padding: 0 4px; background: none; border: 0; color: var(--ink); font: 700 13px var(--font); text-decoration: underline; cursor: pointer; }
-  .rules { width: 36px; height: 36px; padding: 0; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .error { color: var(--goal); }
 </style>

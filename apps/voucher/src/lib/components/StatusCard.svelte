@@ -37,12 +37,12 @@
 
 <div class="card {mode}">
   {#if mode === "running"}
-    <div class="row"><span class="cap" style="color: var(--voucher)">Unlocked</span>
-      <span class="mono small">{data.unlockVouchers ? `${data.unlockVouchers} ${data.unlockVouchers === 1 ? "Voucher" : "Vouchers"} · ` : ""}locks {data.unlockEndsAt ? hm(data.unlockEndsAt) : ""}</span></div>
+    <div class="row"><span class="cap" style="color: var(--spend)">Unlocked</span>
+      <span class="mono small">{data.unlockVouchers ? `${data.unlockVouchers} ${data.unlockVouchers === 1 ? "Voucher" : "Vouchers"} torn · ` : ""}locks {data.unlockEndsAt ? hm(data.unlockEndsAt) : ""}</span></div>
     <div class="mono timer">{mmss}</div>
-    <div class="bar"><i style="width: {runFraction * 100}%; background: var(--voucher)"></i></div>
+    <div class="bar"><i style="width: {runFraction * 100}%; background: var(--spend)"></i></div>
   {:else if mode === "curfew"}
-    <div class="row"><span class="cap" style="color: #9aa6ff">Curfew</span><span class="mono small">{data.curfewStart} to {data.curfewEnd}</span></div>
+    <div class="row"><span class="cap" style="color: var(--night-ink)">Curfew</span><span class="mono small">{data.curfewStart} to {data.curfewEnd}</span></div>
     <div class="line big">Sleep well. Open again at {data.curfewEnd}.</div>
     <div class="bar"><i style="width: {curfewFraction * 100}%; background: var(--night)"></i></div>
   {:else if mode === "full"}
@@ -61,14 +61,15 @@
     {/if}
   {:else}
     <div class="row"><span class="cap">Locked</span><span class="mono small">Curfew at {data.curfewStart}</span></div>
-    <div class="line">Unlock distractions for {data.unlockMinutes} minutes.</div>
+    <div class="line">Unlock Distractions for {data.unlockMinutes} minutes.</div>
     <div class="bar"><i style="width: 0%"></i></div>
   {/if}
 </div>
 
 <style>
   .card { height: 104px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; transition: background-color var(--t-base), border-color var(--t-base); }
-  .card.running { background: var(--unlocked-bg); border-color: var(--unlocked-line); }
+  /* A running Unlock is salmon, as Unlocks are everywhere. */
+  .card.running { background: var(--spend-bg); border-color: var(--spend-line); }
   .card.curfew { background: var(--night-bg); border-color: var(--night-voucher); }
   .card.full { background: var(--goal-bg); border-color: var(--goal-line); }
   .row { display: flex; justify-content: space-between; align-items: center; }

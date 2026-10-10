@@ -447,8 +447,8 @@
   .tools { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 18px; border: 2px dashed #3a3f45; cursor: grab; animation: toolsin var(--t-base) var(--ease-out); }
   @keyframes toolsin { from { opacity: 0; } }
   .pname { font: 700 15px var(--font); color: var(--ink); }
-  .tools .hide { height: 36px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: #1f2226; color: var(--muted); font: 700 13px var(--font); cursor: pointer; }
-  .sizes { display: flex; padding: 2px; border-radius: 12px; background: #1f2226; border: 1px solid var(--line); }
+  .tools .hide { height: 36px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 13px var(--font); cursor: pointer; }
+  .sizes { display: flex; padding: 2px; border-radius: 12px; background: var(--raised); border: 1px solid var(--line); }
   .sizes button { height: 34px; min-width: 52px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: 700 13px var(--font); cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick); }
   .sizes button.on { background: var(--line); color: var(--ink); }
   /* A whole column wide, so the row still stops on a column's edge at its end. */
@@ -458,10 +458,10 @@
   .endcol .reset { color: var(--muted); font-weight: 500; font-size: 13px; }
   .leftfoot { margin-top: auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
   .leftfoot .arrangepill, .leftfoot .donepill { grid-column: 3; justify-self: end; }
-  .arrangepill { height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: #1f2226; color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .arrangepill { height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }
   .donepill { height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
   /* Centred in the Today column's foot, Arrange or Done to its right. */
-  .pages { position: relative; grid-column: 2; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }
+  .pages { position: relative; grid-column: 2; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
   .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), right var(--t-move) var(--ease-out) 90ms; }
   /* The edge on the side it's heading leads; the far edge follows a beat later, in one stretch and shrink. */
   .thumb.right { transition: right var(--t-move) var(--ease-out), left var(--t-move) var(--ease-out) 90ms; }
