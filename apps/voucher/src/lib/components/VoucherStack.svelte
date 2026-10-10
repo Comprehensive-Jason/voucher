@@ -2,7 +2,8 @@
   // The Bank as a stack of Vouchers. Drag the right-hand part of the top Voucher
   // to the right to tear off `count` Vouchers; the stub's + and − set `count`.
   import { untrack } from "svelte";
-  import { MOTION } from "../motion";
+  import { MOTION, easeOut, ms } from "../motion";
+  import { fly } from "svelte/transition";
   import type { Mode } from "../types";
 
   let { mode, bank, unlockMinutes, room = null, curfewStart = "22:00", ontear }: {
@@ -16,6 +17,8 @@
   } = $props();
 
   let count = $state(1);
+  /** Whether the count last went up, so the new number rolls in from below. */
+  let rolledUp = $state(true);
   let dx = $state(0);
   let dragging = $state(false);
   let torn = $state(false);
@@ -197,11 +200,12 @@
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>
         <span class="cap stubcap">Curfew</span>
       {:else}
-        <button class="step" aria-label="One Voucher more" disabled={!tearable || count >= Math.min(shown, fits)} onclick={() => count++}>
+        <button class="step" aria-label="One Voucher more" disabled={!tearable || count >= Math.min(shown, fits)} onclick={() => { rolledUp = true; count++; }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6v12M6 12h12" /></svg>
         </button>
-        <div class="mono count">{tearable ? count : 0}</div>
-        <button class="step" aria-label="One Voucher fewer" disabled={!tearable || count <= 1} onclick={() => count--}>
+        <!-- The number rolls up or down as it changes. -->
+        <div class="mono count">{#key tearable ? count : 0}<span in:fly={{ y: rolledUp ? 10 : -10, duration: ms("base"), easing: easeOut }}>{tearable ? count : 0}</span>{/key}</div>
+        <button class="step" aria-label="One Voucher fewer" disabled={!tearable || count <= 1} onclick={() => { rolledUp = false; count--; }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 12h12" /></svg>
         </button>
       {/if}
@@ -336,9 +340,14 @@
   .step {
     height: 34px; padding: 0; border: 0; border-radius: 10px; background: rgba(7, 23, 13, .14);
     color: var(--voucher-ink); display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: opacity var(--t-base) var(--ease-out), background-color var(--t-quick), scale var(--t-quick) var(--ease-out);
   }
+  /* Pressed: a little smaller and darker, springing back on release. */
+  .step:not(:disabled):active { scale: .9; background: rgba(7, 23, 13, .28); }
+  /* Greyed out, fading rather than snapping. */
   .step:disabled { opacity: .35; cursor: default; }
-  .count { font-size: 22px; font-weight: 700; line-height: 28px; text-align: center; }
+  .count { font-size: 22px; font-weight: 700; line-height: 28px; text-align: center; overflow: hidden; display: grid; }
+  .count > span { grid-area: 1 / 1; }
   .body {
     /* The body starts 2 px left of the seam behind a transparent border, so its
        visible edge and half-holes come from the mask. A tilted box edge is
