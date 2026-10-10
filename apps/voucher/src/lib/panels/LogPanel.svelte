@@ -14,6 +14,7 @@
   import { fade } from "svelte/transition";
   import { ms } from "../motion";
   import TodayButton from "../components/TodayButton.svelte";
+  import DateNav from "../components/DateNav.svelte";
   import { notes } from "../notes.svelte";
   let list = $state<HTMLDivElement>();
 
@@ -135,22 +136,15 @@
 </script>
 
 <div class="log" class:compact>
+  <!-- The phone's Log page keeps its heading; on the tablet the date switcher is the card's title. -->
+  {#if !compact}<h1>Log</h1>{/if}
   <header>
-    {#if compact}<span class="cap">Log</span>{:else}<h1>Log</h1>{/if}
+    <DateNav label={day && today ? dayLabel(day, today) : ""} back={back < OLDEST} forward={back > 0} onback={() => step(1)} onforward={() => step(-1)} />
     <span class="spacer"></span>
+    <TodayButton show={back > 0} onclick={() => { back = 0; load(); share(); }} />
     <button class="add" class:on={writing} aria-label="Add a Marker" title="Add a Marker: a dated note charts show as a line" onclick={() => (writing = !writing)}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2.5 4L16 12H5" /></svg>
     </button>
-    <TodayButton show={back > 0} onclick={() => { back = 0; load(); share(); }} />
-    <div class="switcher">
-      <button class="day" aria-label="Previous day" disabled={back >= OLDEST} onclick={() => step(1)}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-      </button>
-      <div class="cap label">{day && today ? dayLabel(day, today) : ""}</div>
-      <button class="day" aria-label="Next day" disabled={back === 0} onclick={() => step(-1)}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-      </button>
-    </div>
   </header>
 
   {#if error}
@@ -212,10 +206,6 @@
   .log { display: flex; flex-direction: column; gap: 14px; }
   header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   h1 { margin: 0; font-size: 26px; font-weight: 700; }
-  .switcher { display: flex; align-items: center; }
-  .label { color: var(--ink); min-width: 92px; text-align: center; }
-  .day { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--muted); }
-  .day:disabled { opacity: .35; }
   .totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
   .totals > div { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
   .totals > div + div { border-left: 1px solid var(--line); }

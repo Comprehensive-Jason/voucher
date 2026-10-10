@@ -18,7 +18,8 @@
   import { tick, untrack } from "svelte";
   import { ledger } from "../api";
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
-  import { clock, dayLabel, hourOf, shiftDay } from "../time";
+  import { clock, dayLabel, hourOf, periodLabel, shiftDay } from "../time";
+  import DateNav from "../components/DateNav.svelte";
   import Marker from "../components/Marker.svelte";
   import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "../types";
   import ScrollCue from "../components/ScrollCue.svelte";
@@ -311,9 +312,7 @@
   function labelOf(index: number): string {
     const start = pages[index], back = pages.length - 1 - index;
     if (!start) return "";
-    if (zoom === "week") return back === 0 ? "This week" : back === 1 ? "Last week" : `Week of ${start}`;
-    const [y, m] = start.split("-").map(Number);
-    return `${MONTHS[m - 1]}${y !== Number(today.day.slice(0, 4)) ? " " + y : ""}`;
+    return periodLabel(zoom === "month" ? "month" : "week", start, today.day);
   }
   // The whole history, fetched once when Week or Month is first opened;
   // today's numbers come live from `today`.
@@ -472,17 +471,7 @@
 
 <section class="card" class:tall>
   <div class="cardhead">
-    <div class="switcher">
-      <button class="nav" aria-label="Earlier {zoom}" disabled={atStart} onclick={() => step(-1)}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
-      </button>
-      <!-- The zoom switch says hours or days, so the title only names the time. -->
-      <!-- A date never breaks in the middle when the name wraps. -->
-      <span class="cap title">{#each (zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)).split(" ") as word, i}{i ? " " : ""}<span class="word">{word}</span>{/each}</span>
-      <button class="nav" aria-label="Later {zoom}" disabled={onLatest} onclick={() => step(1)}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-      </button>
-    </div>
+    <DateNav label={zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)} back={!atStart} forward={!onLatest} onback={() => step(-1)} onforward={() => step(1)} />
     <div class="tools">
       <TodayButton show={!onLatest} onclick={backToToday} />
       <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => pickZoom(z as Zoom)} />
@@ -635,13 +624,6 @@
   .periodaxis { display: grid; justify-content: stretch; }
   .periodaxis span { text-align: center; white-space: nowrap; }
   .periodaxis span.today { color: var(--ink); font-weight: 700; }
-  .switcher { display: flex; align-items: center; gap: 2px; margin-left: -8px; min-width: 0; }
-  /* A long name ("Week of 2026-07-27") breaks onto a second line on a narrow card. */
-  .title .word { white-space: nowrap; }
-  .title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.15; }
-  .switcher:not(:has(.nav)) { margin-left: 0; }
-  .nav { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--muted); cursor: pointer; }
-  .nav:disabled { opacity: .3; cursor: default; }
   /* One Day per screen width, snapping, with no scrollbar: the arrows and
      the header say where you are. */
   /* No overscroll containment: past the newest (or oldest) page, a further

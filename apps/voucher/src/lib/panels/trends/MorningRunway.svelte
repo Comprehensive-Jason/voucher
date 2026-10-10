@@ -11,7 +11,6 @@
   import { clock } from "../../time";
   import { clockOfHours, median, mondayOf } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
-  import DayStepper from "../../components/DayStepper.svelte";
   import type { DayTotal } from "../../types";
   import { selection } from "../../selection.svelte";
   import { untrack } from "svelte";
@@ -59,10 +58,7 @@
   const pick = (day: string) => selection.set("runway", { day: day === today ? null : day, picked: true });
 </script>
 
-<TrendCard title="Morning runway">
-  {#snippet tools()}
-    <DayStepper day={selection.day ?? today} today={today} oldest={days[0]?.day} unit="day" onpick={(d) => selection.set("runway-step", { day: d === today ? null : d, picked: false })} />
-  {/snippet}
+<TrendCard title="Morning runway" date={{ day: selection.day ?? today, today, oldest: days[0]?.day, onpick: (d) => selection.set("runway-step", { day: d === today ? null : d, picked: false }) }}>
   {#if !weeks.length}
     <p class="empty">First unlocks show here as the log fills.</p>
   {:else}

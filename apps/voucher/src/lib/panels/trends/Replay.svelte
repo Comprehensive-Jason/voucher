@@ -14,7 +14,6 @@
   import { zoomFade } from "../../motion";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
-  import DayStepper from "../../components/DayStepper.svelte";
   import type { DayTotal } from "../../types";
 
   let { history }: { history: DayTotal[] } = $props();
@@ -81,12 +80,9 @@
   });
 </script>
 
-<TrendCard title="Replay">
+<TrendCard title="Replay" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: span, onpick: (d) => selection.set("replay", { day: d === today ? null : d, picked: false }) }}>
   {#snippet tools()}
-    <div class="tools">
-      <DayStepper day={selection.day ?? today} today={today} oldest={history[0]?.day} unit={span} onpick={(d) => selection.set("replay", { day: d === today ? null : d, picked: false })} />
-      <ZoomSwitch options={[{ id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onchange={(v) => pick(v as Span)} />
-    </div>
+    <ZoomSwitch options={[{ id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onchange={(v) => pick(v as Span)} />
   {/snippet}
   {#if !cards.length}
     <p class="empty">Nothing in this {span} yet.</p>
@@ -108,7 +104,6 @@
 </TrendCard>
 
 <style>
-  .tools { display: flex; align-items: center; gap: 8px; }
   .stage { display: flex; flex-direction: column; gap: 8px; }
   .stage.fit { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
   .when { color: var(--muted); }

@@ -1,16 +1,27 @@
 <script lang="ts">
   // The frame every Trends card shares: a title with optional controls on
   // the right, the chart, and one line under it saying what the chart shows.
+  // A card that follows the shared Day passes `date`: its date switcher
+  // takes the title's place, and the Today button comes first on the right,
+  // as on every dated card.
   import type { Snippet } from "svelte";
   import { fitsSlot } from "../fit.svelte";
+  import DayStepper, { type DateProps } from "./DayStepper.svelte";
+  import TodayButton from "./TodayButton.svelte";
   const fit = fitsSlot();
-  let { title, tools, children, foot }: { title: string; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();
+  let { title, date, tools, children, foot }: { title: string; date?: DateProps; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();
+  const ready = $derived(!!date && /^\d{4}-\d{2}-\d{2}$/.test(date.day) && /^\d{4}-\d{2}-\d{2}$/.test(date.today));
 </script>
 
 <section class="card" class:fit>
   <div class="cardhead">
-    <span class="cap">{title}</span>
-    {#if tools}<div class="tools">{@render tools()}</div>{/if}
+    {#if date && ready}<DayStepper {...date} />{:else}<span class="cap">{title}</span>{/if}
+    {#if tools || date}
+      <div class="tools">
+        {#if date && ready}<TodayButton show={date.day !== date.today} onclick={() => date.onpick(date.today)} />{/if}
+        {#if tools}{@render tools()}{/if}
+      </div>
+    {/if}
   </div>
   {@render children()}
   {#if foot}<p class="foot">{@render foot()}</p>{/if}

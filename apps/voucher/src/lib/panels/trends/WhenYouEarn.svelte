@@ -12,7 +12,6 @@
   import { untrack } from "svelte";
   import type { DayTotal } from "../../types";
   import { fitsSlot } from "../../fit.svelte";
-  import DayStepper from "../../components/DayStepper.svelte";
   const fit = fitsSlot();
 
   let { history }: { history: DayTotal[] } = $props();
@@ -84,12 +83,9 @@
   });
 </script>
 
-<TrendCard title="When you earn">
+<TrendCard title="When you earn" date={{ day: selection.day ?? lastDay, today: lastDay, oldest: history[0]?.day, unit: by, onpick: (d) => selection.set("when", { day: d === lastDay ? null : d, picked: false }) }}>
   {#snippet tools()}
-    <div class="tools">
-      <DayStepper short day={selection.day ?? lastDay} today={lastDay} oldest={history[0]?.day} unit={by} onpick={(d) => selection.set("when", { day: d === lastDay ? null : d, picked: false })} />
-      <ZoomSwitch options={[{ id: "day", label: "Days" }, { id: "week", label: "Weeks" }, { id: "month", label: "Months" }]} value={by} onchange={(v) => pickBy(v as By)} />
-    </div>
+    <ZoomSwitch options={[{ id: "day", label: "Days" }, { id: "week", label: "Weeks" }, { id: "month", label: "Months" }]} value={by} onchange={(v) => pickBy(v as By)} />
   {/snippet}
   {#if !rows.length}
     <p class="empty">Vouchers earned by the hour show here as the log fills.</p>
@@ -114,7 +110,6 @@
 </TrendCard>
 
 <style>
-  .tools { display: flex; align-items: center; gap: 8px; }
   .grid { display: flex; flex-direction: column; gap: 4px; }
   .hours, .row { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
   /* Curfew's hours: their labels in the night colour (empty cells are NIGHT). */
