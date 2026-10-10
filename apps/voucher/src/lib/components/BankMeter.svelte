@@ -4,9 +4,12 @@
   import { untrack } from "svelte";
   import { MOTION } from "../motion";
   import StreakPill from "./StreakPill.svelte";
-  // The Bank, then today's progress toward the Daily goal with the Streak it feeds.
-  let { mode, bank, limit, goalDone, goalTarget, streakDays }: {
-    mode: Mode; bank: number; limit: number; goalDone: number; goalTarget: number; streakDays: number;
+  import Brand from "./Brand.svelte";
+  // The Bank, then today's progress toward the Daily goal with the Streak it
+  // feeds. `brand` puts the Voucher mark at the right of the Bank's line, for
+  // the tablet, which has no header row.
+  let { mode, bank, limit, goalDone, goalTarget, streakDays, brand = false }: {
+    mode: Mode; bank: number; limit: number; goalDone: number; goalTarget: number; streakDays: number; brand?: boolean;
   } = $props();
   // Vouchers just earned are counted when their row says "+1 Voucher".
   const shown = $derived(Math.max(0, bank - wins.held));
@@ -34,6 +37,7 @@
   <div class="count">
     <span class="mono big" class:pop class:lit={wins.lit > 0 && mode !== "curfew"} class:full={mode === "full"} class:night={mode === "curfew"} class:empty={mode === "empty"} onanimationend={() => (pop = false)}>{shown}</span>
     <span class="of">of {limit} in the Bank{mode === "full" ? ": full" : ""}</span>
+    {#if brand}<span class="brand"><Brand night={mode === "curfew"} /></span>{/if}
   </div>
   <div class="cells" style="grid-template-columns: repeat({limit}, minmax(0, 1fr))">
     {#each cells as on, i}
@@ -53,6 +57,7 @@
 <style>
   section { display: flex; flex-direction: column; gap: 10px; }
   .count { display: flex; align-items: baseline; gap: 10px; }
+  .count .brand { margin-left: auto; align-self: center; }
   .big { font-size: 56px; font-weight: 700; line-height: 1; display: inline-block; transform-origin: left bottom; }
   /* Green for as long as a row says "+1 Voucher", with a pop as it lands. */
   .big { transition: color var(--t-base) ease; }

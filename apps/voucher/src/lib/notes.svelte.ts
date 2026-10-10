@@ -51,7 +51,10 @@ export function hourOfMoment(at: string): number {
 }
 
 /** "13:30", in this device's time. */
-export const clock = (at: string) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+export const clock = (at: string) => {
+  const d = new Date(at);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
 
 /** Answers the Curfew question for a Day (null clears it). */
 export const answerVerdict = (day: string, verdict: Verdict | null) => ledger("POST", "/verdict", { day, verdict });

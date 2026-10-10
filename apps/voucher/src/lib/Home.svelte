@@ -11,6 +11,7 @@
   // that scrolls sideways, two in view at a time, holding the charts and the
   // Log in whatever arrangement was chosen here (see arrangement.svelte.ts).
   import { onMount, tick } from "svelte";
+  import { page } from "$app/state";
   import { fade } from "svelte/transition";
   import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
   import { fillSlots } from "$lib/fit.svelte";
@@ -58,12 +59,17 @@
   let usage = $state<DeviceUsage | null>(kept.usage);
 
   // The tablet's other columns refresh less often than the Voucher stack.
+  // An answer that hasn't changed is dropped, so the cards don't all redraw
+  // (a long pause on the tablet) for nothing.
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
   async function loadWide() {
     try {
-      status = kept.status = await ledger<Status>("GET", "/status");
-      setCurfew(status.settings.curfew_start, status.settings.curfew_end);
-      history = kept.history = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(status.today.day, status.first_day)}`);
-      usage = kept.usage = await deviceUsage();
+      const s = await ledger<Status>("GET", "/status");
+      if (!same(s, status)) { status = kept.status = s; setCurfew(s.settings.curfew_start, s.settings.curfew_end); }
+      const h = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(s.today.day, s.first_day)}`);
+      if (!same(h, history)) history = kept.history = h;
+      const u = await deviceUsage();
+      if (!same(u, usage)) usage = kept.usage = u;
     } catch { /* the Today column shows the error */ }
   }
 
@@ -277,15 +283,24 @@
     setTimeout(land, 1500);
     strip.scrollTo({ left: Math.min(i * pageWidth(), strip.scrollWidth - strip.clientWidth), behavior: "smooth" });
   }
+  // While Rules covers the dashboard it doesn't ask. Back on it, it asks
+  // once the sheet has slid away, so any redraw misses the slide.
+  const covered = $derived(page.url.pathname !== "/");
   $effect(() => {
-    if (!wide.on) return;
-    loadWide();
+    if (!wide.on || covered) return;
+    const first = setTimeout(loadWide, kept.status ? ms("move") + 100 : 0);
     const timer = setInterval(loadWide, import.meta.env.DEV ? POLL_MS : 60_000);
-    return () => clearInterval(timer);
+    return () => { clearTimeout(first); clearInterval(timer); };
   });
 </script>
 
 {#if wide.on}
+  <!-- Rules opens from the foot of the Today column, left of the page bar. -->
+  {#snippet rulesButton()}
+    <a class="iconbtn" href="/rules" aria-label="Rules">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
+    </a>
+  {/snippet}
   {#snippet panel(id: PanelId)}
     {#if id === "log"}<div class="logcard tile"><LogPanel compact /></div>
     {:else if status}
@@ -316,7 +331,7 @@
        down, in Arrange's order and sizes (a third is about a landscape
        third's height). -->
   <div class="wide portrait">
-    <section class="col today"><TodayColumn {live} wide /><RulesNotices compact /></section>
+    <section class="col today"><TodayColumn {live} wide /><RulesNotices compact /><div class="leftfoot">{@render rulesButton()}</div></section>
     <div class="vstrip" role="group" aria-label="Charts">
       {#each arrangement.order as id (id)}
         <div class="slot" role="group" aria-label={PANELS[id].name} style="height: calc({arrangement.size(id)} * var(--third) + {arrangement.size(id) - 1} * var(--gap)); flex: none">
@@ -337,7 +352,7 @@
       <!-- At the foot of the Today column: the page bar for the cards, so the
            cards get the screen's full height. -->
       <div class="leftfoot">
-        <span></span>
+        {@render rulesButton()}
         <!-- Pages of two columns: tap one to go there. -->
         {#if pageCount > 1}
           <div class="pages" role="tablist" aria-label="Pages of charts">

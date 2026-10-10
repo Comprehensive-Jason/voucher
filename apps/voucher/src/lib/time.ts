@@ -8,10 +8,15 @@ export function shiftDay(day: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** One formatter per time zone: building one is slow (a fraction of a
+ *  millisecond), and charts ask for hundreds of times at once. */
+const clocks = new Map<string, Intl.DateTimeFormat>();
+
 /** "15:20" for a moment, on `timeZone`'s clock. */
 export function clock(at: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone })
-    .format(new Date(at));
+  let format = clocks.get(timeZone);
+  if (!format) clocks.set(timeZone, (format = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone })));
+  return format.format(new Date(at));
 }
 
 /** The hour (0 to 23) of a moment on `timeZone`'s clock. */
@@ -29,10 +34,11 @@ export function dayLabel(day: string, today: string): string {
   if (day === today) return "Today";
   if (day === shiftDay(today, -1)) return "Yesterday";
   if (day === shiftDay(today, -2)) return "Two Days ago";
-  const weekday = new Date(`${day}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+  const weekday = WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()];
   return `${weekday} ${shortDate(day, today)}`;
 }
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const sameYear = (a: string, b: string) => a.slice(0, 4) === b.slice(0, 4);
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** The Monday of `day`'s week. */

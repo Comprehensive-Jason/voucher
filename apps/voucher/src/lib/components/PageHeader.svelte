@@ -30,7 +30,7 @@
 
 <header class="pagehead" class:hasback={!!back}>
   {#if back}
-    <button class="iconbtn bare back" aria-label={backLabel} onclick={goBack}>
+    <button class="iconbtn back" aria-label={backLabel} onclick={goBack}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d={backIcon === "down" ? "M6 9l6 6 6-6" : "M15 6l-6 6 6 6"} /></svg>
     </button>
   {/if}
@@ -40,9 +40,9 @@
 
 <style>
   .pagehead { flex: none; display: flex; align-items: center; gap: 4px; min-height: 44px; padding-top: calc(16px + env(safe-area-inset-top)); }
-  /* The arrow, not its tap area, lines up with the page's left edge. */
-  .pagehead.hasback { margin-left: -12px; }
-  .pagehead .back { color: var(--ink); }
+  /* Back is outlined like every icon button, its edge on the page's left edge. */
+  .pagehead.hasback { gap: 12px; }
+  .pagehead .back { flex: none; color: var(--ink); }
   h1 { flex: 0 1 auto; min-width: 0; margin: 0; font: 700 22px/1.2 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .right { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding-left: 12px; }
 </style>

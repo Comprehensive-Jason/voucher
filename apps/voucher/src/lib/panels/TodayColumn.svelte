@@ -1,7 +1,8 @@
 <script lang="ts">
   // Everything on the phone's Today screen: header, Bank, Voucher stack, status
   // card, and progress toward the next Voucher. On the tablet it is the first
-  // column, and its header carries the Rules button instead of a tab bar.
+  // column, with no header row: the mark sits on the Bank's line, and Rules
+  // opens from the page bar's row (lib/Home.svelte).
   import Header from "../components/Header.svelte";
   import BankMeter from "../components/BankMeter.svelte";
   import VoucherStack from "../components/VoucherStack.svelte";
@@ -17,8 +18,8 @@
 
 {#if live.data}
   {@const data = live.data}
-  <Header night={live.mode === "curfew"} rules={wide} />
-  <BankMeter mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
+  {#if !wide}<Header night={live.mode === "curfew"} />{/if}
+  <BankMeter brand={wide} mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
   <VoucherStack mode={live.mode} bank={Math.max(0, data.bank - wins.held)} unlockMinutes={data.unlockMinutes} room={data.curfewRoomMinutes} curfewStart={data.curfewStart} ontear={live.tear} />
   <ReasonChips tornAt={live.tornAt} />
   <StatusCard mode={live.mode} now={live.now} {data} />

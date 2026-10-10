@@ -15,7 +15,8 @@
   let confirming = $state(false);
   const until = $derived(status?.grace_until ?? null);
   /** A moment's date on the Ledger's clock, as "2026-10-09". */
-  const dayOf = (at: Date | string, timeZone: string) => new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(at));
+  let days: Intl.DateTimeFormat | null = null;
+  const dayOf = (at: Date | string, timeZone: string) => (days?.resolvedOptions().timeZone === timeZone ? days : (days = new Intl.DateTimeFormat("en-CA", { timeZone }))).format(new Date(at));
   // "Today 14:00", "Sat 10-10 14:00": the shared date words, on the Ledger's clock.
   const when = $derived(until && status
     ? `${dayLabel(dayOf(until, status.settings.time_zone), dayOf(new Date(), status.settings.time_zone))} ${clock(until, status.settings.time_zone)}`

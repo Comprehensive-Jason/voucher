@@ -66,7 +66,10 @@
 </script>
 
 <div class="screen" class:wide={wide.on}>
-  {#if keepHome}<div class="body home" class:under={!atHome} inert={!atHome} aria-hidden={!atHome}><Home /></div>{/if}
+  <!-- Covered, the dashboard is hidden from screen readers but not made inert:
+       Rules covers it, so nothing under it can be tapped, and switching inert
+       restyles every element on it, a long pause halfway through the slide. -->
+  {#if keepHome}<div class="body home" class:under={!atHome} aria-hidden={!atHome}><Home /></div>{/if}
   {#if !atHome}<div class="body" class:over={keepHome}>{@render children()}</div>{/if}
   {#if !wide.on && !alone}<NavTabs {active} />{/if}
 </div>
@@ -75,8 +78,10 @@
   .screen { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
   .screen { position: relative; }
   .body { flex: 1; min-height: 0; overflow-y: auto; }
-  /* Rules over the dashboard: the dashboard keeps its place underneath, covered. */
-  .home.under { position: absolute; inset: 0; }
+  /* Rules over the dashboard: the dashboard keeps its place underneath,
+     covered. It's placed the same way with or without Rules over it, so
+     opening or closing Rules doesn't lay the whole dashboard out again. */
+  .screen.wide .home { position: absolute; inset: 0; }
   /* Its own layer, so nothing inside it (the Voucher stack, the pills) rises above Rules. */
   .home { isolation: isolate; }
   .body.over { position: absolute; inset: 0; z-index: 1; background: var(--ground); }
