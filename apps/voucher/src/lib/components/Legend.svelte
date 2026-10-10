@@ -23,7 +23,12 @@
     <span class="scale">{scale.from}{#each scale.colors as c}<i class="swatch" style="background: {c}"></i>{/each}{scale.to}</span>
   {/if}
   {#each items as it (it.label)}
-    <span><i class="{it.kind}" style="--c: {it.color ?? (it.kind === 'flag' ? 'var(--marker)' : 'var(--muted)')}"></i>{it.label}</span>
+    {#if it.kind === "flag"}
+      <!-- A Marker's key is its flag, drawn as on the charts and the Marker button. -->
+      <span><svg class="flagkey" width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M1.6 11.2V1" stroke={it.color ?? "var(--marker)"} stroke-width="1.6" stroke-linecap="round" /><path d="M1.6 1h7l-2 2.75 2 2.75h-7z" fill={it.color ?? "var(--marker)"} /></svg>{it.label}</span>
+    {:else}
+      <span><i class="{it.kind}" style="--c: {it.color ?? 'var(--muted)'}"></i>{it.label}</span>
+    {/if}
   {/each}
   {#if note}<span class="note">{note}</span>{/if}
 </div>
@@ -44,7 +49,7 @@
   .frame { width: 10px; height: 10px; border-radius: 3px; border: 1.5px solid var(--c); box-sizing: border-box; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
   .ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--c); box-sizing: border-box; }
-  .flag { width: 3px; height: 12px; border-radius: 1px; background: var(--c); }
+  .flagkey { flex: none; }
   .usual { width: 2px; height: 12px; background: repeating-linear-gradient(180deg, var(--c) 0 3px, transparent 3px 5px); }
   .hatch { width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
   .note { margin-left: auto; font-size: 11px; color: var(--axis-ink); }

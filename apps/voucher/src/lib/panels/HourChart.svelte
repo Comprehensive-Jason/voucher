@@ -626,7 +626,7 @@
     {/if}
     {#if notes.on(days[shown] ?? "").length && zoom === "day"}
       {#each notes.on(days[shown]) as m (m.at)}
-        <div class="row"><span class="mk"><i class="flagmark" class:rule={m.rule}></i></span><span class="name">{m.text}</span><b class="mono">{clockOf(m.at)}</b></div>
+        <div class="row"><span class="mk"><Marker kind={m.rule ? "rule" : "note"} /></span><span class="name">{m.text}</span><b class="mono">{clockOf(m.at)}</b></div>
       {/each}
     {/if}
     {#if minutes && !shownBreakdown.rows.length}
@@ -699,9 +699,9 @@
   .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
   /* A Marker: a short flag at the top of its hour; the Marker colour for one written by hand, grey for a rule change. */
   .flag { position: absolute; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: var(--marker); border-radius: 1px; pointer-events: none; }
-  .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 6px; height: 5px; background: inherit; border-radius: 0 2px 2px 0; }
-  .flag.rule, .flagmark.rule { background: var(--muted); }
-  .flagmark { display: block; width: 3px; height: 12px; margin-left: 3px; border-radius: 1px; background: var(--marker); }
+  /* The notched flag of every Marker (the button, the Log, the keys). */
+  .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 7px; height: 6px; background: inherit; clip-path: polygon(0 0, 100% 0, 72% 50%, 100% 100%, 0 100%); }
+  .flag.rule { background: var(--muted); }
   /* Curfew's hours: a night-coloured band behind the bars, across the gaps too. */
   .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: color-mix(in srgb, var(--night) 9%, transparent); pointer-events: none; }
   .tall .col.night::before { --gap: 6px; }

@@ -151,7 +151,8 @@
       { kind: "line", color: "var(--voucher)", label: "Earned" },
       { kind: "line", color: "var(--spend)", label: "Torn" },
       { kind: "dash", color: "var(--ink)", label: "Kept" },
-      ...(marks.length ? [{ kind: "flag" as const, color: marks.every((m) => m.rule) ? "var(--muted)" : "var(--marker)", label: "Marker" }] : []),
+      ...(marks.some((m) => !m.rule) ? [{ kind: "flag" as const, color: "var(--marker)", label: "Marker" }] : []),
+      ...(marks.some((m) => m.rule) ? [{ kind: "flag" as const, color: "var(--muted)", label: "Rule change" }] : []),
     ]} />
   {/if}
 </TrendCard>

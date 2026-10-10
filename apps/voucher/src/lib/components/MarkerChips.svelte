@@ -90,7 +90,7 @@
   /* The "Why now?" chips' shape (ReasonChips); added ones fill with the Markers' cream. */
   .chips button { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--chip-line, var(--line)); background: var(--chip-bg, var(--raised)); color: var(--chip-ink, var(--ink)); font: 600 13px var(--font); cursor: pointer; transition: background-color var(--t-base), color var(--t-base), border-color var(--t-base), scale var(--t-quick) var(--ease-out); }
   .chips button:active:not(:disabled) { scale: .94; }
-  .chips button.on { background: var(--marker); border-color: var(--marker); color: var(--ground); cursor: default; }
+  .chips button.on { background: var(--marker); border-color: var(--marker); color: var(--marker-ink); cursor: default; }
   .chips button svg { flex: none; }
   .other span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .write { display: flex; gap: 8px; }
