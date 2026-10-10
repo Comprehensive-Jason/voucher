@@ -9,13 +9,14 @@
 import { remember, remembered } from "./storage";
 
 export type PanelId = "earned" | "heat" | "distraction" | "log"
-  | "trend" | "when" | "pace" | "runway" | "strength" | "ladder" | "streaks" | "records";
+  | "trend" | "when" | "pace" | "runway" | "strength" | "ladder" | "streaks" | "records"
+  | "best" | "gooddays" | "arrows" | "replay" | "focus" | "walkaway";
 
 /** A panel's height in thirds of a column: the smallest it can be, the
  *  largest, and where it starts. Equal min and max mean one fixed size. */
 export const PANELS: Record<PanelId, { name: string; min: number; max: number; size: number }> = {
   earned: { name: "Vouchers earned", min: 2, max: 3, size: 2 },
-  heat: { name: "Activity graph", min: 1, max: 1, size: 1 },
+  heat: { name: "Activity", min: 1, max: 1, size: 1 },
   distraction: { name: "Distraction time", min: 2, max: 3, size: 2 },
   log: { name: "Log", min: 1, max: 3, size: 3 },
   pace: { name: "Pace to goal", min: 1, max: 2, size: 1 },
@@ -26,12 +27,18 @@ export const PANELS: Record<PanelId, { name: string; min: number; max: number; s
   ladder: { name: "Streaks", min: 1, max: 1, size: 1 },
   streaks: { name: "Source streaks", min: 1, max: 2, size: 1 },
   records: { name: "Personal records", min: 1, max: 1, size: 1 },
+  best: { name: "Best hours by source", min: 1, max: 2, size: 1 },
+  gooddays: { name: "What goes with a good Day", min: 1, max: 2, size: 1 },
+  arrows: { name: "Trend arrows", min: 1, max: 2, size: 1 },
+  replay: { name: "Replay", min: 2, max: 2, size: 2 },
+  focus: { name: "Focus stretches", min: 1, max: 2, size: 1 },
+  walkaway: { name: "Walk-away wins", min: 1, max: 1, size: 1 },
 };
 
 /** Thirds in a column. */
 export const ROWS = 3;
 
-const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "ladder", "records", "streaks"];
+const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "ladder", "records", "streaks", "arrows", "replay", "best", "gooddays", "focus", "walkaway"];
 const KEY = "tablet-arrangement";
 
 type Sizes = Partial<Record<PanelId, number>>;

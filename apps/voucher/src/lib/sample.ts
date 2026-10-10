@@ -92,7 +92,19 @@ function history(n: number): DayTotal[] {
     const redeemed = Math.floor(earned / 3);
     const tearAt = 10 + ((seed >> 3) % 5), tearMin = (seed >> 5) % 60;
     const first_tear = redeemed ? `${d}T${String(tearAt).padStart(2, "0")}:${String(tearMin).padStart(2, "0")}:00-07:00` : null;
-    out.push({ day: d, earned, redeemed, goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used, goal: 16, hours, first_tear });
+    // Each source keeps to its own hours: reading mornings, Chinese after lunch, Obsidian evenings.
+    const home: Record<string, number[]> = { tasks: [9, 10, 11, 14, 15, 16], obsidian: [19, 20, 21], reading: [8, 9, 10], workout: [7, 17], chinese: [13, 14] };
+    const source_hours: Record<string, number[]> = {};
+    for (const [id, n] of Object.entries(by_source)) {
+      const h = Array<number>(24).fill(0);
+      for (let i = 0; i < n; i++) h[home[id]?.[(i + seed) % home[id].length] ?? 12]++;
+      source_hours[id] = h;
+    }
+    // Focus stretches that lengthen over the half year, and blocked opens most often walked away from.
+    const grow = 1 - back / n;
+    const stretches = Array.from({ length: 2 + (seed % 4) }, (_, i) => Math.round(8 + grow * 25 + ((seed >> (i + 2)) % 30)));
+    const opens = 3 + (seed % 9), walked = Math.round(opens * (0.5 + grow * 0.35));
+    out.push({ day: d, earned, redeemed, goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used, goal: 16, hours, first_tear, source_hours, stretches, opens, walked });
   }
   return out;
 }

@@ -298,7 +298,15 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 .read_to_string(&mut body)
                 .ok()
                 .and_then(|_| serde_json::from_str::<UsageReport>(&body).ok());
-            match parsed.map(|u| ledger.report_usage_in_lists(&u.device, u.day, u.apps, u.lists, now)) {
+            let parsed = parsed.map(|u| {
+                // Focus stretches and blocked opens ride along with the minutes.
+                let extras = u.stretches.is_some() || u.opens.is_some();
+                let opens = u.opens.map(|o| (o, u.walked.unwrap_or(0)));
+                let kept = ledger.report_usage_in_lists(&u.device, u.day, u.apps, u.lists, now);
+                kept && (!extras
+                    || ledger.report_focus_and_opens(&u.device, u.day, u.stretches, opens, now))
+            });
+            match parsed {
                 Some(true) => (200, json(&Message { message: "kept" })),
                 Some(false) => (
                     400,
@@ -537,6 +545,14 @@ struct UsageReport {
     /// The blocklist id each app is on, where the device knows it.
     #[serde(default)]
     lists: std::collections::BTreeMap<String, String>,
+    /// Each unbroken stretch in a focus app this Day, in minutes.
+    #[serde(default)]
+    stretches: Option<Vec<u32>>,
+    /// Opens of a blocked app this Day, and how many ended without an Unlock.
+    #[serde(default)]
+    opens: Option<u32>,
+    #[serde(default)]
+    walked: Option<u32>,
 }
 
 #[derive(serde::Deserialize)]

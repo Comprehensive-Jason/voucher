@@ -12,6 +12,12 @@
   import StreakLadder from "$lib/panels/trends/StreakLadder.svelte";
   import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
   import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
+  import BestHours from "$lib/panels/trends/BestHours.svelte";
+  import GoodDays from "$lib/panels/trends/GoodDays.svelte";
+  import TrendArrows from "$lib/panels/trends/TrendArrows.svelte";
+  import Replay from "$lib/panels/trends/Replay.svelte";
+  import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
+  import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import { historyDays } from "$lib/time";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$lib/types";
@@ -68,6 +74,12 @@
     <StreakLadder {history} />
     <SourceStreaks {history} sources={today.sources} />
     <PersonalRecords {history} {timeZone} />
+    <TrendArrows {history} {timeZone} />
+    <Replay {history} />
+    <BestHours {history} />
+    <GoodDays {history} {timeZone} />
+    <FocusStretches {history} />
+    <WalkAway {history} />
   {/if}
 </main>
 

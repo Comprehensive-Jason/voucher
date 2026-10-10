@@ -661,6 +661,14 @@ pub struct DayTotal {
     pub hours: Vec<u32>,
     /// The Day's first tear, if the log still holds it.
     pub first_tear: Option<Timestamp>,
+    /// Vouchers earned per clock hour for each source, from the log.
+    pub source_hours: BTreeMap<String, Vec<u32>>,
+    /// Every unbroken stretch in a focus app, in minutes, all devices together.
+    pub stretches: Vec<u32>,
+    /// Opens of a blocked app, all devices together.
+    pub opens: u32,
+    /// Of those, the ones that ended without an Unlock.
+    pub walked: u32,
 }
 
 /// What one Day earned, and the goal it had.
@@ -686,6 +694,12 @@ struct DayScore {
     /// measured it saw it (by package, or Android's game category).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     usage_lists: BTreeMap<String, String>,
+    /// Unbroken stretches in focus apps, by device: their lengths in minutes.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    stretches: BTreeMap<String, Vec<u32>>,
+    /// Blocked opens and how many ended without an Unlock, by device.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    blocked: BTreeMap<String, (u32, u32)>,
 }
 
 impl DayScore {
@@ -699,6 +713,8 @@ impl DayScore {
             reported: BTreeMap::new(),
             usage: BTreeMap::new(),
             usage_lists: BTreeMap::new(),
+            stretches: BTreeMap::new(),
+            blocked: BTreeMap::new(),
         }
     }
 }
@@ -978,7 +994,9 @@ impl Ledger {
         self.settle(now);
         let today = day_of(&self.state.settings, now);
         let fresh_day = day == today || Some(day) == today.yesterday().ok();
-        let sane = apps.values().all(|hours| hours.len() <= 24 && hours.iter().all(|&m| m <= 60));
+        let sane = apps
+            .values()
+            .all(|hours| hours.len() <= 24 && hours.iter().all(|&m| m <= 60));
         if !fresh_day || !sane {
             return false;
         }
@@ -995,6 +1013,37 @@ impl Ledger {
         score.usage.insert(device.to_string(), apps);
         score.usage_lists.extend(lists);
         self.forget_old_entries(today);
+        true
+    }
+
+    /// One device's focus stretches (minutes each) and blocked opens for
+    /// `day` (today or yesterday), replacing its last report. False if refused.
+    pub fn report_focus_and_opens(
+        &mut self,
+        device: &str,
+        day: Date,
+        stretches: Option<Vec<u32>>,
+        opens: Option<(u32, u32)>,
+        now: Timestamp,
+    ) -> bool {
+        self.settle(now);
+        let today = day_of(&self.state.settings, now);
+        if day != today && Some(day) != today.yesterday().ok() {
+            return false;
+        }
+        let goal = self.state.settings.daily_goal;
+        let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
+        if let Some(list) = stretches {
+            score.stretches.insert(
+                device.to_string(),
+                list.into_iter()
+                    .filter(|&m| m > 0 && m <= 24 * 60)
+                    .collect(),
+            );
+        }
+        if let Some(pair) = opens {
+            score.blocked.insert(device.to_string(), pair);
+        }
         true
     }
 
@@ -1221,6 +1270,7 @@ impl Ledger {
         let tz = settings.time_zone.clone();
         let mut sources: BTreeMap<Date, BTreeMap<String, u32>> = BTreeMap::new();
         let mut hours: BTreeMap<Date, Vec<u32>> = BTreeMap::new();
+        let mut source_hours: BTreeMap<Date, BTreeMap<String, Vec<u32>>> = BTreeMap::new();
         let mut first_tears: BTreeMap<Date, Timestamp> = BTreeMap::new();
         for entry in &self.state.log {
             match entry {
@@ -1234,6 +1284,11 @@ impl Ledger {
                         .or_insert(0) += 1;
                     let hour = usize::try_from(at.to_zoned(tz.clone()).hour()).unwrap_or(0);
                     hours.entry(day).or_insert_with(|| vec![0; 24])[hour] += 1;
+                    source_hours
+                        .entry(day)
+                        .or_default()
+                        .entry(source.to_string())
+                        .or_insert_with(|| vec![0; 24])[hour] += 1;
                 }
                 Entry::Redeemed { at, .. } => {
                     let first = first_tears.entry(day_of(settings, *at)).or_insert(*at);
@@ -1264,6 +1319,12 @@ impl Ledger {
                     goal,
                     hours: hours.remove(&day).unwrap_or_default(),
                     first_tear: first_tears.remove(&day),
+                    source_hours: source_hours.remove(&day).unwrap_or_default(),
+                    stretches: score
+                        .map(|s| s.stretches.values().flatten().copied().collect())
+                        .unwrap_or_default(),
+                    opens: score.map_or(0, |s| s.blocked.values().map(|b| b.0).sum()),
+                    walked: score.map_or(0, |s| s.blocked.values().map(|b| b.1.min(b.0)).sum()),
                     used: score
                         .map(usage_of)
                         .unwrap_or_default()
@@ -1344,6 +1405,7 @@ impl Ledger {
         for (_, score) in self.state.days.range_mut(..oldest) {
             score.usage.clear();
             score.usage_lists.clear();
+            score.stretches.clear();
         }
     }
 

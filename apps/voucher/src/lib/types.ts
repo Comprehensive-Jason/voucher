@@ -102,6 +102,13 @@ export interface DayTotal {
   hours?: number[];
   /** The Day's first tear, if the log still holds it. */
   first_tear?: string | null;
+  /** Vouchers earned per clock hour for each source; empty past the kept log. */
+  source_hours?: Record<string, number[]>;
+  /** Every unbroken stretch in a focus app, in minutes; empty past the kept log. */
+  stretches?: number[];
+  /** Opens of a blocked app, and how many ended without an Unlock. */
+  opens?: number;
+  walked?: number;
 }
 
 /** What the phone itself measured today, from the Android side. */

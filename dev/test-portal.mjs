@@ -86,8 +86,16 @@ async function reportUsage() {
   u.hours = hoursOf(u);
   writeUsage(u);
   const status = await call("GET", "/status");
-  return call("POST", "/usage", { device: "portal", day: status.today.day, apps: u.hours, lists: listsFor(Object.keys(u.hours), status.settings.blocklists) });
+  // Focus stretches made up once a Day; blocked opens from the counts above.
+  if (u.stretchesDay !== status.today.day) { u.stretches = fakeStretches(); u.stretchesDay = status.today.day; writeUsage(u); }
+  const opens = Object.values(u.opens).reduce((a, b) => a + b, 0);
+  return call("POST", "/usage", { device: "portal", day: status.today.day, apps: u.hours, lists: listsFor(Object.keys(u.hours), status.settings.blocklists),
+    stretches: u.stretches, opens, walked: Math.min(u.closedWithoutTearing, opens) });
 }
+/** A Day's made-up focus stretches, in minutes. */
+const fakeStretches = () => Array.from({ length: 2 + Math.floor(Math.random() * 4) }, () => 5 + Math.floor(Math.random() ** 1.5 * 70));
+/** A Day's made-up blocked opens and walk-aways. */
+function fakeOpens() { const opens = Math.floor(Math.random() * 12); return [opens, Math.round(opens * (0.4 + Math.random() * 0.5))]; }
 /** A made-up Day of Distraction time: a few apps, mostly in the hours the Day
  *  tore Vouchers, sometimes running past what was unlocked. */
 function fakeDayUsage(tearHours, unlockMinutes) {
@@ -231,6 +239,8 @@ async function seedHistory(days) {
     }
     state.days[date].usage = { portal: fakeDayUsage(tearHours, state.settings.unlock_minutes) };
     state.days[date].usage_lists = listsFor(Object.keys(state.days[date].usage.portal), state.settings.blocklists);
+    state.days[date].stretches = { portal: fakeStretches() };
+    state.days[date].blocked = { portal: fakeOpens() };
   }
   state.log.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   if (earliest && Date.parse(state.started_at) > Date.parse(earliest + "T00:00:00Z")) state.started_at = earliest + "T00:00:00Z";
@@ -256,6 +266,9 @@ async function backfillUsage() {
   for (const [date, score] of Object.entries(state.days)) {
     // Days filled before the blocklists were sent get them now.
     if (score.usage?.portal && !score.usage_lists) score.usage_lists = listsFor(Object.keys(score.usage.portal), state.settings.blocklists);
+    // And focus stretches and blocked opens, which came later still.
+    if (date < today && date >= logFrom && !score.stretches) score.stretches = { portal: fakeStretches() };
+    if (date < today && date >= logFrom && !score.blocked) score.blocked = { portal: fakeOpens() };
     if (date >= today || date < logFrom || (score.usage && Object.keys(score.usage).length)) continue;
     score.usage = { portal: fakeDayUsage(tears[date] ?? [], state.settings.unlock_minutes) };
     score.usage_lists = listsFor(Object.keys(score.usage.portal), state.settings.blocklists);

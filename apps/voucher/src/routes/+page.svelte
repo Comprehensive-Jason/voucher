@@ -24,6 +24,12 @@
   import StreakLadder from "$lib/panels/trends/StreakLadder.svelte";
   import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
   import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
+  import BestHours from "$lib/panels/trends/BestHours.svelte";
+  import GoodDays from "$lib/panels/trends/GoodDays.svelte";
+  import TrendArrows from "$lib/panels/trends/TrendArrows.svelte";
+  import Replay from "$lib/panels/trends/Replay.svelte";
+  import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
+  import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import type { DayTotal, DeviceUsage, Status } from "$lib/types";
 
   const live = new Live();
@@ -247,7 +253,13 @@
       {:else if id === "strength"}<HabitStrength {history} />
       {:else if id === "ladder"}<StreakLadder {history} />
       {:else if id === "streaks"}<SourceStreaks {history} sources={status.today.sources} />
-      {:else if id === "records"}<PersonalRecords {history} timeZone={status.settings.time_zone} />{/if}
+      {:else if id === "records"}<PersonalRecords {history} timeZone={status.settings.time_zone} />
+      {:else if id === "best"}<BestHours {history} />
+      {:else if id === "gooddays"}<GoodDays {history} timeZone={status.settings.time_zone} />
+      {:else if id === "arrows"}<TrendArrows {history} timeZone={status.settings.time_zone} />
+      {:else if id === "replay"}<Replay {history} />
+      {:else if id === "focus"}<FocusStretches {history} />
+      {:else if id === "walkaway"}<WalkAway {history} />{/if}
     {/if}
   {/snippet}
   <div class="wide">
@@ -323,13 +335,14 @@
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
   /* The Today column takes a third of the width and stays put; the strip
      beside it scrolls, with two columns in view. */
-  /* The bottom margin is deep enough to hold the "more" and Done pills well clear of the screen's edge. */
-  .wide { height: 100%; display: flex; gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 0 calc(64px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
-  .wide > .today { flex: 0 0 calc((100% - 28px - 48px) / 3); }
+  /* The right margin sits outside the strip, so every page (two columns)
+     scrolls exactly into place, the last one too. The bottom margin is deep enough to hold the "more" and Done pills well clear of the screen's edge. */
+  .wide { height: 100%; display: flex; gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 28px calc(64px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
+  .wide > .today { flex: 0 0 calc((100% - 48px) / 3); }
   .stripwrap { position: relative; flex: 1; min-width: 0; display: flex; }
   /* One grid: a column per arrangement column (two in view), three equal
      rows, and the end tile after them. */
-  .strip { --colw: calc((100% - 24px) / 2); position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols), var(--colw)) var(--colw); grid-auto-columns: var(--colw); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); column-gap: 24px; row-gap: 20px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 28px; }
+  .strip { --colw: calc((100% - 24px) / 2); position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols), var(--colw)) var(--colw); grid-auto-columns: var(--colw); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); column-gap: 24px; row-gap: 20px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .strip::-webkit-scrollbar { display: none; }
   /* The strip can't snap while a drag scrolls it. */
   .strip.dragging { scroll-snap-type: none; }
@@ -361,7 +374,7 @@
   .endcol .reset { color: var(--muted); font-weight: 500; font-size: 13px; }
   .endcol .arrange { color: var(--muted); }
   .endcol .hint { font-size: 12px; color: #6f757b; }
-  .donepill { position: absolute; right: 28px; bottom: -42px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
+  .donepill { position: absolute; right: 0; bottom: -42px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
   /* Just under the cards, in the page's bottom margin, so it covers nothing. */
   /* Under the cards, centred on them, in the page's bottom margin. */
   .pages { position: absolute; left: 50%; bottom: -46px; transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }

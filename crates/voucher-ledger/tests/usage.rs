@@ -1,6 +1,10 @@
 // Distraction minutes the phone measured, hour by hour, for Trends.
 use ed25519_dalek::SigningKey;
-use jiff::{Timestamp, civil::{date, time}, tz::TimeZone};
+use jiff::{
+    Timestamp,
+    civil::{date, time},
+    tz::TimeZone,
+};
 use std::collections::BTreeMap;
 use voucher_ledger::{Ledger, Settings};
 
@@ -24,7 +28,11 @@ fn at(moment: &str) -> Timestamp {
 }
 
 fn fresh() -> Ledger {
-    Ledger::new(settings(), SigningKey::from_bytes(&[7; 32]), at("2026-10-01T00:00-07:00"))
+    Ledger::new(
+        settings(),
+        SigningKey::from_bytes(&[7; 32]),
+        at("2026-10-01T00:00-07:00"),
+    )
 }
 
 /// Minutes in the given clock hours, zero elsewhere.
@@ -37,7 +45,9 @@ fn hours(pairs: &[(usize, u32)]) -> Vec<u32> {
 }
 
 fn apps(list: &[(&str, Vec<u32>)]) -> BTreeMap<String, Vec<u32>> {
-    list.iter().map(|(k, v)| (k.to_string(), v.clone())).collect()
+    list.iter()
+        .map(|(k, v)| (k.to_string(), v.clone()))
+        .collect()
 }
 
 #[test]
@@ -45,7 +55,15 @@ fn a_days_usage_shows_by_hour_and_in_the_history() {
     let mut ledger = fresh();
     let now = at("2026-10-02T15:30-07:00");
     let day = date(2026, 10, 2);
-    assert!(ledger.report_usage("phone", day, apps(&[("Instagram", hours(&[(9, 12), (14, 30)])), ("YouTube", hours(&[(14, 8)]))]), now));
+    assert!(ledger.report_usage(
+        "phone",
+        day,
+        apps(&[
+            ("Instagram", hours(&[(9, 12), (14, 30)])),
+            ("YouTube", hours(&[(14, 8)]))
+        ]),
+        now
+    ));
     let summary = ledger.day(day, now);
     assert_eq!(summary.usage["Instagram"], hours(&[(9, 12), (14, 30)]));
     assert_eq!(summary.usage["YouTube"], hours(&[(14, 8)]));
@@ -62,10 +80,20 @@ fn a_new_report_replaces_that_devices_last_one_and_devices_add_up() {
     let day = date(2026, 10, 2);
     ledger.report_usage("phone", day, apps(&[("Instagram", hours(&[(9, 12)]))]), now);
     ledger.report_usage("phone", day, apps(&[("Instagram", hours(&[(9, 20)]))]), now);
-    ledger.report_usage("tablet", day, apps(&[("Instagram", hours(&[(9, 15)]))]), now);
+    ledger.report_usage(
+        "tablet",
+        day,
+        apps(&[("Instagram", hours(&[(9, 15)]))]),
+        now,
+    );
     // Two screens in the same hour can't add past the hour.
     assert_eq!(ledger.day(day, now).usage["Instagram"], hours(&[(9, 35)]));
-    ledger.report_usage("tablet", day, apps(&[("Instagram", hours(&[(9, 50)]))]), now);
+    ledger.report_usage(
+        "tablet",
+        day,
+        apps(&[("Instagram", hours(&[(9, 50)]))]),
+        now,
+    );
     assert_eq!(ledger.day(day, now).usage["Instagram"], hours(&[(9, 60)]));
 }
 
@@ -73,20 +101,45 @@ fn a_new_report_replaces_that_devices_last_one_and_devices_add_up() {
 fn only_today_and_yesterday_take_reports_and_bad_ones_are_refused() {
     let mut ledger = fresh();
     let now = at("2026-10-05T15:30-07:00");
-    assert!(ledger.report_usage("phone", date(2026, 10, 4), apps(&[("X", hours(&[(23, 5)]))]), now));
-    assert!(!ledger.report_usage("phone", date(2026, 10, 2), apps(&[("X", hours(&[(9, 5)]))]), now));
+    assert!(ledger.report_usage(
+        "phone",
+        date(2026, 10, 4),
+        apps(&[("X", hours(&[(23, 5)]))]),
+        now
+    ));
+    assert!(!ledger.report_usage(
+        "phone",
+        date(2026, 10, 2),
+        apps(&[("X", hours(&[(9, 5)]))]),
+        now
+    ));
     assert!(!ledger.report_usage("phone", date(2026, 10, 5), apps(&[("X", vec![1; 25])]), now));
-    assert!(!ledger.report_usage("phone", date(2026, 10, 5), apps(&[("X", hours(&[(9, 61)]))]), now));
+    assert!(!ledger.report_usage(
+        "phone",
+        date(2026, 10, 5),
+        apps(&[("X", hours(&[(9, 61)]))]),
+        now
+    ));
 }
 
 #[test]
 fn usage_is_kept_as_long_as_the_log() {
     let mut ledger = fresh();
     let day = date(2026, 10, 2);
-    ledger.report_usage("phone", day, apps(&[("X", hours(&[(9, 5)]))]), at("2026-10-02T15:30-07:00"));
+    ledger.report_usage(
+        "phone",
+        day,
+        apps(&[("X", hours(&[(9, 5)]))]),
+        at("2026-10-02T15:30-07:00"),
+    );
     // Half a year on, a new report lets the old Day's minutes go.
     let later = at("2027-04-10T12:00-07:00");
-    ledger.report_usage("phone", date(2027, 4, 10), apps(&[("X", hours(&[(9, 1)]))]), later);
+    ledger.report_usage(
+        "phone",
+        date(2027, 4, 10),
+        apps(&[("X", hours(&[(9, 1)]))]),
+        later,
+    );
     assert!(ledger.day(day, later).usage.is_empty());
 }
 
@@ -103,8 +156,22 @@ fn the_history_counts_minutes_unlocked() {
 fn the_history_has_each_days_goal_hours_and_first_tear() {
     let mut ledger = fresh();
     let now = at("2026-10-02T15:30-07:00");
-    ledger.record(&[voucher_ledger::Completion { task: "todoist:a".into(), title: "A".into(), at: at("2026-10-02T09:10-07:00") }], at("2026-10-02T09:10-07:00"));
-    ledger.record(&[voucher_ledger::Completion { task: "todoist:b".into(), title: "B".into(), at: at("2026-10-02T09:40-07:00") }], at("2026-10-02T09:40-07:00"));
+    ledger.record(
+        &[voucher_ledger::Completion {
+            task: "todoist:a".into(),
+            title: "A".into(),
+            at: at("2026-10-02T09:10-07:00"),
+        }],
+        at("2026-10-02T09:10-07:00"),
+    );
+    ledger.record(
+        &[voucher_ledger::Completion {
+            task: "todoist:b".into(),
+            title: "B".into(),
+            at: at("2026-10-02T09:40-07:00"),
+        }],
+        at("2026-10-02T09:40-07:00"),
+    );
     ledger.credit(2, at("2026-10-02T11:00-07:00"));
     ledger.redeem_many(1, at("2026-10-02T12:05-07:00")).unwrap();
     ledger.redeem_many(1, at("2026-10-02T14:00-07:00")).unwrap();
@@ -113,6 +180,7 @@ fn the_history_has_each_days_goal_hours_and_first_tear() {
     assert_eq!(day.hours[9], 2);
     assert_eq!(day.hours.iter().sum::<u32>(), 2);
     assert_eq!(day.first_tear, Some(at("2026-10-02T12:05-07:00")));
+    assert_eq!(day.source_hours["tasks"][9], 2);
 }
 
 #[test]
@@ -120,8 +188,34 @@ fn apps_keep_the_blocklist_their_device_named() {
     let mut ledger = fresh();
     let now = at("2026-10-02T15:30-07:00");
     let day = date(2026, 10, 2);
-    let lists: BTreeMap<String, String> = [("Genshin Impact".to_string(), "games".to_string())].into();
-    assert!(ledger.report_usage_in_lists("phone", day, apps(&[("Genshin Impact", hours(&[(20, 30)]))]), lists, now));
+    let lists: BTreeMap<String, String> =
+        [("Genshin Impact".to_string(), "games".to_string())].into();
+    assert!(ledger.report_usage_in_lists(
+        "phone",
+        day,
+        apps(&[("Genshin Impact", hours(&[(20, 30)]))]),
+        lists,
+        now
+    ));
     assert_eq!(ledger.day(day, now).usage_lists["Genshin Impact"], "games");
-    assert_eq!(ledger.history(1, now)[0].used_lists["Genshin Impact"], "games");
+    assert_eq!(
+        ledger.history(1, now)[0].used_lists["Genshin Impact"],
+        "games"
+    );
+}
+
+#[test]
+fn focus_stretches_and_blocked_opens_add_up_across_devices() {
+    let mut ledger = fresh();
+    let now = at("2026-10-02T15:30-07:00");
+    let day = date(2026, 10, 2);
+    assert!(ledger.report_focus_and_opens("phone", day, Some(vec![12, 40]), Some((10, 7)), now));
+    assert!(ledger.report_focus_and_opens("tablet", day, Some(vec![25]), Some((3, 1)), now));
+    // A new report from a device replaces its last one.
+    assert!(ledger.report_focus_and_opens("phone", day, Some(vec![12, 45]), Some((11, 8)), now));
+    let d = &ledger.history(1, now)[0];
+    let mut s = d.stretches.clone();
+    s.sort();
+    assert_eq!(s, vec![12, 25, 45]);
+    assert_eq!((d.opens, d.walked), (14, 9));
 }

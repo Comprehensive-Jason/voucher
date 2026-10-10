@@ -268,14 +268,14 @@ object Enforcer {
      */
     private fun reportUsage(ctx: Context, c: Connection, status: JSONObject, zone: ZoneId, end: LocalTime, day: String) {
         val packages = blockedPackages(ctx, status)
-        if (packages.isEmpty()) return
+        val focus = focusPackages(status)
         val yesterday = LocalDate.parse(day).minusDays(1).toString()
         for (d in listOf(yesterday, day)) {
             if (d == yesterday && Store.flag(ctx, "usage_final_$d")) continue
             // Each Day runs from Curfew's end to the next; yesterday's report stops where it did.
             val from = LocalDate.parse(d).atTime(end).atZone(zone).toInstant().toEpochMilli()
             val to = LocalDate.parse(d).plusDays(1).atTime(end).atZone(zone).toInstant().toEpochMilli()
-            val hours = foregroundByHour(ctx, packages, from, to, zone) ?: return
+            val hours = (if (packages.isEmpty()) emptyMap() else foregroundByHour(ctx, packages, from, to, zone)) ?: return
             val pm = ctx.packageManager
             val apps = JSONObject()
             val lists = JSONObject()
@@ -285,13 +285,50 @@ object Enforcer {
                 apps.put(label, JSONArray(h.toList()))
                 blocklistOf(ctx, status, pkg)?.let { lists.put(label, it) }
             }
+            val stretches = JSONArray(focusStretches(ctx, focus, from, to))
+            val opens = Store.attempts(ctx, d).values.sum()
+            val walked = Store.closedWithoutTearing(ctx, d)
             val body = JSONObject().put("device", Store.deviceId(ctx)).put("day", d).put("apps", apps).put("lists", lists)
-            val text = apps.toString()
+                .put("stretches", stretches).put("opens", opens).put("walked", walked)
+            val text = "$apps|$stretches|$opens|$walked"
             if (d == day && text == Store.usageSent(ctx, d)) continue
             if (runCatching { LedgerClient.post(c, "/usage", body) }.getOrNull() == 200) {
                 if (d == yesterday) Store.setFlag(ctx, "usage_final_$d") else Store.setUsageSent(ctx, d, text)
             }
         }
+    }
+
+    /** Each switched-on Focused time source's packages, by package. */
+    private fun focusPackages(status: JSONObject): Map<String, String> {
+        val sources = status.optJSONObject("settings")?.optJSONObject("sources") ?: return emptyMap()
+        val out = mutableMapOf<String, String>()
+        for (id in sources.keys()) {
+            val s = sources.getJSONObject(id)
+            if (s.optString("kind") == "focus" && s.optBoolean("on")) strings(s.optJSONArray("packages")).forEach { out[it] = id }
+        }
+        return out
+    }
+
+    /**
+     * Unbroken stretches in focus apps between `from` and `to`, in whole
+     * minutes. Switching between apps of the same source, or leaving for
+     * under 2 minutes, doesn't break a stretch.
+     */
+    private fun focusStretches(ctx: Context, focus: Map<String, String>, from: Long, to: Long): List<Int> {
+        if (focus.isEmpty()) return emptyList()
+        val spans = mutableListOf<Triple<String, Long, Long>>()
+        foregroundSpans(ctx, focus.keys, from, to) { pkg, start, stop -> spans.add(Triple(focus.getValue(pkg), start, stop)) } ?: return emptyList()
+        val out = mutableListOf<Int>()
+        var source: String? = null
+        var start = 0L
+        var stop = 0L
+        for ((s, a, b) in spans.sortedBy { it.second }) {
+            if (s == source && a - stop < 120_000) { stop = maxOf(stop, b); continue }
+            if (source != null) out.add(((stop - start) / 60_000).toInt())
+            source = s; start = a; stop = b
+        }
+        if (source != null) out.add(((stop - start) / 60_000).toInt())
+        return out.filter { it >= 1 }
     }
 
     /** The day's Distraction minutes and blocked opens, for Trends. */

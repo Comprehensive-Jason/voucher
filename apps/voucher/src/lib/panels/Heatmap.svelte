@@ -139,7 +139,7 @@
 
 <section class="card" class:wide={!keyBelow} style="--cell: {cell}px; --ycell: {yearCell}px">
   <div class="cardhead">
-    <span class="cap">Vouchers earned</span>
+    <span class="cap">Activity</span>
     <div class="tools">
       <TodayButton show={awayFromToday} onclick={backToToday} />
       <ZoomSwitch options={[{ id: "weeks", label: "Weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />
