@@ -120,7 +120,7 @@
     if (target.closest("button, a, input")) return;
     if (arranging) { startDrag(id, e.clientX, e.clientY, e.pointerId); return; }
     // Only a heading starts arranging, so a hold on a chart or a list does its own thing.
-    if (!target.closest(".cardhead, header")) return;
+    if (!target.closest(".cardhead, header, .tab")) return;
     const press = { id, x: e.clientX, y: e.clientY, pointer: e.pointerId, timer: 0 };
     press.timer = window.setTimeout(() => {
       pressing = null;
@@ -320,6 +320,8 @@
           <div class="slot" role="group" aria-label={PANELS[id].name} class:lifted={dragging?.id === id} data-id={id}
             style="grid-column: {p.col + 1}; grid-row: {p.row + 1} / span {p.size}; --jiggle: {(p.col * 3 + p.row) % 4}"
             onpointerdown={(e) => onPress(e, id)}>
+            <!-- The card's name, on a tab growing out of its top edge, so naming it costs the card no height. -->
+            <span class="tab"><span class="cap">{PANELS[id].name}</span></span>
             {@render panel(id)}
             {#if arranging}
               <!-- While arranging: its name, its size (if it has a choice), and Hide. Drag it anywhere. -->
@@ -394,7 +396,16 @@
   /* A stop at every column, so a view can sit across two pages. */
   .filler { grid-row: 1; height: 0; }
   .snap { grid-row: 1; align-self: start; height: 0; scroll-snap-align: start; pointer-events: none; }
-  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  /* Room at the top of each slot for its card's name tab. */
+  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 10px; }
+  /* The name tab: the card's own surface and border, grown up from its top
+     edge (its bottom covers the card's border, so the two read as one shape). */
+  .tab { position: absolute; z-index: 1; top: 0; left: 16px; height: 21px; display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--line); border-bottom: 0; border-radius: 9px 9px 0 0; background: var(--surface); max-width: calc(100% - 32px); }
+  .tab .cap { font-size: 10px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Small curves where the tab meets the card's top edge, so it flows out of it instead of sitting on it. */
+  .tab::before, .tab::after { content: ""; position: absolute; bottom: 0; width: 8px; height: 8px; }
+  .tab::before { left: -9px; background: radial-gradient(circle at 0 0, transparent 7px, var(--line) 7px, var(--line) 8px, var(--surface) 8px); }
+  .tab::after { right: -9px; background: radial-gradient(circle at 100% 0, transparent 7px, var(--line) 7px, var(--line) 8px, var(--surface) 8px); }
   .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
   /* Arranging: panels sit still under their buttons, a touch on one drags it
      rather than scrolling, and they jiggle to say they can move. */
@@ -420,7 +431,8 @@
   .arrangepill { position: absolute; right: 0; bottom: -55px; z-index: 6; height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: #1f2226; color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }
   .donepill { position: absolute; right: 0; bottom: -55px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
   /* Under the cards by the same gap as between them, centred, in the page's bottom margin. */
-  .pages { position: absolute; left: 50%; bottom: calc(-1 * var(--gap) - 40px); transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }
+  /* Centred on the screen, not between the strip's two columns. */
+  .pages { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }
   .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), right var(--t-move) var(--ease-out) 90ms; }
   /* The edge on the side it's heading leads; the far edge follows a beat later, in one stretch and shrink. */
   .thumb.right { transition: right var(--t-move) var(--ease-out), left var(--t-move) var(--ease-out) 90ms; }

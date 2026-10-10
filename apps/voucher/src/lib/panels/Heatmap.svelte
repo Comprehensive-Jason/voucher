@@ -148,7 +148,7 @@
 
 <section class="card tile" class:wide={!keyBelow} style="--cell: {cell}px; --ycell: {yearCell}px">
   <div class="cardhead">
-    <span class="cap">Activity</span>
+    {#if inSlot}<span></span>{:else}<span class="cap">Activity</span>{/if}
     <div class="tools">
       <TodayButton show={awayFromToday} onclick={backToToday} />
       <ZoomSwitch options={[{ id: "weeks", label: "12 weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />

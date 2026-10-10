@@ -8,13 +8,17 @@
   import type { Snippet } from "svelte";
   import DateNav from "./DateNav.svelte";
   import TodayButton from "./TodayButton.svelte";
+  import { fitsSlot } from "../fit.svelte";
+  /** On the tablet the card's name is on a tab above its edge, so the heading leaves it out. */
+  const tabbed = fitsSlot();
 
   type Nav = { label: string; back: boolean; forward: boolean; onback: () => void; onforward: () => void };
   let { title, nav, today, tools }: { title?: string; nav?: Nav | null; today?: { show: boolean; onclick: () => void }; tools?: Snippet } = $props();
 </script>
 
+{#if nav || tools || (title && !tabbed)}
 <div class="cardhead" aria-label={title}>
-  {#if nav}<DateNav {...nav} />{:else if title}<span class="cap title">{title}</span>{:else}<span></span>{/if}
+  {#if nav}<DateNav {...nav} />{:else if title && !tabbed}<span class="cap title">{title}</span>{:else}<span></span>{/if}
   {#if tools || (nav && today)}
     <div class="tools">
       {#if nav && today}<TodayButton show={today.show} onclick={today.onclick} />{/if}
@@ -22,6 +26,7 @@
     </div>
   {/if}
 </div>
+{/if}
 
 <style>
   .cardhead { flex: none; }
