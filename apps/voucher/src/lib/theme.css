@@ -19,6 +19,7 @@
   --voucher-deeper: #1f5c3c;
   --unlocked-bg: #14251b;
   --unlocked-line: #23573a;
+  --spend: #ff8a7a;            /* Vouchers redeemed, wherever they're counted */
   --goal: #ffb547;             /* daily goal and streak */
   --goal-bg: #2a2116;
   --goal-line: #6b4a17;

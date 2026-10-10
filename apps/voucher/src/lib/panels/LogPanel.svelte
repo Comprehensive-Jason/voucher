@@ -160,7 +160,8 @@
   .totals > div + div { border-left: 1px solid var(--line); }
   .big { font-size: 24px; font-weight: 700; line-height: 1; }
   .earn { color: var(--voucher); }
-  .spend { color: var(--goal); }
+  /* A Redemption's minus count, in the colour Vouchers spent have everywhere. */
+  .spend { color: var(--spend); }
   .spacer { flex: 1; }
   .frame { position: relative; display: flex; flex-direction: column; }
   .rows { position: relative; display: flex; flex-direction: column; }

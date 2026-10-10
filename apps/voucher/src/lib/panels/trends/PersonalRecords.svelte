@@ -28,11 +28,6 @@
     const sources = history.flatMap((d) => Object.entries(d.by_source ?? {}).map(([id, n]) => ({ d, id, n })));
     const src = best(sources, (s) => s.n);
     if (src) out.push({ name: `Most from one source`, value: `${src.n} ${styleOf(src.id).name}`, when: src.d.day, day: src.d.day });
-    // Among goal Days with Distraction time measured.
-    const quiet = history.filter((d) => d.goal_met && d.used && Object.keys(d.used).length)
-      .map((d) => ({ d, m: Object.values(d.used!).reduce((a, b) => a + b, 0) }));
-    const q = best(quiet, (x) => -x.m);
-    if (q) out.push({ name: "Least Distraction time on a goal Day", value: `${q.m} min`, when: q.d.day, day: q.d.day });
     return out;
   });
 </script>
@@ -55,7 +50,7 @@
   /* In a tablet slot the list takes the spare height and scrolls. */
   .list.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .list { display: flex; flex-direction: column; }
-  .rec { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; padding: 7px 0; border-top: 1px solid var(--divider); }
+  .rec { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; padding: 4px 0; border-top: 1px solid var(--divider); }
   .rec:first-child { border-top: 0; }
   .name { font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
   .name em { font: 700 10px var(--mono); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: #0e0f11; background: var(--goal); border-radius: 999px; padding: 1px 7px; }

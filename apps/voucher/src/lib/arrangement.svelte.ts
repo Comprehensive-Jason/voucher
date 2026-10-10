@@ -23,7 +23,7 @@ export const PANELS: Record<PanelId, { name: string; min: number; max: number; s
   strength: { name: "Habit strength", min: 1, max: 1, size: 1 },
   ladder: { name: "Streak ladder", min: 1, max: 1, size: 1 },
   streaks: { name: "Source streaks", min: 1, max: 1, size: 1 },
-  records: { name: "Personal records", min: 1, max: 2, size: 2 },
+  records: { name: "Personal records", min: 1, max: 1, size: 1 },
 };
 
 /** Thirds in a column. */
@@ -106,6 +106,29 @@ class Arrangement {
       const alone = next[col].length === 0;
       next.splice(by > 0 ? (alone ? to + 1 : to) : alone ? to : to + 1, 0, [id]);
     }
+    this.#set(next);
+  }
+  /** Whether it fits in column `col` (leaving its own place, if it's there). */
+  fits(id: PanelId, col: number): boolean {
+    const column = this.columns[col];
+    return !column || this.#used(column.filter((p) => p !== id)) + this.size(id) <= ROWS;
+  }
+  /** Where a dragged panel goes: into column `col` at position `at`, or a new
+   *  last column when `col` is past the end. */
+  place(id: PanelId, col: number, at: number) {
+    const next = this.columns.map((c) => c.filter((p) => p !== id));
+    if (col >= next.length) next.push([id]);
+    else next[col].splice(Math.min(at, next[col].length), 0, id);
+    this.#set(next);
+  }
+  /** Two panels trade places (a drag onto one the same height). */
+  swap(a: PanelId, b: PanelId) {
+    this.#set(this.columns.map((c) => c.map((p) => (p === a ? b : p === b ? a : p))));
+  }
+  /** A dragged panel as a column of its own, before column `col`. */
+  column(id: PanelId, col: number) {
+    const next = this.columns.map((c) => c.filter((p) => p !== id));
+    next.splice(col, 0, [id]);
     this.#set(next);
   }
   /** Up (-1) or down (+1) past its neighbour in the column. */
