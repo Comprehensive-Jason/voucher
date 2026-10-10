@@ -16,7 +16,7 @@ export const SOURCES: Record<string, SourceStyle> = {
   reading: { name: "Reading", short: "Reading", color: "#c1d58a" },
   readwise: { name: "Readwise Reader", short: "Reader", color: "#c1d58a" },
   moonreader: { name: "Moon+ Reader", short: "Moon+", color: "#8ba60c" },
-  anki: { name: "Anki", short: "Anki", color: "#f3b2e6" },
+  anki: { name: "Anki", short: "Anki", color: "#f4b3ec" },
   steps: { name: "Steps", short: "Steps", color: "#05afa5" },
 };
 
@@ -30,7 +30,7 @@ const SERVICES: Record<string, SourceStyle> = {
  *  swatches from the palette, so the picker shows them as chosen). A group
  *  without a saved colour takes one by its id's hash, so entries keep their
  *  places: the two near gold were swapped in place for light blue and pale orange. */
-export const SPARE = ["#7dd9fb", "#c1d58a", "#f3b2e6", "#d1bfff", "#aeccfe", "#76e0d6", "#e6c2ae"];
+export const SPARE = ["#7dd9fb", "#c1d58a", "#f4b3ec", "#d1bfff", "#aeccfe", "#76e0d6", "#e3cbb1"];
 
 /** Earnings name a service; they count toward the Tasks group. */
 export const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);

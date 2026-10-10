@@ -128,7 +128,7 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
         ),
         "youtube" => (
             "YouTube",
-            "#9d3d5b",
+            "#874c69",
             vec![
                 app("com.google.android.youtube", "YouTube", None),
                 app("org.schabi.newpipe", "NewPipe", viewer),

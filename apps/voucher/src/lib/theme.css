@@ -19,13 +19,13 @@
   --voucher-deeper: #1f5c3c;
   --unlocked-bg: #14251b;
   --unlocked-line: #23573a;
-  --spend: #ff8a7a;            /* Unlocks, and Vouchers torn: reserved, no source or blocklist may look like it */
-  --spend-bg: #2a1b19;         /* a running Unlock's card */
-  --spend-line: #5a3330;
-  --danger: #f04438;           /* destructive actions and warnings, rare on purpose */
-  --danger-bg: #2b1513;
-  --danger-line: #6b2620;
-  --worse: #8b9198;            /* a measure that went the wrong way (down arrows, "No" answers) */
+  --spend: #ffa09c;            /* Unlocks, and Vouchers torn: reserved, no source or blocklist may look like it */
+  --spend-bg: color-mix(in oklab, var(--spend) 12%, var(--surface)); /* a running Unlock's card */
+  --spend-line: color-mix(in oklab, var(--spend) 35%, var(--surface));
+  --danger: #ff0a0a;           /* destructive actions and warnings, rare on purpose */
+  --danger-bg: color-mix(in oklab, var(--danger) 12%, var(--surface));
+  --danger-line: color-mix(in oklab, var(--danger) 40%, var(--surface));
+  --worse: #b32146;            /* a measure that went the wrong way (down arrows, "No" answers) */
   --raised: #1f2226;           /* controls and boxes raised on a surface */
   --marker: #e9e6dc;           /* Markers by hand (rule changes use --muted) */
   --heat-0: #22262a;           /* heat grids, fewer to more */

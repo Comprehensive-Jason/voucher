@@ -28,7 +28,7 @@ export function siteName(site: string): string {
 }
 
 /** Colours new blocklists take in turn. None is the Curfew indigo, salmon, or gold. */
-export const LIST_COLORS = ["#e5609b", "#9d3d5b", "#e2781f", "#d26ec1", "#5bc8ff", "#9be36d", "#c3a6ff"];
+export const LIST_COLORS = ["#e5609b", "#874c69", "#e2781f", "#d26ec1", "#5bc8ff", "#9be36d", "#c3a6ff"];
 
 /** Whether `host` is `site` or one of its subdomains: youtube.com covers m.youtube.com. */
 export const onSite = (host: string, site: string) => host === site || host.endsWith(`.${site}`);

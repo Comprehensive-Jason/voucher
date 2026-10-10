@@ -141,7 +141,7 @@ const settings = {
   blocklists: {
     instagram: { name: "Instagram", color: "#e5609b", premade: true, on: true,
       apps: [app("com.instagram.android", "Instagram")], sites: [site("instagram.com", "All subdomains")] },
-    youtube: { name: "YouTube", color: "#9d3d5b", premade: true, on: true,
+    youtube: { name: "YouTube", color: "#874c69", premade: true, on: true,
       apps: [app("com.google.android.youtube", "YouTube"), app("org.schabi.newpipe", "NewPipe", "Alternative viewer"),
         app("com.github.libretube", "LibreTube", "Alternative viewer")],
       sites: [site("youtube.com", "All subdomains"), site("youtu.be"),
