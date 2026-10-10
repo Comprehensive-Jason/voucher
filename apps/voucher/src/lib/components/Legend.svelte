@@ -2,9 +2,9 @@
   /** One key in a chart's legend: what the mark looks like, and what it means. */
   export type LegendItem = {
     /** line: a solid stroke; dash: a dotted stroke; box: a filled square; outline: a dashed hollow square;
-     *  frame: a solid hollow square; corner: a square with a Marker's corner tick (heat grids); dot: a filled circle; ring: a hollow circle; flag: a Marker; usual: a dashed
+     *  frame: a solid hollow square; corner: a square with a Marker's corner tick (heat grids); tick: a short upright mark (Habit strength's goal Days); dot: a filled circle; ring: a hollow circle; flag: a Marker; usual: a dashed
      *  vertical line; hatch: unwatched time. */
-    kind: "line" | "dash" | "box" | "outline" | "frame" | "corner" | "dot" | "ring" | "flag" | "usual" | "hatch";
+    kind: "line" | "dash" | "box" | "outline" | "frame" | "corner" | "tick" | "dot" | "ring" | "flag" | "usual" | "hatch";
     color?: string;
     label: string;
   };
@@ -50,6 +50,7 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
   .ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--c); box-sizing: border-box; }
   .flagkey { flex: none; }
+  .tick { width: 2px; height: 9px; border-radius: 1px; background: var(--c); margin-inline: 4px; }
   .usual { width: 2px; height: 12px; background: repeating-linear-gradient(180deg, var(--c) 0 3px, transparent 3px 5px); }
   .hatch { width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
   .note { margin-left: auto; font-size: 11px; color: var(--axis-ink); }

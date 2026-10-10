@@ -13,6 +13,8 @@
   // two differ, so a miss reads as information. Each finished lapse is drawn
   // too: a red bar in the tick lane where it ran, and for one longer than
   // usual a faint red band behind the line, so the long ones stand out.
+  // A legend under the chart keys each mark (only those in view), and the
+  // foot line says what the score is, since that can't be drawn.
   import TrendCard from "../../components/TrendCard.svelte";
   import ChartAxis from "../../components/ChartAxis.svelte";
   import Legend from "../../components/Legend.svelte";
@@ -68,6 +70,8 @@
     return out;
   });
   const usualRun = $derived(lapses.length ? middle(lapses) : Infinity);
+  /** Whether a lapse on the chart ran longer than the usual one (it gets a band). */
+  const isLong = (r: { from: number; to: number }) => r.to - r.from + 1 > usualRun;
   const lapse = $derived.by(() => {
     if (lapses.length < 3) return null;
     if (lapses.length >= 9) {
@@ -128,7 +132,7 @@
     <ChartAxis ticks={[0, 0.5, 1]} {yAt} {x0} {x1} {y0} {y1} title="Strength" format={(v) => `${v * 100}%`} />
     {#each runs as r (r.from)}
       {@const half = days.length > 1 ? (x1 - x0) / (days.length - 1) / 2 : 0}
-      {@const long = r.to - r.from + 1 > usualRun}
+      {@const long = isLong(r)}
       <!-- Every lapse as a red bar in the tick lane; a longer one than usual also as a faint band behind the line. -->
       {#if long}<rect x={xAt(r.from) - half} y={y1} width={xAt(r.to) - xAt(r.from) + 2 * half} height={y0 - y1} fill="var(--worse)" opacity=".16" />{/if}
       <rect x={xAt(r.from) - half + 0.6} y={y0 + 5} width={Math.max(1.2, xAt(r.to) - xAt(r.from) + 2 * half - 1.2)} height="4" rx="1" fill="var(--worse)" opacity={long ? 1 : 0.7}><title>A lapse of {nDays(r.to - r.from + 1)}</title></rect>
@@ -146,10 +150,19 @@
     {#if days.length}<text class="tag end" x={x1 + 4 * k} y={yAt(now) + 3.2 * k} style="fill: var(--goal)">{pct(now)}</text>{/if}
   </svg>
   </div>
-  <!-- Only when a Marker is in view: the card has no other keys, and its slot no spare line. -->
-  {#if marks.length}<Legend items={markerKeys(marks)} />{/if}
+  <!-- A key for each mark in view; it wraps to a second row in a narrow slot, and the plot gives up the height. -->
+  {#if days.length}
+    <Legend items={[
+      { kind: "line", color: "var(--goal)", label: "Habit strength" },
+      ...(days.some((d) => d.goal_met) ? [{ kind: "tick" as const, color: "var(--voucher)", label: "Goal Day" }] : []),
+      ...(runs.length ? [{ kind: "line" as const, color: "var(--worse)", label: "Lapse" }] : []),
+      ...(runs.some(isLong) ? [{ kind: "box" as const, color: "color-mix(in srgb, var(--worse) 16%, transparent)", label: "Long lapse" }] : []),
+      ...(back ? [{ kind: "ring" as const, color: "var(--goal)", label: "2 weeks ago" }] : []),
+      ...markerKeys(marks),
+    ]} />
+  {/if}
   <!-- What the score is can't be drawn, so it keeps one line of definition. -->
-  {#snippet foot()}Goal Days lift it; misses dent it. Red: lapses, shaded if long.{/snippet}
+  {#snippet foot()}Each goal Day lifts it, each miss dents it; it never resets.{/snippet}
 </TrendCard>
 
 <style>
