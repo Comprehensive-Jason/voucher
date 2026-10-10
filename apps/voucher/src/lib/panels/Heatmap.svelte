@@ -9,6 +9,7 @@
   import type { DayTotal } from "../types";
   import { untrack } from "svelte";
   import TodayButton from "../components/TodayButton.svelte";
+  import Legend from "../components/Legend.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
   import { shiftDay } from "../time";
   import { easeOut, ms } from "../motion";
@@ -145,13 +146,21 @@
   });
 </script>
 
-<section class="card" class:wide={!keyBelow} style="--cell: {cell}px; --ycell: {yearCell}px">
+<section class="card tile" class:wide={!keyBelow} style="--cell: {cell}px; --ycell: {yearCell}px">
   <div class="cardhead">
     <span class="cap">Activity</span>
     <div class="tools">
       <TodayButton show={awayFromToday} onclick={backToToday} />
-      <ZoomSwitch options={[{ id: "weeks", label: "Weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />
+      <ZoomSwitch options={[{ id: "weeks", label: "12 weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />
     </div>
+  </div>
+  <!-- What's in view, in numbers. -->
+  <div class="stats" bind:offsetHeight={tilesHeight}>
+    <div><b>{stats.earned.toLocaleString("en-US")}</b><span>earned</span></div>
+    <div class="gold"><b>{stats.goalDays}</b><span>goal Days</span></div>
+    <div class="gold"><b>{stats.best}</b><span>best streak</span></div>
+    {#if zoom === "year"}<div><b>{stats.topMonth}</b><span>best month</span></div>
+    {:else}<div><b>{stats.average}</b><span>per Day</span></div>{/if}
   </div>
   <div class="graph" class:fit={inSlot} bind:clientHeight={graphHeight}>
     <!-- Shared by both views and outside the scroller, so they never move or bounce. -->
@@ -186,26 +195,13 @@
       {/if}
     </div>
   </div>
-  <!-- What's in view, in numbers. -->
-  <div class="stats" bind:offsetHeight={tilesHeight}>
-    <div><b>{stats.earned.toLocaleString("en-US")}</b><span>earned</span></div>
-    <div class="gold"><b>{stats.goalDays}</b><span>goal days</span></div>
-    <div class="gold"><b>{stats.best}</b><span>best streak</span></div>
-    {#if zoom === "year"}<div><b>{stats.topMonth}</b><span>best month</span></div>
-    {:else}<div><b>{stats.average}</b><span>per day</span></div>{/if}
-  </div>
   {#if keyBelow}
-    <div class="heatkey">
-      <span class="scale">Fewer<i class="h"></i><i class="h h1"></i><i class="h h2"></i><i class="h h3"></i>More</span>
-      <span class="scale goalkey"><i class="h h4"></i>Goal met, {goal}+</span>
-    </div>
+    <Legend scale={{ from: "Fewer", colors: ["#22262a", "#1d4d33", "#24804f", "#2fb36b"], to: "More" }} items={[{ kind: "box", color: "var(--goal)", label: `Goal met, ${goal}+` }]} />
   {/if}
 </section>
 
 <style>
   /* A named container, so the Today button can shrink to its arrow on a narrow card. */
-  .card { container: card / inline-size; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-  .goalkey { color: var(--goal); }
   /* Weekday labels beside the grid; the rows (--cell tall, set from the
      card's width in the script) are the same in both views. */
   .graph { display: flex; gap: 4px; }
@@ -244,13 +240,5 @@
   button.h:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }
   .h1 { background: #1d4d33; } .h2 { background: #24804f; } .h3 { background: #2fb36b; } .h4 { background: var(--goal); }
   .h.blank { background: transparent; }
-  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .stats div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #1f2226; min-width: 0; }
-  .stats b { font: 700 18px/1.1 var(--mono); color: var(--ink); }
-  .stats .gold b { color: var(--goal); }
-  .stats span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .heatkey { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
-  .scale { display: flex; align-items: center; gap: 4px; }
-  .scale i { width: 12px; display: inline-block; }
   .wide { padding: 18px; border-radius: 18px; flex: none; }
 </style>

@@ -2,7 +2,8 @@
   // What pulls me? The reasons tapped after Unlocks ("Why now?") over the
   // last four weeks, most common first, and the top one for each part of the
   // Day, so a pattern (bored afternoons, tired evenings) shows. A reason
-  // turns an Unlock from a lapse into information.
+  // turns an Unlock from a lapse into information. The line under it names
+  // the most common one.
   import TrendCard from "../../components/TrendCard.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal } from "../../types";
@@ -26,11 +27,14 @@
   }));
 </script>
 
-<TrendCard title="Why you unlock">
+{#snippet summary()}
+  <b>{all.length}</b> {all.length === 1 ? "reason" : "reasons"} in four weeks; most often <b>{name(counts[0][0]).toLowerCase()}</b>.
+{/snippet}
+
+<TrendCard title="Why you unlock" foot={all.length ? summary : undefined}>
   {#if !all.length}
     <p class="empty">Tap a reason after an Unlock ("Why now?") and the pattern shows here.</p>
   {:else}
-    <p class="lead"><b>{all.length}</b> {all.length === 1 ? "reason" : "reasons"} in four weeks; most often <b>{name(counts[0][0]).toLowerCase()}</b>.</p>
     <div class="bars" class:fit>
       {#each counts as [r, n] (r)}
         <div class="reason"><span class="name">{name(r)}</span><span class="track"><i style="width: {(n / most) * 100}%"></i></span><b class="mono">{n}</b></div>
@@ -43,8 +47,6 @@
 </TrendCard>
 
 <style>
-  .lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
-  .lead b { color: var(--ink); }
   .bars { display: flex; flex-direction: column; gap: 6px; }
   .bars.fit { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
   .reason { flex: none; display: grid; grid-template-columns: 110px minmax(0, 1fr) 26px; gap: 8px; align-items: center; font-size: 13px; }
@@ -57,5 +59,4 @@
   .parts b { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .parts .none b { color: var(--muted); }
   .parts .cap { color: var(--muted); }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

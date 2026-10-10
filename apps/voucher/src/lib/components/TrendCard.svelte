@@ -9,13 +9,15 @@
   import DayStepper, { type DateProps } from "./DayStepper.svelte";
   import TodayButton from "./TodayButton.svelte";
   const fit = fitsSlot();
-  let { title, date, tools, children, foot }: { title: string; date?: DateProps; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();
+  // A card that steps through something else (Before and after's Markers)
+  // passes its own `nav` for the title's place, built from DateNav.
+  let { title, date, nav, tools, children, foot }: { title: string; date?: DateProps; nav?: Snippet; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();
   const ready = $derived(!!date && /^\d{4}-\d{2}-\d{2}$/.test(date.day) && /^\d{4}-\d{2}-\d{2}$/.test(date.today));
 </script>
 
-<section class="card" class:fit>
+<section class="card tile" class:fit>
   <div class="cardhead">
-    {#if date && ready}<DayStepper {...date} />{:else}<span class="cap">{title}</span>{/if}
+    {#if nav}{@render nav()}{:else if date && ready}<DayStepper {...date} caption={title} />{:else}<span class="cap">{title}</span>{/if}
     {#if tools || date}
       <div class="tools">
         {#if date && ready}<TodayButton show={date.day !== date.today} onclick={() => date.onpick(date.today)} />{/if}
@@ -28,12 +30,14 @@
 </section>
 
 <style>
-  .card { container: card / inline-size; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
   .foot { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); border-top: 1px solid var(--divider); padding-top: 10px; }
   .foot :global(b) { color: var(--ink); font-family: var(--mono); font-weight: 700; }
   /* Charts draw in SVG; their text keeps the app's mono figures. */
   .card :global(svg.chart) { display: block; width: 100%; height: auto; overflow: visible; }
-  .card :global(svg.chart text) { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+  /* Text inside a chart stays one size however wide the card is: each chart
+     sets --k to its drawing's units per pixel (W / its width), so 11px
+     on screen is 11 * --k units in the drawing. */
+  .card :global(svg.chart text) { font-family: var(--mono); font-size: calc(11px * var(--k, 1)); fill: var(--muted); }
   /* Filling a tablet slot: the chart's box takes the spare height and its
      drawing is redrawn to that shape (see drawHeight). */
   .fit :global(.plot) { flex: 1; min-height: 0; }

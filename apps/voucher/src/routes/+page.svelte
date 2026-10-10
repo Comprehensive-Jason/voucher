@@ -269,7 +269,7 @@
 
 {#if wide.on}
   {#snippet panel(id: PanelId)}
-    {#if id === "log"}<div class="logcard"><LogPanel compact /></div>
+    {#if id === "log"}<div class="logcard tile"><LogPanel compact /></div>
     {:else if status}
       {#if id === "earned"}<HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} tall />
       {:else if id === "heat"}<Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={selection.day ?? status.today.day} onpick={(day) => selection.set("heat", { day, picked: true })} keyBelow={false} />
@@ -428,5 +428,5 @@
   /* 16 px of room at the sides (and 4 at the ends), so a raised row's card
      is never clipped by the scrolling edge. */
   .today :global(section.next .list) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px; }
-  .logcard { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 12px; }
+  .logcard { flex: 1; min-height: 0; overflow: hidden; gap: 6px; }
 </style>

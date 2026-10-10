@@ -5,6 +5,7 @@
   // moves it 1/19th of the way toward 100% (goal met) or 0% (missed), which
   // halves a gap in about 13 Days. Ticks along the bottom mark goal Days.
   import TrendCard from "../../components/TrendCard.svelte";
+  import ChartAxis from "../../components/ChartAxis.svelte";
   import { monthOf } from "../../trends";
   import type { DayTotal } from "../../types";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
@@ -22,21 +23,30 @@
   const now = $derived(scores.at(-1) ?? 0);
   const then = $derived(scores.at(-15) ?? 0);
 
-  const W = 600, x0 = 36, x1 = 592, y1 = 8;
+  const W = 600, x1 = 592, y1 = 8;
   const H = $derived(fit ? drawHeight(pw, ph, 170) : 170);
-  const y0 = $derived(H - 30);
+  /** Drawing units per screen pixel: chart text is 11px on screen, 11 * k here. */
+  const k = $derived(W / (pw || W));
+  // Room at the left for the axis's name and "100%", and below for the goal
+  // ticks and the months, held in screen pixels so a narrow card doesn't
+  // crowd them together.
+  const x0 = $derived(Math.round(16 + k * (7 + 6.6 * 4)));
+  const y0 = $derived(H - Math.round(18 + 8 * k));
   const xAt = (i: number) => x0 + (days.length > 1 ? (i / (days.length - 1)) * (x1 - x0) : 0);
   const yAt = (v: number) => y0 - v * (y0 - y1);
-  const months = $derived(days.map((d, i) => ({ d, i })).filter(({ d, i }) => d.day.slice(8) === "01" && i > 2));
+  /** A label where each month begins, skipping any that would run into the
+   *  one before (three letters and a space): years of history thin them out. */
+  const months = $derived.by(() => {
+    const kept: { d: DayTotal; i: number }[] = [];
+    days.forEach((d, i) => { if (d.day.slice(8) === "01" && i > 2 && (!kept.length || xAt(i) - xAt(kept.at(-1)!.i) >= k * 26.4)) kept.push({ d, i }); });
+    return kept;
+  });
 </script>
 
 <TrendCard title="Habit strength">
   <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
-  <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Habit strength over time">
-    {#each [0, 0.5, 1] as v}
-      <line x1={x0} x2={x1} y1={yAt(v)} y2={yAt(v)} stroke="#2c3036" stroke-dasharray="3 4" />
-      <text x={x0 - 6} y={yAt(v) + 3} text-anchor="end">{v * 100}%</text>
-    {/each}
+  <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Habit strength over time">
+    <ChartAxis ticks={[0, 0.5, 1]} {yAt} {x0} {x1} {y0} {y1} title="Strength" format={(v) => `${v * 100}%`} />
     {#each days as d, i}{#if d.goal_met}<rect x={xAt(i) - 0.9} y={y0 + 4} width="1.8" height="6" fill="var(--voucher)" />{/if}{/each}
     <path d={scores.map((s, i) => `${i ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(s).toFixed(1)}`).join("")} fill="none" stroke="var(--goal)" stroke-width="2.4" stroke-linejoin="round" />
     {#each months as m}<text x={xAt(m.i)} y={H - 4}>{monthOf(m.d.day)}</text>{/each}

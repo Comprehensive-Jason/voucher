@@ -78,11 +78,11 @@
     </div>
     <div class="side runs">
       <span class="dates"></span>
-      {#each rows as r (r.id)}<span class="run" class:none={!r.run}>{r.run ? `${r.run} d` : "–"}</span>{/each}
+      {#each rows as r (r.id)}<span class="run" class:none={!r.run}>{r.run ? `${r.run} ${r.run === 1 ? "Day" : "Days"}` : "–"}</span>{/each}
     </div>
   </div>
   {#snippet foot()}
-    {#if longest && longest.run}<b>{longest.name}</b> has earned every Day for <b>{longest.run}</b> Days. Filled squares are Days a source earned at least one Voucher.{:else}Filled squares are Days a source earned at least one Voucher.{/if}
+    {#if longest && longest.run}<b>{longest.name}</b> has earned every Day for <b>{longest.run}</b> {longest.run === 1 ? "Day" : "Days"}. Filled squares are Days a source earned at least one Voucher.{:else}Filled squares are Days a source earned at least one Voucher.{/if}
   {/snippet}
 </TrendCard>
 
@@ -93,9 +93,10 @@
   .side { flex: none; display: grid; grid-auto-rows: var(--cell); row-gap: var(--gap); }
   .side .dates, .date { height: 14px; }
   .side:not(.runs) { width: 96px; }
-  .runs { width: 34px; }
+  /* As wide as its longest run ("12 Days"), so the words fit. */
+  .runs { min-width: 34px; }
   .name { font-size: 12.5px; line-height: var(--cell); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .run { font: 700 11px/var(--cell) var(--mono); color: var(--ink); text-align: right; }
+  .run { font: 700 11px/var(--cell) var(--mono); color: var(--ink); text-align: right; white-space: nowrap; }
   .run.none { color: var(--muted); }
   /* The Days scroll sideways, inside the card. */
   .scroll { flex: 1; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }

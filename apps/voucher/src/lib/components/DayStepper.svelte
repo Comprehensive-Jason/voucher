@@ -1,6 +1,7 @@
 <script lang="ts" module>
   export type Unit = "day" | "week" | "month";
-  export type DateProps = { day: string; today: string; oldest?: string; unit?: Unit; onpick: (day: string) => void };
+  /** `soFar` adds "so far" to this week or month, for cards that sum a period that hasn't ended. */
+  export type DateProps = { day: string; today: string; oldest?: string; unit?: Unit; soFar?: boolean; onpick: (day: string) => void };
 </script>
 
 <script lang="ts">
@@ -10,7 +11,7 @@
   import DateNav from "./DateNav.svelte";
   import { periodLabel, shiftDay } from "../time";
 
-  let { day, today, oldest, unit = "day", onpick }: DateProps = $props();
+  let { day, today, oldest, unit = "day", soFar = false, caption, onpick }: DateProps & { caption?: string } = $props();
 
   /** The same day of the month `n` months away, kept inside that month. */
   function shiftMonth(d: string, n: number) {
@@ -31,4 +32,4 @@
   const atStart = $derived(!!oldest && (unit === "day" ? day <= oldest : periodLabel(unit, oldest, today) === label));
 </script>
 
-<DateNav {label} back={!atStart} forward={!current} onback={() => onpick(step(-1))} onforward={() => onpick(step(1))} />
+<DateNav label={soFar && unit !== "day" && current ? `${label} so far` : label} {caption} back={!atStart} forward={!current} onback={() => onpick(step(-1))} onforward={() => onpick(step(1))} />

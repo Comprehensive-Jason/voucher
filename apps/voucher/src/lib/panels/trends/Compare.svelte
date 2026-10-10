@@ -4,8 +4,11 @@
   // skipping the first 3 after it while things settle. Then it checks luck:
   // how often two stretches the same length, anywhere else in your history,
   // differ by as much just from ordinary ups and downs. A change that random
-  // stretches often match isn't evidence yet.
+  // stretches often match isn't evidence yet. The switcher in the title's
+  // place steps through the Markers; the lines under the table say what was
+  // compared and how likely luck is.
   import TrendCard from "../../components/TrendCard.svelte";
+  import DateNav from "../../components/DateNav.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import { dayOfMoment, notes } from "../../notes.svelte";
   import { measured } from "../../notes.svelte";
@@ -25,6 +28,8 @@
   /** Untouched, the newest Marker with enough Days after it to compare. */
   const ready = (m: { at: string }) => (index.get(dayOfMoment(m.at)) ?? Infinity) + SETTLE + 5 <= days.length;
   const marker = $derived(choices.find((m) => m.at === pickedAt) ?? choices.find(ready) ?? choices[0] ?? null);
+  /** Where the shown Marker sits in `choices`: older ones come after it. */
+  const pos = $derived(marker ? choices.indexOf(marker) : -1);
 
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
   const middle = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
@@ -58,23 +63,31 @@
     }
     return total >= 10 ? { share: Math.round((asBig / total) * 100), total } : null;
   });
-  const label = (m: { at: string; text: string }) => `${dayOfMoment(m.at).slice(5)}  ${m.text}`;
+  const label = (m: { at: string; text: string }) => `${dayOfMoment(m.at).slice(5)} ${m.text}`;
+  /** Whether the table and its summary show (not an empty state). */
+  const compared = $derived(choices.length > 0 && after.length >= 5);
 </script>
 
-<TrendCard title="Before and after">
-  {#snippet tools()}
-    {#if choices.length}
-      <select aria-label="Marker to compare around" value={marker?.at} onchange={(e) => (pickedAt = e.currentTarget.value)}>
-        {#each choices as m (m.at)}<option value={m.at}>{label(m)}</option>{/each}
-      </select>
-    {/if}
-  {/snippet}
+{#snippet markers()}
+  <DateNav label={marker ? label(marker) : ""} caption="Before and after" back={pos >= 0 && pos < choices.length - 1} forward={pos > 0} onback={() => (pickedAt = choices[pos + 1].at)} onforward={() => (pickedAt = choices[pos - 1].at)} />
+{/snippet}
+
+{#snippet summary()}
+  {before.length} Days before "{marker?.text}", against {after.length} after, leaving out {SETTLE} settling-in Days.
+  {#if luck}
+    <span class="luck" class:unusual={luck.share <= 10}>
+      {#if luck.share <= 10}A swing in Vouchers a Day this big happened in only <b>{luck.share}%</b> of other stretches, so it's likely more than chance.
+      {:else}Swings this big in Vouchers a Day happen in <b>{luck.share}%</b> of other stretches, so this could be ordinary ups and downs.{/if}
+    </span>
+  {/if}
+{/snippet}
+
+<TrendCard title="Before and after" nav={choices.length ? markers : undefined} foot={compared ? summary : undefined}>
   {#if !choices.length}
     <p class="empty">Add a Marker in the Log (a new term, a dose change), or change a rule, and this compares the two weeks either side of it.</p>
   {:else if after.length < 5}
     <p class="empty">Too soon after "{marker?.text}": the after side needs {SETTLE + 5} Days, and it has {Math.max(0, days.length - (at ?? 0))}. Check back in a few Days.</p>
   {:else}
-    <p class="lead">{before.length} Days before "{marker?.text}", against {after.length} after, leaving out {SETTLE} settling-in Days.</p>
     <div class="table" class:fit>
       <span></span><span class="cap h">Before</span><span class="cap h">After</span><span></span>
       {#each rows as r (r.name)}
@@ -87,20 +100,15 @@
         <span class="arrow" class:good={good === true} class:bad={good === false}>{same ? "=" : up ? "▲" : "▼"}</span>
       {/each}
     </div>
-    {#if luck}
-      <p class="luck" class:unusual={luck.share <= 10}>
-        {#if luck.share <= 10}A swing in Vouchers a Day this big happened in only <b>{luck.share}%</b> of other stretches, so it's likely more than chance.
-        {:else}Swings this big in Vouchers a Day happen in <b>{luck.share}%</b> of other stretches, so this could be ordinary ups and downs.{/if}
-      </p>
-    {/if}
   {/if}
 </TrendCard>
 
 <style>
-  select { max-width: 190px; height: 32px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line); background: #1f2226; color: var(--ink); font: 600 12px var(--font); }
-  .lead { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
   .table { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 20px; gap: 6px 14px; align-items: center; font-size: 13.5px; }
-  .table.fit { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; align-content: start; }
+  /* In a tablet slot (a third to two thirds high) the table takes the spare
+     height and scrolls, rather than being cut off at the card's edge. */
+  .table.fit { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; align-content: start; }
+  .table.fit::-webkit-scrollbar { display: none; }
   .h { text-align: right; color: var(--muted); }
   .name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .table b { text-align: right; font-size: 13.5px; }
@@ -108,8 +116,8 @@
   .arrow { text-align: center; font-size: 11px; color: var(--muted); }
   .arrow.good { color: var(--voucher); }
   .arrow.bad { color: var(--spend); }
-  .luck { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
-  .luck b { color: var(--ink); font-family: var(--mono); }
-  .luck.unusual b { color: var(--voucher); }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  /* The luck sentence gets a line of its own under the first. */
+  .luck { display: block; margin-top: 4px; }
+  /* Beats the foot's own bold colour. */
+  :global(.foot) .luck.unusual b { color: var(--voucher); }
 </style>

@@ -2,9 +2,12 @@
   // What are my productive hours? A row per Day (or the average Day of each
   // week or month), a cell per hour from 06:00, brighter for more Vouchers.
   // Newest at the bottom; scroll up for earlier ones, as far as the log
-  // keeps them. Hours after midnight join the last column, as on the bar graph.
+  // keeps them. The hours sit under the rows, outside the scroller, so they
+  // never move.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
+  import HourAxis from "../../components/HourAxis.svelte";
+  import Legend from "../../components/Legend.svelte";
   import { monthOf, mondayOf } from "../../trends";
   import { zoomFade } from "../../motion";
   import { inCurfew } from "../../curfew.svelte";
@@ -17,13 +20,13 @@
   let { history }: { history: DayTotal[] } = $props();
   type By = "day" | "week" | "month";
   let by = $state<By>("day");
-  /** Whether the last switch went to a longer span (Days to Weeks to Months), for the zoom's direction. */
+  /** Whether the last switch went to a longer span (Day to Week to Month), for the zoom's direction. */
   let widened = $state(true);
   const LEVELS: By[] = ["day", "week", "month"];
   function setBy(next: By) { widened = LEVELS.indexOf(next) > LEVELS.indexOf(by); by = next; }
   /** A switch made here, which the other cards follow. */
   function pickBy(next: By) { setBy(next); selection.set("when", { span: next, picked: false }); }
-  // Days, Weeks, or Months as the other cards are, and the row holding their Day outlined and in view.
+  // Day, Week, or Month as the other cards are, and the row holding their Day outlined and in view.
   $effect(() => {
     selection.seq;
     untrack(() => { if (selection.from !== "when" && selection.span !== by) setBy(selection.span); });
@@ -85,7 +88,7 @@
 
 <TrendCard title="When you earn" date={{ day: selection.day ?? lastDay, today: lastDay, oldest: history[0]?.day, unit: by, onpick: (d) => selection.set("when", { day: d === lastDay ? null : d, picked: false }) }}>
   {#snippet tools()}
-    <ZoomSwitch options={[{ id: "day", label: "Days" }, { id: "week", label: "Weeks" }, { id: "month", label: "Months" }]} value={by} onchange={(v) => pickBy(v as By)} />
+    <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={by} onchange={(v) => pickBy(v as By)} />
   {/snippet}
   {#if !rows.length}
     <p class="empty">Vouchers earned by the hour show here as the log fills.</p>
@@ -93,16 +96,17 @@
     <!-- Each switch zooms in like the bar graph's Day, Week, and Month. -->
     {#key by}
     <div class="grid" class:fit in:zoomFade={{ out: widened }}>
-      <!-- Outside the scroller, so the hours never move. -->
-      <div class="hours"><span></span>{#each Array(COLS) as _, c}<span class:night={inCurfew(hourOf(c))}>{c % 3 === 0 ? String(hourOf(c)).padStart(2, "0") : ""}</span>{/each}</div>
       <div class="rows" bind:this={scroller}>
         {#each rows as r (r.key)}
           <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
         {/each}
       </div>
+      <!-- Under the rows and outside the scroller, so the hours never move.
+           The label column (44px) plus HourAxis's own 2px gap meets the cells. -->
+      <HourAxis lead={44} />
     </div>
     {/key}
-    <div class="legend"><span>Fewer</span>{#each SHADES as c}<i style="background: {c}"></i>{/each}<span>More Vouchers{by === "day" ? "" : ", per Day on average"}</span></div>
+    <Legend scale={{ from: "Fewer", colors: SHADES, to: `More Vouchers${by === "day" ? "" : ", per Day on average"}` }} />
   {/if}
   {#snippet foot()}
     {#if busiest !== null && rows.length}Your busiest hour is <b>{String(busiest).padStart(2, "0")}:00</b>, across the {rows.length} {by === "day" ? "Days" : by === "week" ? "weeks" : "months"} kept.{:else}Not enough history yet.{/if}
@@ -111,10 +115,7 @@
 
 <style>
   .grid { display: flex; flex-direction: column; gap: 4px; }
-  .hours, .row { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
-  /* Curfew's hours: their labels in the night colour (empty cells are NIGHT). */
-  .hours span.night { color: #7d8cff; }
-  .hours span { font: 500 10px var(--mono); color: var(--muted); white-space: nowrap; }
+  .row { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
   /* In a tablet slot the rows take whatever height is left. */
   .grid.fit { flex: 1; min-height: 0; }
   .grid.fit .rows { flex: 1; min-height: 0; max-height: none; }
@@ -125,8 +126,4 @@
   /* The row holding the Day picked on any card. */
   .row.chosen .label { color: var(--ink); font-weight: 700; }
   .row.chosen i { box-shadow: 0 0 0 1px rgba(242, 242, 240, .5); }
-  .legend { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
-  .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
-  .legend span:last-child { margin-left: 4px; }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

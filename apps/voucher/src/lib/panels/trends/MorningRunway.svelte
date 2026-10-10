@@ -1,13 +1,17 @@
 <script lang="ts">
   // How long do I hold out each morning? A row per week, newest at the
   // bottom (scroll up for earlier ones, as far as the log keeps them), a dot
-  // at each Day's first unlock; a hollow dot at the far right for a Day with
-  // no unlock at all. The further right the dots, the longer the morning ran
-  // before the first Distraction. The dashed line is the middle first unlock
-  // of the last 4 weeks. The hours sit under the scroller and never move.
+  // at each Day's first Unlock across the whole Day, 06:00 to 06:00, with
+  // Curfew's hours shaded in the night colour; a hollow dot in the "none"
+  // column at the far right for a Day with no Unlock at all. The further
+  // right the dots, the longer the morning ran before the first Distraction.
+  // The dashed line is the middle first Unlock of the last 4 weeks. The
+  // hours sit under the scroller and never move, drawn as HourAxis draws them.
   // It follows the shared Day: that Day's dot is ringed and its week scrolled
   // into view, and tapping a dot shares its Day.
   import TrendCard from "../../components/TrendCard.svelte";
+  import Legend from "../../components/Legend.svelte";
+  import { inCurfew } from "../../curfew.svelte";
   import { clock } from "../../time";
   import { clockOfHours, median, mondayOf } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
@@ -17,7 +21,7 @@
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
   const fit = fitsSlot();
-  const START = 6, END = 24;
+  const START = 6, END = 30;
   const hoursAt = (at: string) => { const [h, m] = clock(at, timeZone).split(":").map(Number); return (h < START ? h + 24 : h) + m / 60; };
 
   // Finished Days the log still holds.
@@ -37,6 +41,12 @@
   const W = 600, x0 = 52, x1 = 560, ROW = 22;
   const H = $derived(weeks.length * ROW);
   const xAt = (h: number) => x0 + ((Math.min(h, END) - START) / (END - START)) * (x1 - x0);
+  /** The Day's hours, 6 to 29 (29 is 05:00), and which fall in Curfew. */
+  const HOURS = Array.from({ length: END - START }, (_, i) => START + i);
+  const night = $derived(HOURS.filter((h) => inCurfew(h % 24)));
+  /** The drawing's units per pixel, which keeps its text one size (see TrendCard). */
+  let width = $state(0);
+  const k = $derived(W / (width || W));
 
   // Open at the newest weeks; follow the shared Day to its week.
   let scroller = $state<HTMLDivElement>();
@@ -60,17 +70,13 @@
 
 <TrendCard title="Morning runway" date={{ day: selection.day ?? today, today, oldest: days[0]?.day, onpick: (d) => selection.set("runway-step", { day: d === today ? null : d, picked: false }) }}>
   {#if !weeks.length}
-    <p class="empty">First unlocks show here as the log fills.</p>
+    <p class="empty">First Unlocks show here as the log fills.</p>
   {:else}
-    <div class="legend">
-      <span><i class="dot"></i>A Day's first Unlock</span>
-      <span><i class="ring"></i>No Unlock</span>
-      <span><i class="usual"></i>Usual lately</span>
-      <span class="small">further right: a longer morning</span>
-    </div>
-    <div class="wrap" class:fit>
+    <div class="wrap" class:fit bind:clientWidth={width}>
       <div class="rows" bind:this={scroller}>
-        <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Each Day's first unlock, by week">
+        <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Each Day's first Unlock, by week">
+          <!-- Curfew's hours, in the night colour behind the rows. -->
+          {#each night as h (h)}<rect x={xAt(h)} y="0" width={xAt(h + 1) - xAt(h)} height={H} fill="rgba(125, 140, 255, .09)" />{/each}
           {#if !Number.isNaN(recent)}<line x1={xAt(recent)} x2={xAt(recent)} y1="0" y2={H} stroke="var(--goal)" stroke-dasharray="4 4" />{/if}
           {#if chosenRow >= 0}<rect x="0" y={chosenRow * ROW} width={W} height={ROW} rx="4" fill="#ffffff" opacity=".045" />{/if}
           {#each weeks as w, r (w.monday)}
@@ -84,23 +90,25 @@
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <g class="dot" onclick={() => pick(d.day)}>
                 <circle {cx} {cy} r="9" fill="transparent" />
-                {#if d.t === null}<circle {cx} {cy} r="4" fill="none" stroke="var(--voucher)" stroke-width="1.5"><title>{d.day}: no unlock</title></circle>
-                {:else}<circle {cx} {cy} r="4" fill="var(--voucher)" opacity=".8"><title>{d.day}: first unlock {clockOfHours(d.t)}</title></circle>{/if}
+                {#if d.t === null}<circle {cx} {cy} r="4" fill="none" stroke="var(--voucher)" stroke-width="1.5"><title>{d.day}: no Unlock</title></circle>
+                {:else}<circle {cx} {cy} r="4" fill="var(--voucher)" opacity=".8"><title>{d.day}: first Unlock {clockOfHours(d.t)}</title></circle>{/if}
               </g>
             {/each}
           {/each}
         </svg>
       </div>
-      <svg class="chart axis" viewBox="0 0 {W} 18" aria-hidden="true">
-        {#each [6, 9, 12, 15, 18, 21] as h}<text x={xAt(h)} y="13" text-anchor="middle">{String(h).padStart(2, "0")}</text>{/each}
-        <text x={x1 + 22} y="13" text-anchor="middle">none</text>
+      <!-- As HourAxis draws them: every third hour from each hour's start, Curfew's in the night colour. -->
+      <svg class="chart axis" viewBox="0 0 {W} 18" style="--k: {k}" aria-hidden="true">
+        {#each HOURS.filter((h) => (h - START) % 3 === 0) as h (h)}<text class="hour" class:night={inCurfew(h % 24)} x={xAt(h)} y="13">{String(h % 24).padStart(2, "0")}</text>{/each}
+        <text class="hour" x={x1 + 22} y="13" text-anchor="middle">none</text>
       </svg>
     </div>
+    <Legend items={[{ kind: "dot", color: "var(--voucher)", label: "A Day's first Unlock" }, { kind: "ring", color: "var(--voucher)", label: "No Unlock" }, { kind: "usual", color: "var(--goal)", label: "Usual lately" }]} note="further right: a longer morning" />
   {/if}
   {#snippet foot()}
     {#if !Number.isNaN(recent)}
-      Lately your first unlock comes around <b>{clockOfHours(recent)}</b>{#if !Number.isNaN(before)}, against <b>{clockOfHours(before)}</b> in the 4 weeks before{/if}.
-    {:else}No unlocks in the kept log yet.{/if}
+      Lately your first Unlock comes around <b>{clockOfHours(recent)}</b>{#if !Number.isNaN(before)}, against <b>{clockOfHours(before)}</b> in the 4 weeks before{/if}.
+    {:else}No Unlocks in the kept log yet.{/if}
   {/snippet}
 </TrendCard>
 
@@ -113,12 +121,7 @@
   .wrap.fit .rows { flex: 1; min-height: 0; max-height: none; }
   .axis { flex: none; }
   .dot { cursor: pointer; }
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
-  .legend i.dot { background: var(--voucher); }
-  .legend i.ring { border: 1.5px solid var(--voucher); box-sizing: border-box; }
-  .legend i.usual { width: 2px; height: 12px; border-radius: 0; background: repeating-linear-gradient(180deg, var(--goal) 0 3px, transparent 3px 5px); }
-  .legend .small { margin-left: auto; font-size: 11px; color: #6f757b; }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
+  /* HourAxis's look: 10px mono hour labels, Curfew's in the night colour. */
+  .axis text.hour { font-size: calc(10px * var(--k, 1)); font-weight: 500; }
+  .axis text.hour.night { fill: #7d8cff; }
 </style>

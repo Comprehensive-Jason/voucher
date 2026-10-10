@@ -27,14 +27,14 @@
   const measures = $derived.by((): Measure[] => {
     const one = (v: number) => v.toFixed(1).replace(/\.0$/, "");
     const list: Measure[] = [
-      { name: "Vouchers earned a day", value: (d) => d.earned, up: true, show: one },
+      { name: "Vouchers earned a Day", value: (d) => d.earned, up: true, show: one },
       { name: "Goal Days a week", value: (d) => (d.goal_met ? 7 : 0), up: true, show: one },
-      { name: "Minutes unlocked a day", value: (d) => d.unlocked_minutes ?? null, up: false, show: (v) => `${Math.round(v)} min` },
-      { name: "Distraction minutes a day", value: (d) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : null), up: false, show: (v) => `${Math.round(v)} min` },
+      { name: "Minutes unlocked a Day", value: (d) => d.unlocked_minutes ?? null, up: false, show: (v) => `${Math.round(v)} min` },
+      { name: "Distraction minutes a Day", value: (d) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : null), up: false, show: (v) => `${Math.round(v)} min` },
       { name: "First unlock", value: (d) => { if (!d.first_tear) return null; const [h, m] = clock(d.first_tear, timeZone).split(":").map(Number); return (h < 6 ? h + 24 : h) + m / 60; }, up: true, show: clockOfHours },
     ];
     for (const id of new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))) {
-      list.push({ name: `${styleOf(id).name} a day`, value: (d) => (d.hours && d.hours.length ? d.by_source?.[id] ?? 0 : null), up: true, show: one });
+      list.push({ name: `${styleOf(id).name} a Day`, value: (d) => (d.hours && d.hours.length ? d.by_source?.[id] ?? 0 : null), up: true, show: one });
     }
     return list;
   });
@@ -99,5 +99,4 @@
   .vals { font-size: 12px; color: var(--muted); }
   .vals b { color: var(--ink); }
   .more { align-self: flex-start; height: 30px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: #1f2226; color: var(--muted); font: 700 12px var(--font); cursor: pointer; }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

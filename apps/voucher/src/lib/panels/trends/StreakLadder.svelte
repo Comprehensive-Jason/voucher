@@ -2,11 +2,12 @@
   // Streaks: how does this one compare with my others, and where do streaks
   // tend to end? Above them, the two numbers that matter more after a miss:
   // goal Days in the last two weeks, and how long a lapse usually lasts (and
-  // whether lapses are getting shorter), so a miss reads as information. A column for each length from 1 Day to your best, as tall as
-  // the number of streaks that reached it, so the drop from one column to the
-  // next is where streaks end. Today's length is green, your best outlined in
-  // gold. The line above gives the odds, from finished streaks, of this one
-  // reaching the next milestone.
+  // whether lapses are getting shorter), so a miss reads as information. A
+  // column for each length from 1 Day to your best, as tall as the number of
+  // streaks that reached it, so the drop from one column to the next is where
+  // streaks end. Today's length is green, your best outlined in gold. The
+  // line under it gives the odds, from finished streaks, of this one reaching
+  // the next milestone.
   import TrendCard from "../../components/TrendCard.svelte";
   import { goalRuns } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
@@ -61,7 +62,14 @@
   });
 </script>
 
-<TrendCard title="Streaks">
+{#snippet summary()}
+  {#if current && odds?.share !== null && odds?.share !== undefined}You're on Day <b>{current.length}</b>; <b>{Math.round(odds.share * 100)}%</b> of streaks that reached Day {current.length} lasted to Day {odds.goal}.
+  {:else if current}You're on Day <b>{current.length}</b>; your best is <b>{best}</b>.
+  {:else if typical}No streak running. Streaks usually end around Day <b>{typical}</b>; your best is <b>{best}</b>.
+  {:else}Your best is <b>{days(best)}</b>.{/if}
+{/snippet}
+
+<TrendCard title="Streaks" foot={runs.length ? summary : undefined}>
   {#if !runs.length}
     <p class="empty">A goal Day starts the first streak.</p>
   {:else}
@@ -71,30 +79,18 @@
         <div><b>{days(recent ?? lapse)}</b><span>{#if recent !== null && earlier !== null && recent !== earlier}typical lapse, {recent < earlier ? "down" : "up"} from {earlier}{:else}a lapse usually lasts{/if}</span></div>
       {/if}
     </div>
-    <p class="lead">
-      {#if current && odds?.share !== null && odds?.share !== undefined}You're on day <b>{current.length}</b>; <b>{Math.round(odds.share * 100)}%</b> of streaks that reached day {current.length} lasted to day {odds.goal}.
-      {:else if current}You're on day <b>{current.length}</b>; your best is <b>{best}</b>.
-      {:else if typical}No streak running. Streaks usually end around day <b>{typical}</b>; your best is <b>{best}</b>.
-      {:else}Your best is <b>{best}</b> Days.{/if}
-    </p>
     <div class="bars" class:fit role="img" aria-label="How many streaks reached each length">
       {#each reached as n, i}
-        <div class="col" title="{n} {n === 1 ? 'streak' : 'streaks'} reached day {i + 1}">
+        <div class="col" title="{n} {n === 1 ? 'streak' : 'streaks'} reached Day {i + 1}">
           <i class:now={current && current.length === i + 1} class:best={i + 1 === best} style="height: {(n / tallest) * 100}%"></i>
         </div>
       {/each}
     </div>
-    <div class="axis"><span>1 day</span><span>{best} days</span></div>
+    <div class="axis"><span>1 Day</span><span>{days(best)}</span></div>
   {/if}
 </TrendCard>
 
 <style>
-  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .stats div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #1f2226; min-width: 0; }
-  .stats b { font: 700 18px/1.1 var(--font); color: var(--ink); white-space: nowrap; }
-  .stats span { font-size: 12px; color: var(--muted); }
-  .lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
-  .lead b { color: var(--ink); font-family: var(--mono); }
   .bars { height: 120px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #3a3f45; }
   .bars.fit { flex: 1; min-height: 40px; height: auto; }
   .col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
@@ -102,5 +98,4 @@
   .col i.now { background: var(--voucher); opacity: 1; }
   .col i.best { outline: 2px solid var(--goal); outline-offset: -2px; opacity: 1; }
   .axis { display: flex; justify-content: space-between; font: 500 10px var(--mono); color: var(--muted); }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

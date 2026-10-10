@@ -3,14 +3,14 @@
   // earned (against the period before), your top source, your goal Days, your
   // Distraction time, your best Day, and a question drawn from the slowest
   // weekday. It replays the week or month holding the Day picked on any card
-  // (the current one "so far" until it ends), and its Week/Month switch moves
-  // with the others'.
+  // (its switcher says "so far" until the current one ends), and its
+  // Week/Month switch moves with the others'.
   import { untrack } from "svelte";
   import TrendCard from "../../components/TrendCard.svelte";
   import { measured } from "../../notes.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { styleOf } from "../../sources";
-  import { MONTHS, goalRuns, mondayOf } from "../../trends";
+  import { goalRuns, mondayOf } from "../../trends";
   import { zoomFade } from "../../motion";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
@@ -36,12 +36,11 @@
     const day = selection.day ?? today;
     if (!day) return null;
     if (span === "week") {
-      const start = mondayOf(day), end = shift(start, 6);
-      return { label: end >= today ? "this week so far" : `the week of ${start}`, start, end, prevStart: shift(start, -7), prevEnd: shift(start, -1) };
+      const start = mondayOf(day);
+      return { start, end: shift(start, 6), prevStart: shift(start, -7), prevEnd: shift(start, -1) };
     }
-    const start = monthStart(day), end = shift(monthStart(day, -1), -1);
-    const name = MONTHS[Number(start.slice(5, 7)) - 1];
-    return { label: end >= today ? `${name} so far` : name, start, end, prevStart: monthStart(day, 1), prevEnd: shift(start, -1) };
+    const start = monthStart(day);
+    return { start, end: shift(monthStart(day, -1), -1), prevStart: monthStart(day, 1), prevEnd: shift(start, -1) };
   });
   const inRange = (a: string, b: string) => history.filter((d) => d.day >= a && d.day <= b);
   const days = $derived(period ? inRange(period.start, period.end) : []);
@@ -80,7 +79,7 @@
   });
 </script>
 
-<TrendCard title="Replay" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: span, onpick: (d) => selection.set("replay", { day: d === today ? null : d, picked: false }) }}>
+<TrendCard title="Replay" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: span, soFar: true, onpick: (d) => selection.set("replay", { day: d === today ? null : d, picked: false }) }}>
   {#snippet tools()}
     <ZoomSwitch options={[{ id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onchange={(v) => pick(v as Span)} />
   {/snippet}
@@ -89,7 +88,6 @@
   {:else}
     {#key `${span}${period?.start}`}
     <div class="stage" class:fit in:zoomFade={{ out: span === "month" }}>
-      <span class="cap when">{period?.label}</span>
       <div class="grid">
         {#each cards as c, i (i)}
           <div class="tile" class:wide={c.wide}>
@@ -106,14 +104,14 @@
 <style>
   .stage { display: flex; flex-direction: column; gap: 8px; }
   .stage.fit { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
-  .when { color: var(--muted); }
-  /* Every number at once, two to a row. */
+  /* Every number at once, two to a row, in tiles that look like the shared
+     stat boxes (theme.css .stats). */
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .tile { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: #1f2226; min-width: 0; }
+  .tile { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 10px; background: #1f2226; min-width: 0; }
   .tile.wide { grid-column: span 2; }
   /* At a third of a column, three to a row and smaller, so most fit without scrolling. */
   .stage.fit .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .stage.fit .tile { padding: 8px 10px; gap: 2px; }
+  .stage.fit .tile { gap: 2px; }
   .stage.fit .tile b { font-size: 19px; }
   .stage.fit .tile span { font-size: 11.5px; line-height: 1.3; }
   .stage.fit .tile.wide { grid-column: span 3; }
@@ -121,5 +119,4 @@
   .tile b.goal { color: var(--goal); }
   .tile b.spend { color: var(--spend); }
   .tile span { font-size: 12.5px; line-height: 1.4; color: var(--muted); }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

@@ -18,7 +18,7 @@
     const most = best(history, (d) => d.earned);
     if (most && most.earned) out.push({ name: "Most Vouchers in a Day", value: String(most.earned), when: most.day, day: most.day });
     const run = best(goalRuns(history), (r) => r.length);
-    if (run) out.push({ name: "Longest streak", value: `${run.length} Days`, when: `to ${run.end}`, day: run.end });
+    if (run) out.push({ name: "Longest streak", value: `${run.length} ${run.length === 1 ? "Day" : "Days"}`, when: `to ${run.end}`, day: run.end });
     const weeks = new Map<string, number>();
     for (const d of history) if (d.goal_met) weeks.set(mondayOf(d.day), (weeks.get(mondayOf(d.day)) ?? 0) + 1);
     const week = best([...weeks.entries()], ([, n]) => n);
@@ -56,5 +56,4 @@
   .name em { font: 700 10px var(--mono); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: #0e0f11; background: var(--goal); border-radius: 999px; padding: 1px 7px; }
   .rec b { grid-row: span 2; align-self: center; font: 700 16px var(--mono); color: var(--goal); text-align: right; }
   .when { font: 500 11px var(--mono); color: var(--muted); }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

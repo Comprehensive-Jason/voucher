@@ -469,9 +469,9 @@
   });
 </script>
 
-<section class="card" class:tall>
+<section class="card tile" class:tall>
   <div class="cardhead">
-    <DateNav label={zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)} back={!atStart} forward={!onLatest} onback={() => step(-1)} onforward={() => step(1)} />
+    <DateNav label={zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)} caption={minutes ? "Distraction time" : "Vouchers earned"} back={!atStart} forward={!onLatest} onback={() => step(-1)} onforward={() => step(1)} />
     <div class="tools">
       <TodayButton show={!onLatest} onclick={backToToday} />
       <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => pickZoom(z as Zoom)} />
@@ -607,7 +607,6 @@
 
 <style>
   /* A named container, so the Today button can shrink to its arrow on a narrow card. */
-  .card { container: card / inline-size; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
   /* Clipped to its own box while it zooms in: Android's WebView kept the
      scroller's clip at the unscaled size, so a few pixels of the page before
      showed at the left edge as the view grew or shrank into place. This clip
@@ -652,10 +651,10 @@
   .col:focus-visible { outline: 2px solid var(--voucher); outline-offset: 2px; border-radius: 4px; }
   .n { font-size: 10px; line-height: 11px; text-align: center; color: var(--muted); }
   /* A bar grows to its new height, and its segments to their new shares, when an hour earns. */
-  /* Distraction time: the minutes Unlocks allowed, as a light grey outline
+  /* Distraction time: the minutes Unlocks allowed, as a salmon outline (Unlocks' colour everywhere)
      drawn over the bar, so time used past it shows above its top edge. */
-  .allow { position: absolute; z-index: 2; left: -2px; right: -2px; bottom: 0; border: 1.5px solid #c3c8cd; border-top-width: 2.5px; border-bottom: 0; border-radius: 5px 5px 0 0; pointer-events: none; }
-  .allowmark { display: block; width: 10px; height: 10px; border: 1.5px solid #8b9198; border-radius: 3px; box-sizing: border-box; }
+  .allow { position: absolute; z-index: 2; left: -2px; right: -2px; bottom: 0; border: 1.5px solid var(--spend); border-top-width: 2.5px; border-bottom: 0; border-radius: 5px 5px 0 0; pointer-events: none; }
+  .allowmark { display: block; width: 10px; height: 10px; border: 1.5px solid var(--spend); border-radius: 3px; box-sizing: border-box; }
   .hintline b { color: var(--ink); font-family: var(--mono); }
   .bar { position: relative; display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }

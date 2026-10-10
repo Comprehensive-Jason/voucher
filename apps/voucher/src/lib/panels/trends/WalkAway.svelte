@@ -3,9 +3,10 @@
   // opening an app on a blocklist while nothing is unlocked; "walked away"
   // means that time ended without an Unlock. One bar per Day of the week
   // holding the picked Day: its height is the opens, its green part the
-  // walk-aways, with both numbers on it; the line above gives the week's
-  // share against the week before.
+  // walk-aways and its salmon part the Unlocks, with both numbers on it; the
+  // line under it gives the week's share against the week before.
   import TrendCard from "../../components/TrendCard.svelte";
+  import Legend from "../../components/Legend.svelte";
   import { mondayOf } from "../../trends";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
@@ -29,46 +30,45 @@
   const most = $derived(Math.max(1, ...week.map((d) => d.opens)));
   const DAY = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const any = $derived(history.some((d) => d.opens));
+  /** Salmon for Unlocks, dimmed so the walk-aways' green still reads on top. */
+  const UNLOCKED = "color-mix(in srgb, var(--spend) 40%, transparent)";
 </script>
 
-<TrendCard title="Walk-away wins" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: "week", onpick: (d) => selection.set("walkaway", { day: d === today ? null : d, picked: false }) }}>
+{#snippet summary()}
+  You opened a blocked app <b>{now.opens}</b> {now.opens === 1 ? "time" : "times"} and walked away <b>{now.walked}</b> {now.walked === 1 ? "time" : "times"}{#if now.opens} (<b class="won">{pct(now)}%</b>){/if}.
+  {#if before.opens}The week before: {pct(before)}%.{/if}
+{/snippet}
+
+<TrendCard title="Walk-away wins" foot={any ? summary : undefined} date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: "week", soFar: true, onpick: (d) => selection.set("walkaway", { day: d === today ? null : d, picked: false }) }}>
   {#if !any}
     <p class="empty">Opens of blocked apps show here once the phone reports them.</p>
   {:else}
-    <p class="lead">
-      {shift(monday, 6) >= today ? "This week" : `Week of ${monday}`}: you opened a blocked app <b>{now.opens}</b> times and walked away <b>{now.walked}</b> times{#if now.opens} (<b class="won">{pct(now)}%</b>){/if}.
-      {#if before.opens}The week before: {pct(before)}%.{/if}
-    </p>
     <div class="week" class:fit>
       {#each week as d, i (d.day)}
         <div class="day" class:future={d.future} title="{d.day}: walked away {d.walked} of {d.opens}">
           {#if d.opens}<span class="n">{d.walked}/{d.opens}</span>{/if}
-          <div class="bar" style="height: {(d.opens / most) * 100}%"><i style="height: {d.opens ? (d.walked / d.opens) * 100 : 0}%"></i></div>
+          <div class="bar" style="background: {d.opens ? UNLOCKED : 'var(--line)'}; height: {(d.opens / most) * 100}%"><i style="height: {d.opens ? (d.walked / d.opens) * 100 : 0}%"></i></div>
           <span class="label" class:chosen={d.day === (selection.day ?? today)}>{DAY[i]}</span>
         </div>
       {/each}
     </div>
-    <div class="legend"><span><i class="won"></i>Walked away</span><span><i></i>Unlocked instead</span></div>
+    <Legend items={[{ kind: "box", color: "var(--voucher)", label: "Walked away" }, { kind: "box", color: UNLOCKED, label: "Unlocked instead" }]} />
   {/if}
 </TrendCard>
 
 <style>
-  .lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
-  .lead b { color: var(--ink); font-family: var(--mono); }
-  .lead b.won { color: var(--voucher); }
-  .week { height: 110px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; border-bottom: 1px solid #3a3f45; padding-top: 14px; }
+  /* Beats the foot's own bold colour. */
+  :global(.foot) b.won { color: var(--voucher); }
+  /* The bottom margin leaves room for the weekday labels hanging under the bars. */
+  .week { height: 110px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; border-bottom: 1px solid #3a3f45; padding-top: 14px; }
   .week.fit { flex: 1; min-height: 70px; height: auto; }
   .day { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
   .day.future { opacity: .3; }
   .n { font: 600 10px var(--mono); color: var(--ink); margin-bottom: 3px; }
-  /* Grey for the opens unlocked instead; green, from the bottom, for the walk-aways. */
-  .bar { width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; background: #4a4f55; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+  /* Dim salmon (set inline, shared with the legend) for the opens unlocked
+     instead; green, from the bottom, for the walk-aways; a grey stub for none. */
+  .bar { width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
   .bar i { display: block; background: var(--voucher); }
   .label { position: absolute; bottom: -18px; font: 500 10px var(--mono); color: var(--muted); }
   .label.chosen { color: var(--ink); font-weight: 700; }
-  .legend { display: flex; gap: 14px; margin-top: 14px; font-size: 12px; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .legend i { width: 10px; height: 10px; border-radius: 3px; background: #4a4f55; }
-  .legend i.won { background: var(--voucher); }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

@@ -2,9 +2,11 @@
   // When does each kind of work go best for me? A row per source: how its
   // Vouchers spread over the hours from 06:00, each row scaled to its own
   // busiest hour so a quiet source's shape shows as clearly as a busy one's.
-  // The range picks which Days count.
+  // The range picks which Days count. The hours sit under the rows, outside
+  // their scroller.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
+  import HourAxis from "../../components/HourAxis.svelte";
   import { compareSources, styleOf } from "../../sources";
   import { zoomFade } from "../../motion";
   import { inCurfew } from "../../curfew.svelte";
@@ -40,14 +42,13 @@
 
 <TrendCard title="Best hours by source">
   {#snippet tools()}
-    <ZoomSwitch options={[{ id: "28", label: "4 wk" }, { id: "84", label: "12 wk" }, { id: "182", label: "6 mo" }, { id: "all", label: "All" }]} value={span} onchange={(v) => setSpan(v as Span)} />
+    <ZoomSwitch options={[{ id: "28", label: "4 weeks" }, { id: "84", label: "12 weeks" }, { id: "182", label: "6 months" }, { id: "all", label: "All" }]} value={span} onchange={(v) => setSpan(v as Span)} />
   {/snippet}
   {#if !rows.length}
     <p class="empty">Each source's hours show here as the log fills.</p>
   {:else}
     {#key span}
     <div class="grid" class:fit in:zoomFade={{ out: widened }}>
-      <div class="hours"><span></span>{#each Array(COLS) as _, c}<span class:night={inCurfew(hourOf(c))}>{c % 3 === 0 ? String(hourOf(c)).padStart(2, "0") : ""}</span>{/each}</div>
       <div class="rows">
         {#each rows as r (r.id)}
           {@const top = Math.max(...r.cells)}
@@ -58,6 +59,9 @@
           </div>
         {/each}
       </div>
+      <!-- The name column (84px) and its 8px gap, less HourAxis's own 2px gap,
+           so each hour sits over its ridge column. -->
+      <HourAxis lead={90} />
     </div>
     {/key}
   {/if}
@@ -69,10 +73,7 @@
 <style>
   .grid { display: flex; flex-direction: column; gap: 4px; }
   .grid.fit { flex: 1; min-height: 0; }
-  .hours, .row { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: end; gap: 8px; }
-  .hours { grid-template-columns: 84px repeat(24, minmax(0, 1fr)); gap: 0 2px; }
-  .hours span.night { color: #7d8cff; }
-  .hours span { font: 500 10px var(--mono); color: var(--muted); white-space: nowrap; }
+  .row { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: end; gap: 8px; }
   .rows { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .grid.fit .rows { flex: 1; min-height: 0; }
   .name { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
@@ -81,5 +82,4 @@
   /* Curfew's hours, in the night colour behind the ridge. */
   .ridge .hour.night { background: rgba(125, 140, 255, .09); }
   .ridge i { display: block; width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; opacity: .85; }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

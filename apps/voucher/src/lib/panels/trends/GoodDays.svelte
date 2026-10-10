@@ -82,5 +82,4 @@
   .finding { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #1f2226; }
   .text { font-size: 13.5px; line-height: 1.4; color: var(--ink); }
   .detail { font: 500 11px var(--mono); color: var(--muted); }
-  .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

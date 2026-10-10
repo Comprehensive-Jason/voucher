@@ -139,7 +139,7 @@
   <!-- The phone's Log page keeps its heading; on the tablet the date switcher is the card's title. -->
   {#if !compact}<h1>Log</h1>{/if}
   <header>
-    <DateNav label={day && today ? dayLabel(day, today) : ""} back={back < OLDEST} forward={back > 0} onback={() => step(1)} onforward={() => step(-1)} />
+    <DateNav label={day && today ? dayLabel(day, today) : ""} caption={compact ? "Log" : undefined} back={back < OLDEST} forward={back > 0} onback={() => step(1)} onforward={() => step(-1)} />
     <span class="spacer"></span>
     <TodayButton show={back > 0} onclick={() => { back = 0; load(); share(); }} />
     <button class="add" class:on={writing} aria-label="Add a Marker" title="Add a Marker: a dated note charts show as a line" onclick={() => (writing = !writing)}>
@@ -241,7 +241,7 @@
   /* On the tablet only the rows scroll (and bounce at either end); the
      header sits above them, outside the scrolling part. */
   .compact { flex: 1; height: 100%; min-height: 0; }
-  .compact header { flex: none; margin: 0 -12px 0 0; padding: 8px 0 6px; }
+  .compact header { flex: none; }
   .compact .frame { flex: 1; min-height: 0; }
   .compact .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; margin-right: -8px; padding-right: 8px; }
   .compact .label { min-width: 0; }

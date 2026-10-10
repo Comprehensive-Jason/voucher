@@ -22,7 +22,7 @@
     <circle cx="6" cy="6" r="4.6" fill="none" stroke="#ff8a7a" stroke-width="1.5" stroke-dasharray="2.4 1.8" />
   {:else}
     <!-- Redeemed: a triangle pointing right, the way a torn Voucher goes. -->
-    <path d="M2.2 1.2l8.6 4.8-8.6 4.8z" fill="var(--ink)" stroke="var(--ink)" stroke-width="1" stroke-linejoin="round" />
+    <path d="M2.2 1.2l8.6 4.8-8.6 4.8z" fill="var(--spend)" stroke="var(--spend)" stroke-width="1" stroke-linejoin="round" />
   {/if}
 </svg>
 
