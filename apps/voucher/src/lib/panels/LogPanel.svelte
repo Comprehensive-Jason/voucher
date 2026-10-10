@@ -19,8 +19,7 @@
   import ScrollCue from "../components/ScrollCue.svelte";
   import { fade } from "svelte/transition";
   import { ms } from "../motion";
-  import TodayButton from "../components/TodayButton.svelte";
-  import DateNav from "../components/DateNav.svelte";
+  import CardHead from "../components/CardHead.svelte";
   import { notes } from "../notes.svelte";
   let list = $state<HTMLDivElement>();
 
@@ -145,14 +144,15 @@
 <div class="log" class:compact>
   <!-- The phone's Log page keeps its heading; on the tablet the date switcher is the card's title. -->
   {#if !compact}<h1>Log</h1>{/if}
-  <header>
-    <DateNav label={day && today ? dayLabel(day, today) : ""} caption={compact ? "Log" : undefined} back={back < OLDEST} forward={back > 0} onback={() => step(1)} onforward={() => step(-1)} />
-    <span class="spacer"></span>
-    <TodayButton show={back > 0} onclick={() => { back = 0; load(); share(); }} />
-    <button class="add" class:on={writing} aria-label="Add a Marker" title="Add a Marker: a dated note charts show as a line" onclick={() => (writing = !writing)}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2.5 4L16 12H5" /></svg>
-    </button>
-  </header>
+  <CardHead title={compact ? "Log" : undefined}
+    nav={{ label: day && today ? dayLabel(day, today) : "", back: back < OLDEST, forward: back > 0, onback: () => step(1), onforward: () => step(-1) }}
+    today={{ show: back > 0, onclick: () => { back = 0; load(); share(); } }}>
+    {#snippet tools()}
+      <button class="add" class:on={writing} aria-label="Add a Marker" title="Add a Marker: a dated note charts show as a line" onclick={() => (writing = !writing)}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2.5 4L16 12H5" /></svg>
+      </button>
+    {/snippet}
+  </CardHead>
 
   {#if error}
     <p class="error">{error}</p>
@@ -211,7 +211,6 @@
 
 <style>
   .log { display: flex; flex-direction: column; gap: 14px; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   h1 { margin: 0; font-size: 26px; font-weight: 700; }
   .totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
   .totals > div { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
@@ -220,7 +219,6 @@
   .earn { color: var(--voucher); }
   /* A Redemption's minus count, in the colour Vouchers spent have everywhere. */
   .spend { color: var(--spend); }
-  .spacer { flex: 1; }
   .frame { position: relative; display: flex; flex-direction: column; }
   .rows { position: relative; display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 44px 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; height: 43px; border-bottom: 1px solid var(--divider); }
@@ -248,7 +246,6 @@
   /* On the tablet only the rows scroll (and bounce at either end); the
      header sits above them, outside the scrolling part. */
   .compact { flex: 1; height: 100%; min-height: 0; }
-  .compact header { flex: none; }
   .compact .frame { flex: 1; min-height: 0; }
   .compact .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; margin-right: -8px; padding-right: 8px; }
   .compact .label { min-width: 0; }

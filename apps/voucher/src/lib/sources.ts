@@ -7,15 +7,16 @@ import type { SourceKind } from "./types";
 export interface SourceStyle { name: string; short: string; color: string; sub?: string }
 
 /** Defaults for the sources Voucher ships with, and for ones from before
- *  groups (`readwise`, `moonreader`) that older log entries still name. */
+ *  groups (`readwise`, `moonreader`) that older log entries still name. None
+ *  may sit near salmon, the Unlock colour (see palette.ts). */
 export const SOURCES: Record<string, SourceStyle> = {
   tasks: { name: "Tasks", short: "Tasks", color: "#5b9cff" },
   obsidian: { name: "Obsidian", short: "Obsidian", color: "#b08cff" },
-  workout: { name: "Workout", short: "Workout", color: "#ff8a5c" },
+  workout: { name: "Workout", short: "Workout", color: "#c08f08" },
   reading: { name: "Reading", short: "Reading", color: "#ffd166" },
   readwise: { name: "Readwise Reader", short: "Reader", color: "#ffd166" },
   moonreader: { name: "Moon+ Reader", short: "Moon+", color: "#e0a82e" },
-  anki: { name: "Anki", short: "Anki", color: "#ff6fa8" },
+  anki: { name: "Anki", short: "Anki", color: "#f3b2e6" },
   steps: { name: "Steps", short: "Steps", color: "#05afa5" },
 };
 
@@ -27,7 +28,7 @@ const SERVICES: Record<string, SourceStyle> = {
 
 /** Colours for groups the user makes, in the order new ones take them (light
  *  swatches from the palette, so the picker shows them as chosen). */
-export const SPARE = ["#7dd9fb", "#c1d58a", "#f3b2e6", "#d1bfff", "#e9c57d", "#76e0d6", "#feb896"];
+export const SPARE = ["#7dd9fb", "#c1d58a", "#f3b2e6", "#d1bfff", "#e9c57d", "#76e0d6", "#feb98c"];
 
 /** Earnings name a service; they count toward the Tasks group. */
 export const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);

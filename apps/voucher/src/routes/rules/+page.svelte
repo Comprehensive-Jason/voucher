@@ -2,13 +2,14 @@
   import RulesNotices from "$lib/components/RulesNotices.svelte";
   import { NOTICES_IN_HEADER } from "$lib/notices";
   // Rules. On a phone: Limits, with tabs for Sources and Distractions. On a
-  // wide screen: all three side by side, as a sheet over Today that slides
-  // back down to it.
+  // wide screen: all three side by side, then Extras (preview and export), as
+  // a sheet over Today that slides back down to it.
   import { goto } from "$app/navigation";
   import RulesTabs from "$lib/components/RulesTabs.svelte";
   import LimitsPanel from "$lib/panels/LimitsPanel.svelte";
   import SourcesPanel from "$lib/panels/SourcesPanel.svelte";
   import DistractionsPanel from "$lib/panels/DistractionsPanel.svelte";
+  import ExtrasPanel from "$lib/panels/ExtrasPanel.svelte";
   import { wide } from "$lib/wide.svelte";
 </script>
 
@@ -25,6 +26,7 @@
       <section><LimitsPanel heading /></section>
       <section><SourcesPanel heading /></section>
       <section><DistractionsPanel heading /></section>
+      <section><ExtrasPanel heading /></section>
     </div>
   </div>
 {:else}
@@ -45,7 +47,8 @@
   /* Page-wide notices fill the header beside the title. */
   .noticeslot { flex: 1; min-width: 0; margin-left: 28px; }
   header { flex: none; }
-  .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  /* Extras holds two rows, so it gets less width than the rules beside it. */
+  .cols { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, .75fr); gap: 24px; }
   /* Each panel scrolls under its own heading. */
   section { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 </style>

@@ -35,7 +35,7 @@
 </script>
 
 {#snippet summary()}
-  You opened a blocked app <b>{now.opens}</b> {now.opens === 1 ? "time" : "times"} and walked away <b>{now.walked}</b> {now.walked === 1 ? "time" : "times"}{#if now.opens} (<b class="won">{pct(now)}%</b>){/if}.
+  You opened a blocked app <b>{now.opens}</b> {now.opens === 1 ? "time" : "times"} and walked away <b>{now.walked}</b> {now.walked === 1 ? "time" : "times"}{#if now.opens}{" "}(<b class="won">{pct(now)}%</b>){/if}.
   {#if before.opens}The week before: {pct(before)}%.{/if}
 {/snippet}
 

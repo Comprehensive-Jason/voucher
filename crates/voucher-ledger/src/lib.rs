@@ -128,7 +128,7 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
         ),
         "youtube" => (
             "YouTube",
-            "#ff6b5b",
+            "#9d3d5b",
             vec![
                 app("com.google.android.youtube", "YouTube", None),
                 app("org.schabi.newpipe", "NewPipe", viewer),
@@ -208,7 +208,7 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
         ),
         "reddit" => (
             "Reddit",
-            "#ff8a3d",
+            "#e2781f",
             vec![app("com.reddit.frontpage", "Reddit", None)],
             vec![site("reddit.com", all)],
         ),

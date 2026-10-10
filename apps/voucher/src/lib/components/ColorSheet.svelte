@@ -2,7 +2,7 @@
   // Picks the colour a source or blocklist is drawn in: the palette's rows,
   // light to dark, each running around the colour wheel.
   import Sheet from "./Sheet.svelte";
-  import { PALETTE } from "../palette";
+  import { PALETTE, nearSpend } from "../palette";
 
   let { title, current, fallback = null, onpick, onclose }: {
     title: string;
@@ -12,10 +12,13 @@
     onpick: (color: string | null) => void;
     onclose: () => void;
   } = $props();
+  // A colour saved before salmon meant Unlock still shows, but is no longer offered.
+  const retired = $derived(nearSpend(current));
 </script>
 
 <Sheet {onclose}>
   <div class="head"><h2>{title}</h2><span class="now" style="background: {current}"></span></div>
+  {#if retired}<p class="lead">This colour is too close to salmon, which now means Unlock, so it's no longer offered. Pick another.</p>{/if}
   <div class="grid" role="radiogroup" aria-label="Colours">
     {#each PALETTE.flat() as swatch}
       <button class="swatch" class:on={swatch.color === current.toLowerCase()} style="background: {swatch.color}"

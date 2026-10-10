@@ -8,7 +8,6 @@
   // place steps through the Markers; the lines under the table say what was
   // compared and how likely luck is.
   import TrendCard from "../../components/TrendCard.svelte";
-  import DateNav from "../../components/DateNav.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import { dayOfMoment, notes } from "../../notes.svelte";
   import { measured } from "../../notes.svelte";
@@ -70,16 +69,12 @@
   const compared = $derived(choices.length > 0 && after.length >= 5);
 </script>
 
-{#snippet markers()}
-  <DateNav label={marker ? label(marker) : ""} caption="Before and after" back={pos >= 0 && pos < choices.length - 1} forward={pos > 0} onback={() => (pickedAt = choices[pos + 1].at)} onforward={() => (pickedAt = choices[pos - 1].at)} />
-{/snippet}
-
 {#snippet summary()}
   Left out {settled} to settle in.
   {#if luck}<span class="luck" class:unusual={luck.share <= 10}>{#if luck.share <= 10}<b>Likely real</b>: a swing this big shows up in only {luck.share}% of other stretches.{:else}<b>Could be chance</b>: swings this big show up in {luck.share}% of other stretches.{/if}</span>{/if}
 {/snippet}
 
-<TrendCard title="Before and after" nav={choices.length ? markers : undefined} foot={compared ? summary : undefined}>
+<TrendCard title="Before and after" nav={choices.length ? { label: marker ? label(marker) : "", back: pos >= 0 && pos < choices.length - 1, forward: pos > 0, onback: () => (pickedAt = choices[pos + 1].at), onforward: () => (pickedAt = choices[pos - 1].at) } : undefined} foot={compared ? summary : undefined}>
   {#if !choices.length}
     <p class="empty">Add a Marker in the Log (a new term, a dose change), or change a rule, and this compares the two weeks either side of it.</p>
   {:else if after.length < 5}

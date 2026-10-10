@@ -1,4 +1,4 @@
-// Whether the screen is wide enough for the tablet's three-column layout
+// Whether the screen is wide enough for the tablet's multi-column layout
 // (a landscape tablet or a desktop window).
 const QUERY = "(min-width: 1000px)";
 

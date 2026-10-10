@@ -1,30 +1,21 @@
 <script lang="ts">
-  // The frame every Trends card shares: a title with optional controls on
-  // the right, the chart, and one line under it saying what the chart shows.
-  // A card that follows the shared Day passes `date`: its date switcher
-  // takes the title's place, and the Today button comes first on the right,
-  // as on every dated card.
+  // The frame every Trends card shares: the heading (CardHead), the chart,
+  // and one line under it saying what the chart shows. A card that follows
+  // the shared Day passes `date`, and gets the date switcher and Today button
+  // as the heading's second line; a card that steps through something else
+  // (Before and after's Markers) passes its own `nav` for that line.
   import type { Snippet } from "svelte";
   import { fitsSlot } from "../fit.svelte";
-  import DayStepper, { type DateProps } from "./DayStepper.svelte";
-  import TodayButton from "./TodayButton.svelte";
+  import CardHead from "./CardHead.svelte";
+  import { stepper, type DateProps } from "../stepper";
   const fit = fitsSlot();
-  // A card that steps through something else (Before and after's Markers)
-  // passes its own `nav` for the title's place, built from DateNav.
-  let { title, date, nav, tools, children, foot }: { title: string; date?: DateProps; nav?: Snippet; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();
-  const ready = $derived(!!date && /^\d{4}-\d{2}-\d{2}$/.test(date.day) && /^\d{4}-\d{2}-\d{2}$/.test(date.today));
+  type Nav = { label: string; back: boolean; forward: boolean; onback: () => void; onforward: () => void };
+  let { title, date, nav, tools, children, foot }: { title: string; date?: DateProps; nav?: Nav; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();
+  const step = $derived(date ? stepper(date) : null);
 </script>
 
 <section class="card tile" class:fit>
-  <div class="cardhead">
-    {#if nav}{@render nav()}{:else if date && ready}<DayStepper {...date} caption={title} />{:else}<span class="cap">{title}</span>{/if}
-    {#if tools || date}
-      <div class="tools">
-        {#if date && ready}<TodayButton show={date.day !== date.today} onclick={() => date.onpick(date.today)} />{/if}
-        {#if tools}{@render tools()}{/if}
-      </div>
-    {/if}
-  </div>
+  <CardHead {title} nav={nav ?? step?.nav} today={step?.today} {tools} />
   {@render children()}
   {#if foot}<p class="foot">{@render foot()}</p>{/if}
 </section>

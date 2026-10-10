@@ -21,11 +21,10 @@
   import { ledger } from "../api";
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
   import { clock, dayLabel, hourOf, periodLabel, shiftDay } from "../time";
-  import DateNav from "../components/DateNav.svelte";
+  import CardHead from "../components/CardHead.svelte";
   import Marker from "../components/Marker.svelte";
   import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "../types";
   import ScrollCue from "../components/ScrollCue.svelte";
-  import TodayButton from "../components/TodayButton.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
   import { ms, zoomFade } from "../motion";
   import { selection } from "../selection.svelte";
@@ -475,13 +474,13 @@
 </script>
 
 <section class="card tile" class:tall>
-  <div class="cardhead">
-    <DateNav label={zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page)} caption={minutes ? "Distraction time" : "Vouchers earned"} back={!atStart} forward={!onLatest} onback={() => step(-1)} onforward={() => step(1)} />
-    <div class="tools">
-      <TodayButton show={!onLatest} onclick={backToToday} />
+  <CardHead title={minutes ? "Distraction time" : "Vouchers earned"}
+    nav={{ label: zoom === "day" ? dayLabel(days[shown], today.day) : labelOf(page), back: !atStart, forward: !onLatest, onback: () => step(-1), onforward: () => step(1) }}
+    today={{ show: !onLatest, onclick: backToToday }}>
+    {#snippet tools()}
       <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => pickZoom(z as Zoom)} />
-    </div>
-  </div>
+    {/snippet}
+  </CardHead>
   <!-- A new zoom level grows in from the old one's scale (larger when zooming
        out, smaller when zooming in), and its bars rise one after another. -->
   {#key entrance}
@@ -710,7 +709,7 @@
      grid stays put level with the next column; the list scrolls inside
      whatever room is left, with its heading row pinned. */
   .tall { flex: 1; min-height: 0; }
-  .tall .cardhead, .tall .days, .tall .viewport { flex: none; }
+  .tall .days, .tall .viewport { flex: none; }
   .tall .legend { flex: 1; min-height: 96px; }
   .tall .lframe { flex: 1; min-height: 0; }
   .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
