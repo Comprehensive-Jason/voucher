@@ -2,10 +2,12 @@
   // The frame every Trends card shares: a title with optional controls on
   // the right, the chart, and one line under it saying what the chart shows.
   import type { Snippet } from "svelte";
+  import { fitsSlot } from "../fit.svelte";
+  const fit = fitsSlot();
   let { title, tools, children, foot }: { title: string; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();
 </script>
 
-<section class="card">
+<section class="card" class:fit>
   <div class="cardhead">
     <span class="cap">{title}</span>
     {#if tools}<div class="tools">{@render tools()}</div>{/if}
@@ -21,4 +23,9 @@
   /* Charts draw in SVG; their text keeps the app's mono figures. */
   .card :global(svg.chart) { display: block; width: 100%; height: auto; overflow: visible; }
   .card :global(svg.chart text) { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+  /* Filling a tablet slot: the chart's box takes the spare height and its
+     drawing is redrawn to that shape (see drawHeight). */
+  .fit :global(.plot) { flex: 1; min-height: 0; }
+  .fit :global(.plot svg.chart) { height: 100%; }
+  .fit .foot { flex: none; }
 </style>

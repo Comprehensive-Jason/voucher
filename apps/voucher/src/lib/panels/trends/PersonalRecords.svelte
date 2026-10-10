@@ -5,6 +5,8 @@
   import { clock } from "../../time";
   import { goalRuns, mondayOf } from "../../trends";
   import { styleOf } from "../../sources";
+  import { fitsSlot } from "../../fit.svelte";
+  const fit = fitsSlot();
   import type { DayTotal } from "../../types";
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
@@ -36,7 +38,7 @@
 </script>
 
 <TrendCard title="Personal records">
-  <div class="list">
+  <div class="list" class:fit>
     {#each records as r (r.name)}
       <div class="rec">
         <span class="name">{r.name}{#if r.day === today}<em>New</em>{/if}</span>
@@ -50,6 +52,8 @@
 </TrendCard>
 
 <style>
+  /* In a tablet slot the list takes the spare height and scrolls. */
+  .list.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .list { display: flex; flex-direction: column; }
   .rec { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; padding: 7px 0; border-top: 1px solid var(--divider); }
   .rec:first-child { border-top: 0; }

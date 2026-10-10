@@ -4,7 +4,8 @@
   // that scrolls sideways, two in view at a time, holding the charts and the
   // Log in whatever arrangement was chosen here (see arrangement.svelte.ts).
   import { onMount, tick } from "svelte";
-  import { arrangement, PANELS, type PanelId } from "$lib/arrangement.svelte";
+  import { arrangement, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
+  import { fillSlots } from "$lib/fit.svelte";
   import { deviceUsage, ledger } from "$lib/api";
   import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$lib/wide.svelte";
@@ -24,6 +25,8 @@
   import type { DayTotal, DeviceUsage, Status } from "$lib/types";
 
   const live = new Live();
+  // The strip's panels fill their slots (thirds of a column).
+  fillSlots();
   let status = $state<Status | null>(null);
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
@@ -94,11 +97,11 @@
   <div class="wide">
     <section class="col today"><TodayColumn {live} wide /></section>
     <div class="stripwrap">
-      <div class="strip" class:arranging bind:this={strip} onscroll={measureMore}>
+      <div class="strip" class:arranging bind:this={strip} onscroll={measureMore} style="--rows: {ROWS}">
         {#each arrangement.columns as column, ci (ci)}
           <div class="column">
             {#each column as id (id)}
-              <div class="slot" class:grows={PANELS[id].grows} style="view-transition-name: panel-{id}">
+              <div class="slot" style="grid-row: span {arrangement.size(id)}; view-transition-name: panel-{id}">
                 {@render panel(id)}
                 {#if arranging}
                   <!-- Over the panel while arranging: where it goes next. -->
@@ -107,14 +110,26 @@
                     <div class="moves">
                       <button aria-label="Move left" onclick={() => rearrange(() => arrangement.sideways(id, -1))} disabled={ci === 0 && column.length === 1}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg></button>
-                      {#if column.length > 1}
-                        <button aria-label={column.indexOf(id) === 0 ? "Move down" : "Move up"} onclick={() => rearrange(() => arrangement.flip(id))}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">{#if column.indexOf(id) === 0}<path d="M6 9l6 6 6-6" />{:else}<path d="M6 15l6-6 6 6" />{/if}</svg></button>
+                      {#if column.indexOf(id) > 0}
+                        <button aria-label="Move up" onclick={() => rearrange(() => arrangement.shift(id, -1))}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6" /></svg></button>
+                      {/if}
+                      {#if column.indexOf(id) < column.length - 1}
+                        <button aria-label="Move down" onclick={() => rearrange(() => arrangement.shift(id, 1))}>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg></button>
                       {/if}
                       <button aria-label="Move right" onclick={() => rearrange(() => arrangement.sideways(id, 1))} disabled={ci === arrangement.columns.length - 1 && column.length === 1}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg></button>
                       <button class="hide" aria-label="Hide {PANELS[id].name}" onclick={() => rearrange(() => arrangement.hide(id))}>Hide</button>
                     </div>
+                    {#if PANELS[id].max > PANELS[id].min}
+                      <!-- Its height in thirds of the column, within what it allows. -->
+                      <div class="sizes" role="group" aria-label="Height">
+                        {#each [1, 2, 3].filter((n) => n >= PANELS[id].min && n <= PANELS[id].max) as n}
+                          <button class:on={arrangement.size(id) === n} aria-pressed={arrangement.size(id) === n} onclick={() => rearrange(() => arrangement.resize(id, n))}>{n === 3 ? "Full" : `${n}/3`}</button>
+                        {/each}
+                      </div>
+                    {/if}
                   </div>
                 {/if}
               </div>
@@ -156,10 +171,10 @@
   .stripwrap { position: relative; flex: 1; min-width: 0; display: flex; }
   .strip { flex: 1; min-width: 0; display: flex; gap: 24px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 28px; scroll-padding-left: 0; }
   .strip::-webkit-scrollbar { display: none; }
-  .column { flex: 0 0 calc((100% - 24px) / 2); min-width: 0; display: flex; flex-direction: column; gap: 20px; scroll-snap-align: start; }
-  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; flex: none; }
-  .slot.grows { flex: 1 1 0; }
-  .slot > :global(.card) { flex: 1; min-height: 0; }
+  /* Three equal rows; each panel spans one, two, or three of them. */
+  .column { flex: 0 0 calc((100% - 24px) / 2); min-width: 0; display: grid; grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); row-gap: 20px; scroll-snap-align: start; }
+  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; }
+  .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
   /* Arranging: the panels sit still under their move buttons. */
   .arranging .slot > :global(*:not(.tools)) { pointer-events: none; opacity: .45; transition: opacity var(--t-base); }
   .tools { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 18px; border: 2px dashed #3a3f45; }
@@ -168,8 +183,11 @@
   .moves button { height: 40px; min-width: 40px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line); background: #1f2226; color: var(--ink); display: flex; align-items: center; justify-content: center; font: 700 13px var(--font); cursor: pointer; }
   .moves button:disabled { opacity: .3; cursor: default; }
   .moves .hide { color: var(--muted); }
+  .sizes { display: flex; padding: 2px; border-radius: 12px; background: #1f2226; border: 1px solid var(--line); }
+  .sizes button { height: 34px; min-width: 52px; border: 0; border-radius: 10px; background: none; color: var(--muted); font: 700 13px var(--font); cursor: pointer; }
+  .sizes button.on { background: var(--line); color: var(--ink); }
   /* A whole column wide, so the row still stops on a column's edge at its end. */
-  .endcol { justify-content: center; align-items: center; gap: 10px; }
+  .endcol { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px; }
   .endcol > button { width: 100%; max-width: 240px; }
   .endcol button { min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 700 14px var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; }
   .endcol .done { background: var(--voucher); border-color: var(--voucher); color: #0e0f11; }

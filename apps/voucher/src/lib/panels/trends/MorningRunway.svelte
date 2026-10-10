@@ -6,6 +6,9 @@
   import { clock } from "../../time";
   import { clockOfHours, median, mondayOf } from "../../trends";
   import type { DayTotal } from "../../types";
+  import { drawHeight, fitsSlot } from "../../fit.svelte";
+  const fit = fitsSlot();
+  let pw = $state(0), ph = $state(0);
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
   const START = 6, END = 24;
@@ -24,8 +27,10 @@
   const recent = $derived(median(days.slice(-28).flatMap((d) => (d.first_tear ? [hoursAt(d.first_tear)] : []))));
   const before = $derived(median(days.slice(-56, -28).flatMap((d) => (d.first_tear ? [hoursAt(d.first_tear)] : []))));
 
-  const W = 600, x0 = 52, x1 = 560, rowH = 22, y1 = 6;
-  const H = $derived(y1 + weeks.length * rowH + 22);
+  const W = 600, x0 = 52, x1 = 560, y1 = 6;
+  const natural = $derived(y1 + weeks.length * 22 + 22);
+  const H = $derived(fit ? drawHeight(pw, ph, natural) : natural);
+  const rowH = $derived((H - y1 - 22) / Math.max(1, weeks.length));
   const xAt = (h: number) => x0 + ((Math.min(h, END) - START) / (END - START)) * (x1 - x0);
 </script>
 
@@ -33,6 +38,7 @@
   {#if !weeks.length}
     <p class="empty">First tears show here as the log fills.</p>
   {:else}
+    <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
     <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Each Day's first tear, by week">
       {#each weeks as w, r}
         {@const y = y1 + r * rowH + rowH / 2}
@@ -47,6 +53,7 @@
       {#each [6, 9, 12, 15, 18, 21] as h}<text x={xAt(h)} y={H - 4} text-anchor="middle">{String(h).padStart(2, "0")}</text>{/each}
       <text x={x1 + 22} y={H - 4} text-anchor="middle">none</text>
     </svg>
+    </div>
   {/if}
   {#snippet foot()}
     {#if !Number.isNaN(recent)}

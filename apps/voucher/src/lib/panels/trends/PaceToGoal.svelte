@@ -8,6 +8,9 @@
   import { clock } from "../../time";
   import { clockOfHours, median, quantile } from "../../trends";
   import type { DaySummary, DayTotal } from "../../types";
+  import { drawHeight, fitsSlot } from "../../fit.svelte";
+  const fit = fitsSlot();
+  let pw = $state(0), ph = $state(0);
 
   let { history, today, timeZone }: { history: DayTotal[]; today: DaySummary; timeZone: string } = $props();
 
@@ -49,7 +52,9 @@
   const soFar = $derived(todayTimes.filter((t) => t <= nowH).length);
   const usualNow = $derived.by(() => { const b = band.find((x) => x.h >= nowH) ?? band.at(-1); return b; });
 
-  const W = 600, H = 200, x0 = 30, x1 = 592, y1 = 10, y0 = 172;
+  const W = 600, x0 = 30, x1 = 592, y1 = 10;
+  const H = $derived(fit ? drawHeight(pw, ph, 200) : 200);
+  const y0 = $derived(H - 28);
   const top = $derived(Math.max(goal + 2, ...band.map((b) => b.hi), todayTimes.length) || 1);
   const xAt = (h: number) => x0 + ((h - START) / (END - START)) * (x1 - x0);
   const yAt = (v: number) => y0 - (v / top) * (y0 - y1);
@@ -67,6 +72,7 @@
   {#if perDay.length < 3}
     <p class="empty">A few Days of history draw your usual pace.</p>
   {:else}
+    <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
     <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Today's Vouchers against your usual Day">
       <path d={bandPath} fill="rgba(61,220,132,.16)" />
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" />
@@ -76,6 +82,7 @@
       <circle cx={xAt(Math.min(nowH, END))} cy={yAt(soFar)} r="4.5" fill="var(--voucher)" />
       {#each [6, 9, 12, 15, 18, 21, 24] as h}<text x={xAt(h)} y={H - 6} text-anchor="middle">{String(h % 24).padStart(2, "0")}</text>{/each}
     </svg>
+    </div>
     {#if splits.length}
       <!-- One bar per Voucher so far: up and green when it came sooner than usual, down and red when later. -->
       <div class="splits" aria-label="Splits">

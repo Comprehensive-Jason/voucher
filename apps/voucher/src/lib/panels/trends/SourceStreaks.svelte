@@ -4,6 +4,8 @@
   // Voucher, and how many Days in a row it's earned up to now.
   import TrendCard from "../../components/TrendCard.svelte";
   import { compareSources, styleOf } from "../../sources";
+  import { fitsSlot } from "../../fit.svelte";
+  const fit = fitsSlot();
   import type { DayTotal, SourceProgress } from "../../types";
 
   let { history, sources }: { history: DayTotal[]; sources: SourceProgress[] } = $props();
@@ -24,7 +26,7 @@
 </script>
 
 <TrendCard title="Source streaks">
-  <div class="grid">
+  <div class="grid" class:fit>
     {#each rows as r (r.id)}
       <div class="row">
         <span class="name">{r.name}</span>
@@ -39,6 +41,8 @@
 </TrendCard>
 
 <style>
+  /* In a tablet slot the list takes the spare height and scrolls. */
+  .grid.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .grid { display: flex; flex-direction: column; gap: 6px; }
   .row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 40px; align-items: center; gap: 8px; }
   .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

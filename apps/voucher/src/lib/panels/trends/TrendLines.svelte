@@ -6,6 +6,9 @@
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { monthOf, rolling } from "../../trends";
   import type { DayTotal } from "../../types";
+  import { drawHeight, fitsSlot } from "../../fit.svelte";
+  const fit = fitsSlot();
+  let pw = $state(0), ph = $state(0);
 
   let { history, goal }: { history: DayTotal[]; goal: number } = $props();
   let span = $state<"84" | "182">("84");
@@ -16,7 +19,9 @@
   const torn = $derived(rolling(days.map((d) => d.redeemed), 7));
   const net = $derived(earned.map((e, i) => e - torn[i]));
 
-  const W = 600, H = 210, x0 = 34, x1 = 592, y1 = 10, y0 = 180;
+  const W = 600, x0 = 34, x1 = 592, y1 = 10;
+  const H = $derived(fit ? drawHeight(pw, ph, 210) : 210);
+  const y0 = $derived(H - 30);
   const top = $derived(Math.max(goal, ...earned, ...torn) * 1.1 || 1);
   const bottom = $derived(Math.min(0, ...net));
   const xAt = (i: number) => x0 + (days.length > 1 ? (i / (days.length - 1)) * (x1 - x0) : 0);
@@ -36,6 +41,7 @@
   {#if days.length < 8}
     <p class="empty">A week of history draws the first point.</p>
   {:else}
+    <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
     <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Seven-day averages of Vouchers earned and torn">
       {#each ticks as t}
         <line x1={x0} x2={x1} y1={yAt(t)} y2={yAt(t)} stroke="#2c3036" stroke-dasharray="3 4" />
@@ -49,6 +55,7 @@
       <path d={line(earned)} fill="none" stroke="var(--voucher)" stroke-width="2.4" stroke-linejoin="round" />
       {#each months as m}<text x={xAt(m.i)} y={H - 6}>{monthOf(m.d.day)}</text>{/each}
     </svg>
+    </div>
     <div class="legend">
       <span><i style="background: var(--voucher)"></i>Earned</span>
       <span><i style="background: #ff8a7a"></i>Torn</span>

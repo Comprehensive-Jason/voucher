@@ -7,6 +7,8 @@
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { monthOf, mondayOf } from "../../trends";
   import type { DayTotal } from "../../types";
+  import { fitsSlot } from "../../fit.svelte";
+  const fit = fitsSlot();
 
   let { history }: { history: DayTotal[] } = $props();
   type By = "day" | "week" | "month";
@@ -55,7 +57,7 @@
   {#if !rows.length}
     <p class="empty">Vouchers earned by the hour show here as the log fills.</p>
   {:else}
-    <div class="grid">
+    <div class="grid" class:fit>
       <!-- Outside the scroller, so the hours never move. -->
       <div class="hours"><span></span>{#each Array(COLS) as _, c}<span>{(FIRST + c) % 3 === 0 ? String(FIRST + c).padStart(2, "0") : ""}</span>{/each}</div>
       <div class="rows" bind:this={scroller}>
@@ -75,6 +77,9 @@
   .grid { display: flex; flex-direction: column; gap: 4px; }
   .hours, .row { display: grid; grid-template-columns: 44px repeat(18, minmax(0, 1fr)); gap: 3px; align-items: center; }
   .hours span { font: 500 10px var(--mono); color: var(--muted); white-space: nowrap; }
+  /* In a tablet slot the rows take whatever height is left. */
+  .grid.fit { flex: 1; min-height: 0; }
+  .grid.fit .rows { flex: 1; min-height: 0; max-height: none; }
   .rows { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
   .rows::-webkit-scrollbar { display: none; }
   .row i { display: block; height: 14px; border-radius: 3px; }

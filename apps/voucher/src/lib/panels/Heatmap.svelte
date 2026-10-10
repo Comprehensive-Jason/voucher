@@ -12,6 +12,10 @@
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
   import { shiftDay } from "../time";
   import { easeOut, ms } from "../motion";
+  import { fitsSlot } from "../fit.svelte";
+  /** In a tablet slot, the squares also fit the slot's height. */
+  const inSlot = fitsSlot();
+  let graphHeight = $state(0);
 
   let { history, goal, keyBelow = true, firstDay, selected, onpick }: {
     history: DayTotal[]; goal: number; keyBelow?: boolean;
@@ -39,7 +43,10 @@
   let width = $state(0); // the grid's width, right of the weekday labels
   let tilesHeight = $state(64);
   const GAP = 4, YGAP = 2, PAD = 3, YEAR_WEEKS = 53;
-  const cell = $derived(width ? Math.max(14, Math.floor((width - 50) / 12 - (12 + tilesHeight) / 7)) : 20);
+  // In a slot, no taller than its height allows: the month row (14), the
+  // outline room (6), and 7 gaps (28), with 7 rows of squares.
+  const fromWidth = $derived(width ? Math.max(14, Math.floor((width - 50) / 12 - (12 + tilesHeight) / 7)) : 20);
+  const cell = $derived(inSlot && graphHeight ? Math.max(8, Math.min(fromWidth, Math.floor((graphHeight - 48) / 7))) : fromWidth);
   const pitch = $derived(cell + GAP);
   /** Weeks that fit across at once. */
   const fit = $derived(Math.max(1, Math.floor((width - 2 * PAD + GAP) / pitch)));
@@ -138,7 +145,7 @@
       <ZoomSwitch options={[{ id: "weeks", label: "Weeks" }, { id: "year", label: "Year" }]} value={zoom} onchange={(z) => setZoom(z as "weeks" | "year")} />
     </div>
   </div>
-  <div class="graph">
+  <div class="graph" class:fit={inSlot} bind:clientHeight={graphHeight}>
     <!-- Shared by both views and outside the scroller, so they never move or bounce. -->
     <div class="labels" aria-hidden="true">
       <span></span>
@@ -194,6 +201,8 @@
   /* Weekday labels beside the grid; the rows (--cell tall, set from the
      card's width in the script) are the same in both views. */
   .graph { display: flex; gap: 4px; }
+  /* In a tablet slot the grid takes the spare height and sizes its squares to it. */
+  .graph.fit { flex: 1; min-height: 0; overflow: hidden; }
   .labels { flex: none; width: 26px; display: grid; grid-template-rows: 14px repeat(7, var(--cell)); gap: 4px; padding: 3px 0; }
   .weekday, .month { font: 500 10px/1 var(--mono); color: var(--muted); display: flex; align-items: center; white-space: nowrap; }
   /* The two views overlap here. Clipped on the left only, where a squeezing
