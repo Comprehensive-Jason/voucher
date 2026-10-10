@@ -50,10 +50,9 @@
   let { heading = false }: { heading?: boolean } = $props();
 </script>
 
-<RulesColumn title="Distractions" column={heading}>
+<RulesColumn title="Distractions" label="Blocklists" count={status ? `${lists.filter(([, l]) => l.on).length} on` : undefined} column={heading}>
   {#if error}<p class="error">{error}</p>{/if}
   {#if status}
-    <span class="cap">Blocklists · {lists.filter(([, l]) => l.on).length} on</span>
     {#each lists as [id, list] (id)}
       <RulesCard row>
         <button class="dot" style="background: {list.color}" aria-label="{list.name} color" onclick={() => (coloring = id)}></button>

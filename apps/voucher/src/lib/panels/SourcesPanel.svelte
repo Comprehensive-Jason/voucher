@@ -90,11 +90,10 @@
   let { heading = false }: { heading?: boolean } = $props();
 </script>
 
-<RulesColumn title="Sources" column={heading}>
+<RulesColumn title="Sources" count={status ? `${groups.filter(([, s]) => s.on).length} on` : undefined} column={heading}>
   {#if error}<p class="error">{error}</p>{/if}
 
   {#if status}
-    <span class="cap">Sources · {groups.filter(([, s]) => s.on).length} on</span>
     {#each groups as [id, s] (id)}
       {@const style = styleOf(id)}
       {@const problem = problemOf(s)}

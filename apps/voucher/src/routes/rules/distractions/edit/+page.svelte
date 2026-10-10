@@ -140,7 +140,7 @@
   .actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
   /* Wide: Apps, Sites, and the installed apps, each scrolling on its own. */
   main.split { height: 100%; min-height: 0; padding: 0 32px 24px; gap: 16px; }
-  main.split .panes { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; }
+  main.split .panes { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr); gap: 24px; }
   main.split .pane { min-height: 0; overflow-y: auto; }
   .field { display: flex; flex-direction: column; gap: 6px; }
   input { height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 14px; font: 700 15px var(--font); }
