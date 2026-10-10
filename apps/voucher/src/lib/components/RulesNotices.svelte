@@ -6,7 +6,7 @@
   // Rules and at the foot of the tablet's Today column. All three are the
   // shared .notice card (theme.css).
   import { onMount } from "svelte";
-  import { fixProtection, missingProtection, protection } from "../api";
+  import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "../api";
   import GraceBanner from "./GraceBanner.svelte";
   import WaitingChanges from "./WaitingChanges.svelte";
   import type { Protection } from "../types";
@@ -17,11 +17,12 @@
   /** Notices open out in a column, and fade in place in a row. */
   const axis = $derived(row ? "x" as const : "y" as const);
 
-  let guard = $state<Protection | null>(null);
+  // Starts from the last check, so the warning is in place before Rules slides up.
+  let guard = $state<Protection | null>(protectionNow());
   const missing = $derived(missingProtection(guard));
 
   onMount(() => {
-    const check = () => protection().then((g) => (guard = g));
+    const check = () => protection().then((g) => { if (!sameAnswer(g, guard)) guard = g; });
     check();
     // Today's column stays open for days, so look again on its poll.
     const poll = setInterval(check, POLL_MS);

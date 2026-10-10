@@ -4,7 +4,7 @@
   // time adds up. Switching a source off or slowing it applies now; switching
   // on, speeding up, or adding waits for 06:00.
   import { onMount } from "svelte";
-  import { ledger, RULES_CHANGED } from "../api";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import RuleSlider from "../components/RuleSlider.svelte";
   import Switch from "../components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
@@ -15,7 +15,7 @@
   import { hhmm, until } from "../rules";
   import type { Source, SourceKind, Status } from "../types";
 
-  let status = $state<Status | null>(null);
+  let status = $state<Status | null>(statusNow());
   let error = $state<string | null>(null);
   let reconnecting = $state<string | null>(null);
   let note = $state<string | null>(null);
@@ -61,7 +61,7 @@
   }
 
   async function load() {
-    try { status = await ledger<Status>("GET", "/status"); error = null; } catch (e) { error = String(e); }
+    try { { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } error = null; } catch (e) { error = String(e); }
   }
   async function set(id: string, on: boolean, every: number) {
     try {

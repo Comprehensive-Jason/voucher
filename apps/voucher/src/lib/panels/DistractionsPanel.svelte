@@ -2,7 +2,7 @@
   // Rules, Distractions: the blocklists. Switching one on applies now;
   // switching one off waits for 06:00.
   import { onMount } from "svelte";
-  import { ledger, RULES_CHANGED } from "../api";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import Switch from "../components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
   import RulesCard from "../components/RulesCard.svelte";
@@ -12,7 +12,7 @@
   import { hhmm } from "../rules";
   import type { Status } from "../types";
 
-  let status = $state<Status | null>(null);
+  let status = $state<Status | null>(statusNow());
   let error = $state<string | null>(null);
   let note = $state<string | null>(null);
 
@@ -21,7 +21,7 @@
   const waitingOff = (id: string) => status?.pending.some(([c]) => (c as any).BlocklistOn?.id === id && !(c as any).BlocklistOn.on);
 
   async function load() {
-    try { status = await ledger<Status>("GET", "/status"); error = null; } catch (e) { error = String(e); }
+    try { { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } error = null; } catch (e) { error = String(e); }
   }
   async function toggle(id: string, on: boolean) {
     try {

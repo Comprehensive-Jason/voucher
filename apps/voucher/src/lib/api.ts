@@ -1,7 +1,7 @@
 // Talks to the app's Rust side inside Tauri. In a plain browser (design checks
 // on sprout) it serves sample data instead; `?state=` picks which situation.
 import { invoke } from "@tauri-apps/api/core";
-import type { DeviceUsage, Protection, SourceProgress, Today } from "./types";
+import type { DeviceUsage, Protection, SourceProgress, Status, Today } from "./types";
 import { sampleLedger } from "./sample";
 import { rememberSources } from "./colors.svelte";
 
@@ -85,11 +85,28 @@ export async function exportDays(): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** The browser preview's pretend network delay, from `?latency=200` (ms),
+ *  to see screens as a device sees them while the Ledger answers. */
+const previewLatency = !inTauri && typeof location !== "undefined" ? Number(new URLSearchParams(location.search).get("latency")) || 0 : 0;
+
+/** The last settings and status any screen fetched. A screen that opens
+ *  starts from it, fully drawn, instead of empty until its own answer comes:
+ *  Rules sliding up shows its finished columns and notices, and nothing pops
+ *  in halfway through the slide. */
+let lastStatus: Status | null = null;
+export const statusNow = () => lastStatus;
+
+/** Whether two Ledger answers say the same thing, so a screen can keep what
+ *  it shows (and skip a redraw) when a fresh answer hasn't changed. */
+export const sameAnswer = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 /** Any other Ledger request, passed through the app's Rust side. */
 export async function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  if (previewLatency) await new Promise((r) => setTimeout(r, previewLatency));
   const reply = inTauri
     ? await invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
     : (sampleLedger(method, path, body) as T);
+  if (path === "/status" || (method === "POST" && path.startsWith("/cancel"))) lastStatus = reply as Status;
   // A settings change tells every panel showing settings to look again, so
   // e.g. a loosening made under Sources shows at once among Limits' changes.
   if (method === "POST" && ["/change", "/cancel", "/setup"].some((p) => path.startsWith(p)) && typeof window !== "undefined") {
@@ -131,8 +148,15 @@ export async function deviceUsage(): Promise<DeviceUsage | null> {
   }
 }
 
+/** The last protection check, for a screen to start from (see statusNow). */
+let lastProtection: Protection | null = null;
+export const protectionNow = () => lastProtection;
+
 /** The phone's protection parts. Null outside Android. */
 export async function protection(): Promise<Protection | null> {
+  return (lastProtection = await checkProtection());
+}
+async function checkProtection(): Promise<Protection | null> {
   if (!inTauri) {
     const p = new URLSearchParams(location.search).get("protection");
     return { deviceOwner: p !== "off", usageAccess: p !== "off", overlay: p !== "off" && p !== "partial" };

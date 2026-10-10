@@ -5,7 +5,7 @@
   // its foot, so a waiting change is in view every time the tablet is. It
   // asks the Ledger itself, again whenever Rules change and on Today's poll.
   import { onMount } from "svelte";
-  import { ledger, RULES_CHANGED } from "../api";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import Sheet from "./Sheet.svelte";
   import { describe, hhmm, until } from "../rules";
   import { POLL_MS } from "../live.svelte";
@@ -14,11 +14,11 @@
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();
 
-  let status = $state<Status | null>(null);
+  let status = $state<Status | null>(statusNow());
   let error = $state<string | null>(null);
 
   async function load() {
-    try { status = await ledger<Status>("GET", "/status"); error = null; } catch (e) { error = String(e); }
+    try { { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } error = null; } catch (e) { error = String(e); }
   }
   async function cancel(index: number) {
     try {

@@ -2,7 +2,7 @@
   // Rules, Limits: the four numbers that set how strict Voucher is. Every
   // Loosening shows as a pending banner, with a ghost knob, until 06:00.
   import { onMount } from "svelte";
-  import { ledger, missingProtection, onWindows, protection, RULES_CHANGED } from "../api";
+  import { ledger, missingProtection, onWindows, protection, protectionNow, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import RulesNotices from "../components/RulesNotices.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
   import RulesCard from "../components/RulesCard.svelte";
@@ -12,14 +12,14 @@
   import { hhmm, minutesOf, pendingValue, timeOf } from "../rules";
   import type { Protection, Status } from "../types";
 
-  let status = $state<Status | null>(null);
-  let guard = $state<Protection | null>(null);
+  let status = $state<Status | null>(statusNow());
+  let guard = $state<Protection | null>(protectionNow());
   let error = $state<string | null>(null);
   let note = $state<string | null>(null);
 
   async function load() {
     try {
-      status = await ledger<Status>("GET", "/status");
+      { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; }
       error = null;
     } catch (e) {
       error = String(e);

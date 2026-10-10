@@ -2,7 +2,7 @@
   // The first two Days after setup, every change applies at once. This says
   // until when, and lets the user end it early (a second tap confirms).
   import { onMount } from "svelte";
-  import { ledger, RULES_CHANGED } from "../api";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import { POLL_MS } from "../live.svelte";
   import { hhmm } from "../rules";
   import { clock, dayLabel } from "../time";
@@ -11,7 +11,7 @@
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();
 
-  let status = $state<Status | null>(null);
+  let status = $state<Status | null>(statusNow());
   let confirming = $state(false);
   const until = $derived(status?.grace_until ?? null);
   /** A moment's date on the Ledger's clock, as "2026-10-09". */
@@ -22,7 +22,7 @@
     ? `${dayLabel(dayOf(until, status.settings.time_zone), dayOf(new Date(), status.settings.time_zone))} ${clock(until, status.settings.time_zone)}`
     : "");
 
-  async function load() { try { status = await ledger<Status>("GET", "/status"); } catch {} }
+  async function load() { try { { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } } catch {} }
   async function end() {
     confirming = false;
     try { await ledger("POST", "/grace/end"); window.dispatchEvent(new Event(RULES_CHANGED)); await load(); } catch {}

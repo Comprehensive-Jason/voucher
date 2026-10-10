@@ -401,6 +401,20 @@ function pastChange(input) {
         (scoreOf(state, day).stretches ??= {}).portal = list.length ? list : fakeStretches();
         return "Focus stretches on " + day + ": " + scoreOf(state, day).stretches.portal.join(", ") + " min";
       }
+      case "stretches-all": {
+        // Every Day the log keeps: 3 to 10 stretches, typically longer toward
+        // today, so Focus stretches has a trend to show at every range.
+        const from = shiftDay(today, -183);
+        let n = 0;
+        for (let d = from; d <= today; d = shiftDay(d, 1)) {
+          const t = (Date.parse(d) - Date.parse(from)) / (Date.parse(today) - Date.parse(from) || 1);
+          const typical = 18 + 30 * t;
+          const list = Array.from({ length: 3 + Math.floor(Math.random() * 8) }, () => Math.max(3, Math.round(typical * Math.exp((Math.random() - 0.5) * 1.6))));
+          (scoreOf(state, d).stretches ??= {}).portal = list;
+          n++;
+        }
+        return "Focus stretches on " + n + " Days, typically about 18 min six months ago and 48 min now";
+      }
       case "opens": {
         const opens = Math.max(0, Number(input.opens) || 0), walked = Math.min(opens, Math.max(0, Number(input.walked) || 0));
         (scoreOf(state, day).blocked ??= {}).portal = [opens, walked];
@@ -570,7 +584,7 @@ const PAGE = String.raw`<!doctype html>
     <div class="src"><span class="name">Unlock, with why</span>
       <div class="row"><select id="reason" aria-label="Reason"><option>Bored</option><option>Avoiding a task</option><option>Tired</option><option>Anxious</option><option>Urgent</option><option>Habit</option></select><input type="number" id="rhour" value="14" min="6" max="29" aria-label="Hour"><button data-past="reason">Add</button></div></div>
     <div class="src"><span class="name">Focus stretches</span>
-      <div class="row"><input id="slist" type="text" autocomplete="off" data-form-type="other" placeholder="25, 40, 90 (blank: random)" aria-label="Stretch minutes"><button data-past="stretches">Set</button></div></div>
+      <div class="row"><input id="slist" type="text" autocomplete="off" data-form-type="other" placeholder="25, 40, 90 (blank: random)" aria-label="Stretch minutes"><button data-past="stretches">Set</button><button data-past="stretches-all" title="Every Day the log keeps, longer toward today">Fill every Day</button></div></div>
     <div class="src"><span class="name">Blocked opens</span>
       <div class="row"><label>opens <input type="number" id="opens" value="8" min="0"></label><label>walked away <input type="number" id="walked" value="5" min="0"></label><button data-past="opens">Set</button></div></div>
     <div class="src"><span class="name">Phone silent</span>
