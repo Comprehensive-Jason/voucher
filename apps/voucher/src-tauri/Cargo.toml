@@ -30,5 +30,17 @@ ed25519-dalek = "3.0.0"
 sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
 
 [target.'cfg(windows)'.dependencies]
-# The window in front (blocked-site detection) and Ctrl+W for "Close this tab".
-windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
+# The window in front (blocked-site detection), Ctrl+W for "Close this tab",
+# and time on websites: the browser's program, idle time, and its address bar
+# read through UI Automation (COM).
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Accessibility",
+    "Win32_System_Com",
+    "Win32_System_Ole",
+    "Win32_System_Variant",
+    "Win32_System_Threading",
+    "Win32_System_SystemInformation",
+] }

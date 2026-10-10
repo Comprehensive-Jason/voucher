@@ -4,7 +4,8 @@
 //! - the tray icon and its pop-up,
 //! - the "Steam is paused" window, opened when the guard closes a program
 //!   or a browser shows a blocked site,
-//! - Focused time read from ActivityWatch and reported to the Ledger,
+//! - Focused time read from ActivityWatch and reported to the Ledger, plus
+//!   time on sites read from the browser's address bar (`sites`),
 //! - the `device` commands the interface also asks of the phone.
 
 use std::{sync::Mutex, thread, time::Duration};
@@ -14,6 +15,8 @@ use tauri::{
     AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder, WindowEvent,
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
+
+use crate::sites;
 
 const GUARD: &str = "http://127.0.0.1:8790";
 const ACTIVITYWATCH: &str = "http://127.0.0.1:5600";
@@ -88,6 +91,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     thread::spawn(move || watch_blocks(handle));
     let handle = app.clone();
     thread::spawn(move || report_focus_forever(handle));
+    sites::start(app.path().app_data_dir().ok().map(|dir| dir.join("sites.json")));
     Ok(())
 }
 
@@ -255,7 +259,8 @@ fn close_front_tab() {
 fn close_front_tab() {}
 
 /// Focused time from ActivityWatch: minutes each app was in front while the
-/// user was not away, since the Day began, reported per source every two minutes.
+/// user was not away, since the Day began, reported per source every two
+/// minutes. A source's `site:` members add the time its sites were in front.
 fn report_focus_forever(app: AppHandle) {
     loop {
         thread::sleep(Duration::from_secs(120));
@@ -263,35 +268,48 @@ fn report_focus_forever(app: AppHandle) {
     }
 }
 
-/// Seconds each program (lowercased file name) was in front, while the
-/// user was not away, since the current Day began. None without ActivityWatch.
-fn minutes_by_app(app: &AppHandle) -> Option<Vec<(String, f64)>> {
-    let connection = crate::connection::load(app)?;
-    let status = ledger_request(&connection, "GET", "/status", None)?;
-    activitywatch_since_day_start(&status)
-}
-
 fn report_focus(app: &AppHandle) -> Option<()> {
     let connection = crate::connection::load(app)?;
     let status = ledger_request(&connection, "GET", "/status", None)?;
     let settings = &status["settings"];
     let day = status["today"]["day"].as_str()?.to_string();
-    let seconds_by_app = activitywatch_since_day_start(&status)?;
+    let today: jiff::civil::Date = day.parse().ok()?;
+    sites::remember_day_start(&status);
+    // Without ActivityWatch, time on sites still counts. A smaller total than
+    // one already sent changes nothing: the Ledger keeps each device's highest.
+    let seconds_by_app = activitywatch_since_day_start(&status).unwrap_or_default();
     let device = device_id();
-    for (id, source) in settings["sources"].as_object()? {
-        if source["kind"] != "focus" || source["on"] != true {
-            continue;
-        }
+    let focus = || {
+        settings["sources"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .filter(|(_, source)| source["kind"] == "focus" && source["on"] == true)
+    };
+    let site_members = |source: &Value| -> Vec<String> {
+        source["packages"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|p| sites::site_member(p.as_str()?))
+            .collect()
+    };
+    // A site earns only for the source holding its longest matching domain.
+    let all_domains: Vec<String> = focus().flat_map(|(_, source)| site_members(source)).collect();
+    for (id, source) in focus() {
         let programs: Vec<String> = source["packages"]
             .as_array()
             .into_iter()
             .flatten()
             .filter_map(|p| p.as_str()?.strip_prefix("win:").map(str::to_lowercase))
             .collect();
-        if programs.is_empty() {
+        let domains = site_members(source);
+        if programs.is_empty() && domains.is_empty() {
             continue;
         }
-        let seconds: f64 = seconds_by_app.iter().filter(|(app, _)| programs.contains(app)).map(|(_, s)| s).sum();
+        // A browser that is itself a member counts whole; its sites aren't added again.
+        let seconds: f64 = seconds_by_app.iter().filter(|(app, _)| programs.contains(app)).map(|(_, s)| s).sum::<f64>()
+            + sites::seconds_on(today, &domains, &all_domains, &programs);
         let minutes = (seconds / 60.0).floor() as u32;
         if minutes > 0 {
             let body = json!({ "source": id, "day": day, "minutes": minutes, "device": device });
@@ -301,6 +319,8 @@ fn report_focus(app: &AppHandle) -> Option<()> {
     Some(())
 }
 
+/// Seconds each program (lowercased file name) was in front, while the
+/// user was not away, since the current Day began. None without ActivityWatch.
 fn activitywatch_since_day_start(status: &Value) -> Option<Vec<(String, f64)>> {
     let settings = &status["settings"];
     let day = status["today"]["day"].as_str()?.to_string();
@@ -398,7 +418,8 @@ pub fn device(app: &AppHandle, command: &str, args: &Value) -> Result<Value, Str
     })
 }
 
-/// Today's Distraction minutes from ActivityWatch, and how often the guard
+/// Today's Distraction minutes, from ActivityWatch for programs and the
+/// address bar for sites (labelled by domain), and how often the guard
 /// closed each program.
 fn usage(app: &AppHandle) -> Value {
     let guard = guard_state().unwrap_or(Value::Null);
@@ -416,19 +437,35 @@ fn usage(app: &AppHandle) -> Value {
         .flatten()
         .filter_map(|p| p.as_str().map(String::from))
         .collect();
-    let minutes = minutes_by_app(app).map(|by_app| {
-        let mut apps: Vec<(String, u32)> = by_app
-            .into_iter()
-            .filter(|(app, _)| programs.contains(app))
-            .map(|(app, seconds)| (app.trim_end_matches(".exe").to_string(), (seconds / 60.0) as u32))
-            .filter(|(_, m)| *m > 0)
-            .collect();
-        apps.sort_by_key(|a| std::cmp::Reverse(a.1));
-        apps
-    });
+    let blocked_sites: Vec<String> = guard["decision"]["sites"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|s| sites::domain(s.as_str()?))
+        .collect();
+    let status = crate::connection::load(app).and_then(|c| ledger_request(&c, "GET", "/status", None));
+    if let Some(status) = &status {
+        sites::remember_day_start(status);
+    }
+    let by_app = status.as_ref().and_then(activitywatch_since_day_start);
+    let by_site = status
+        .as_ref()
+        .and_then(|s| s["today"]["day"].as_str()?.parse::<jiff::civil::Date>().ok())
+        .map(|today| sites::seconds_by_domain(today, &blocked_sites, &programs))
+        .unwrap_or_default();
+    let measured = by_app.is_some() || by_site.iter().any(|(_, s)| *s >= 60.0);
+    let mut apps: Vec<(String, u32)> = by_app
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(app, _)| programs.contains(app))
+        .map(|(app, seconds)| (app.trim_end_matches(".exe").to_string(), (seconds / 60.0) as u32))
+        .chain(by_site.into_iter().map(|(site, seconds)| (site, (seconds / 60.0) as u32)))
+        .filter(|(_, m)| *m > 0)
+        .collect();
+    apps.sort_by_key(|a| std::cmp::Reverse(a.1));
     json!({
-        "measured": minutes.is_some(),
-        "apps": minutes.unwrap_or_default().into_iter().map(|(label, minutes)| json!({ "label": label, "minutes": minutes })).collect::<Vec<_>>(),
+        "measured": measured,
+        "apps": apps.into_iter().map(|(label, minutes)| json!({ "label": label, "minutes": minutes })).collect::<Vec<_>>(),
         "blockedOpens": opens,
         "closedWithoutTearing": 0,
         "attempts": attempts.into_iter().map(|(label, count)| json!({ "label": label, "count": count })).collect::<Vec<_>>(),

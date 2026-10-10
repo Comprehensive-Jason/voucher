@@ -3,6 +3,7 @@ package io.github.comprehensivejason.voucher
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
@@ -12,7 +13,7 @@ data class Connection(val url: String, val key: String, val code: String? = null
 /**
  * What the Android side remembers between runs: the Ledger connection, the
  * Ledger's last answer (so blocking keeps working offline), counts of blocked
- * opens, and the last minutes reported per source.
+ * opens, the last minutes reported per source, and the browsers' host changes.
  */
 object Store {
     private fun prefs(ctx: Context): SharedPreferences =
@@ -81,6 +82,48 @@ object Store {
     /** The Distraction minutes last sent for a Day, so unchanged ones aren't sent again. */
     fun usageSent(ctx: Context, day: String): String? = prefs(ctx).getString("usage_sent_$day", null)
     fun setUsageSent(ctx: Context, day: String, sent: String) = prefs(ctx).edit().putString("usage_sent_$day", sent).apply()
+
+    /**
+     * Each browser's host changes, oldest first, for site time (see Sites).
+     * Stored as {"com.android.chrome": [[millis, "youtube.com"], [millis, ""]]},
+     * where "" is no site.
+     */
+    @Synchronized
+    fun siteMarks(ctx: Context): Map<String, List<Sites.Mark>> {
+        val json = prefs(ctx).getString("site_marks", null) ?: return emptyMap()
+        val obj = runCatching { JSONObject(json) }.getOrNull() ?: return emptyMap()
+        return obj.keys().asSequence().associateWith { pkg ->
+            val arr = obj.getJSONArray(pkg)
+            (0 until arr.length()).map { i ->
+                val m = arr.getJSONArray(i)
+                Sites.Mark(m.getLong(0), m.getString(1).ifEmpty { null })
+            }
+        }
+    }
+
+    /**
+     * Logs that `pkg` showed `host` from `at` on, unless it already did. Marks
+     * older than two Days go, but each browser keeps its last older one,
+     * which says what it showed at the start of what is kept.
+     */
+    @Synchronized
+    fun addSiteMark(ctx: Context, pkg: String, at: Long, host: String?) {
+        val all = siteMarks(ctx).toMutableMap()
+        val marks = all[pkg].orEmpty()
+        if (marks.isEmpty() && host == null) return
+        if (marks.lastOrNull()?.host == host) return
+        val cutoff = at - 50 * 3_600_000L
+        val keepFrom = (marks.indexOfLast { it.at < cutoff }).coerceAtLeast(0)
+        all[pkg] = marks.drop(keepFrom) + Sites.Mark(at, host)
+        val obj = JSONObject()
+        for ((p, ms) in all) obj.put(p, JSONArray(ms.map { JSONArray().put(it.at).put(it.host ?: "") }))
+        prefs(ctx).edit().putString("site_marks", obj.toString()).apply()
+    }
+
+    /** Sites the browsers are blocking right now, so a blocked page's address isn't taken for a visit. */
+    fun enforcedSites(ctx: Context): Set<String> = prefs(ctx).getStringSet("enforced_sites", emptySet())!!.toSet()
+    fun setEnforcedSites(ctx: Context, sites: Set<String>) =
+        prefs(ctx).edit().putStringSet("enforced_sites", sites).apply()
 
     /** One-shot markers, such as which moment notifications were already sent. */
     fun once(ctx: Context, key: String): Boolean {

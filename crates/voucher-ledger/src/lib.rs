@@ -236,10 +236,13 @@ pub struct Source {
     /// One Voucher per this many tasks (Tasks) or minutes (Workout, Focus):
     /// the Earning rate. Bigger is slower, so stricter.
     pub every: u32,
-    /// The group's members. Focus: the Android packages, and `win:` programs,
-    /// whose on-screen time counts, added together. Tasks: the services whose
-    /// finished tasks count (`todoist`, `clickup`). Workout and Steps: none.
-    /// No package belongs to two sources, so nothing earns twice.
+    /// The group's members. Focus: the Android packages, `win:` programs,
+    /// and `site:` sites (`site:readwise.io`: a bare lowercase domain, which
+    /// also covers its subdomains) whose on-screen time counts, added
+    /// together; devices measure site time in the browser and add it to the
+    /// group's minutes. Tasks: the services whose finished tasks count
+    /// (`todoist`, `clickup`). Workout and Steps: none. No member belongs to
+    /// two sources, so nothing earns twice.
     #[serde(default)]
     pub packages: Vec<String>,
     /// Each member's display name, such as "Moon+ Reader Pro".
@@ -2016,8 +2019,8 @@ const GAP_MINUTES: i64 = 10;
 /// What the phone assumes when the Workout source has no maximum heart rate.
 pub const DEFAULT_MAX_HEART_RATE: u32 = 195;
 
-/// `packages` without any that another source already has: one app's time
-/// must never earn twice.
+/// `packages` without any that another source already has: one app's or
+/// site's time must never earn twice.
 fn unclaimed(settings: &Settings, id: &str, packages: Vec<String>) -> Vec<String> {
     packages
         .into_iter()

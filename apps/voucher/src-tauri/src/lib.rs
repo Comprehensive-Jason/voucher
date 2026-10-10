@@ -10,6 +10,8 @@ mod connection;
 #[cfg(desktop)]
 mod desktop;
 mod ledger;
+#[cfg(desktop)]
+mod sites;
 
 use serde::Serialize;
 

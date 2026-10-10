@@ -21,8 +21,12 @@ An external record of productive work that the Ledger reads, such as completed t
 _Avoid_: integration, verifier, provider
 
 **Focused time**:
-Time a chosen app spends in the foreground while the screen is on and the user is active. Time open in the background or on an idle screen does not count.
+Time a chosen app, or a chosen site in a browser, spends in the foreground while the screen is on and the user is active. Time open in the background or on an idle screen does not count.
 _Avoid_: screen time, usage, time open
+
+**Site**:
+A website counted or blocked by its domain, which covers every subdomain (readwise.io covers read.readwise.io). Its time is read from the browser's address bar (ADR 0009). In a source it is a member written `site:readwise.io`; in a blocklist it sits under Sites.
+_Avoid_: URL, web app, page
 
 **Earning rate**:
 How many Vouchers one kind of activity is worth, such as one Voucher per completed task or per 30 minutes of Focused time.

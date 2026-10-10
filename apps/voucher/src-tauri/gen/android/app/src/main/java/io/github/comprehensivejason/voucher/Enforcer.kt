@@ -133,6 +133,7 @@ object Enforcer {
         })
         // Sites: Chromium browsers read a URLBlocklist from managed configuration.
         val sites = strings(blocked?.optJSONArray("sites")).filterNot { it.startsWith("list:") }
+        Store.setEnforcedSites(ctx, if (block) sites.toSet() else emptySet())
         for (browser in BROWSERS) {
             if (!installed(ctx, browser)) continue
             val restrictions = Bundle()
@@ -150,6 +151,7 @@ object Enforcer {
         val suspended = Store.suspended(ctx)
         if (suspended.isNotEmpty()) dpm.setPackagesSuspended(admin, suspended.toTypedArray(), false)
         Store.setSuspended(ctx, emptySet())
+        Store.setEnforcedSites(ctx, emptySet())
         for (browser in BROWSERS) runCatching { dpm.setApplicationRestrictions(admin, browser, Bundle()) }
         runCatching { dpm.setUserControlDisabledPackages(admin, emptyList()) }
         runCatching { dpm.setShortSupportMessage(admin, null) }
@@ -157,7 +159,10 @@ object Enforcer {
         runCatching { dpm.clearDeviceOwnerApp(ctx.packageName) }
     }
 
-    /** Sends Workout zone minutes, Steps, and each Focused time source's minutes so far this Day, when they have grown. */
+    /**
+     * Sends Workout zone minutes, Steps, and each Focused time source's minutes
+     * so far this Day (its apps' and its sites' together), when they have grown.
+     */
     private fun report(ctx: Context, c: Connection, status: JSONObject, zone: ZoneId, end: LocalTime, day: String) {
         val sources = status.optJSONObject("settings")?.optJSONObject("sources") ?: return
         val dayStart = LocalDate.parse(day).atTime(end).atZone(zone).toInstant().toEpochMilli()
@@ -190,9 +195,10 @@ object Enforcer {
             if (s.optString("kind") == "focus" && s.optBoolean("on")) wanted[id] = strings(s.optJSONArray("packages"))
         }
         if (wanted.isEmpty()) return
-        val minutes = foregroundMinutes(ctx, wanted.values.flatten().toSet(), dayStart) ?: return
+        val minutes = foregroundMinutes(ctx, wanted.values.flatten().filterNot { it.startsWith(Sites.PREFIX) }.toSet(), dayStart) ?: return
+        val sites = siteMillis(ctx, focusPackages(status), dayStart)
         for ((id, packages) in wanted) {
-            val total = packages.sumOf { minutes[it] ?: 0 }
+            val total = packages.sumOf { minutes[it] ?: 0 } + ((sites[id] ?: 0L) / 60_000).toInt()
             if (total <= Store.reported(ctx, id, day)) continue
             val body = JSONObject().put("source", id).put("day", day).put("minutes", total)
                 .put("device", Store.deviceId(ctx))
@@ -217,18 +223,24 @@ object Enforcer {
     fun foregroundByHour(ctx: Context, packages: Set<String>, fromMillis: Long, toMillis: Long, zone: ZoneId): Map<String, IntArray>? {
         val millis = mutableMapOf<String, LongArray>()
         foregroundSpans(ctx, packages, fromMillis, toMillis) { pkg, start, end ->
-            val hours = millis.getOrPut(pkg) { LongArray(24) }
-            var at = start
-            while (at < end) {
-                val local = Instant.ofEpochMilli(at).atZone(zone)
-                val nextHour = local.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusHours(1).toInstant().toEpochMilli()
-                val until = minOf(end, nextHour)
-                hours[local.hour] += until - at
-                at = until
-            }
+            addByHour(millis.getOrPut(pkg) { LongArray(24) }, start, end, zone)
         } ?: return null
-        return millis.mapValues { (_, ms) -> IntArray(24) { minOf(60, Math.round(ms[it] / 60_000.0).toInt()) } }
+        return millis.mapValues { (_, ms) -> hourMinutes(ms) }
     }
+
+    /** Adds [start, end) to `hours`, milliseconds per clock hour, midnight first. */
+    private fun addByHour(hours: LongArray, start: Long, end: Long, zone: ZoneId) {
+        var at = start
+        while (at < end) {
+            val local = Instant.ofEpochMilli(at).atZone(zone)
+            val nextHour = local.truncatedTo(java.time.temporal.ChronoUnit.HOURS).plusHours(1).toInstant().toEpochMilli()
+            val until = minOf(end, nextHour)
+            hours[local.hour] += until - at
+            at = until
+        }
+    }
+
+    private fun hourMinutes(ms: LongArray) = IntArray(24) { minOf(60, Math.round(ms[it] / 60_000.0).toInt()) }
 
     /**
      * Calls `span` for each stretch one of `packages` spent in the foreground
@@ -263,9 +275,59 @@ object Enforcer {
     }
 
     /**
+     * Calls `span` for each stretch a browser spent in the foreground with the
+     * screen on, showing one host, since `fromMillis`: its foreground spans cut
+     * at the host changes the accessibility service logged. Nothing without
+     * usage access, or if the service never logged a site.
+     */
+    private fun siteSpans(
+        ctx: Context, fromMillis: Long, toMillis: Long = System.currentTimeMillis(), span: (String, String, Long, Long) -> Unit,
+    ) {
+        val marks = Store.siteMarks(ctx)
+        if (marks.isEmpty()) return
+        foregroundSpans(ctx, marks.keys, fromMillis, toMillis) { browser, start, end ->
+            Sites.split(marks.getValue(browser), start, end) { host, a, b -> span(browser, host, a, b) }
+        }
+    }
+
+    /** The focus sources' `site:` members, as domain to source id. */
+    private fun focusSites(focus: Map<String, String>): Map<String, String> =
+        focus.mapNotNull { (member, id) -> Sites.domain(member)?.let { it to id } }.toMap()
+
+    /** Milliseconds on each focus source's sites since `from`, by source id. */
+    private fun siteMillis(ctx: Context, focus: Map<String, String>, from: Long): Map<String, Long> {
+        val sites = focusSites(focus)
+        if (sites.isEmpty()) return emptyMap()
+        val out = mutableMapOf<String, Long>()
+        siteSpans(ctx, from) { browser, host, a, b ->
+            val id = Sites.match(host, sites.keys)?.let { sites.getValue(it) } ?: return@siteSpans
+            // A browser that is itself a member of the source already counts this time.
+            if (focus[browser] != id) out[id] = (out[id] ?: 0L) + (b - a)
+        }
+        return out
+    }
+
+    /**
+     * Minutes on blocked sites between `from` and `to`, per blocked domain
+     * (the blocklist's entry, so m.youtube.com counts as youtube.com) and
+     * clock hour, as foregroundByHour gives apps.
+     */
+    private fun siteHours(ctx: Context, status: JSONObject, from: Long, to: Long, zone: ZoneId): Map<String, IntArray> {
+        val blocked = strings(status.optJSONObject("blocked")?.optJSONArray("sites")).filterNot { it.startsWith("list:") }
+        if (blocked.isEmpty()) return emptyMap()
+        val millis = mutableMapOf<String, LongArray>()
+        siteSpans(ctx, from, to) { _, host, a, b ->
+            val domain = Sites.match(host, blocked) ?: return@siteSpans
+            addByHour(millis.getOrPut(domain) { LongArray(24) }, a, b, zone)
+        }
+        return millis.mapValues { (_, ms) -> hourMinutes(ms) }.filterValues { h -> h.any { it > 0 } }
+    }
+
+    /**
      * Sends this Day's Distraction minutes per app and clock hour, for Trends,
      * when they have changed; once the Day turns, yesterday's last minutes too.
-     * Apps are named by their label, as "In Distractions today" shows them.
+     * Apps are named by their label, as "In Distractions today" shows them, and
+     * blocked sites by their domain.
      */
     private fun reportUsage(ctx: Context, c: Connection, status: JSONObject, zone: ZoneId, end: LocalTime, day: String) {
         val packages = blockedPackages(ctx, status)
@@ -286,6 +348,11 @@ object Enforcer {
                 apps.put(label, JSONArray(h.toList()))
                 blocklistOf(ctx, status, pkg)?.let { lists.put(label, it) }
             }
+            // Blocked sites, by domain; the browser itself is no Distraction, so nothing is taken from it.
+            for ((domain, h) in siteHours(ctx, status, from, to, zone).toSortedMap()) {
+                apps.put(domain, JSONArray(h.toList()))
+                siteBlocklistOf(status, domain)?.let { lists.put(domain, it) }
+            }
             val stretches = JSONArray(focusStretches(ctx, focus, from, to))
             val opens = Store.attempts(ctx, d).values.sum()
             val walked = Store.closedWithoutTearing(ctx, d)
@@ -299,7 +366,7 @@ object Enforcer {
         }
     }
 
-    /** Each switched-on Focused time source's packages, by package. */
+    /** Each switched-on Focused time source's members (packages and `site:` domains), by member. */
     private fun focusPackages(status: JSONObject): Map<String, String> {
         val sources = status.optJSONObject("settings")?.optJSONObject("sources") ?: return emptyMap()
         val out = mutableMapOf<String, String>()
@@ -311,14 +378,19 @@ object Enforcer {
     }
 
     /**
-     * Unbroken stretches in focus apps between `from` and `to`, in whole
-     * minutes. Switching between apps of the same source, or leaving for
-     * under 2 minutes, doesn't break a stretch.
+     * Unbroken stretches in focus apps and sites between `from` and `to`, in
+     * whole minutes. Switching between apps or sites of the same source, or
+     * leaving for under 2 minutes, doesn't break a stretch.
      */
     private fun focusStretches(ctx: Context, focus: Map<String, String>, from: Long, to: Long): List<Int> {
         if (focus.isEmpty()) return emptyList()
         val spans = mutableListOf<Triple<String, Long, Long>>()
-        foregroundSpans(ctx, focus.keys, from, to) { pkg, start, stop -> spans.add(Triple(focus.getValue(pkg), start, stop)) } ?: return emptyList()
+        val apps = focus.keys.filterNot { it.startsWith(Sites.PREFIX) }.toSet()
+        foregroundSpans(ctx, apps, from, to) { pkg, start, stop -> spans.add(Triple(focus.getValue(pkg), start, stop)) } ?: return emptyList()
+        val sites = focusSites(focus)
+        if (sites.isNotEmpty()) siteSpans(ctx, from, to) { _, host, start, stop ->
+            Sites.match(host, sites.keys)?.let { spans.add(Triple(sites.getValue(it), start, stop)) }
+        }
         val out = mutableListOf<Int>()
         var source: String? = null
         var start = 0L
@@ -332,7 +404,7 @@ object Enforcer {
         return out.filter { it >= 1 }
     }
 
-    /** The day's Distraction minutes and blocked opens, for Trends. */
+    /** The day's Distraction minutes (apps and blocked sites) and blocked opens, for Trends. */
     fun usage(ctx: Context): JSONObject? {
         val status = Store.lastStatus(ctx) ?: return null
         val decision = tickless(ctx, status)
@@ -343,9 +415,11 @@ object Enforcer {
         // Without usage access the minutes are unknown, but opens are still counted.
         val minutes = foregroundMinutes(ctx, apps, from) ?: emptyMap()
         val pm = ctx.packageManager
+        val labelled = minutes.map { (pkg, m) ->
+            runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg) to m
+        } + siteHours(ctx, status, from, System.currentTimeMillis(), zone).map { (domain, h) -> domain to h.sum() }
         val list = JSONArray()
-        minutes.filterValues { it > 0 }.entries.sortedByDescending { it.value }.forEach { (pkg, m) ->
-            val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+        labelled.filter { it.second > 0 }.sortedByDescending { it.second }.forEach { (label, m) ->
             list.put(JSONObject().put("label", label).put("minutes", m))
         }
         val attempts = Store.attempts(ctx, decision)
@@ -374,6 +448,20 @@ object Enforcer {
         on.firstOrNull { names(it, pkg) }?.let { return it }
         val game = runCatching { ctx.packageManager.getApplicationInfo(pkg, 0).category == android.content.pm.ApplicationInfo.CATEGORY_GAME }.getOrDefault(false)
         return if (game) on.firstOrNull { names(it, "category:game") } else null
+    }
+
+    /** The switched-on blocklist (its id) that blocks the site `domain`: the
+     *  one naming it, or, for a maintained list's domain, one naming a list. */
+    private fun siteBlocklistOf(status: JSONObject, domain: String): String? {
+        val lists = status.optJSONObject("settings")?.optJSONObject("blocklists") ?: return null
+        val on = lists.keys().asSequence().filter { lists.optJSONObject(it)?.optBoolean("on") == true }.toList()
+        fun sites(id: String): List<String> {
+            val sites = lists.optJSONObject(id)?.optJSONArray("sites") ?: return emptyList()
+            return (0 until sites.length()).mapNotNull { sites.optJSONObject(it)?.takeIf { s -> s.optBoolean("on", true) }?.optString("site") }
+        }
+        on.firstOrNull { domain in sites(it) }?.let { return it }
+        // The status names a maintained list's domains but not which list each came from.
+        return on.firstOrNull { id -> sites(id).any { it.startsWith("list:") } }
     }
 
     /** Today's Day from a cached status, without contacting the Ledger. */

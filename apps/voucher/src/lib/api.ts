@@ -216,7 +216,7 @@ export function protectionParts(): { part: keyof Protection; name: string; what:
   return [
     { part: "deviceOwner", name: "App blocking", what: "Pauses your Distractions, and stops Voucher being uninstalled" },
     { part: "usageAccess", name: "Usage access", what: "Counts focused time in your apps" },
-    { part: "overlay", name: "Blocked-app screen", what: "Shows Voucher's screen when a paused app opens" },
+    { part: "overlay", name: "Blocked-app screen and site time", what: "Shows Voucher's screen when a paused app opens, and counts time on sites in Brave and Chrome" },
   ];
 }
 
@@ -230,6 +230,6 @@ export function missingProtection(guard: Protection | null) {
     text: onWindows ? "ActivityWatch isn't running, so Focused time on this PC can't be counted." : "Usage access is off, so Focused time and Distraction minutes can't be measured.",
     action: onWindows ? "Get ActivityWatch" : "Turn usage access on" };
   if (!guard.overlay && !onWindows) return { level: "partial", part: "overlay" as const, title: "Protection partly on",
-    text: "The blocked-app screen is off, so paused apps show Android's plain dialog instead.", action: "Turn the blocked-app screen on" };
+    text: "The blocked-app screen is off, so paused apps show Android's plain dialog and time on sites can't be counted.", action: "Turn the blocked-app screen on" };
   return null;
 }

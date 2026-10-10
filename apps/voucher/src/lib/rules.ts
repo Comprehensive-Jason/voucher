@@ -1,6 +1,6 @@
 // Plain-language descriptions of the Ledger's settings changes.
 import type { Pending, Settings } from "./types";
-import { styleOf } from "./sources";
+import { isSite, memberName, styleOf } from "./sources";
 
 /** "22:00:00" → minutes after midnight. */
 export const minutesOf = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -36,8 +36,11 @@ export function describe([change]: Pending, s: Settings): string {
     case "SourceApps": {
       // Only adding waits, so name what is being added.
       const had = s.sources[v.id]?.packages ?? [];
-      const added = (v.packages as string[]).filter((p) => !had.includes(p)).map((p) => v.labels?.[p] ?? p.replace(/^win:/, ""));
-      return added.length ? `${sourceName(v.id)} adds ${added.join(", ")}` : `${sourceName(v.id)} counts ${v.packages.length} app${v.packages.length === 1 ? "" : "s"}`;
+      const added = (v.packages as string[]).filter((p) => !had.includes(p)).map((p) => memberName(p, v.labels));
+      if (added.length) return `${sourceName(v.id)} adds ${added.join(", ")}`;
+      const sites = (v.packages as string[]).filter(isSite).length, apps = v.packages.length - sites;
+      const count = (n: number, what: string) => `${n} ${what}${n === 1 ? "" : "s"}`;
+      return `${sourceName(v.id)} counts ${count(apps, "app")}${sites ? ` and ${count(sites, "site")}` : ""}`;
     }
     case "MaxHeartRate": return `Maximum heart rate ${v}`;
     case "BlocklistOn": return `${s.blocklists[v.id]?.name ?? v.id} blocklist off`;

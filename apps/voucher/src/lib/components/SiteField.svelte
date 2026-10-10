@@ -1,18 +1,24 @@
 <script lang="ts">
-  // Adds a site to a blocklist without a sheet, for the wide editor. Its
-  // heading lines the field up with the Name field in the pane beside it.
+  // Adds a site to a blocklist or source group without a sheet, for the wide
+  // editors. Its heading lines the field up with the Name field in the pane
+  // beside it. A site another source group counts can't be added to a group.
   import { domainOf, isDomain } from "../blocklists";
-  let { onadd }: { onadd: (site: string) => void } = $props();
+  let { onadd, taken = {} }: {
+    onadd: (site: string) => void;
+    /** Sites (`site:<domain>`) that can't be added, with the name of what already has them. */
+    taken?: Record<string, string>;
+  } = $props();
   let site = $state("");
   const domain = $derived(domainOf(site));
-  const valid = $derived(isDomain(domain));
+  const owner = $derived(taken[`site:${domain}`]);
+  const valid = $derived(isDomain(domain) && !owner);
 </script>
 
 <form class="field" onsubmit={(e) => { e.preventDefault(); if (valid) { onadd(domain); site = ""; } }}>
   <span class="cap">Add sites</span>
   <span class="add">
-    <input class="mono" placeholder="example.com" aria-label="Site to block" autocapitalize="off" autocomplete="off" spellcheck="false" bind:value={site} />
-    <button class="btn primary" disabled={!valid}>Add {valid ? domain : ""}</button>
+    <input class="mono" placeholder="example.com" aria-label="Site to add" autocapitalize="off" autocomplete="off" spellcheck="false" bind:value={site} />
+    <button class="btn primary" disabled={!valid}>{owner ? `Already in ${owner}` : `Add ${valid ? domain : ""}`}</button>
   </span>
 </form>
 

@@ -1,19 +1,21 @@
 <script lang="ts">
-  // The two "Add" sheets for a blocklist: pick an installed app, or type a
-  // site. Source groups use the app sheet alone, without "Every game", and
-  // with apps another group already counts shown but not pickable.
+  // The two "Add" sheets for a blocklist or source group: pick an installed
+  // app, or type a site. Source groups (`counting`) leave out "Every game",
+  // and show apps and sites another group already counts as not pickable.
   import { launchableApps } from "../api";
   import Sheet from "./Sheet.svelte";
   import { domainOf, isDomain } from "../blocklists";
 
-  let { mode, onapp, onsite, onclose, games = true, taken = {} }: {
+  let { mode, onapp, onsite, onclose, games = true, taken = {}, counting = false }: {
     mode: "app" | "site" | null;
     onapp: (app: { package: string; label: string }) => void;
     onsite?: (site: string) => void;
     onclose: () => void;
     games?: boolean;
-    /** Apps that can't be picked, with the name of what already has them. */
+    /** Apps and sites (`site:<domain>`) that can't be picked, with the name of what already has them. */
     taken?: Record<string, string>;
+    /** Adding to a source group, which counts a site's time rather than blocking it. */
+    counting?: boolean;
   } = $props();
 
   let apps = $state<{ package: string; label: string }[]>([]);
@@ -22,7 +24,8 @@
   $effect(() => { if (mode === "app") launchableApps().then((a) => (apps = a)); });
   const shown = $derived(apps.filter((a) => (a.label + a.package).toLowerCase().includes(filter.toLowerCase())));
   const domain = $derived(domainOf(site));
-  const valid = $derived(isDomain(domain));
+  const owner = $derived(taken[`site:${domain}`]);
+  const valid = $derived(isDomain(domain) && !owner);
 </script>
 
 {#if mode === "app"}
@@ -45,9 +48,9 @@
 {:else if mode === "site"}
   <Sheet {onclose}>
     <h2>Add a site</h2>
-    <p class="body">Blocks the site and all its subdomains in your browsers.</p>
+    <p class="body">{counting ? "Counts time on the site and all its subdomains in your browser." : "Blocks the site and all its subdomains in your browsers."}</p>
     <input class="mono" placeholder="example.com" autocapitalize="off" autocomplete="off" bind:value={site} />
-    <button class="btn primary wide" disabled={!valid} onclick={() => { onsite?.(domain); site = ""; }}>Add {valid ? domain : "site"}</button>
+    <button class="btn primary wide" disabled={!valid} onclick={() => { onsite?.(domain); site = ""; }}>{owner ? `Already in ${owner}` : `Add ${valid ? domain : "site"}`}</button>
   </Sheet>
 {/if}
 

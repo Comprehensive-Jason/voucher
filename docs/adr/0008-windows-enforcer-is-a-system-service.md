@@ -6,7 +6,7 @@ On Windows, blocking is done by voucher-guard, a Rust service running as SYSTEM:
 
 - Blocking from the user-session app: rejected because the user can end it from Task Manager in a second.
 - A per-user scheduled task: rejected for the same reason, and it cannot write machine-wide browser policy.
-- Our own window tracker for Focused time: rejected because ActivityWatch already runs on Jason's PC, handles idle time, and has a local API.
+- Our own window tracker for Focused time: rejected because ActivityWatch already runs on Jason's PC, handles idle time, and has a local API. (Sites are the exception: ActivityWatch can't see them without a browser extension, so the tray app samples the front browser's address bar itself; see ADR 0009.)
 
 ## Consequences
 

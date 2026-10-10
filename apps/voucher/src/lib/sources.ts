@@ -91,3 +91,12 @@ export function rateText(kind: SourceKind, every: number): string {
   if (kind === "workout") return `1 per ${every} zone min`;
   return `1 per ${every} min`;
 }
+
+/** A source member that is a site rather than an app: `site:readwise.io`
+ *  counts time on readwise.io and its subdomains in a browser. */
+export const isSite = (member: string) => member.startsWith("site:");
+
+/** How a source member reads: its label, or else its name without the
+ *  `win:` or `site:` in front ("Obsidian.exe", "readwise.io"). */
+export const memberName = (member: string, labels?: Record<string, string>) =>
+  labels?.[member] ?? member.replace(/^(win|site):/, "");

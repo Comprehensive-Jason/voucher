@@ -30,9 +30,20 @@ export function siteName(site: string): string {
 /** Colours new blocklists take in turn. None is the Curfew indigo, salmon, or gold. */
 export const LIST_COLORS = ["#e5609b", "#9d3d5b", "#e2781f", "#d26ec1", "#5bc8ff", "#9be36d", "#c3a6ff"];
 
-/** The colour of the blocklist an app is on, matched by its name, or grey
- *  when it's on none (Distraction time and the blocked-app screen use it). */
+/** Whether `host` is `site` or one of its subdomains: youtube.com covers m.youtube.com. */
+export const onSite = (host: string, site: string) => host === site || host.endsWith(`.${site}`);
+
+/** The id of the blocklist naming a Distraction: an app by its name, or a
+ *  site by its domain (Distraction time names sites by domain). */
+export function blocklistOf(name: string, blocklists: Record<string, Blocklist>): string | undefined {
+  const key = name.toLowerCase();
+  return Object.entries(blocklists).find(([, l]) => l.apps.some((a) => a.label.toLowerCase() === key))?.[0]
+    ?? (isDomain(key) ? Object.entries(blocklists).find(([, l]) => l.sites.some((s) => onSite(key, s.site)))?.[0] : undefined);
+}
+
+/** The colour of the blocklist an app or site is on, or grey when it's on
+ *  none (Distraction time and the blocked-app screen use it). */
 export function blocklistColorOf(label: string, blocklists: Record<string, Blocklist>): string {
-  const list = Object.values(blocklists).find((l) => l.apps.some((a) => a.label.toLowerCase() === label.toLowerCase()));
-  return list?.color ?? "#9aa0a6";
+  const id = blocklistOf(label, blocklists);
+  return id ? blocklists[id].color : "#9aa0a6";
 }

@@ -2,7 +2,7 @@
     <string name="app_name">Voucher</string>
     <string name="main_activity_title">Voucher</string>
     <string name="widget_description">Your Bank, the running Unlock, and progress toward the next Voucher</string>
-    <string name="accessibility_description">Shows Voucher\'s blocked-app screen, with a Voucher to tear, when you open a paused app. Voucher reads only which app icon you tapped; blocking works without this.</string>
+    <string name="accessibility_description">Shows Voucher\'s blocked-app screen, with a Voucher to tear, when you open a paused app, and measures time on sites in Chrome and Brave. Voucher reads only which app icon you tapped and which site the browser\'s address bar shows (the site\'s name, never the full address); blocking works without this.</string>
     <string name="tile_label">Voucher</string>
     <string name="wallpaper_label">Voucher</string>
     <string name="wallpaper_description">Your Bank as a fill in the colours of what you earned today; dark at Curfew</string>

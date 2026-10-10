@@ -148,7 +148,7 @@ export interface Protection {
   deviceOwner: boolean;
   /** Usage access: Focused time and Distraction minutes can be measured. */
   usageAccess: boolean;
-  /** The Accessibility service that draws the blocked-app screen. */
+  /** The Accessibility service that draws the blocked-app screen and measures site time. */
   overlay: boolean;
 }
 

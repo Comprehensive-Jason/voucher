@@ -35,13 +35,14 @@ const TOTALS = path.join(DATA, "portal-totals.json");
 // Starts with placeholder figures.
 const USAGE = path.join(DATA, "portal-usage.json");
 // Apps from Jason's own blocklists, named as the blocklists name them so the
-// app can colour each one by its list.
-const USAGE_APPS = ["Instagram", "YouTube", "X", "rednote", "Mihon", "Reddit", "bilibili", "HoYoLAB", "Samsung Internet",
+// app can colour each one by its list, and sites on them by domain, as a
+// phone counts time in Brave or Chrome.
+const USAGE_APPS = ["Instagram", "YouTube", "X", "rednote", "Mihon", "Reddit", "bilibili", "HoYoLAB", "Samsung Internet", "youtube.com", "reddit.com",
   // More, to make the list long enough to scroll.
   "Genshin Impact", "WoT Blitz", "Mindustry", "Plague Inc.", "After Inc.", "pixiv", "AniList", "Discord", "Grayjay", "Patreon"];
 function placeholderUsage() {
   return {
-    minutes: { Instagram: 14, YouTube: 8, X: 11, rednote: 6, Mihon: 9, Reddit: 4, bilibili: 5, HoYoLAB: 2, "Samsung Internet": 1,
+    minutes: { Instagram: 14, YouTube: 8, X: 11, rednote: 6, Mihon: 9, Reddit: 4, bilibili: 5, HoYoLAB: 2, "Samsung Internet": 1, "youtube.com": 12, "reddit.com": 5,
       "Genshin Impact": 22, "WoT Blitz": 7, Mindustry: 12, "Plague Inc.": 3, "After Inc.": 2, pixiv: 5, AniList: 3, Discord: 10, Grayjay: 6, Patreon: 1 },
     opens: { Instagram: 14, YouTube: 6, X: 9, rednote: 4, Mihon: 5, Reddit: 3, bilibili: 2, HoYoLAB: 1, "Samsung Internet": 1,
       "Genshin Impact": 4, "WoT Blitz": 2, Mindustry: 3, "Plague Inc.": 1, "After Inc.": 1, pixiv: 2, AniList: 1, Discord: 5, Grayjay: 2, Patreon: 1 },
@@ -67,13 +68,15 @@ function hoursOf(u) {
 }
 /** The made-up apps that are games, which a phone would know from Android's app category. */
 const GAMES = new Set(["Genshin Impact", "WoT Blitz", "Mindustry", "Plague Inc.", "After Inc."]);
-/** Which switched-on blocklist each app is on, as a phone would say: the one
- *  naming it, or for a game, one blocking every game. Unlisted apps are left out. */
+/** Which switched-on blocklist each app or site is on, as a phone would say:
+ *  the one naming it (a site by its domain or a parent domain), or for a
+ *  game, one blocking every game. Unlisted apps and sites are left out. */
 function listsFor(apps, blocklists) {
   const on = Object.entries(blocklists).filter(([, l]) => l.on);
   const out = {};
   for (const app of apps) {
-    const named = on.find(([, l]) => l.apps.some((a) => a.label.toLowerCase() === app.toLowerCase()));
+    const named = on.find(([, l]) => l.apps.some((a) => a.label.toLowerCase() === app.toLowerCase())
+      || l.sites.some((s) => app === s.site || app.endsWith("." + s.site)));
     const games = GAMES.has(app) ? on.find(([, l]) => l.apps.some((a) => a.package === "category:game")) : null;
     const hit = named ?? games;
     if (hit) out[app] = hit[0];
@@ -162,10 +165,16 @@ async function untilUp() {
   throw new Error("the test Ledger didn't start");
 }
 
-/** A test Ledger skips first-run setup, so its rules apply as on a set-up device. */
+/** A test Ledger skips first-run setup, so its rules apply as on a set-up
+ *  device. Reading also counts readwise.io, so a source shows a site member. */
 async function finishSetup() {
   const status = await call("GET", "/status");
-  if (!status.setup_complete) await call("POST", "/setup", { changes: [], finish: true });
+  if (status.setup_complete) return;
+  const reading = status.settings.sources.reading;
+  const changes = reading && !reading.packages.includes("site:readwise.io")
+    ? [{ SourceApps: { id: "reading", packages: [...reading.packages, "site:readwise.io"], labels: { ...reading.labels, "site:readwise.io": "readwise.io" } } }]
+    : [];
+  await call("POST", "/setup", { changes, finish: true });
 }
 
 const readTotals = () => { try { return JSON.parse(readFileSync(TOTALS, "utf8")); } catch { return {}; } };

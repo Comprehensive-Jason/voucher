@@ -25,7 +25,7 @@ const days: Record<string, DaySummary> = {
   [TODAY]: {
     day: TODAY, earned: 11, redeemed: 3, unlocked_minutes: 30, goal: 16, goal_met: false, goal_met_at: null,
     streak: 4, by_source: { tasks: 7, obsidian: 2, workout: 1, reading: 1 }, sources: [],
-    usage: usage({ Instagram: [[8, 6], [12, 9], [13, 4], [19, 12]], YouTube: [[12, 3], [20, 14]], Reddit: [[16, 5]], Chess: [[21, 8]] }),
+    usage: usage({ Instagram: [[8, 6], [12, 9], [13, 4], [19, 12]], YouTube: [[12, 3], [20, 14]], "youtube.com": [[15, 7], [22, 4]], Reddit: [[16, 5]], "reddit.com": [[10, 3]], Chess: [[21, 8]] }),
     log: [
       redeemed("19:42", 2),
       earned("16:40", "todoist:1", "Weekly review"),
@@ -131,8 +131,8 @@ const settings = {
     workout: { name: "Workout", kind: "workout", on: true, every: 15, packages: [] },
     obsidian: { name: "Obsidian", kind: "focus", on: true, every: 30, packages: ["md.obsidian", "win:Obsidian.exe"],
       labels: { "md.obsidian": "Obsidian", "win:Obsidian.exe": "Obsidian for Windows" } },
-    reading: { name: "Reading", kind: "focus", on: true, every: 30, packages: ["com.readermobile", "com.flyersoft.moonreaderp", "com.shortform.app"],
-      labels: { "com.readermobile": "Readwise Reader", "com.flyersoft.moonreaderp": "Moon+ Reader Pro", "com.shortform.app": "Shortform" } },
+    reading: { name: "Reading", kind: "focus", on: true, every: 30, packages: ["com.readermobile", "com.flyersoft.moonreaderp", "com.shortform.app", "site:readwise.io"],
+      labels: { "com.readermobile": "Readwise Reader", "com.flyersoft.moonreaderp": "Moon+ Reader Pro", "com.shortform.app": "Shortform", "site:readwise.io": "readwise.io" } },
     chinese: { name: "Chinese", kind: "focus", on: true, every: 30, packages: ["com.pleco.chinesesystem", "com.duolingo"], color: "#9be36d",
       labels: { "com.pleco.chinesesystem": "Pleco", "com.duolingo": "Duolingo" } },
     anki: { name: "Anki", kind: "focus", on: false, every: 30, packages: ["com.ichi2.anki"], labels: { "com.ichi2.anki": "AnkiDroid" } },

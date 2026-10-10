@@ -11,7 +11,7 @@
   import RulesCard from "../components/RulesCard.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
-  import { RATE_RANGE, compareSources, defaultColorOf, needsToken, rateText, serviceOf, styleOf } from "../sources";
+  import { RATE_RANGE, compareSources, defaultColorOf, memberName, needsToken, rateText, serviceOf, styleOf } from "../sources";
   import { hhmm, until } from "../rules";
   import type { Source, SourceKind, Status } from "../types";
 
@@ -40,7 +40,7 @@
   function members(s: Source): string {
     if (s.kind === "workout") return "Heart rate zones";
     if (s.kind === "steps") return "Health Connect";
-    const names = [...new Set(s.packages.map((p) => s.labels?.[p] ?? p.replace(/^win:/, "")))];
+    const names = [...new Set(s.packages.map((p) => memberName(p, s.labels)))];
     if (!names.length) return "Nothing yet";
     return names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ");
   }

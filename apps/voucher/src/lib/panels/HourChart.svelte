@@ -20,6 +20,7 @@
   import { tick, untrack } from "svelte";
   import { ledger } from "../api";
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
+  import { blocklistOf } from "../blocklists";
   import { clock, dayLabel, hourOf, periodLabel, shiftDay } from "../time";
   import CardHead from "../components/CardHead.svelte";
   import Marker from "../components/Marker.svelte";
@@ -87,15 +88,14 @@
   type Part = { id: string; name: string; color: string; n: number };
   const EARLIER = "Earlier, by source not kept";
   const minutes = $derived(measure === "distraction");
-  /** Distraction time counts by blocklist, not by app: each app's minutes go
-   *  to the blocklist the measuring device said it was on (it knows each
-   *  app's package, and which apps are games), or else to the blocklist
-   *  naming an app of that name, or else to Other. That keeps the bars and
+  /** Distraction time counts by blocklist, not by app: each app's or site's
+   *  minutes go to the blocklist the measuring device said it was on (it
+   *  knows each app's package, and which apps are games), or else to the
+   *  blocklist naming an app of that name or that site, or else to Other. That keeps the bars and
    *  the list to a handful of rows, each in its blocklist's colour. */
   const OTHER: Part = { id: "~other", name: "Other", color: "#9aa0a6", n: 0 };
   function listPart(app: string, said?: string): Part {
-    const id = said && blocklists[said] ? said
-      : Object.entries(blocklists).find(([, l]) => l.apps.some((a) => a.label.toLowerCase() === app.toLowerCase()))?.[0];
+    const id = said && blocklists[said] ? said : blocklistOf(app, blocklists);
     return id ? { id, name: blocklists[id].name, color: blocklists[id].color, n: 0 } : { ...OTHER };
   }
   /** Adds an app's minutes to its blocklist's part. */

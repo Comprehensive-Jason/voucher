@@ -10,7 +10,7 @@
   import Switch from "$lib/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
-  import { compareSources, needsToken, serviceOf, styleOf } from "$lib/sources";
+  import { compareSources, memberName, needsToken, serviceOf, styleOf } from "$lib/sources";
   import { hhmm, minutesOf, timeOf } from "$lib/rules";
   import { summary } from "$lib/blocklists";
   import type { Protection, Status } from "$lib/types";
@@ -189,7 +189,7 @@
           {@const style = styleOf(id)}
           <div class="li">
             <span class="dot" style="background: {style.color}"></span>
-            <span class="lt"><b>{style.name}</b>{#if kind === "focus"}<small>{s.packages.filter((p) => !p.startsWith("win:")).map((p) => s.labels?.[p] ?? p).join(", ")}</small>{/if}</span>
+            <span class="lt"><b>{style.name}</b>{#if kind === "focus"}<small>{s.packages.filter((p) => !p.startsWith("win:")).map((p) => memberName(p, s.labels)).join(", ")}</small>{/if}</span>
             <Switch on={s.on} label={style.name} onchange={(on) => apply([{ Source: { id, on, every: s.every } }])} />
           </div>
           <!-- Each task service in the group signs in on its own. -->

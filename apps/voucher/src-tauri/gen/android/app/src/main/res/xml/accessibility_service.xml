@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Only clicks (to learn which app icon was tapped) and window changes (to spot the blocked dialog). -->
+<!-- Clicks (to learn which app icon was tapped), window changes (to spot the blocked dialog),
+     and window content (to read Chrome's and Brave's address bar for site time). The service
+     watches every app, since the blocked dialog belongs to the system, so it ignores other
+     apps' content changes in code. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeViewClicked|typeWindowStateChanged"
+    android:accessibilityEventTypes="typeViewClicked|typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds"
     android:notificationTimeout="0"
-    android:canRetrieveWindowContent="false"
+    android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_description" />

@@ -1,9 +1,10 @@
 <script lang="ts">
-  // One source group: its name, color, and what it counts. With no `id` it
-  // makes a new group, sent to the Ledger on Save. On a wide screen the
-  // installed apps stay open beside the group, so adding one is a single tap.
-  // Taking an app out, renaming, or deleting applies now; a new group, or a
-  // new app in one, waits for 06:00.
+  // One source group: its name, color, and what it counts (apps, and sites
+  // as `site:<domain>` members). With no `id` it makes a new group, sent to
+  // the Ledger on Save. On a wide screen, as in the blocklist editor, the
+  // group, its Sites, and the installed apps sit side by side, so adding one
+  // is a single tap. Taking an app or site out, renaming, or deleting applies
+  // now; a new group, or a new app or site in one, waits for 06:00.
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -15,7 +16,8 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import ColorSheet from "$lib/components/ColorSheet.svelte";
   import RuleSlider from "$lib/components/RuleSlider.svelte";
-  import { RATE_RANGE, SPARE, defaultColorOf, rateText, styleOf } from "$lib/sources";
+  import SiteField from "$lib/components/SiteField.svelte";
+  import { RATE_RANGE, SPARE, defaultColorOf, isSite, memberName, rateText, styleOf } from "$lib/sources";
   import { wide } from "$lib/wide.svelte";
   import { hhmm, until } from "$lib/rules";
   import type { Source, Status } from "$lib/types";
@@ -23,7 +25,7 @@
   const id = page.url.searchParams.get("id");
   let status = $state<Status | null>(null);
   let name = $state("");
-  let adding = $state(false);
+  let adding = $state<"app" | "site" | null>(null);
   let confirming = $state(false);
   let error = $state<string | null>(null);
   let note = $state<string | null>(null);
@@ -33,7 +35,7 @@
   let ratePreview = $state<number | null>(null);
   /** A new group's color, once picked here. */
   let draftColor = $state<string | null>(null);
-  /** A new group's apps, before Save. */
+  /** A new group's apps and sites (`site:<domain>`), before Save. */
   let draft = $state<{ package: string; label: string }[]>([]);
 
   const group = $derived<Source | null>(id ? status?.settings.sources[id] ?? null : null);
@@ -44,8 +46,12 @@
     return hit ? { packages: (hit[0] as any).SourceApps.packages as string[], labels: (hit[0] as any).SourceApps.labels ?? {}, at: hit[1] } : null;
   });
   const members = $derived(group ? [...new Set([...group.packages, ...(queued?.packages ?? [])])] : []);
-  const labelOf = (p: string) => group?.labels?.[p] ?? queued?.labels[p] ?? p.replace(/^win:/, "");
-  /** Apps other groups count, which can't join this one. */
+  const labelOf = (p: string) => group?.labels?.[p] ?? queued?.labels[p] ?? draft.find((a) => a.package === p)?.label ?? memberName(p);
+  /** What the group counts, or will once Saved: apps and sites, listed apart. */
+  const listed = $derived(id ? members : draft.map((a) => a.package));
+  const appMembers = $derived(listed.filter((p) => !isSite(p)));
+  const siteMembers = $derived(listed.filter(isSite));
+  /** Apps and sites other groups count, which can't join this one. */
   const taken = $derived.by(() => {
     const out: Record<string, string> = {};
     for (const [other, s] of Object.entries(status?.settings.sources ?? {})) {
@@ -100,12 +106,22 @@
     else if (group) send({ Source: { id, on: group.on, every: v } });
   }
 
-  /** Apps go in the side picker on a wide screen; sources that aren't apps have none. */
+  /** Sites and the app picker sit beside the group on a wide screen; sources that aren't apps have neither. */
   const split = $derived(wide.on && (!id || group?.kind === "focus"));
   function addApp(a: { package: string; label: string }) {
-    adding = false;
+    adding = null;
     if (!id) { if (!draft.some((x) => x.package === a.package)) draft = [...draft, a]; }
     else if (!members.includes(a.package)) setMembers([...members, a.package], { [a.package]: a.label });
+  }
+  /** A site joins as `site:<domain>`, named by its domain. */
+  const addSite = (domain: string) => addApp({ package: `site:${domain}`, label: domain });
+  /** A list's rows: a draft's, or a saved group's with what waits for the morning. */
+  const rowsOf = (list: string[]) => list.map((p) => ({ key: p, name: labelOf(p), on: true, added: true,
+    note: isSite(p) ? null : p.startsWith("win:") ? "Windows" : p,
+    waiting: !id || group?.packages.includes(p) ? null : `Counts from ${morning}, ${until(queued!.at)}` }));
+  function remove(key: string) {
+    if (!id) draft = draft.filter((a) => a.package !== key);
+    else setMembers(members.filter((p) => p !== key));
   }
 
   // A new group's id comes from its name; a clash gets a number.
@@ -159,18 +175,16 @@
 
         {#if !id}
           <EntryList title="Apps" icons empty={split ? "Tap apps on the right to add them" : "No apps yet"} switches={false}
-            onadd={split ? undefined : () => (adding = true)}
-            rows={draft.map((a) => ({ key: a.package, name: a.label, note: a.package, on: true, added: true }))}
-            onremove={(key) => (draft = draft.filter((a) => a.package !== key))} />
-          <div class="footnote">Time in these apps adds up. A new source counts from {morning}.</div>
+            onadd={split ? undefined : () => (adding = "app")} rows={rowsOf(appMembers)} onremove={remove} />
+          {#if !split}{@render sites()}{/if}
+          <div class="footnote">Time in these apps and sites adds up. A new source counts from {morning}.</div>
           <button class="btn primary wide save" disabled={!newId || !draft.length} onclick={save}>Save source</button>
         {:else if group}
           {#if group.kind === "focus"}
-            <EntryList title="Apps" icons empty="No apps: this source counts nothing" switches={false} onadd={split ? undefined : () => (adding = true)}
-              rows={members.map((p) => ({ key: p, name: labelOf(p), note: p.startsWith("win:") ? "Windows" : p, on: true, added: true,
-                waiting: group.packages.includes(p) ? null : `Counts from ${morning}, ${until(queued!.at)}` }))}
-              onremove={(key) => setMembers(members.filter((p) => p !== key))} />
-            <div class="footnote">Taking an app out: now. Adding one: at {morning}.</div>
+            <EntryList title="Apps" icons empty={siteMembers.length ? "No apps" : "No apps or sites: this source counts nothing"} switches={false}
+              onadd={split ? undefined : () => (adding = "app")} rows={rowsOf(appMembers)} onremove={remove} />
+            {#if !split}{@render sites()}{/if}
+            <div class="footnote">Taking an app or site out: now. Adding one: at {morning}.</div>
           {:else if group.kind === "tasks"}
             <EntryList title="Services" empty="No services"
               rows={["todoist", "clickup"].map((p) => ({ key: p, name: p === "todoist" ? "Todoist" : "ClickUp", note: null, on: members.includes(p), added: false,
@@ -195,13 +209,22 @@
         {/if}
       </div>
       {#if split}
-        <AppPicker members={id ? members : draft.map((a) => a.package)} {taken} onadd={addApp} />
+        <div class="pane">
+          <SiteField {taken} onadd={addSite} />
+          {@render sites()}
+        </div>
+        <AppPicker members={listed} {taken} onadd={addApp} />
       {/if}
     </div>
   {/if}
 </main>
 
-<AddEntrySheets mode={adding ? "app" : null} games={false} {taken} onclose={() => (adding = false)} onapp={addApp} />
+{#snippet sites()}
+  <EntryList title="Sites" empty="No sites yet" switches={false} onadd={split ? undefined : () => (adding = "site")}
+    rows={rowsOf(siteMembers)} onremove={remove} />
+{/snippet}
+
+<AddEntrySheets mode={adding} games={false} {taken} counting onclose={() => (adding = null)} onapp={addApp} onsite={addSite} />
 
 {#if coloring}
   <ColorSheet title="{name || "New source"} color" current={color} fallback={id ? defaultColorOf(id) : null}
@@ -219,9 +242,9 @@
   .rtext.preview { color: var(--muted); }
   .waiting { font-size: 12px; color: var(--goal); }
   .actions { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
-  /* Wide: the group on the left, the installed apps on the right, each scrolling on its own. */
+  /* Wide: the group, its Sites, and the installed apps, each scrolling on its own. */
   main.split { height: 100%; min-height: 0; padding: 0 32px 24px; gap: 16px; }
-  main.split .panes { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 24px; }
+  main.split .panes { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr); gap: 24px; }
   main.split .pane { min-height: 0; overflow-y: auto; }
   main.solo { width: 100%; max-width: 640px; margin: 0 auto; }
   .field { display: flex; flex-direction: column; gap: 6px; }

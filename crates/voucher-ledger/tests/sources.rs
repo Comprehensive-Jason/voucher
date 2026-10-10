@@ -333,6 +333,45 @@ fn an_app_already_in_one_group_is_left_out_of_another() {
 }
 
 #[test]
+fn a_site_member_round_trips_and_only_one_group_can_count_it() {
+    let mut ledger = fresh();
+    let mut reading = group(
+        "Reading online",
+        &["site:readwise.io", "com.readermobile.web"],
+    );
+    reading
+        .labels
+        .insert("site:readwise.io".into(), "readwise.io".into());
+    ledger.request(
+        Change::AddSource {
+            id: "online".into(),
+            source: reading,
+        },
+        at("2026-10-07T10:00-07:00"),
+    );
+    // Another group asking for the same site later doesn't get it.
+    ledger.request(
+        Change::SourceApps {
+            id: "obsidian".into(),
+            packages: vec!["md.obsidian".into(), "site:readwise.io".into()],
+            labels: BTreeMap::new(),
+        },
+        at("2026-10-08T07:00-07:00"),
+    );
+
+    let saved = ledger.save();
+    let mut ledger = Ledger::load(&saved, SigningKey::from_bytes(&[7; 32])).unwrap();
+    let settings = ledger.settings(at("2026-10-09T06:00-07:00"));
+    let online = &settings.sources["online"];
+    assert_eq!(
+        online.packages,
+        ["site:readwise.io", "com.readermobile.web"]
+    );
+    assert_eq!(online.labels["site:readwise.io"], "readwise.io");
+    assert_eq!(settings.sources["obsidian"].packages, ["md.obsidian"]);
+}
+
+#[test]
 fn renaming_or_deleting_a_group_applies_now() {
     let mut ledger = fresh();
     let now = at("2026-10-07T10:00-07:00");
