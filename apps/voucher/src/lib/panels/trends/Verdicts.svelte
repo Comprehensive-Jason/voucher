@@ -10,7 +10,7 @@
   // "No" answers take the --worse colour, in the table and the strip. With
   // enough answers, one line under it says what the mismatch suggests. A Day
   // in the strip with a Marker carries Activity's corner tick (the Marker
-  // colour, grey when all are rule changes), the texts in its tooltip.
+  // colour), the texts in its tooltip.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
   import { fitsSlot } from "../../fit.svelte";
@@ -67,7 +67,7 @@
     </div>
     <div class="days">
       <div class="strip" aria-label="Each Day's answer, last four weeks">
-        {#each strip as d (d.day)}<i class={d.verdict ?? "none"} class:met={d.goal_met} class:marked={marksOn.has(d.day)} class:rule={!!marksOn.get(d.day)?.every((m) => m.rule)} title="{shortDate(d.day, today)}: {d.verdict ? LABEL[d.verdict] : 'no answer'}{d.goal_met ? ', goal met' : ''}{markLines(d.day)}"></i>{/each}
+        {#each strip as d (d.day)}<i class={d.verdict ?? "none"} class:met={d.goal_met} class:marked={marksOn.has(d.day)} title="{shortDate(d.day, today)}: {d.verdict ? LABEL[d.verdict] : 'no answer'}{d.goal_met ? ', goal met' : ''}{markLines(d.day)}"></i>{/each}
       </div>
       <div class="ends"><span>{strip[0] ? shortDate(strip[0].day, today) : ""}</span><span>Today</span></div>
     </div>
@@ -98,9 +98,8 @@
   .n.yes { color: var(--voucher); } .n.mostly { color: var(--mostly-ink); } .n.no { color: var(--worse); }
   .strip { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: 3px; }
   .strip i { position: relative; aspect-ratio: 1; border-radius: 3px; background: var(--heat-0); box-sizing: border-box; }
-  /* A Day with a Marker: Activity's corner, in the Marker colour, grey for rule changes only. */
+  /* A Day with a Marker: Activity's corner, in the Marker colour. */
   .strip i.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
-  .strip i.marked.rule::after { border-top-color: var(--muted); }
   /* A dark edge along the tick's slant, so grey still reads on the light greens (as in Source streaks). */
   .strip i.marked::after { filter: drop-shadow(-1px 1px 0 var(--surface)); }
   .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: var(--mostly); } .strip i.no { background: var(--worse); }

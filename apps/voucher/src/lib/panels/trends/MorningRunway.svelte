@@ -12,7 +12,7 @@
   // and never move, drawn as HourAxis draws them.
   // It follows the shared Day: that Day's dot is ringed and its week scrolled
   // into view, and tapping a dot shares its Day. A week holding a Marker has
-  // a small notched flag beside its date (grey when all are rule changes),
+  // a small notched flag beside its date,
   // the Markers' Days and texts in its tooltip and in their Days' dots'.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
@@ -120,8 +120,8 @@
             {@const wm = w.list.flatMap((d) => marksOn.get(d.day) ?? [])}
             <text x={x0 - 8 - flagRoom} y={y + 3} text-anchor="end">{shortDate(w.monday, today)}</text>
             {#if wm.length}
-              {@const color = wm.every((m) => m.rule) ? "var(--muted)" : "var(--marker)"}
-              <!-- The week's Markers: a notched flag, as in the keys, in the Marker colour, grey for rule changes only. -->
+              {@const color = "var(--marker)"}
+              <!-- The week's Markers: a notched flag, as in the keys, in the Marker colour. -->
               <g class="flag" transform="translate({x0 - 4 - 10 * k} {y - 6 * k}) scale({k})">
                 <title>{wm.map((m) => `${shortDate(dayOfMoment(m.at), today)}: ${m.text}`).join("\n")}</title>
                 <rect x="-1" y="-1" width="12" height="14" fill="transparent" />

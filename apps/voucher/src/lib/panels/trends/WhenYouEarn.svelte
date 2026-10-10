@@ -5,7 +5,7 @@
   // keeps them. The busiest hour's column is outlined, with its time and
   // "busiest over N Days" over it (every Day the log keeps hours for). The hours sit under the rows, outside the scroller,
   // so they never move. A row holding a Marker has a small notched flag after
-  // its date (grey when all are rule changes), the texts in its tooltip.
+  // its date, the texts in its tooltip.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import HourAxis from "../../components/HourAxis.svelte";
@@ -131,7 +131,7 @@
         {/if}
         <div class="rows" bind:this={scroller}>
           {#each rows as r (r.key)}
-            <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}{#if r.marks.length}{@const color = r.marks.every((m) => m.rule) ? "var(--muted)" : "var(--marker)"}<svg class="flag" width="9" height="11" viewBox="0 0 10 12" role="img" aria-label="Markers: {flagTip(r.marks)}"><title>{flagTip(r.marks)}</title><path d="M1.6 11.2V1" stroke={color} stroke-width="1.6" stroke-linecap="round" /><path d="M1.6 1h7l-2 2.75 2 2.75h-7z" fill={color} /></svg>{/if}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
+            <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}{#if r.marks.length}{@const color = "var(--marker)"}<svg class="flag" width="9" height="11" viewBox="0 0 10 12" role="img" aria-label="Markers: {flagTip(r.marks)}"><title>{flagTip(r.marks)}</title><path d="M1.6 11.2V1" stroke={color} stroke-width="1.6" stroke-linecap="round" /><path d="M1.6 1h7l-2 2.75 2 2.75h-7z" fill={color} /></svg>{/if}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
           {/each}
         </div>
         <!-- Over the scroller, not in it, so the outline stays put while the rows scroll. -->

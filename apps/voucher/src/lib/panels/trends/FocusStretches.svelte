@@ -105,12 +105,12 @@
         <path d={weeks.map((w, j) => `${j ? "L" : "M"}${x0 + slot * j + slot / 2},${yAt(w.mid)}`).join("")} fill="none" stroke="var(--ink)" stroke-width="2" />
         {#if startY !== null}<text class="tag" x={x0 + slot / 2} y={startY} text-anchor="middle" style="fill: var(--ink); opacity: .6">{firstTypical}</text>{/if}
         <text class="tag end" x={x0 + slot * (weeks.length - 0.2) + 3 * k} y={yAt(weeks.at(-1)!.mid) + 3.2 * k} style="fill: var(--ink)">{endText}</text>
-        <!-- A notched flag at the top of each column holding a Marker, as on the bar graph's bars; grey if all are rule changes. -->
+        <!-- A notched flag at the top of each column holding a Marker, as on the bar graph's bars. -->
         {#each weeks as w, j (w.key)}
           {@const list = marksOf.get(w.key)}
           {#if list}
             {@const cx = x0 + slot * j + slot / 2}
-            {@const color = list.every((m) => m.rule) ? "var(--muted)" : "var(--marker)"}
+            {@const color = "var(--marker)"}
             <g class="flag"><title>{flagTitle(list)}</title>
               <rect x={cx - 0.8 * k} y={y1} width={1.6 * k} height={FLAG * k} rx={0.8 * k} fill={color} />
               <path d="M{cx},{y1} h{7 * k} l{-2 * k},{3 * k} {2 * k},{3 * k} h{-7 * k} z" fill={color} />

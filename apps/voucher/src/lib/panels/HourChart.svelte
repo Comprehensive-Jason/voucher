@@ -552,7 +552,7 @@
                   {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                 </div>
               {/if}
-              {#if marks.length}<i class="flag" class:rule={marks.every((m) => m.rule)} style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), true)}></i>{/if}
+              {#if marks.length}<i class="flag" style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), true)}></i>{/if}
             </button>
           {/each}
         </div>
@@ -597,7 +597,7 @@
                     {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                   </div>
                 {/if}
-                {#if c.marks.length}<i class="flag" class:rule={c.marks.every((m) => m.rule)} style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), counted)}></i>{/if}
+                {#if c.marks.length}<i class="flag" style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), counted)}></i>{/if}
               </button>
             {/each}
           </div>
@@ -730,11 +730,10 @@
   /* Hours Voucher wasn't watching (a device was silent): hatched, so a low bar there reads as unknown, not as none. */
   .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .09) 0 3px, transparent 3px 7px); pointer-events: none; }
   .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
-  /* A Marker: a short flag at the top of its hour; the Marker colour for one written by hand, grey for a rule change. */
+  /* A Marker: a short flag at the top of its hour, in the Marker colour. */
   .flag { position: absolute; z-index: 3; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: var(--marker); border-radius: 1px; pointer-events: none; }
   /* The notched flag of every Marker (the button, the Log, the keys). */
   .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 7px; height: 6px; background: inherit; clip-path: polygon(0 0, 100% 0, 72% 50%, 100% 100%, 0 100%); }
-  .flag.rule { background: var(--muted); }
   /* Curfew's hours: a night-coloured band behind the bars, across the gaps too. */
   .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: color-mix(in srgb, var(--night) 9%, transparent); pointer-events: none; }
   .tall .col.night::before { --gap: 6px; }

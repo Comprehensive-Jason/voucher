@@ -37,16 +37,13 @@ class Notes {
 
 export const notes = new Notes();
 
-/** The keys for the Markers a chart shows, the same on every card: "Marker"
- *  (magenta) when one written by hand is in view, "Rule change" (grey) when
- *  one made by a rule change is. `kind` is how the chart draws them: "flag"
- *  for a line or a flag, "corner" for a tick on a grid square. Nothing when
- *  the chart shows none. */
-export function markerKeys(shown: { rule: boolean }[], kind: "flag" | "corner" = "flag") {
-  return [
-    ...(shown.some((m) => !m.rule) ? [{ kind, color: "var(--marker)", label: "Marker" }] : []),
-    ...(shown.some((m) => m.rule) ? [{ kind, color: "var(--muted)", label: "Rule change" }] : []),
-  ];
+/** The key for the Markers a chart shows, the same on every card: one
+ *  "Marker" entry when any is in view. Markers written by hand and the ones a
+ *  rule change adds look the same; their words tell them apart ("Unlock
+ *  length 10 to 15 min"). `kind` is how the chart draws them: "flag" for a
+ *  line or a flag, "corner" for a tick on a grid square. */
+export function markerKeys(shown: unknown[], kind: "flag" | "corner" = "flag") {
+  return shown.length ? [{ kind, color: "var(--marker)", label: "Marker" }] : [];
 }
 
 /** The Day a moment belongs to: a Day runs from Curfew's end to the next, so 01:00 counts toward the evening before. */
