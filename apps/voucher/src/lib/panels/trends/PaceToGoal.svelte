@@ -56,12 +56,17 @@
   const soFar = $derived(todayTimes.filter((t) => t <= nowH).length);
   const usualNow = $derived.by(() => { const b = band.find((x) => x.h >= nowH) ?? band.at(-1); return b; });
 
-  const W = 600, x0 = 30, x1 = 592, y1 = 10;
+  const W = 600, x0 = 40, x1 = 592, y1 = 10;
   const H = $derived(fit ? drawHeight(pw, ph, 240) : 240);
   const y0 = $derived(H - 28);
   const top = $derived(Math.max(goal + 2, ...band.map((b) => b.hi), todayTimes.length) || 1);
   const xAt = (h: number) => x0 + ((h - START) / (END - START)) * (x1 - x0);
   const yAt = (v: number) => y0 - (v / top) * (y0 - y1);
+  /** Vouchers up the side, in a round step that gives at most five lines. */
+  const ticks = $derived.by(() => {
+    const step = [1, 2, 5, 10, 20, 50].find((s) => top / s <= 4) ?? 100;
+    return Array.from({ length: Math.floor(top / step) + 1 }, (_, i) => i * step);
+  });
   const bandPath = $derived(band.length ? `M${xAt(START)},${yAt(0)}` + band.map((b) => `L${xAt(b.h)},${yAt(b.hi)}`).join("") + [...band].reverse().map((b) => `L${xAt(b.h)},${yAt(b.lo)}`).join("") + `L${xAt(START)},${yAt(0)}Z` : "");
   const todayPath = $derived.by(() => {
     let d = `M${xAt(START)},${yAt(0)}`, n = 0;
@@ -78,6 +83,11 @@
     <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Today's Vouchers against your usual Day">
       <!-- Curfew's hours, in the night colour: earning still counts there. -->
       {#each Array(END - START) as _, i}{#if inCurfew((START + i) % 24)}<rect x={xAt(START + i)} y={y1} width={xAt(START + i + 1) - xAt(START + i) + 0.5} height={y0 - y1} fill="rgba(125,140,255,.09)" />{/if}{/each}
+      {#each ticks as t}
+        <line x1={x0} x2={x1} y1={yAt(t)} y2={yAt(t)} stroke="#2c3036" stroke-dasharray={t ? "3 4" : ""} />
+        <text x={x0 - 6} y={yAt(t) + 3.5} text-anchor="end">{t}</text>
+      {/each}
+      <text x="10" y={(y0 + y1) / 2} text-anchor="middle" transform="rotate(-90 10 {(y0 + y1) / 2})">Vouchers</text>
       <path d={bandPath} fill="rgba(61,220,132,.16)" />
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" />
       <text x={x0 + 4} y={yAt(goal) - 5} style="fill: var(--goal)">goal {goal}</text>

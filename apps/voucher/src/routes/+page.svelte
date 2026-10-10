@@ -220,8 +220,9 @@
   });
 
   // ---- Pages ----
-  // The strip moves a page (two columns) at a time, by swipe or by the
-  // numbered bar under it; the end tile counts as a column.
+  // Two columns make a page, for the numbered bar under the strip; a swipe
+  // stops at any column, and the bar lights the page mostly in view. The end
+  // tile counts as a column.
   const pageCount = $derived(Math.ceil((arrangement.columns.length + 1) / 2));
   let page = $state(0);
   /** One page's width: two columns and the gap after them. */
@@ -270,7 +271,7 @@
         onpointermove={onMove} onpointerup={onRelease} onpointercancel={onRelease}
         style="--rows: {ROWS}; --cols: {arrangement.columns.length}">
         <!-- One invisible marker per column for the strip to stop on. -->
-        {#each Array(pageCount) as _, i (i)}<span class="snap" style="grid-column: {i * 2 + 1}"></span>{/each}
+        {#each Array(arrangement.columns.length + 1) as _, i (i)}<span class="snap" style="grid-column: {i + 1}"></span>{/each}
         <!-- An empty column to finish the last page, so it can scroll fully into view. -->
         {#if (arrangement.columns.length + 1) % 2}<span class="filler" style="grid-column: {arrangement.columns.length + 2}"></span>{/if}
         <!-- Panels in one keyed list, placed on the grid, so one being dragged
@@ -348,9 +349,9 @@
   .strip::-webkit-scrollbar { display: none; }
   /* The strip can't snap while a drag scrolls it. */
   .strip.dragging { scroll-snap-type: none; }
-  /* A stop at each page; a swipe moves one page, never past it. */
+  /* A stop at every column, so a view can sit across two pages. */
   .filler { grid-row: 1; height: 0; }
-  .snap { grid-row: 1; align-self: start; height: 0; scroll-snap-align: start; scroll-snap-stop: always; pointer-events: none; }
+  .snap { grid-row: 1; align-self: start; height: 0; scroll-snap-align: start; pointer-events: none; }
   .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
   /* Arranging: panels sit still under their buttons, a touch on one drags it
