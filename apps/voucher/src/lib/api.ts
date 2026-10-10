@@ -66,6 +66,25 @@ function sampleToday(): Today {
   }
 }
 
+/**
+ * Every Day as CSV from the Ledger (`GET /export/days.csv`), handed to
+ * Android's share sheet on the phone and tablet (Obsidian, Drive, a file
+ * manager) or saved as a file elsewhere. The same URL works with curl and
+ * the access code, for scripts.
+ */
+export async function exportDays(): Promise<void> {
+  const csv = await ledger<string>("GET", "/export/days.csv");
+  const name = `voucher-days-${new Date().toISOString().slice(0, 10)}.csv`;
+  if (inTauri && /android/i.test(navigator.userAgent)) {
+    await device("share", { title: name, text: csv });
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /** Any other Ledger request, passed through the app's Rust side. */
 export async function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
   const reply = inTauri

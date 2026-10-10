@@ -28,6 +28,17 @@ object LedgerClient {
         }
     }
 
+    /** A GET whose reply is a JSON array, such as `/history`. */
+    fun getArray(c: Connection, path: String): org.json.JSONArray {
+        val conn = open(c, path, "GET")
+        try {
+            if (conn.responseCode != 200) throw IllegalStateException("Ledger answered ${conn.responseCode}")
+            return org.json.JSONArray(conn.inputStream.bufferedReader().readText())
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     /** POSTs and returns the status code, so refusals (409) can be told apart. */
     fun post(c: Connection, path: String, body: JSONObject? = null): Int {
         val conn = open(c, path, "POST")

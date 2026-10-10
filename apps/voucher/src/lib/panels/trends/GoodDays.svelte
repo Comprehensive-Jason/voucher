@@ -7,6 +7,7 @@
   // measure's usual level; the largest first, at most six. The goal itself is
   // left out, since finishing more always meets it sooner.
   import TrendCard from "../../components/TrendCard.svelte";
+  import { measured } from "../../notes.svelte";
   import { styleOf } from "../../sources";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal } from "../../types";
@@ -26,7 +27,7 @@
     // What a Day can be better at: each source's Vouchers, and less Distraction time and unlocking.
     const outcomes = [
       ...sources.map((id) => ({ id, label: `${name(id)} Vouchers`, value: (d: DayTotal) => d.by_source?.[id] ?? 0, more: true, unit: "" })),
-      { id: "~used", label: "minutes in Distractions", value: (d: DayTotal) => (d.used ? Object.values(d.used).reduce((a, b) => a + b, 0) : NaN), more: false, unit: " min" },
+      { id: "~used", label: "minutes in Distractions", value: (d: DayTotal) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : NaN), more: false, unit: " min" },
       { id: "~unlocked", label: "minutes unlocked", value: (d: DayTotal) => d.unlocked_minutes ?? NaN, more: false, unit: " min" },
     ];
     const out: Finding[] = [];

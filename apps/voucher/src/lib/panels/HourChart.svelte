@@ -27,6 +27,7 @@
   import { ms, zoomFade } from "../motion";
   import { selection } from "../selection.svelte";
   import { inCurfew } from "../curfew.svelte";
+  import { clock as clockOf, hourOfMoment, notes } from "../notes.svelte";
 
   let listEl = $state<HTMLDivElement>();
   /** One page's exact width. Pages fill the scroller, which can be a fraction
@@ -118,6 +119,13 @@
     }
     return out;
   }
+  /** Minutes in clock hour `h` the most-silent device wasn't watching. */
+  const silentAt = (summary: DaySummary | undefined, h: number) =>
+    Math.max(0, ...Object.values(summary?.silent ?? {}).map((hours) => hours[h] ?? 0));
+  /** Markers in clock hour `h` of `day`. */
+  const marksAt = (day: string, h: number) => notes.on(day).filter((m) => Math.floor(hourOfMoment(m.at)) === h);
+  $effect(() => { notes.load(); });
+
   /** Minutes Unlocked in each clock hour (midnight first): each tear runs on
    *  from the Unlock before it, if that was still going. */
   function unlockedByHour(log: Entry[]): number[] {
@@ -496,7 +504,10 @@
           <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
           <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
           {#each cols as c, i}
-            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol} class:night={inCurfew(hourOfColumn(i))}
+            {@const quiet = minutes && silentAt(summaryOf(day), hourOfColumn(i)) >= 15}
+            {@const marks = marksAt(day, hourOfColumn(i))}
+            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol} class:night={inCurfew(hourOfColumn(i))} class:silent={quiet}
+              title={[quiet ? "Voucher wasn't watching for part of this hour, so its minutes may be missing" : "", ...marks.map((m) => `${clockOf(m.at)} ${m.text}`)].filter(Boolean).join("\n") || undefined}
               aria-label="{String(hourOfColumn(i)).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
               onclick={() => (pick = pick === i || (!c.total && !c.unlocked) ? null : i)}>
               {#if minutes && c.unlocked}<i class="allow" style="height: {c.unlocked * unit}px"></i>{/if}
@@ -507,6 +518,7 @@
                 </div>
               {/if}
               {#if !minutes && i === goalCol}<i class="goalmark" title="Daily goal met"></i>{/if}
+              {#if marks.length}<i class="flag" class:rule={marks.every((m) => m.rule)}></i>{/if}
             </button>
           {/each}
         </div>
@@ -582,6 +594,14 @@
     {/if}
     <!-- The gold mark under a bar: the hour the Daily goal was met, or a Day that met it. -->
     {#if !minutes}<div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>{/if}
+    {#if minutes && zoom === "day" && Array.from({ length: 24 }, (_, h) => silentAt(summaryOf(days[shown]), h)).some((m) => m >= 15)}
+      <div class="row"><span class="mk"><i class="silentmark"></i></span><span class="name">Not watched</span><b class="mono">{Array.from({ length: 24 }, (_, h) => silentAt(summaryOf(days[shown]), h)).reduce((a, b) => a + b, 0)} min</b></div>
+    {/if}
+    {#if notes.on(days[shown] ?? "").length && zoom === "day"}
+      {#each notes.on(days[shown]) as m (m.at)}
+        <div class="row"><span class="mk"><i class="flagmark" class:rule={m.rule}></i></span><span class="name">{m.text}</span><b class="mono">{clockOf(m.at)}</b></div>
+      {/each}
+    {/if}
     {#if minutes && !shownBreakdown.rows.length}
       <div class="row none">{zoom !== "day" ? `No Distraction time ${zoom === "week" ? "this week" : "this month"}` : days[shown] === today.day ? "No Distraction time yet" : "No Distraction time this Day, or none kept this far back"}</div>
     {:else if !minutes && !shownBreakdown.rows.length && !shownBreakdown.anyRedeemed}
@@ -657,6 +677,14 @@
   .hintline b { color: var(--ink); font-family: var(--mono); }
   .bar { position: relative; display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
+  /* Hours Voucher wasn't watching (a device was silent): hatched, so a low bar there reads as unknown, not as none. */
+  .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .09) 0 3px, transparent 3px 7px); pointer-events: none; }
+  .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
+  /* A Marker: a short flag at the top of its hour; violet for one written by hand, grey for a rule change. */
+  .flag { position: absolute; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: #b69cff; border-radius: 1px; pointer-events: none; }
+  .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 6px; height: 5px; background: inherit; border-radius: 0 2px 2px 0; }
+  .flag.rule, .flagmark.rule { background: #8b9198; }
+  .flagmark { display: block; width: 3px; height: 12px; margin-left: 3px; border-radius: 1px; background: #b69cff; }
   /* Curfew's hours: a night-coloured band behind the bars, across the gaps too. */
   .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: rgba(125, 140, 255, .09); pointer-events: none; }
   .tall .col.night::before { --gap: 6px; }

@@ -10,7 +10,8 @@ import { remember, remembered } from "./storage";
 
 export type PanelId = "earned" | "heat" | "distraction" | "log"
   | "trend" | "when" | "pace" | "runway" | "strength" | "ladder" | "streaks" | "records"
-  | "best" | "gooddays" | "arrows" | "replay" | "focus" | "walkaway";
+  | "best" | "gooddays" | "arrows" | "replay" | "focus" | "walkaway"
+  | "verdicts" | "compare" | "reasons";
 
 /** A panel's height in thirds of a column: the smallest it can be, the
  *  largest, and where it starts. Equal min and max mean one fixed size. */
@@ -33,12 +34,15 @@ export const PANELS: Record<PanelId, { name: string; min: number; max: number; s
   replay: { name: "Replay", min: 2, max: 2, size: 2 },
   focus: { name: "Focus stretches", min: 1, max: 2, size: 1 },
   walkaway: { name: "Walk-away wins", min: 1, max: 1, size: 1 },
+  verdicts: { name: "Goal Days vs good Days", min: 1, max: 2, size: 1 },
+  compare: { name: "Before and after", min: 1, max: 2, size: 1 },
+  reasons: { name: "Why you unlock", min: 1, max: 2, size: 1 },
 };
 
 /** Thirds in a column. */
 export const ROWS = 3;
 
-const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "ladder", "records", "streaks", "arrows", "replay", "best", "gooddays", "focus", "walkaway"];
+const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "ladder", "records", "streaks", "arrows", "replay", "best", "gooddays", "focus", "walkaway", "verdicts", "compare", "reasons"];
 const KEY = "tablet-arrangement";
 
 type Sizes = Partial<Record<PanelId, number>>;

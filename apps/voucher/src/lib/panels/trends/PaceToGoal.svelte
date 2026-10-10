@@ -11,6 +11,7 @@
   import { ledger } from "../../api";
   import { inCurfew } from "../../curfew.svelte";
   import { selection } from "../../selection.svelte";
+  import { notes } from "../../notes.svelte";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
@@ -60,6 +61,9 @@
   const H = $derived(fit ? drawHeight(pw, ph, 240) : 240);
   const y0 = $derived(H - 28);
   const top = $derived(Math.max(goal + 2, ...band.map((b) => b.hi), todayTimes.length) || 1);
+  $effect(() => { notes.load(); });
+  /** The chosen Day's Markers, at their hour. */
+  const marks = $derived(notes.on(chosen).map((m) => ({ ...m, h: hoursAt(m.at) })));
   const xAt = (h: number) => x0 + ((h - START) / (END - START)) * (x1 - x0);
   const yAt = (v: number) => y0 - (v / top) * (y0 - y1);
   /** Vouchers up the side, in a round step that gives at most five lines. */
@@ -89,6 +93,10 @@
       {/each}
       <text x="10" y={(y0 + y1) / 2} text-anchor="middle" transform="rotate(-90 10 {(y0 + y1) / 2})">Vouchers</text>
       <path d={bandPath} fill="rgba(61,220,132,.16)" />
+      {#each marks as m}
+        <line x1={xAt(m.h)} x2={xAt(m.h)} y1={y1} y2={y0} stroke={m.rule ? "#8b9198" : "#b69cff"} stroke-width="1.2" opacity=".8"><title>{m.text}</title></line>
+        <rect x={xAt(m.h)} y={y1} width="6" height="5" rx="1" fill={m.rule ? "#8b9198" : "#b69cff"}><title>{m.text}</title></rect>
+      {/each}
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" />
       <text x={x0 + 4} y={yAt(goal) - 5} style="fill: var(--goal)">goal {goal}</text>
       {#if !Number.isNaN(usualGoal)}<line x1={xAt(usualGoal)} x2={xAt(usualGoal)} y1={yAt(goal) - 6} y2={yAt(goal) + 6} stroke="var(--goal)" stroke-width="2" />{/if}

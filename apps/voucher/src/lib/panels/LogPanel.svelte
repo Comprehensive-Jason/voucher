@@ -14,6 +14,7 @@
   import { fade } from "svelte/transition";
   import { ms } from "../motion";
   import TodayButton from "../components/TodayButton.svelte";
+  import { notes } from "../notes.svelte";
   let list = $state<HTMLDivElement>();
 
   let { compact = false }: { compact?: boolean } = $props();
@@ -30,11 +31,16 @@
 
   const day = $derived(today ? shiftDay(today, -back) : null);
 
-  type Row = { time: string; title: string; source: string; color: string; value: string; tone: "earn" | "spend" | "lost" | "goal"; marker: MarkerKind };
+  type Row = { time: string; title: string; source: string; color: string; value: string; tone: "earn" | "spend" | "lost" | "goal" | "note"; marker: MarkerKind; at?: string };
   const rows = $derived.by((): Row[] => {
     if (!shown) return [];
     const out: Row[] = [];
+    // Markers sit among the entries by time, newest first like them.
+    const marks = [...(shown.markers ?? [])].reverse();
+    const markRow = (m: (typeof marks)[number]): Row => ({ time: clock(m.at, timeZone), title: m.text, source: m.rule ? "Rule change" : "Marker",
+      color: "", value: "", tone: "note", marker: m.rule ? "rule" : "note", at: m.rule ? undefined : m.at });
     for (const e of shown.log) {
+      while (marks.length && marks[0].at > e.at) out.push(markRow(marks.shift()!));
       if (shown.goal_met_at && e.at === shown.goal_met_at && e.kind === "earned") {
         // The milestone sits just above the earning that met the goal.
         out.push({ time: clock(e.at, timeZone), title: "Daily goal met", source: `Streak: ${shown.streak} ${shown.streak === 1 ? "day" : "days"}`, color: "var(--goal)", value: "", tone: "goal", marker: "goal" });
@@ -57,6 +63,7 @@
           color: "var(--ink)", value: `−${e.tickets}`, tone: "spend", marker: "redeemed" });
       }
     }
+    for (const m of marks) out.push(markRow(m));
     return out;
   });
 
@@ -97,6 +104,28 @@
     });
   });
 
+  // ---- Adding a Marker ----
+  // A dated note for this Day ("new term", "dose up"): now when it's today,
+  // midday of a past Day otherwise. Charts draw it as a thin line.
+  let writing = $state(false);
+  let draft = $state("");
+  let saving = $state(false);
+  async function saveMarker() {
+    const text = draft.trim();
+    if (!text || !day) return;
+    saving = true;
+    try {
+      await notes.add(text, back === 0 ? undefined : new Date(`${day}T12:00:00`).toISOString());
+      draft = ""; writing = false;
+      await load();
+    } catch (e) { error = String(e); }
+    saving = false;
+  }
+  async function removeMarker(at: string) {
+    await notes.remove(at);
+    await load();
+  }
+
   // Today's Log keeps itself current; a past Day doesn't change.
   onMount(() => {
     load();
@@ -109,6 +138,9 @@
   <header>
     {#if compact}<span class="cap">Log</span>{:else}<h1>Log</h1>{/if}
     <span class="spacer"></span>
+    <button class="add" class:on={writing} aria-label="Add a Marker" title="Add a Marker: a dated note charts show as a line" onclick={() => (writing = !writing)}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2.5 4L16 12H5" /></svg>
+    </button>
     <TodayButton show={back > 0} onclick={() => { back = 0; load(); share(); }} />
     <div class="switcher">
       <button class="day" aria-label="Previous day" disabled={back >= OLDEST} onclick={() => step(1)}>
@@ -132,6 +164,13 @@
     </div>
     {/if}
 
+    {#if writing}
+      <form class="write" transition:fade={{ duration: ms("base") }} onsubmit={(e) => { e.preventDefault(); saveMarker(); }}>
+        <!-- svelte-ignore a11y_autofocus -->
+        <input bind:value={draft} maxlength="200" placeholder={back === 0 ? "What changed? (new term, dose up, …)" : `A note for ${day}`} autofocus />
+        <button type="submit" disabled={!draft.trim() || saving}>Add</button>
+      </form>
+    {/if}
     <div class="frame">
     <ScrollCue target={list} />
     <!-- A different Day's rows fade in, rather than replacing these at once. -->
@@ -145,7 +184,13 @@
             <span class="title" class:goal={r.tone === "goal"}>{r.title}</span>
             {#if !compact}<span class="src">{r.source}</span>{/if}
           </span>
-          <span class="mono value {r.tone}">{r.value}</span>
+          {#if r.at}
+            <button class="drop" aria-label="Remove this Marker" onclick={() => removeMarker(r.at!)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          {:else}
+            <span class="mono value {r.tone}">{r.value}</span>
+          {/if}
         </div>
       {:else}
         <p class="empty">{shown.earned > 0 ? "Only this Day's totals are kept now." : "Nothing earned or unlocked this Day."}</p>
@@ -187,6 +232,14 @@
   .what { min-width: 0; }
   .title { display: block; font-size: 14px; font-weight: 500; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .title.goal { color: var(--goal); }
+  .add { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color var(--t-base), color var(--t-base); }
+  .add.on { background: #2a2140; color: #b69cff; }
+  .write { display: flex; gap: 8px; }
+  .write input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: #1f2226; color: var(--ink); font: 500 14px var(--font); }
+  .write input:focus { outline: none; border-color: #b69cff; }
+  .write button { height: 38px; padding: 0 14px; border-radius: 10px; border: 0; background: #b69cff; color: #16121f; font: 700 13px var(--font); cursor: pointer; transition: opacity var(--t-base); }
+  .write button:disabled { opacity: .4; }
+  .drop { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .src { display: block; font-size: 12px; line-height: 1.25; color: var(--muted); }
   .value { font-size: 14px; font-weight: 700; }
   .value.lost { color: var(--muted); }

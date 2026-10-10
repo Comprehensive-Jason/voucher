@@ -7,6 +7,7 @@
   // of each, the rest behind "more". With under 16 weeks of history it
   // compares the last 2 weeks with everything before, and says so.
   import TrendCard from "../../components/TrendCard.svelte";
+  import { measured } from "../../notes.svelte";
   import { clock } from "../../time";
   import { clockOfHours } from "../../trends";
   import { styleOf } from "../../sources";
@@ -29,7 +30,7 @@
       { name: "Vouchers earned a day", value: (d) => d.earned, up: true, show: one },
       { name: "Goal Days a week", value: (d) => (d.goal_met ? 7 : 0), up: true, show: one },
       { name: "Minutes unlocked a day", value: (d) => d.unlocked_minutes ?? null, up: false, show: (v) => `${Math.round(v)} min` },
-      { name: "Distraction minutes a day", value: (d) => (d.used ? Object.values(d.used).reduce((a, b) => a + b, 0) : null), up: false, show: (v) => `${Math.round(v)} min` },
+      { name: "Distraction minutes a day", value: (d) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : null), up: false, show: (v) => `${Math.round(v)} min` },
       { name: "First unlock", value: (d) => { if (!d.first_tear) return null; const [h, m] = clock(d.first_tear, timeZone).split(":").map(Number); return (h < 6 ? h + 24 : h) + m / 60; }, up: true, show: clockOfHours },
     ];
     for (const id of new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))) {

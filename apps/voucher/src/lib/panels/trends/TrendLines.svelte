@@ -1,12 +1,14 @@
 <script lang="ts">
   // Am I earning more and tearing less than before? Seven-day averages of
   // Vouchers earned and torn, and the gap between them (what was kept), over
-  // 12 weeks or half a year, with the Daily goal for reference.
+  // 12 weeks or half a year, with the Daily goal for reference, and Markers
+  // as thin lines so a change in the lines can be matched to what changed.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { monthOf, rolling } from "../../trends";
   import { zoomFade } from "../../motion";
   import type { DayTotal } from "../../types";
+  import { dayOfMoment, notes } from "../../notes.svelte";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
@@ -31,6 +33,12 @@
   const ticks = $derived([0, Math.round(top / 2), Math.round(top)].filter((v, i, a) => a.indexOf(v) === i));
   /** A label where each month begins. */
   const months = $derived(days.map((d, i) => ({ i, d })).filter(({ d, i }) => d.day.slice(8) === "01" || i === 0));
+  $effect(() => { notes.load(); });
+  /** Markers inside the range, at their Day's place on the line. */
+  const marks = $derived.by(() => {
+    const at = new Map(days.map((d, i) => [d.day, i]));
+    return notes.markers.flatMap((m) => { const i = at.get(dayOfMoment(m.at)); return i === undefined ? [] : [{ ...m, i }]; });
+  });
   const first = (vals: number[]) => vals[Math.min(6, vals.length - 1)] ?? 0;
   const one = (v: number) => v.toFixed(1).replace(/\.0$/, "");
 </script>
@@ -53,6 +61,10 @@
       {#if bottom < 0}<line x1={x0} x2={x1} y1={yAt(0)} y2={yAt(0)} stroke="#3a3f45" />{/if}
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" opacity=".7" />
       <text x={x1} y={yAt(goal) - 5} text-anchor="end" style="fill: var(--goal)">goal {goal}</text>
+      {#each marks as m}
+        <line x1={xAt(m.i)} x2={xAt(m.i)} y1={y1} y2={y0} stroke={m.rule ? "#8b9198" : "#b69cff"} stroke-width="1.2" opacity=".75"><title>{m.text}</title></line>
+        <rect x={xAt(m.i)} y={y1} width="6" height="5" rx="1" fill={m.rule ? "#8b9198" : "#b69cff"} opacity=".9"><title>{m.text}</title></rect>
+      {/each}
       <path d={line(net)} fill="none" stroke="#f2f2f0" stroke-width="1.6" stroke-dasharray="2 3" opacity=".8" />
       <path d={line(torn)} fill="none" style="stroke: var(--spend)" stroke-width="2.2" stroke-linejoin="round" />
       <path d={line(earned)} fill="none" stroke="var(--voucher)" stroke-width="2.4" stroke-linejoin="round" />
@@ -64,6 +76,7 @@
       <span><i style="background: var(--voucher)"></i>Earned</span>
       <span><i style="background: var(--spend)"></i>Unlocked</span>
       <span><i class="dash"></i>Kept (earned less unlocked)</span>
+      {#if marks.length}<span><i class="flag"></i>Marker</span>{/if}
       <span class="small">7-day averages</span>
     </div>
   {/if}
@@ -79,6 +92,7 @@
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
   .legend i.dash { background: repeating-linear-gradient(90deg, #f2f2f0 0 3px, transparent 3px 5px); }
+  .legend i.flag { width: 3px; height: 12px; background: #b69cff; }
   .legend .small { margin-left: auto; font-size: 11px; color: #6f757b; }
   .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

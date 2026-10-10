@@ -13,6 +13,7 @@
   import { shiftDay } from "../time";
   import { easeOut, ms } from "../motion";
   import { fitsSlot } from "../fit.svelte";
+  import { dayOfMoment, notes } from "../notes.svelte";
   /** In a tablet slot, the squares also fit the slot's height. */
   const inSlot = fitsSlot();
   let graphHeight = $state(0);
@@ -135,6 +136,13 @@
     scroller?.scrollTo({ left: scroller.scrollWidth, behavior: "smooth" });
     if (lastDay) onpick?.(lastDay);
   }
+  // Days with a Marker get a small corner tick, and the Marker's text in the tooltip.
+  $effect(() => { notes.load(); });
+  const marked = $derived.by(() => {
+    const out = new Map<string, string[]>();
+    for (const m of notes.markers) { const d = dayOfMoment(m.at); out.set(d, [...(out.get(d) ?? []), m.text]); }
+    return out;
+  });
 </script>
 
 <section class="card" class:wide={!keyBelow} style="--cell: {cell}px; --ycell: {yearCell}px">
@@ -159,7 +167,7 @@
             <span class="month">{week.month}</span>
             {#each week.days as c (c.day)}
               {#if c.blank}<div class="h blank"></div>
-              {:else}<button class="h h{c.level}" class:sel={c.day === selected} title={c.day} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+              {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={[c.day, ...(marked.get(c.day) ?? [])].join("\n")} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
             {/each}
           {/each}
         </div>
@@ -170,7 +178,7 @@
               <span class="month">{week.month}</span>
               {#each week.days as c (c.day)}
                 {#if c.blank}<div class="h blank"></div>
-                {:else}<button class="h h{c.level}" class:sel={c.day === selected} title={c.day} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+                {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={[c.day, ...(marked.get(c.day) ?? [])].join("\n")} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
               {/each}
             {/each}
           </div>
@@ -227,7 +235,10 @@
   /* Month names fade out early while zooming (--zoom-t runs 0 to 1), so they never show stretched. */
   .month { scroll-snap-align: start; align-items: flex-end; overflow: visible; opacity: clamp(0, (var(--zoom-t, 1) - .75) * 4, 1); }
   .h { aspect-ratio: 1; border-radius: 4px; background: #22262a; padding: 0; border: 0; display: block; width: 100%; }
-  button.h { cursor: pointer; }
+  button.h { cursor: pointer; position: relative; }
+  /* A Day with a Marker: a violet corner. */
+  .h.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid #b69cff; border-left: 6px solid transparent; border-top-right-radius: 3px; }
+  .yheat .h.marked::after { border-top-width: 4px; border-left-width: 4px; }
   /* The Day the hour chart is showing. */
   .h.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
   button.h:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }

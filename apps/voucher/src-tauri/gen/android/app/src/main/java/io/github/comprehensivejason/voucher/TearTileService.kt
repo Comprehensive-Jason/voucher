@@ -29,7 +29,7 @@ class TearTileService : TileService() {
         val d = Surfaces.last ?: return
         if (d.curfew || d.bank == 0) return
         Thread {
-            Enforcer.tear(this)
+            if (Enforcer.tear(this)) Questions.askReason(this)
             onStartListening()
         }.start()
     }

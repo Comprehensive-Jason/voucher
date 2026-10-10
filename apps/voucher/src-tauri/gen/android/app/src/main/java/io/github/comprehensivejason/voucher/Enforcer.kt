@@ -77,6 +77,7 @@ object Enforcer {
             runCatching { LedgerClient.post(connection, "/check-in?device=${android.net.Uri.encode(Store.deviceId(ctx))}") }
         }
         Moments.check(ctx, decision)
+        Questions.check(ctx, decision)
         Surfaces.refresh(ctx, decision)
         return decision
     }

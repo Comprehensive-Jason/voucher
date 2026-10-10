@@ -39,8 +39,11 @@ export class Live {
       // A tear's answer is the newest there is: polls still on their way were
       // asked before it landed, so they're dropped.
       this.#shown = ++this.#asked; this.data = data; this.error = null;
+      this.tornAt = Date.now();
     } catch (e) { this.error = String(e); }
   };
+  /** When this screen last unlocked, for the "Why now?" chips (0: not yet). */
+  tornAt = $state(0);
 
   /** Starts the clock and the poll; returns the function that stops them. */
   start(): () => void {

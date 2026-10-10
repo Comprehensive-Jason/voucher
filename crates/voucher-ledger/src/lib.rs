@@ -591,6 +591,34 @@ impl Entry {
     }
 }
 
+/// A dated note on the timeline: one written by hand ("new term",
+/// "dose up"), or one the Ledger wrote when a rule changed, so charts can
+/// show what was different before and after.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Marker {
+    pub at: Timestamp,
+    pub text: String,
+    /// Written by the Ledger for a rule change, not by hand.
+    #[serde(default)]
+    pub rule: bool,
+}
+
+/// The answer to "Did today go the way you wanted?", asked at Curfew.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Verdict {
+    Yes,
+    Mostly,
+    No,
+}
+
+/// Why an Unlock happened, tapped just after it (bored, tired, …).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Reason {
+    pub at: Timestamp,
+    pub reason: String,
+}
+
 /// One Day's score and log.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct DaySummary {
@@ -620,6 +648,10 @@ pub struct DaySummary {
     pub usage: BTreeMap<String, Vec<u32>>,
     /// The blocklist each of those apps belongs to, where a device said.
     pub usage_lists: BTreeMap<String, String>,
+    /// Markers that fall in this Day, oldest first.
+    pub markers: Vec<Marker>,
+    /// Minutes in each clock hour each device was silent (not enforcing).
+    pub silent: BTreeMap<String, Vec<u32>>,
 }
 
 /// One source's standing for a Day.
@@ -669,6 +701,15 @@ pub struct DayTotal {
     pub opens: u32,
     /// Of those, the ones that ended without an Unlock.
     pub walked: u32,
+    /// Whether any device reported Distraction minutes for this Day: without
+    /// a report, zero minutes means "not measured", not "none".
+    pub reported: bool,
+    /// Minutes in each clock hour each device was silent (not enforcing).
+    pub silent: BTreeMap<String, Vec<u32>>,
+    /// The Day's answer to "Did today go the way you wanted?".
+    pub verdict: Option<Verdict>,
+    /// Why each Unlock happened, where one was given: (clock hour, reason).
+    pub reasons: Vec<(u32, String)>,
 }
 
 /// What one Day earned, and the goal it had.
@@ -700,6 +741,9 @@ struct DayScore {
     /// Blocked opens and how many ended without an Unlock, by device.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     blocked: BTreeMap<String, (u32, u32)>,
+    /// Minutes per clock hour each device was silent, from its Gaps.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    silent: BTreeMap<String, Vec<u32>>,
 }
 
 impl DayScore {
@@ -715,6 +759,7 @@ impl DayScore {
             usage_lists: BTreeMap::new(),
             stretches: BTreeMap::new(),
             blocked: BTreeMap::new(),
+            silent: BTreeMap::new(),
         }
     }
 }
@@ -767,6 +812,18 @@ struct State {
     /// first two days after setup, while the rules are still being tuned.
     #[serde(default)]
     grace_until: Option<Timestamp>,
+    /// Every Marker, oldest first. Kept for good, like the Day scores.
+    #[serde(default)]
+    markers: Vec<Marker>,
+    /// Each Day's answer to the Curfew question.
+    #[serde(default)]
+    verdicts: BTreeMap<Date, Verdict>,
+    /// Why Unlocks happened, oldest first.
+    #[serde(default)]
+    reasons: Vec<Reason>,
+    /// Replay guesses, by period ("week 2026-10-05", "month 2026-10").
+    #[serde(default)]
+    guesses: BTreeMap<String, u32>,
 }
 
 fn set_up_already() -> bool {
@@ -790,6 +847,10 @@ impl Ledger {
                 setup_complete: false,
                 last_seen: BTreeMap::new(),
                 grace_until: None,
+                markers: Vec::new(),
+                verdicts: BTreeMap::new(),
+                reasons: Vec::new(),
+                guesses: BTreeMap::new(),
             },
         }
     }
@@ -1256,6 +1317,14 @@ impl Ledger {
             streak,
             by_source,
             log,
+            markers: self
+                .state
+                .markers
+                .iter()
+                .filter(|m| day_of(settings, m.at) == day)
+                .cloned()
+                .collect(),
+            silent: score.silent.clone(),
         }
     }
 
@@ -1272,6 +1341,14 @@ impl Ledger {
         let mut hours: BTreeMap<Date, Vec<u32>> = BTreeMap::new();
         let mut source_hours: BTreeMap<Date, BTreeMap<String, Vec<u32>>> = BTreeMap::new();
         let mut first_tears: BTreeMap<Date, Timestamp> = BTreeMap::new();
+        let mut reasons: BTreeMap<Date, Vec<(u32, String)>> = BTreeMap::new();
+        for r in &self.state.reasons {
+            let hour = u32::try_from(r.at.to_zoned(tz.clone()).hour()).unwrap_or(0);
+            reasons
+                .entry(day_of(settings, r.at))
+                .or_default()
+                .push((hour, r.reason.clone()));
+        }
         for entry in &self.state.log {
             match entry {
                 Entry::Earned { task, at, .. } => {
@@ -1332,6 +1409,10 @@ impl Ledger {
                         .map(|(app, hours)| (app, hours.iter().sum()))
                         .collect(),
                     used_lists: score.map(|s| s.usage_lists.clone()).unwrap_or_default(),
+                    reported: score.is_some_and(|s| !s.usage.is_empty()),
+                    silent: score.map(|s| s.silent.clone()).unwrap_or_default(),
+                    verdict: self.state.verdicts.get(&day).copied(),
+                    reasons: reasons.remove(&day).unwrap_or_default(),
                 }
             })
             .collect()
@@ -1406,6 +1487,7 @@ impl Ledger {
             score.usage.clear();
             score.usage_lists.clear();
             score.stretches.clear();
+            score.silent.clear();
         }
     }
 
@@ -1456,7 +1538,7 @@ impl Ledger {
             self.state
                 .pending
                 .retain(|(queued, _)| !same_setting(queued, &change));
-            self.apply(change);
+            self.apply(change, now);
             return Effect::Now;
         }
         if let Change::DailyGoal(_) = change {
@@ -1478,7 +1560,7 @@ impl Ledger {
             self.state
                 .pending
                 .retain(|(queued, _)| !same_setting(queued, &change));
-            self.apply(change);
+            self.apply(change, now);
             Effect::Now
         }
     }
@@ -1540,8 +1622,31 @@ impl Ledger {
         }
     }
 
-    fn apply(&mut self, change: Change) {
+    /// Applies a change, leaving a rule Marker for any that changes what is
+    /// blocked or earned (cosmetic ones leave none). Changes a minute or so
+    /// apart, such as several apps added in one sitting, share one Marker.
+    fn apply(&mut self, change: Change, at: Timestamp) {
+        let text = describe(&self.state.settings, &change);
         apply_to(&mut self.state.settings, change);
+        let Some(text) = text.filter(|_| self.state.setup_complete) else {
+            return;
+        };
+        match self.state.markers.last_mut() {
+            Some(last)
+                if last.rule
+                    && last.at.duration_until(at) < SignedDuration::from_mins(10)
+                    && last.text.len() < 400 =>
+            {
+                if !last.text.split("; ").any(|t| t == text) {
+                    last.text = format!("{}; {text}", last.text);
+                }
+            }
+            _ => self.state.markers.push(Marker {
+                at,
+                text,
+                rule: true,
+            }),
+        }
     }
 
     /// What is blocked right now, merged across switched-on blocklists.
@@ -1559,7 +1664,7 @@ impl Ledger {
             return false;
         }
         for change in changes {
-            self.apply(change);
+            self.apply(change, now);
         }
         self.state.setup_complete = finish;
         if finish {
@@ -1602,6 +1707,7 @@ impl Ledger {
                     device: device.to_string(),
                     until: now,
                 });
+                self.note_silence(device, previous, now);
             }
         }
     }
@@ -1634,10 +1740,293 @@ impl Ledger {
             .into_iter()
             .partition(|&(_, effective_at)| effective_at <= now);
         self.state.pending = waiting;
-        for (change, _) in due {
-            self.apply(change);
+        for (change, at) in due {
+            self.apply(change, at);
         }
     }
+}
+
+/// Markers, the Curfew question, Unlock reasons, Replay guesses, and export.
+impl Ledger {
+    /// Spreads a device's silence over the clock hours of the Days it
+    /// covers, so Trends can tell "not enforced" from "nothing used".
+    fn note_silence(&mut self, device: &str, from: Timestamp, until: Timestamp) {
+        let settings = &self.state.settings;
+        let tz = settings.time_zone.clone();
+        let goal = settings.daily_goal;
+        let oldest = days_before(day_of(settings, until), LOG_DAYS);
+        // Hour by hour: the first and last hours are partial.
+        let mut at = from;
+        while at < until {
+            let local = at.to_zoned(tz.clone());
+            let hour_end = local
+                .start_of_day()
+                .ok()
+                .and_then(|d| d.checked_add(jiff::Span::new().hours(i64::from(local.hour()) + 1)).ok())
+                .map(|z| z.timestamp())
+                .unwrap_or(until)
+                .min(until);
+            let day = day_of(&self.state.settings, at);
+            let minutes = u32::try_from(at.duration_until(hour_end).as_mins()).unwrap_or(0);
+            if day >= oldest && minutes > 0 {
+                let hours = self
+                    .state
+                    .days
+                    .entry(day)
+                    .or_insert(DayScore::new(goal))
+                    .silent
+                    .entry(device.to_string())
+                    .or_insert_with(|| vec![0; 24]);
+                let h = usize::try_from(local.hour()).unwrap_or(0);
+                hours[h] = (hours[h] + minutes).min(60);
+            }
+            if hour_end <= at {
+                break;
+            }
+            at = hour_end;
+        }
+    }
+
+    /// Every Marker, oldest first.
+    pub fn markers(&self) -> &[Marker] {
+        &self.state.markers
+    }
+
+    /// Adds a hand-written Marker at `at` (now if None). Refuses empty or
+    /// overlong text and moments in the future.
+    pub fn add_marker(&mut self, text: &str, at: Option<Timestamp>, now: Timestamp) -> Option<Marker> {
+        let text = text.trim();
+        let at = at.unwrap_or(now);
+        if text.is_empty() || text.chars().count() > 200 || at > now {
+            return None;
+        }
+        let marker = Marker {
+            at,
+            text: text.to_string(),
+            rule: false,
+        };
+        let place = self.state.markers.partition_point(|m| m.at <= at);
+        self.state.markers.insert(place, marker.clone());
+        Some(marker)
+    }
+
+    /// Removes the hand-written Marker at `at`. Rule Markers stay: they
+    /// record what the Ledger did.
+    pub fn remove_marker(&mut self, at: Timestamp) -> bool {
+        let before = self.state.markers.len();
+        self.state.markers.retain(|m| m.rule || m.at != at);
+        self.state.markers.len() != before
+    }
+
+    /// Answers the Curfew question for `day` (None clears it). Only today
+    /// and the six Days before can be answered.
+    pub fn set_verdict(&mut self, day: Date, verdict: Option<Verdict>, now: Timestamp) -> bool {
+        let today = day_of(&self.state.settings, now);
+        if day > today || day < days_before(today, 6) {
+            return false;
+        }
+        match verdict {
+            Some(v) => self.state.verdicts.insert(day, v),
+            None => self.state.verdicts.remove(&day),
+        };
+        true
+    }
+
+    /// Records why an Unlock happened. A second reason within a minute of the
+    /// first replaces it (a changed mind, not a second Unlock).
+    pub fn add_reason(&mut self, reason: &str, now: Timestamp) -> bool {
+        let reason = reason.trim();
+        if reason.is_empty() || reason.chars().count() > 40 {
+            return false;
+        }
+        if let Some(last) = self.state.reasons.last_mut() {
+            if last.at.duration_until(now) < SignedDuration::from_mins(1) {
+                last.reason = reason.to_string();
+                return true;
+            }
+        }
+        self.state.reasons.push(Reason {
+            at: now,
+            reason: reason.to_string(),
+        });
+        true
+    }
+
+    /// Replay guesses, by period.
+    pub fn guesses(&self) -> &BTreeMap<String, u32> {
+        &self.state.guesses
+    }
+
+    /// Keeps the first guess for a period; a guess can't be changed once
+    /// the answer has been seen.
+    pub fn guess(&mut self, period: &str, guess: u32) -> bool {
+        if period.is_empty() || period.len() > 40 || self.state.guesses.contains_key(period) {
+            return false;
+        }
+        self.state.guesses.insert(period.to_string(), guess);
+        true
+    }
+
+    /// Every Day from the first to today as CSV, one row each, for questions
+    /// no card answers yet. Per-source columns only cover Days the log keeps.
+    pub fn days_csv(&mut self, now: Timestamp) -> String {
+        let first = self.first_day(now);
+        let today = day_of(&self.state.settings, now);
+        let span = u32::try_from(first.until(today).map_or(0, |s| s.get_days())).unwrap_or(0) + 1;
+        let days = self.history(span, now);
+        let tz = self.state.settings.time_zone.clone();
+        let sources: Vec<String> = self.state.settings.sources.keys().cloned().collect();
+        let mut out = String::from(
+            "day,goal,earned,goal_met,vouchers_torn,unlocked_minutes,distraction_minutes,reported,opens,walked_away,longest_stretch,silent_minutes,verdict,reasons,markers",
+        );
+        for id in &sources {
+            out.push_str(&format!(",earned_{id}"));
+        }
+        out.push('\n');
+        let settings = &self.state.settings;
+        for d in &days {
+            let used: u32 = d.used.values().sum();
+            let silent: u32 = d.silent.values().map(|h| h.iter().sum::<u32>()).max().unwrap_or(0);
+            let verdict = match d.verdict {
+                Some(Verdict::Yes) => "yes",
+                Some(Verdict::Mostly) => "mostly",
+                Some(Verdict::No) => "no",
+                None => "",
+            };
+            let reasons: Vec<&str> = d.reasons.iter().map(|(_, r)| r.as_str()).collect();
+            let markers: Vec<String> = self
+                .state
+                .markers
+                .iter()
+                .filter(|m| day_of(settings, m.at) == d.day)
+                .map(|m| format!("{} {}", m.at.to_zoned(tz.clone()).strftime("%H:%M"), m.text))
+                .collect();
+            out.push_str(&format!(
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                d.day,
+                d.goal,
+                d.earned,
+                d.goal_met,
+                d.redeemed,
+                d.unlocked_minutes,
+                if d.reported { used.to_string() } else { String::new() },
+                d.reported,
+                d.opens,
+                d.walked,
+                d.stretches.iter().max().map_or(String::new(), u32::to_string),
+                silent,
+                verdict,
+                csv_field(&reasons.join("; ")),
+                csv_field(&markers.join(" | ")),
+            ));
+            for id in &sources {
+                out.push_str(&format!(",{}", d.by_source.get(id).copied().unwrap_or(0)));
+            }
+            out.push('\n');
+        }
+        out
+    }
+
+    /// Everything Trends knows, as one JSON document: every Day, Markers,
+    /// guesses, and the settings in force.
+    pub fn export_json(&mut self, now: Timestamp) -> serde_json::Value {
+        let first = self.first_day(now);
+        let today = day_of(&self.state.settings, now);
+        let span = u32::try_from(first.until(today).map_or(0, |s| s.get_days())).unwrap_or(0) + 1;
+        serde_json::json!({
+            "exported_at": now,
+            "days": self.history(span, now),
+            "markers": self.state.markers,
+            "guesses": self.state.guesses,
+            "settings": self.state.settings,
+        })
+    }
+}
+
+/// A CSV field, quoted when it holds a comma, quote, or line break.
+fn csv_field(text: &str) -> String {
+    if text.contains([',', '"', '\n']) {
+        format!("\"{}\"", text.replace('"', "\"\""))
+    } else {
+        text.to_string()
+    }
+}
+
+/// What a rule change did, in words, for its Marker; None for cosmetic ones.
+fn describe(settings: &Settings, change: &Change) -> Option<String> {
+    let source = |id: &str| {
+        settings
+            .sources
+            .get(id)
+            .map(|s| s.name.clone())
+            .filter(|n| !n.is_empty())
+            .unwrap_or_else(|| id.to_string())
+    };
+    let list = |id: &str| {
+        settings
+            .blocklists
+            .get(id)
+            .map_or_else(|| id.to_string(), |l| l.name.clone())
+    };
+    Some(match change {
+        Change::UnlockMinutes(m) => format!("Unlocks last {m} min"),
+        Change::BankLimit(n) => format!("Bank holds {n}"),
+        Change::Curfew { start, end } => format!(
+            "Curfew {} to {}",
+            start.strftime("%H:%M"),
+            end.strftime("%H:%M")
+        ),
+        Change::DailyGoal(n) => format!("Daily goal {n}"),
+        Change::Source { id, on: false, .. } => format!("{} off", source(id)),
+        Change::Source { id, every, .. } => {
+            let unit = match settings.sources.get(id).map(|s| s.kind) {
+                Some(SourceKind::Tasks) => "tasks",
+                Some(SourceKind::Steps) => "steps",
+                _ => "min",
+            };
+            format!("{} pays every {every} {unit}", source(id))
+        }
+        Change::AddSource { source: s, id } => format!(
+            "New source {}",
+            if s.name.is_empty() { id } else { &s.name }
+        ),
+        Change::DeleteSource(id) => format!("Removed source {}", source(id)),
+        Change::SourceApps { id, .. } => format!("{} apps changed", source(id)),
+        Change::MaxHeartRate(bpm) => format!("Max heart rate {bpm}"),
+        Change::NewBlocklist { list: l, .. } => format!("New blocklist {}", l.name),
+        Change::BlocklistOn { id, on } => {
+            format!("{} {}", list(id), if *on { "on" } else { "off" })
+        }
+        Change::BlockApp { list: l, app } => format!(
+            "{} {} in {}",
+            app.label,
+            if app.on { "blocked" } else { "unblocked" },
+            list(l)
+        ),
+        Change::BlockSite { list: l, site } => format!(
+            "{} {} in {}",
+            site.site,
+            if site.on { "blocked" } else { "unblocked" },
+            list(l)
+        ),
+        Change::RemoveApp { list: l, package } => {
+            let label = settings
+                .blocklists
+                .get(l)
+                .and_then(|b| b.apps.iter().find(|a| &a.package == package))
+                .map_or(package.as_str(), |a| a.label.as_str());
+            format!("{label} removed from {}", list(l))
+        }
+        Change::RemoveSite { list: l, site } => format!("{site} removed from {}", list(l)),
+        Change::ResetBlocklist(id) => format!("{} reset", list(id)),
+        Change::DeleteBlocklist(id) => format!("Deleted blocklist {}", list(id)),
+        Change::ReleaseDevice(d) => format!("{d} released"),
+        Change::KeepDevice(d) => format!("{d} kept"),
+        Change::RenameSource { .. }
+        | Change::RenameBlocklist { .. }
+        | Change::SourceColor { .. }
+        | Change::BlocklistColor { .. } => return None,
+    })
 }
 
 /// How long an Enforcer can stay silent before the silence is a Gap. It

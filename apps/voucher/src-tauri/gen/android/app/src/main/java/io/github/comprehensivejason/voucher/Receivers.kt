@@ -37,7 +37,7 @@ class ActionReceiver : BroadcastReceiver() {
         if (intent.action != TEAR) return
         val pending = goAsync()
         Thread {
-            try { Enforcer.tear(context) } finally { pending.finish() }
+            try { if (Enforcer.tear(context)) Questions.askReason(context) } finally { pending.finish() }
         }.start()
     }
 

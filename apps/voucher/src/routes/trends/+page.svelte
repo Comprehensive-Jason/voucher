@@ -18,6 +18,9 @@
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
+  import Verdicts from "$lib/panels/trends/Verdicts.svelte";
+  import Compare from "$lib/panels/trends/Compare.svelte";
+  import Reasons from "$lib/panels/trends/Reasons.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import { selection } from "$lib/selection.svelte";
   import { setCurfew } from "$lib/curfew.svelte";
@@ -80,6 +83,9 @@
     <GoodDays {history} />
     <FocusStretches {history} />
     <WalkAway {history} />
+    <Verdicts {history} />
+    <Compare {history} />
+    <Reasons {history} />
   {/if}
 </main>
 

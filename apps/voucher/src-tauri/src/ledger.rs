@@ -199,6 +199,10 @@ impl Client {
             .body_mut()
             .read_to_string()
             .map_err(|e| e.to_string())?;
+        // Exports such as `/export/days.csv` come back as one string.
+        if path.split('?').next().is_some_and(|p| p.ends_with(".csv")) {
+            return Ok(serde_json::Value::String(text));
+        }
         serde_json::from_str(&text).map_err(|e| format!("Unexpected Ledger reply: {e}"))
     }
 

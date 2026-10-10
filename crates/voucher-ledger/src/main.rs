@@ -230,6 +230,7 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
     let mut ledger = ledger.lock().unwrap();
     let url = request.url().to_string();
     let (path, query) = url.split_once('?').unwrap_or((&url, ""));
+    let mut content_type = "application/json";
     let (status, body) = match (request.method(), path) {
         (Method::Get, "/status") => (200, status_json(&mut ledger, now)),
         (Method::Get, "/unlock") => match ledger.current_unlock(now) {
@@ -423,6 +424,80 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 }),
             ),
         },
+        // Dated notes on the timeline, oldest first.
+        (Method::Get, "/markers") => (200, json(&ledger.markers())),
+        // A hand-written Marker: {"text": …, "at"?: timestamp}.
+        (Method::Post, "/marker") => match read_json::<NewMarker>(&mut request) {
+            Some(m) => match ledger.add_marker(&m.text, m.at, now) {
+                Some(marker) => (200, json(&marker)),
+                None => (
+                    400,
+                    json(&Message {
+                        message: "a Marker needs 1 to 200 characters and a moment not in the future",
+                    }),
+                ),
+            },
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not a Marker",
+                }),
+            ),
+        },
+        // Removes a hand-written Marker: `?at=<timestamp>`.
+        (Method::Post, "/marker/remove") => {
+            match param(query, "at").and_then(|a| a.replace("%3A", ":").parse().ok()) {
+                Some(at) if ledger.remove_marker(at) => (200, json(&ledger.markers())),
+                _ => (
+                    404,
+                    json(&Message {
+                        message: "no hand-written Marker at that moment",
+                    }),
+                ),
+            }
+        }
+        // The Curfew question: {"day": "2026-10-09", "verdict": "yes" | "mostly" | "no" | null}.
+        (Method::Post, "/verdict") => match read_json::<NewVerdict>(&mut request) {
+            Some(v) if ledger.set_verdict(v.day, v.verdict, now) => {
+                (200, json(&Message { message: "kept" }))
+            }
+            _ => (
+                400,
+                json(&Message {
+                    message: "needs a day from the last week and yes, mostly, no, or null",
+                }),
+            ),
+        },
+        // Why the Unlock just now happened: {"reason": "bored"}.
+        (Method::Post, "/reason") => match read_json::<NewReason>(&mut request) {
+            Some(r) if ledger.add_reason(&r.reason, now) => {
+                (200, json(&Message { message: "kept" }))
+            }
+            _ => (
+                400,
+                json(&Message {
+                    message: "a reason is 1 to 40 characters",
+                }),
+            ),
+        },
+        (Method::Get, "/guesses") => (200, json(ledger.guesses())),
+        // A Replay guess: {"period": "week 2026-10-05", "guess": 4}. The first one stands.
+        (Method::Post, "/guess") => match read_json::<NewGuess>(&mut request) {
+            Some(g) if ledger.guess(&g.period, g.guess) => (200, json(ledger.guesses())),
+            _ => (
+                409,
+                json(&Message {
+                    message: "that period already has a guess",
+                }),
+            ),
+        },
+        // Every Day as CSV, one row each.
+        (Method::Get, "/export/days.csv") => {
+            content_type = "text/csv; charset=utf-8";
+            (200, ledger.days_csv(now))
+        }
+        // Every Day, Marker, and guess, and the settings, as JSON.
+        (Method::Get, "/export.json") => (200, json(&ledger.export_json(now))),
         // The public key, for a device connecting for the first time.
         (Method::Get, "/key") => (200, json(&ledger.public_key())),
         (Method::Post, "/change") => {
@@ -494,7 +569,7 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
     };
     save(&ledger, state_path);
     drop(ledger);
-    let content_type = Header::from_bytes("Content-Type", "application/json").unwrap();
+    let content_type = Header::from_bytes("Content-Type", content_type).unwrap();
     let response = Response::from_string(body)
         .with_status_code(status)
         .with_header(content_type);
@@ -565,6 +640,36 @@ struct Report {
     minutes: u32,
     #[serde(default)]
     title: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct NewMarker {
+    text: String,
+    at: Option<Timestamp>,
+}
+
+#[derive(serde::Deserialize)]
+struct NewVerdict {
+    day: jiff::civil::Date,
+    verdict: Option<voucher_ledger::Verdict>,
+}
+
+#[derive(serde::Deserialize)]
+struct NewReason {
+    reason: String,
+}
+
+#[derive(serde::Deserialize)]
+struct NewGuess {
+    period: String,
+    guess: u32,
+}
+
+/// A request's body as JSON, or None if it isn't `T`.
+fn read_json<T: serde::de::DeserializeOwned>(request: &mut Request) -> Option<T> {
+    let mut body = String::new();
+    request.as_reader().read_to_string(&mut body).ok()?;
+    serde_json::from_str(&body).ok()
 }
 
 #[derive(Serialize)]

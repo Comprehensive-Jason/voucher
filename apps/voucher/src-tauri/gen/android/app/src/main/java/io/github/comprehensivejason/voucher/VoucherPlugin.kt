@@ -22,6 +22,9 @@ class PackageArgs { var pkg: String = "" }
 @InvokeArg
 class HomeArgs { var closed: Boolean = false }
 
+@InvokeArg
+class ShareArgs { var title: String = ""; var text: String = "" }
+
 /**
  * What the interface asks of the phone itself. Reached from Rust's `device`
  * command; everything slow runs off the main thread.
@@ -107,6 +110,18 @@ class VoucherPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun healthGranted(invoke: Invoke) = background(invoke) { Health.granted(activity) }
+
+    /** Hands text (an export) to Android's share sheet: Obsidian, Drive, a file manager, … */
+    @Command
+    fun share(invoke: Invoke) {
+        val args = invoke.parseArgs(ShareArgs::class.java)
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(Intent.EXTRA_SUBJECT, args.title)
+            .putExtra(Intent.EXTRA_TITLE, args.title)
+            .putExtra(Intent.EXTRA_TEXT, args.text)
+        activity.startActivity(Intent.createChooser(send, args.title))
+        invoke.resolve()
+    }
 
     @Command
     fun deviceId(invoke: Invoke) = invoke.resolve(JSObject().put("value", Store.deviceId(activity)))

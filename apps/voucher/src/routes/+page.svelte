@@ -9,7 +9,7 @@
   import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
   import { fillSlots } from "$lib/fit.svelte";
   import { EASE, ms } from "$lib/motion";
-  import { deviceUsage, ledger } from "$lib/api";
+  import { deviceUsage, exportDays, ledger } from "$lib/api";
   import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$lib/wide.svelte";
   import { historyDays } from "$lib/time";
@@ -33,6 +33,10 @@
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
+  import VerdictSheet from "$lib/components/VerdictSheet.svelte";
+  import Verdicts from "$lib/panels/trends/Verdicts.svelte";
+  import Compare from "$lib/panels/trends/Compare.svelte";
+  import Reasons from "$lib/panels/trends/Reasons.svelte";
   import type { DayTotal, DeviceUsage, Status } from "$lib/types";
 
   /** The space between cards, both ways, in px (the CSS --gap). */
@@ -283,7 +287,10 @@
       {:else if id === "arrows"}<TrendArrows {history} timeZone={status.settings.time_zone} />
       {:else if id === "replay"}<Replay {history} />
       {:else if id === "focus"}<FocusStretches {history} />
-      {:else if id === "walkaway"}<WalkAway {history} />{/if}
+      {:else if id === "walkaway"}<WalkAway {history} />
+      {:else if id === "verdicts"}<Verdicts {history} />
+      {:else if id === "compare"}<Compare {history} />
+      {:else if id === "reasons"}<Reasons {history} />{/if}
     {/if}
   {/snippet}
   <div class="wide">
@@ -336,6 +343,7 @@
             </button>
             <span class="hint">Or hold any card's heading</span>
             <button class="arrange" onclick={() => goto("/preview")}>Wallpaper and watch preview</button>
+            <button class="arrange" onclick={() => exportDays().catch(() => {})}>Export every Day (CSV)</button>
           {/if}
         </div>
       </div>
@@ -358,6 +366,7 @@
 {:else}
   <main><TodayColumn {live} /></main>
 {/if}
+<VerdictSheet curfewActive={live.data?.curfewActive ?? false} />
 
 <style>
   main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }

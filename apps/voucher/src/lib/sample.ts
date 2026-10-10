@@ -62,6 +62,14 @@ const days: Record<string, DaySummary> = {
   },
 };
 
+/** Sample Markers: one by hand, two from rule changes. */
+let markers = [
+  { at: "2026-08-24T09:00:00-07:00", text: "Fall term starts", rule: false },
+  { at: "2026-09-14T10:12:00-07:00", text: "Daily goal 16", rule: true },
+  { at: "2026-10-02T21:30:00-07:00", text: "Instagram blocked in Social; Curfew 22:00 to 06:00", rule: true },
+];
+const guesses: Record<string, number> = { "week 2026-09-28": 4 };
+
 function blankDay(day: string): DaySummary {
   return { day, earned: 16, redeemed: 6, unlocked_minutes: 60, goal: 16, goal_met: true, goal_met_at: null,
     streak: 4, by_source: {}, log: [], sources: [] };
@@ -104,7 +112,14 @@ function history(n: number): DayTotal[] {
     const grow = 1 - back / n;
     const stretches = Array.from({ length: 2 + (seed % 4) }, (_, i) => Math.round(8 + grow * 25 + ((seed >> (i + 2)) % 30)));
     const opens = 3 + (seed % 9), walked = Math.round(opens * (0.5 + grow * 0.35));
-    out.push({ day: d, earned, redeemed, goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used, goal: 16, hours, first_tear, source_hours, stretches, opens, walked });
+    // Answers to the Curfew question on most Days, a few reasons, and a silent afternoon now and then.
+    const verdict = seed % 5 === 0 ? null : earned >= 16 ? (seed % 7 === 0 ? "mostly" : "yes") : earned >= 10 ? (seed % 3 ? "mostly" : "yes") : "no";
+    const reasons: [number, string][] = redeemed ? [[tearAt, ["bored", "avoiding a task", "tired", "anxious", "habit"][seed % 5]]] : [];
+    const silent: Record<string, number[]> = {};
+    if (seed % 11 === 0) { const h = Array<number>(24).fill(0); h[14] = 60; h[15] = 35; silent.phone = h; }
+    const reported = back < 150;
+    out.push({ day: d, earned, redeemed, goal_met: earned >= 16, by_source, unlocked_minutes: unlocked, used: reported ? used : {}, goal: 16, hours, first_tear, source_hours, stretches, opens, walked,
+      reported, verdict: back === 0 ? null : verdict as DayTotal["verdict"], reasons, silent });
   }
   return out;
 }
@@ -166,6 +181,18 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     return days[d] ?? blankDay(d);
   }
   if (route === "/history") return history(Number(params.get("days") ?? 84));
+  if (route === "/markers") return markers;
+  if (route === "/marker" && method === "POST") {
+    const b = body as { text: string; at?: string };
+    markers = [...markers, { at: b.at ?? new Date().toISOString(), text: b.text, rule: false }].sort((a, c) => a.at.localeCompare(c.at));
+    return markers.at(-1);
+  }
+  if (route === "/marker/remove") { markers = markers.filter((m) => m.rule || m.at !== params.get("at")); return markers; }
+  if (route === "/guesses") return guesses;
+  if (route === "/guess") { const b = body as { period: string; guess: number }; guesses[b.period] ??= b.guess; return guesses; }
+  if (route === "/verdict" || route === "/reason") return { message: "kept" };
+  if (route === "/export/days.csv") return "day,goal,earned\n2026-10-07,16,11\n";
+  if (route === "/export.json") return { days: history(30), markers, guesses };
   if (route === "/cancel") {
     pending = pending.filter((_, i) => i !== Number(params.get("index")));
     return sampleLedger("GET", "/status", null);

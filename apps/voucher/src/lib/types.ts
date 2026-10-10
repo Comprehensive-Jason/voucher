@@ -83,7 +83,17 @@ export interface DaySummary {
   usage?: Record<string, number[]>;
   /** The blocklist (id) each of those apps is on, where a device said. */
   usage_lists?: Record<string, string>;
+  /** Markers that fall in this Day, oldest first. */
+  markers?: Marker[];
+  /** Minutes in each clock hour each device was silent (not enforcing). */
+  silent?: Record<string, number[]>;
 }
+
+/** A dated note on the timeline, by hand or (rule) written by the Ledger when a rule changed. */
+export interface Marker { at: string; text: string; rule: boolean }
+
+/** The answer to "Did today go the way you wanted?". */
+export type Verdict = "yes" | "mostly" | "no";
 
 /** One Day in the Ledger's `GET /history`. */
 export interface DayTotal {
@@ -109,6 +119,14 @@ export interface DayTotal {
   /** Opens of a blocked app, and how many ended without an Unlock. */
   opens?: number;
   walked?: number;
+  /** Whether any device reported Distraction minutes: if not, zero means "not measured". */
+  reported?: boolean;
+  /** Minutes in each clock hour each device was silent (not enforcing). */
+  silent?: Record<string, number[]>;
+  /** The Day's answer to the Curfew question. */
+  verdict?: Verdict | null;
+  /** Why each Unlock happened, where one was given: [clock hour, reason]. */
+  reasons?: [number, string][];
 }
 
 /** What the phone itself measured today, from the Android side. */

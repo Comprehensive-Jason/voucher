@@ -8,6 +8,7 @@
   import StatusCard from "../components/StatusCard.svelte";
   import NextVoucher from "../components/NextVoucher.svelte";
   import MomentSheet from "../components/MomentSheet.svelte";
+  import ReasonChips from "../components/ReasonChips.svelte";
   import type { Live } from "../live.svelte";
   import { wins } from "../celebrate.svelte";
 
@@ -19,6 +20,7 @@
   <Header night={live.mode === "curfew"} rules={wide} />
   <BankMeter mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
   <VoucherStack mode={live.mode} bank={Math.max(0, data.bank - wins.held)} unlockMinutes={data.unlockMinutes} room={data.curfewRoomMinutes} curfewStart={data.curfewStart} ontear={live.tear} />
+  <ReasonChips tornAt={live.tornAt} />
   <StatusCard mode={live.mode} now={live.now} {data} />
   <NextVoucher sources={data.sources} bank={data.bank} />
   <MomentSheet {data} />
