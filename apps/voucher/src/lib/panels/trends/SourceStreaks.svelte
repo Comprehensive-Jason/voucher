@@ -111,10 +111,11 @@
   /* The Days scroll sideways, inside the card, with room inside the edges
      for the shared Day's outline, which the scroller would otherwise clip.
      The names and runs beside it move down by the same room. */
-  .scroll { flex: 1; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 3px; }
-  .side { padding-top: 3px; }
+  .scroll { flex: 1; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 4px; }
+  .side { padding-top: 4px; }
   .scroll::-webkit-scrollbar { display: none; }
-  .track { display: grid; grid-auto-rows: var(--cell); grid-template-rows: 14px; gap: var(--gap); }
+  /* As wide as its Days, so the scroller's padding comes after the last one. */
+  .track { display: grid; grid-auto-rows: var(--cell); grid-template-rows: 14px; gap: var(--gap); width: max-content; }
   .date { position: relative; }
   .date b { position: absolute; left: 0; bottom: 1px; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); white-space: nowrap; }
   .date.month b { color: var(--muted); font-weight: 700; }
