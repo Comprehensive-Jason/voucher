@@ -224,11 +224,15 @@
   // stops at any column, and the bar lights the page mostly in view. The end
   // tile counts as a column.
   const pageCount = $derived(Math.ceil((arrangement.columns.length + 1) / 2));
-  let page = $state(0);
+  /** The pages in view, first and last: the same page when it sits square, two when the view straddles them. */
+  let pages = $state({ a: 0, b: 0 });
   /** One page's width: two columns and the gap after them. */
   const pageWidth = () => 2 * ((strip?.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0) + 24);
   function onStripScroll() {
-    if (strip && pageWidth()) page = Math.min(pageCount - 1, Math.round(strip.scrollLeft / pageWidth()));
+    if (!strip || !pageWidth()) return;
+    const at = strip.scrollLeft / pageWidth();
+    const a = Math.min(pageCount - 1, Math.floor(at + 0.04));
+    pages = { a, b: Math.min(pageCount - 1, Math.max(a, Math.ceil(at - 0.04))) };
   }
   function goPage(i: number) {
     strip?.scrollTo({ left: i * pageWidth(), behavior: "smooth" });
@@ -320,8 +324,11 @@
       <!-- Pages of two columns: tap one to go there. -->
       {#if pageCount > 1}
         <div class="pages" role="tablist" aria-label="Pages of charts">
+          <!-- One pill behind the numbers, stretching over both pages while the view sits across two. -->
+          <span class="thumb" style="left: {3 + pages.a * 44}px; width: {40 + (pages.b - pages.a) * 44}px"></span>
           {#each Array(pageCount) as _, i (i)}
-            <button role="tab" aria-selected={page === i} class:on={page === i} onclick={() => goPage(i)}>{i + 1}</button>
+            {@const on = i >= pages.a && i <= pages.b}
+            <button role="tab" aria-selected={on} class:on onclick={() => goPage(i)}>{i + 1}</button>
           {/each}
         </div>
       {/if}
@@ -381,8 +388,9 @@
   /* Just under the cards, in the page's bottom margin, so it covers nothing. */
   /* Under the cards, centred on them, in the page's bottom margin. */
   .pages { position: absolute; left: 50%; bottom: -46px; transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }
-  .pages button { width: 40px; height: 32px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: background-color var(--t-base), color var(--t-base); }
-  .pages button.on { background: var(--line); color: var(--ink); }
+  .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), width var(--t-move) var(--ease-out); }
+  .pages button { position: relative; width: 40px; height: 32px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: background-color var(--t-base), color var(--t-base); }
+  .pages button.on { color: var(--ink); }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
   /* Everything in the Today column keeps its size; the list of sources takes
      what's left and scrolls under its fixed heading when it's long. */
