@@ -119,6 +119,8 @@
   function onPress(e: PointerEvent, id: PanelId) {
     const target = e.target as HTMLElement;
     if (target.closest("button, a, input")) return;
+    // Upright, the cards are one column in Arrange's order; arranging happens on its side.
+    if (wide.portrait) return;
     if (arranging) { startDrag(id, e.clientX, e.clientY, e.pointerId); return; }
     // Only a heading starts arranging, so a hold on a chart or a list does its own thing.
     if (!target.closest(".cardhead, header, .tab")) return;
@@ -304,6 +306,22 @@
       {:else if id === "reasons"}<Reasons {history} />{/if}
     {/if}
   {/snippet}
+  {#if wide.portrait}
+  <!-- Upright: the Today column and one column of cards, scrolling up and
+       down, in Arrange's order and sizes (a third is about a landscape
+       third's height). -->
+  <div class="wide portrait">
+    <section class="col today"><TodayColumn {live} wide /></section>
+    <div class="vstrip" role="group" aria-label="Charts">
+      {#each arrangement.order as id (id)}
+        <div class="slot" role="group" aria-label={PANELS[id].name} style="height: calc({arrangement.size(id)} * var(--third) + {arrangement.size(id) - 1} * var(--gap)); flex: none">
+          <span class="tab"><CardTab name={PANELS[id].name} /></span>
+          {@render panel(id)}
+        </div>
+      {/each}
+    </div>
+  </div>
+  {:else}
   <div class="wide">
     <section class="col today"><TodayColumn {live} wide /></section>
     <div class="stripwrap">
@@ -374,6 +392,7 @@
       {/if}
     </div>
   </div>
+  {/if}
 {:else}
   <main><TodayColumn {live} /></main>
 {/if}
@@ -387,6 +406,11 @@
      scrolls exactly into place, the last one too. The bottom margin is deep enough to hold the "more" and Done pills well clear of the screen's edge. */
   .wide { --gap: 20px; height: 100%; display: flex; gap: var(--gap); padding: calc(28px + env(safe-area-inset-top)) 28px calc(72px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
   .wide > .today { flex: 0 0 calc((100% - 2 * var(--gap)) / 3); }
+  /* Upright: two equal columns, the cards scrolling up and down; no page bar, so less room at the bottom. */
+  .wide.portrait { --third: 300px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+  .wide.portrait > .today { flex: 0 0 calc((100% - var(--gap)) / 2); }
+  .vstrip { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--gap); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
+  .vstrip::-webkit-scrollbar { display: none; }
   .stripwrap { position: relative; flex: 1; min-width: 0; display: flex; }
   /* One grid: a column per arrangement column (two in view), three equal
      rows, and the end tile after them. */
