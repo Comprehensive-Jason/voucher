@@ -212,22 +212,19 @@
     return () => el.removeEventListener("touchmove", stop);
   });
 
-  // How many columns sit off to the right, for the cue at the edge.
-  let more = $state(0);
-  function measureMore() {
-    if (!strip) return;
-    const right = strip.getBoundingClientRect().right;
-    more = [...strip.querySelectorAll<HTMLElement>(":scope > .snap")].filter((c) => c.getBoundingClientRect().left >= right - 8).length;
+  // ---- Pages ----
+  // The strip moves a page (two columns) at a time, by swipe or by the
+  // numbered bar under it; the end tile counts as a column.
+  const pageCount = $derived(Math.ceil((arrangement.columns.length + 1) / 2));
+  let page = $state(0);
+  /** One page's width: two columns and the gap after them. */
+  const pageWidth = () => 2 * ((strip?.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0) + 24);
+  function onStripScroll() {
+    if (strip && pageWidth()) page = Math.min(pageCount - 1, Math.round(strip.scrollLeft / pageWidth()));
   }
-  $effect(() => {
-    const el = strip;
-    if (!el) return;
-    arrangement.columns;
-    measureMore();
-    const resized = new ResizeObserver(measureMore);
-    resized.observe(el);
-    return () => resized.disconnect();
-  });
+  function goPage(i: number) {
+    strip?.scrollTo({ left: i * pageWidth(), behavior: "smooth" });
+  }
   $effect(() => {
     if (!wide.on) return;
     loadWide();
@@ -256,11 +253,13 @@
   <div class="wide">
     <section class="col today"><TodayColumn {live} wide /></section>
     <div class="stripwrap">
-      <div class="strip" role="group" aria-label="Charts" class:arranging class:dragging={!!dragging} bind:this={strip} onscroll={measureMore}
+      <div class="strip" role="group" aria-label="Charts" class:arranging class:dragging={!!dragging} bind:this={strip} onscroll={onStripScroll}
         onpointermove={onMove} onpointerup={onRelease} onpointercancel={onRelease}
         style="--rows: {ROWS}; --cols: {arrangement.columns.length}">
         <!-- One invisible marker per column for the strip to stop on. -->
-        {#each arrangement.columns as _, col (col)}<span class="snap" style="grid-column: {col + 1}"></span>{/each}
+        {#each Array(pageCount) as _, i (i)}<span class="snap" style="grid-column: {i * 2 + 1}"></span>{/each}
+        <!-- An empty column to finish the last page, so it can scroll fully into view. -->
+        {#if (arrangement.columns.length + 1) % 2}<span class="filler" style="grid-column: {arrangement.columns.length + 2}"></span>{/if}
         <!-- Panels in one keyed list, placed on the grid, so one being dragged
              into another column stays the same element under the finger. -->
         {#each placed as p (p.id)}
@@ -303,11 +302,16 @@
           {/if}
         </div>
       </div>
+      <!-- Pages of two columns: tap one to go there. -->
+      {#if pageCount > 1}
+        <div class="pages" role="tablist" aria-label="Pages of charts">
+          {#each Array(pageCount) as _, i (i)}
+            <button role="tab" aria-selected={page === i} class:on={page === i} onclick={() => goPage(i)}>{i + 1}</button>
+          {/each}
+        </div>
+      {/if}
       {#if arranging}
         <button class="donepill" onclick={() => (arranging = false)} transition:fade={{ duration: ms("base") }}>Done</button>
-      {:else if more}
-        <button class="morecue" onclick={() => strip?.scrollBy({ left: strip.clientWidth / 2, behavior: "smooth" })} transition:fade={{ duration: ms("base") }}>{more} more
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></button>
       {/if}
     </div>
   </div>
@@ -325,11 +329,13 @@
   .stripwrap { position: relative; flex: 1; min-width: 0; display: flex; }
   /* One grid: a column per arrangement column (two in view), three equal
      rows, and the end tile after them. */
-  .strip { --colw: calc((100% - 24px) / 2); position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols), var(--colw)) var(--colw); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); column-gap: 24px; row-gap: 20px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 28px; }
+  .strip { --colw: calc((100% - 24px) / 2); position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols), var(--colw)) var(--colw); grid-auto-columns: var(--colw); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); column-gap: 24px; row-gap: 20px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-right: 28px; }
   .strip::-webkit-scrollbar { display: none; }
   /* The strip can't snap while a drag scrolls it. */
   .strip.dragging { scroll-snap-type: none; }
-  .snap { grid-row: 1; align-self: start; height: 0; scroll-snap-align: start; pointer-events: none; }
+  /* A stop at each page; a swipe moves one page, never past it. */
+  .filler { grid-row: 1; height: 0; }
+  .snap { grid-row: 1; align-self: start; height: 0; scroll-snap-align: start; scroll-snap-stop: always; pointer-events: none; }
   .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
   /* Arranging: panels sit still under their buttons, a touch on one drags it
@@ -356,9 +362,11 @@
   .endcol .arrange { color: var(--muted); }
   .endcol .hint { font-size: 12px; color: #6f757b; }
   .donepill { position: absolute; right: 28px; bottom: -42px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
-  /* Columns off to the right: how many, and a tap to slide one over. */
   /* Just under the cards, in the page's bottom margin, so it covers nothing. */
-  .morecue { position: absolute; right: 28px; bottom: -40px; z-index: 6; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #1f2226; color: var(--ink); font: 700 12px var(--font); display: flex; align-items: center; gap: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
+  /* Under the cards, centred on them, in the page's bottom margin. */
+  .pages { position: absolute; left: 50%; bottom: -46px; transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }
+  .pages button { width: 40px; height: 32px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: background-color var(--t-base), color var(--t-base); }
+  .pages button.on { background: var(--line); color: var(--ink); }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
   /* Everything in the Today column keeps its size; the list of sources takes
      what's left and scrolls under its fixed heading when it's long. */
@@ -367,6 +375,6 @@
   .today :global(section.next .frame) { flex: 1; min-height: 0; }
   /* 16 px of room at the sides (and 4 at the ends), so a raised row's card
      is never clipped by the scrolling edge. */
-  .today :global(section.next .list) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px; }
+  .today :global(section.next .list) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px; }
   .logcard { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); padding: 0 18px 12px; }
 </style>

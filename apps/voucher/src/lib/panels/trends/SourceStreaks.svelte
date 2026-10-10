@@ -42,7 +42,7 @@
 
 <style>
   /* In a tablet slot the list takes the spare height and scrolls. */
-  .grid.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .grid.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .grid { display: flex; flex-direction: column; gap: 6px; }
   .row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 40px; align-items: center; gap: 8px; }
   .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

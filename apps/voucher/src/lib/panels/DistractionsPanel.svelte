@@ -102,7 +102,7 @@
   .body { display: contents; }
   .headed { height: 100%; min-height: 0; }
   .headed .colhead { flex: none; }
-  .headed .body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: inherit; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 28px; scrollbar-width: none; }
+  .headed .body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: inherit; overflow-y: auto; overscroll-behavior-y: contain; padding-bottom: 28px; scrollbar-width: none; }
   .headed .body::-webkit-scrollbar { display: none; }
   .colhead { display: flex; justify-content: space-between; align-items: baseline; height: 24px; }
   .coltitle { font-size: 18px; font-weight: 700; line-height: 24px; }

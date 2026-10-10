@@ -184,7 +184,7 @@
   .compact { flex: 1; height: 100%; min-height: 0; }
   .compact header { flex: none; margin: 0 -12px 0 0; padding: 8px 0 6px; }
   .compact .frame { flex: 1; min-height: 0; }
-  .compact .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin-right: -8px; padding-right: 8px; }
+  .compact .rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; margin-right: -8px; padding-right: 8px; }
   .compact .label { min-width: 0; }
   .compact .row { height: auto; padding: 9px 0; grid-template-columns: 44px 12px minmax(0, 1fr) 28px; }
   .compact .title { font-size: 13px; font-weight: 400; line-height: 1.3; white-space: normal; }

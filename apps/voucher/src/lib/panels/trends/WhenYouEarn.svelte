@@ -80,7 +80,7 @@
   /* In a tablet slot the rows take whatever height is left. */
   .grid.fit { flex: 1; min-height: 0; }
   .grid.fit .rows { flex: 1; min-height: 0; max-height: none; }
-  .rows { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .rows { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .rows::-webkit-scrollbar { display: none; }
   .row i { display: block; height: 14px; border-radius: 3px; }
   .label { font: 500 10px var(--mono); color: var(--muted); }

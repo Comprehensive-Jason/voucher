@@ -48,7 +48,7 @@
 
 <style>
   /* In a tablet slot the list takes the spare height and scrolls. */
-  .list.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .list.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .list { display: flex; flex-direction: column; }
   .rec { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; padding: 4px 0; border-top: 1px solid var(--divider); }
   .rec:first-child { border-top: 0; }

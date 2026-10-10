@@ -39,7 +39,7 @@
 
 <style>
   /* In a tablet slot the list takes the spare height and scrolls. */
-  .ladder.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .ladder.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .ladder { display: flex; flex-direction: column; gap: 6px; }
   .rung { display: grid; grid-template-columns: minmax(0, 1fr) 80px; align-items: center; gap: 8px; }
   .rung i { display: block; height: 14px; border-radius: 4px; background: #2fb36b; opacity: .55; min-width: 4px; }

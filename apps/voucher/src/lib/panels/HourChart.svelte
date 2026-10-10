@@ -602,7 +602,9 @@
   .nav:disabled { opacity: .3; cursor: default; }
   /* One Day per screen width, snapping, with no scrollbar: the arrows and
      the header say where you are. */
-  .days { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; }
+  /* No overscroll containment: past the newest (or oldest) page, a further
+     swipe moves the tablet's strip of cards instead. */
+  .days { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .days::-webkit-scrollbar { display: none; }
   /* Each page clips its own drawing, so nothing from a neighbour shows, and
      keeps 2 px clear on its right: at a fractional pixel density (the
@@ -669,7 +671,7 @@
   .tall .cardhead, .tall .days, .tall .viewport { flex: none; }
   .tall .legend { flex: 1; min-height: 96px; }
   .tall .lframe { flex: 1; min-height: 0; }
-  .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .tall .hintline { flex: none; }
   .tall .row.head { flex: none; }
   .tall .chart, .tall .dots { gap: 6px; }

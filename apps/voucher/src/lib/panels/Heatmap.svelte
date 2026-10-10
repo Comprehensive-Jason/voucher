@@ -210,7 +210,8 @@
      the card's padding on the right. */
   .stack { flex: 1; min-width: 0; display: grid; clip-path: inset(-8px -16px -8px 0); }
   .stack > * { grid-area: 1 / 1; transform-origin: calc(100% - 3px) 50%; }
-  .scroller { min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: 3px; overscroll-behavior-x: contain; scrollbar-width: none; }
+  /* Past the newest weeks, a further swipe moves the tablet's strip of cards. */
+  .scroller { min-width: 0; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-left: 3px; scrollbar-width: none; }
   .scroller::-webkit-scrollbar { display: none; }
   .heat {
     display: grid; grid-template-rows: 14px repeat(7, var(--cell)); grid-auto-flow: column; gap: 4px;
