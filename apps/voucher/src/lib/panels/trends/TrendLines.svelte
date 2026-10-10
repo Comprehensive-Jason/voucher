@@ -5,6 +5,7 @@
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { monthOf, rolling } from "../../trends";
+  import { zoomFade } from "../../motion";
   import type { DayTotal } from "../../types";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
@@ -41,7 +42,9 @@
   {#if days.length < 8}
     <p class="empty">A week of history draws the first point.</p>
   {:else}
-    <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
+    <!-- A new range zooms in like the bar graph's Day, Week, and Month: half a year from larger, 12 weeks from smaller. -->
+    {#key span}
+    <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph} in:zoomFade={{ out: span === "182" }}>
     <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Seven-day averages of Vouchers earned and unlocked">
       {#each ticks as t}
         <line x1={x0} x2={x1} y1={yAt(t)} y2={yAt(t)} stroke="#2c3036" stroke-dasharray="3 4" />
@@ -56,6 +59,7 @@
       {#each months as m}<text x={xAt(m.i)} y={H - 6}>{monthOf(m.d.day)}</text>{/each}
     </svg>
     </div>
+    {/key}
     <div class="legend">
       <span><i style="background: var(--voucher)"></i>Earned</span>
       <span><i style="background: var(--spend)"></i>Unlocked</span>

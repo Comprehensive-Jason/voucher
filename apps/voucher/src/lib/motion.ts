@@ -36,6 +36,13 @@ export const reduced = () => typeof window !== "undefined" && window.matchMedia(
 /** A duration from MOTION, or 0 when the device asks for less motion. */
 export const ms = (kind: keyof typeof MOTION) => (reduced() ? 0 : MOTION[kind]);
 
+/** A chart's new zoom level or date range fading in from a little larger
+ *  (zooming out, to a longer span) or smaller (zooming in), as the bar graph
+ *  does between Day, Week, and Month. */
+export function zoomFade(_node: Element, { out }: { out: boolean }) {
+  return { duration: ms("move"), easing: easeOut, css: (t: number) => `opacity: ${t}; transform: scale(${1 + (out ? 0.06 : -0.06) * (1 - t)})` };
+}
+
 /** The CSS variables for the root element. */
 export function motionVars(): string {
   const r = reduced();

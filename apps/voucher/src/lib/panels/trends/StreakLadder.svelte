@@ -1,51 +1,73 @@
 <script lang="ts">
-  // How does this streak compare with my others? The last nine runs of goal
-  // Days (two or more long), oldest at the top: the current one in green,
-  // the best outlined in gold. The gaps between them show that coming back
-  // is normal.
+  // Streaks: how does this one compare with my others, and where do streaks
+  // tend to end? A column for each length from 1 Day to your best, as tall as
+  // the number of streaks that reached it, so the drop from one column to the
+  // next is where streaks end. Today's length is green, your best outlined in
+  // gold. The line above gives the odds, from finished streaks, of this one
+  // reaching the next milestone.
   import TrendCard from "../../components/TrendCard.svelte";
   import { goalRuns } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
-  const fit = fitsSlot();
   import type { DayTotal } from "../../types";
 
   let { history }: { history: DayTotal[] } = $props();
+  const fit = fitsSlot();
   const runs = $derived(goalRuns(history));
-  const shown = $derived(runs.filter((r) => r.length >= 2).slice(-9));
-  const best = $derived(Math.max(1, ...runs.map((r) => r.length)));
   const lastDay = $derived(history.at(-1)?.day);
   const yesterday = $derived(history.at(-2)?.day);
   /** The run still going: it ends today, or yesterday while today's goal is still open. */
   const current = $derived(runs.at(-1) && (runs.at(-1)!.end === lastDay || runs.at(-1)!.end === yesterday) ? runs.at(-1)! : null);
+  const finished = $derived(current ? runs.slice(0, -1) : runs);
+  const best = $derived(Math.max(1, ...runs.map((r) => r.length)));
+  /** How many streaks (finished or not) reached each length, 1 to best. */
+  const reached = $derived(Array.from({ length: best }, (_, i) => runs.filter((r) => r.length >= i + 1).length));
+  const tallest = $derived(Math.max(1, ...reached));
+
+  const MILESTONES = [3, 7, 14, 21, 30, 45, 60, 90, 120, 180, 365];
+  const odds = $derived.by(() => {
+    if (!current) return null;
+    const goal = MILESTONES.find((m) => m > current.length);
+    const from = finished.filter((r) => r.length >= current.length);
+    if (!goal || from.length < 3) return { goal, share: null, n: from.length };
+    return { goal, share: from.filter((r) => r.length >= goal).length / from.length, n: from.length };
+  });
+  /** Where finished streaks usually stop: the middle length. */
+  const typical = $derived.by(() => {
+    const s = finished.map((r) => r.length).sort((a, b) => a - b);
+    return s.length ? s[Math.floor(s.length / 2)] : null;
+  });
 </script>
 
-<TrendCard title="Streak ladder">
-  {#if !shown.length}
-    <p class="empty">Two goal Days in a row start the ladder.</p>
+<TrendCard title="Streaks">
+  {#if !runs.length}
+    <p class="empty">A goal Day starts the first streak.</p>
   {:else}
-    <div class="ladder" class:fit>
-      {#each shown as r (r.end)}
-        <div class="rung">
-          <i class:current={r === current} class:best={r.length === best} style="width: {(r.length / best) * 100}%"></i>
-          <span class:gold={r.length === best}>{r.length} d{r.length === best ? ", best" : ""}</span>
+    <p class="lead">
+      {#if current && odds?.share !== null && odds?.share !== undefined}You're on day <b>{current.length}</b>; <b>{Math.round(odds.share * 100)}%</b> of streaks that reached day {current.length} lasted to day {odds.goal}.
+      {:else if current}You're on day <b>{current.length}</b>; your best is <b>{best}</b>.
+      {:else if typical}No streak running. Streaks usually end around day <b>{typical}</b>; your best is <b>{best}</b>.
+      {:else}Your best is <b>{best}</b> Days.{/if}
+    </p>
+    <div class="bars" class:fit role="img" aria-label="How many streaks reached each length">
+      {#each reached as n, i}
+        <div class="col" title="{n} {n === 1 ? 'streak' : 'streaks'} reached day {i + 1}">
+          <i class:now={current && current.length === i + 1} class:best={i + 1 === best} style="height: {(n / tallest) * 100}%"></i>
         </div>
       {/each}
     </div>
+    <div class="axis"><span>1 day</span><span>{best} days</span></div>
   {/if}
-  {#snippet foot()}
-    {#if current}Your current streak is <b>{current.length}</b> Days; your best is <b>{best}</b>.{:else}No streak running; your best is <b>{best}</b> Days.{/if}
-  {/snippet}
 </TrendCard>
 
 <style>
-  /* In a tablet slot the list takes the spare height and scrolls. */
-  .ladder.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
-  .ladder { display: flex; flex-direction: column; gap: 6px; }
-  .rung { display: grid; grid-template-columns: minmax(0, 1fr) 80px; align-items: center; gap: 8px; }
-  .rung i { display: block; height: 14px; border-radius: 4px; background: #2fb36b; opacity: .55; min-width: 4px; }
-  .rung i.current { background: var(--voucher); opacity: 1; }
-  .rung i.best { outline: 2px solid var(--goal); outline-offset: -2px; }
-  .rung span { font: 500 11px var(--mono); color: var(--muted); }
-  .rung span.gold { color: var(--goal); }
+  .lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+  .lead b { color: var(--ink); font-family: var(--mono); }
+  .bars { height: 120px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid #3a3f45; }
+  .bars.fit { flex: 1; min-height: 40px; height: auto; }
+  .col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+  .col i { display: block; width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: #2fb36b; opacity: .5; transition: height var(--t-move) var(--ease-out); }
+  .col i.now { background: var(--voucher); opacity: 1; }
+  .col i.best { outline: 2px solid var(--goal); outline-offset: -2px; opacity: 1; }
+  .axis { display: flex; justify-content: space-between; font: 500 10px var(--mono); color: var(--muted); }
   .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

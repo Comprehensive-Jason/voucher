@@ -18,13 +18,13 @@ export const PANELS: Record<PanelId, { name: string; min: number; max: number; s
   heat: { name: "Activity graph", min: 1, max: 1, size: 1 },
   distraction: { name: "Distraction time", min: 2, max: 3, size: 2 },
   log: { name: "Log", min: 1, max: 3, size: 3 },
-  pace: { name: "Pace to goal", min: 1, max: 1, size: 1 },
-  trend: { name: "Trend lines", min: 1, max: 1, size: 1 },
+  pace: { name: "Pace to goal", min: 1, max: 2, size: 1 },
+  trend: { name: "Trend lines", min: 1, max: 2, size: 1 },
   when: { name: "When you earn", min: 1, max: 3, size: 2 },
-  runway: { name: "Morning runway", min: 1, max: 1, size: 1 },
+  runway: { name: "Morning runway", min: 1, max: 2, size: 1 },
   strength: { name: "Habit strength", min: 1, max: 1, size: 1 },
-  ladder: { name: "Streak ladder", min: 1, max: 1, size: 1 },
-  streaks: { name: "Source streaks", min: 1, max: 1, size: 1 },
+  ladder: { name: "Streaks", min: 1, max: 1, size: 1 },
+  streaks: { name: "Source streaks", min: 1, max: 2, size: 1 },
   records: { name: "Personal records", min: 1, max: 1, size: 1 },
 };
 

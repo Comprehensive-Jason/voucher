@@ -6,6 +6,7 @@
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { monthOf, mondayOf } from "../../trends";
+  import { zoomFade } from "../../motion";
   import type { DayTotal } from "../../types";
   import { fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
@@ -13,6 +14,10 @@
   let { history }: { history: DayTotal[] } = $props();
   type By = "day" | "week" | "month";
   let by = $state<By>("day");
+  /** Whether the last switch went to a longer span (Days to Weeks to Months), for the zoom's direction. */
+  let widened = $state(true);
+  const LEVELS: By[] = ["day", "week", "month"];
+  function setBy(next: By) { widened = LEVELS.indexOf(next) > LEVELS.indexOf(by); by = next; }
 
   const FIRST = 6, COLS = 18;
   const cols = (hours: number[]) => {
@@ -52,12 +57,14 @@
 
 <TrendCard title="When you earn">
   {#snippet tools()}
-    <ZoomSwitch options={[{ id: "day", label: "Days" }, { id: "week", label: "Weeks" }, { id: "month", label: "Months" }]} value={by} onchange={(v) => (by = v as By)} />
+    <ZoomSwitch options={[{ id: "day", label: "Days" }, { id: "week", label: "Weeks" }, { id: "month", label: "Months" }]} value={by} onchange={(v) => setBy(v as By)} />
   {/snippet}
   {#if !rows.length}
     <p class="empty">Vouchers earned by the hour show here as the log fills.</p>
   {:else}
-    <div class="grid" class:fit>
+    <!-- Each switch zooms in like the bar graph's Day, Week, and Month. -->
+    {#key by}
+    <div class="grid" class:fit in:zoomFade={{ out: widened }}>
       <!-- Outside the scroller, so the hours never move. -->
       <div class="hours"><span></span>{#each Array(COLS) as _, c}<span>{(FIRST + c) % 3 === 0 ? String(FIRST + c).padStart(2, "0") : ""}</span>{/each}</div>
       <div class="rows" bind:this={scroller}>
@@ -66,6 +73,7 @@
         {/each}
       </div>
     </div>
+    {/key}
     <div class="legend"><span>Fewer</span>{#each SHADES as c}<i style="background: {c}"></i>{/each}<span>More Vouchers{by === "day" ? "" : ", per Day on average"}</span></div>
   {/if}
   {#snippet foot()}

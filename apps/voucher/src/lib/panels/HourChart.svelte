@@ -24,11 +24,8 @@
   import ScrollCue from "../components/ScrollCue.svelte";
   import TodayButton from "../components/TodayButton.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
-  import { easeOut, ms } from "../motion";
-  /** The new zoom level fades in from a little larger (zooming out) or smaller (zooming in). */
-  function zoomIn(_node: Element, { out }: { out: boolean }) {
-    return { duration: ms("move"), easing: easeOut, css: (t: number) => `opacity: ${t}; transform: scale(${1 + (out ? 0.06 : -0.06) * (1 - t)})` };
-  }
+  import { ms, zoomFade } from "../motion";
+
   let listEl = $state<HTMLDivElement>();
   /** One page's exact width. Pages fill the scroller, which can be a fraction
    *  of a pixel wide, while clientWidth is whole pixels: stepping by it drifts
@@ -462,7 +459,7 @@
   <!-- A new zoom level grows in from the old one's scale (larger when zooming
        out, smaller when zooming in), and its bars rise one after another. -->
   {#key entrance}
-  <div class="viewport" class:entering in:zoomIn={{ out: zoomedOut }}>
+  <div class="viewport" class:entering in:zoomFade={{ out: zoomedOut }}>
   {#if zoom === "day"}
   <div class="days" bind:this={scroller} onscroll={onScroll}>
     {#each days as day (day)}
