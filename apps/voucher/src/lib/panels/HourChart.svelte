@@ -26,6 +26,7 @@
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
   import { ms, zoomFade } from "../motion";
   import { selection } from "../selection.svelte";
+  import { inCurfew } from "../curfew.svelte";
 
   let listEl = $state<HTMLDivElement>();
   /** One page's exact width. Pages fill the scroller, which can be a fraction
@@ -51,7 +52,12 @@
   } = $props();
 
   const FIRST_HOUR = 6;
-  const HOURS = 18; // 06 to 23; anything after midnight joins the last column
+  // The whole Day, 06:00 to 06:00: Vouchers earned during Curfew count too,
+  // and Curfew's hours are shaded in the night colour.
+  const HOURS = 24;
+  /** A clock hour's column: 06:00 first, 05:00 last. */
+  const columnOf = (h: number) => (h - FIRST_HOUR + 24) % 24;
+  const hourOfColumn = (i: number) => (FIRST_HOUR + i) % 24;
   const chart = $derived(tall ? 150 : 84);
 
   /** Every Day from the Ledger's first to today, oldest first, so any Day the
@@ -133,7 +139,7 @@
   }
   function columnsOf(summary: DaySummary | undefined) {
     const cols = Array.from({ length: HOURS }, () => ({ counts: new Map<string, Part>(), total: 0, redeemed: 0, unlocked: 0 }));
-    const colOf = (h: number) => (h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1);
+    const colOf = columnOf;
     if (minutes) {
       for (const [app, hours] of Object.entries(summary?.usage ?? {})) {
         hours.forEach((m, h) => {
@@ -148,7 +154,7 @@
     }
     for (const e of summary?.log ?? []) {
       const h = hourOf(e.at, timeZone);
-      const col = h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1;
+      const col = columnOf(h);
       if (e.kind === "earned") {
         const { name, color } = sourceOf(e.task);
         const part = cols[col].counts.get(name) ?? { id: groupOf(e.task.split(":")[0]), name, color, n: 0 };
@@ -164,8 +170,8 @@
   function breakdownOf(cols: ReturnType<typeof columnsOf>, pick: number | null) {
     if (pick !== null) {
       const c = cols[pick];
-      const hour = FIRST_HOUR + pick;
-      const label = pick === HOURS - 1 ? "23:00 onward" : `${String(hour).padStart(2, "0")}:00 to ${String(hour + 1).padStart(2, "0")}:00`;
+      const hour = hourOfColumn(pick);
+      const label = `${String(hour).padStart(2, "0")}:00 to ${String((hour + 1) % 24).padStart(2, "0")}:00`;
       return { label, parts: c.parts, redeemed: c.redeemed, unlocked: c.unlocked };
     }
     const all = new Map<string, Part>();
@@ -260,7 +266,7 @@
   function goalColOf(summary: DaySummary | undefined): number | null {
     if (!summary?.goal_met_at) return null;
     const h = hourOf(summary.goal_met_at, timeZone);
-    return h >= FIRST_HOUR ? h - FIRST_HOUR : HOURS - 1;
+    return columnOf(h);
   }
   // ---- Week and Month ----
   // Each is a row of pages, one week (Monday first) or calendar month per
@@ -490,8 +496,8 @@
           <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
           <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
           {#each cols as c, i}
-            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol}
-              aria-label="{String(FIRST_HOUR + i).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
+            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol} class:night={inCurfew(hourOfColumn(i))}
+              aria-label="{String(hourOfColumn(i)).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
               onclick={() => (pick = pick === i || (!c.total && !c.unlocked) ? null : i)}>
               {#if minutes && c.unlocked}<i class="allow" style="height: {c.unlocked * unit}px"></i>{/if}
               {#if c.total}
@@ -507,7 +513,8 @@
         <div class="dots">
           {#each cols as c}<div>{#if !minutes && c.redeemed}<Marker kind="redeemed" size={tall ? 9 : 7} /><span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
         </div>
-        <div class="mono axis"><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span><span>23</span></div>
+        <!-- A label every three hours, each over its own column. -->
+        <div class="mono axis hours">{#each Array(HOURS) as _, i}<span>{i % 3 === 0 ? String(hourOfColumn(i)).padStart(2, "0") : ""}</span>{/each}</div>
       </div>
     {/each}
   </div>
@@ -626,7 +633,7 @@
      tablet's 1.75) a last bar flush with the edge bled a pixel-wide sliver
      onto the next page. */
   .day { contain: paint; box-sizing: border-box; padding-right: 2px; flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
-  .chart { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid #3a3f45; }
+  .chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid #3a3f45; }
   /* Bars, dots, and hours leave a gutter on the left for the tick numbers. */
   .chart, .dots, .axis { margin-left: 16px; }
   .chart { position: relative; }
@@ -650,7 +657,13 @@
   .hintline b { color: var(--ink); font-family: var(--mono); }
   .bar { position: relative; display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
-  .dots { display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 4px; height: 10px; }
+  /* Curfew's hours: a night-coloured band behind the bars, across the gaps too. */
+  .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: rgba(125, 140, 255, .09); pointer-events: none; }
+  .tall .col.night::before { --gap: 6px; }
+  .axis.hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
+  .tall .axis.hours { gap: 6px; }
+  .axis.hours span { display: flex; justify-content: center; white-space: nowrap; overflow: visible; }
+  .dots { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; height: 10px; }
   .dots div { display: flex; justify-content: center; align-items: center; gap: 2px; min-width: 0; }
   /* How many were torn, beside the triangle (alone in a month's narrow columns). */
   .tn { font-size: 9px; line-height: 1; font-weight: 700; color: var(--ink); }

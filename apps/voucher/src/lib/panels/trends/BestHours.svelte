@@ -7,6 +7,7 @@
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { compareSources, styleOf } from "../../sources";
   import { zoomFade } from "../../motion";
+  import { inCurfew } from "../../curfew.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal } from "../../types";
 
@@ -18,13 +19,15 @@
   const ORDER: Span[] = ["28", "84", "182", "all"];
   function setSpan(next: Span) { widened = ORDER.indexOf(next) > ORDER.indexOf(span); span = next; }
 
-  const FIRST = 6, COLS = 18;
+  // The whole Day, 06:00 to 06:00, with Curfew's hours in the night colour.
+  const FIRST = 6, COLS = 24;
+  const hourOf = (c: number) => (FIRST + c) % 24;
   const days = $derived((span === "all" ? history : history.slice(-Number(span))).filter((d) => d.source_hours));
   const rows = $derived.by(() => {
     const sums = new Map<string, number[]>();
     for (const d of days) for (const [id, hours] of Object.entries(d.source_hours ?? {})) {
       const row = sums.get(id) ?? Array<number>(COLS).fill(0);
-      hours.forEach((n, h) => (row[h >= FIRST ? h - FIRST : COLS - 1] += n));
+      hours.forEach((n, h) => (row[(h - FIRST + 24) % 24] += n));
       sums.set(id, row);
     }
     return [...sums.entries()]
@@ -44,14 +47,14 @@
   {:else}
     {#key span}
     <div class="grid" class:fit in:zoomFade={{ out: widened }}>
-      <div class="hours"><span></span>{#each Array(COLS) as _, c}<span>{(FIRST + c) % 3 === 0 ? String(FIRST + c).padStart(2, "0") : ""}</span>{/each}</div>
+      <div class="hours"><span></span>{#each Array(COLS) as _, c}<span class:night={inCurfew(hourOf(c))}>{c % 3 === 0 ? String(hourOf(c)).padStart(2, "0") : ""}</span>{/each}</div>
       <div class="rows">
         {#each rows as r (r.id)}
           {@const top = Math.max(...r.cells)}
           <div class="row" title="{r.name}: busiest around {hh(r.peak)}">
             <span class="name">{r.name}</span>
             <!-- A filled ridge: each hour as tall as its share of the source's busiest hour. -->
-            <div class="ridge">{#each r.cells as n}<i style="height: {(n / top) * 100}%; background: {r.color}"></i>{/each}</div>
+            <div class="ridge">{#each r.cells as n, c}<span class="hour" class:night={inCurfew(hourOf(c))}><i style="height: {(n / top) * 100}%; background: {r.color}"></i></span>{/each}</div>
           </div>
         {/each}
       </div>
@@ -67,12 +70,16 @@
   .grid { display: flex; flex-direction: column; gap: 4px; }
   .grid.fit { flex: 1; min-height: 0; }
   .hours, .row { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: end; gap: 8px; }
-  .hours { grid-template-columns: 84px repeat(18, minmax(0, 1fr)); gap: 0 2px; }
+  .hours { grid-template-columns: 84px repeat(24, minmax(0, 1fr)); gap: 0 2px; }
+  .hours span.night { color: #7d8cff; }
   .hours span { font: 500 10px var(--mono); color: var(--muted); white-space: nowrap; }
   .rows { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .grid.fit .rows { flex: 1; min-height: 0; }
   .name { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
-  .ridge { height: 26px; display: grid; grid-template-columns: repeat(18, minmax(0, 1fr)); gap: 2px; align-items: end; border-bottom: 1px solid #2c3036; }
-  .ridge i { display: block; border-radius: 2px 2px 0 0; min-height: 1px; opacity: .85; }
+  .ridge { height: 26px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; align-items: end; border-bottom: 1px solid #2c3036; }
+  .ridge .hour { height: 100%; display: flex; align-items: flex-end; }
+  /* Curfew's hours, in the night colour behind the ridge. */
+  .ridge .hour.night { background: rgba(125, 140, 255, .09); }
+  .ridge i { display: block; width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; opacity: .85; }
   .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>

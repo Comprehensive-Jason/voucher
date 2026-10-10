@@ -16,6 +16,7 @@
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import { selection } from "$lib/selection.svelte";
+  import { setCurfew } from "$lib/curfew.svelte";
   import LogPanel from "$lib/panels/LogPanel.svelte";
   import TrendLines from "$lib/panels/trends/TrendLines.svelte";
   import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
@@ -44,6 +45,7 @@
   async function loadWide() {
     try {
       status = await ledger<Status>("GET", "/status");
+      setCurfew(status.settings.curfew_start, status.settings.curfew_end);
       history = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(status.today.day, status.first_day)}`);
       usage = await deviceUsage();
     } catch { /* the Today column shows the error */ }

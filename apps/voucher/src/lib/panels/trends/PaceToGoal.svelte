@@ -9,6 +9,7 @@
   import { clockOfHours, median, quantile } from "../../trends";
   import type { DaySummary, DayTotal } from "../../types";
   import { ledger } from "../../api";
+  import { inCurfew } from "../../curfew.svelte";
   import { selection } from "../../selection.svelte";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
@@ -75,6 +76,8 @@
   {:else}
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
     <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Today's Vouchers against your usual Day">
+      <!-- Curfew's hours, in the night colour: earning still counts there. -->
+      {#each Array(END - START) as _, i}{#if inCurfew((START + i) % 24)}<rect x={xAt(START + i)} y={y1} width={xAt(START + i + 1) - xAt(START + i) + 0.5} height={y0 - y1} fill="rgba(125,140,255,.09)" />{/if}{/each}
       <path d={bandPath} fill="rgba(61,220,132,.16)" />
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" />
       <text x={x0 + 4} y={yAt(goal) - 5} style="fill: var(--goal)">goal {goal}</text>

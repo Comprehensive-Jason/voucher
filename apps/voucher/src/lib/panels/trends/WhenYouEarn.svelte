@@ -7,6 +7,7 @@
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { monthOf, mondayOf } from "../../trends";
   import { zoomFade } from "../../motion";
+  import { inCurfew } from "../../curfew.svelte";
   import { selection } from "../../selection.svelte";
   import { untrack } from "svelte";
   import type { DayTotal } from "../../types";
@@ -43,10 +44,12 @@
     });
   });
 
-  const FIRST = 6, COLS = 18;
+  // The whole Day, 06:00 to 06:00, with Curfew's hours in the night colour.
+  const FIRST = 6, COLS = 24;
+  const hourOf = (c: number) => (FIRST + c) % 24;
   const cols = (hours: number[]) => {
     const out = Array<number>(COLS).fill(0);
-    hours.forEach((n, h) => (out[h >= FIRST ? h - FIRST : COLS - 1] += n));
+    hours.forEach((n, h) => (out[(h - FIRST + 24) % 24] += n));
     return out;
   };
   // Only Days whose hours the log still holds.
@@ -65,6 +68,8 @@
   });
   const max = $derived(Math.max(1e-9, ...rows.flatMap((r) => r.cells)));
   const SHADES = ["#22262a", "#1d4d33", "#24804f", "#2fb36b", "#3ddc84"];
+  /** An empty hour during Curfew. */
+  const NIGHT = "#1b1f36";
   const shade = (v: number) => (v <= 0 ? SHADES[0] : SHADES[Math.min(4, 1 + Math.floor((v / max) * 3.999))]);
 
   // Opens on the row holding the shared Day (today's, at first), and goes back to it after a switch.
@@ -74,7 +79,7 @@
   const busiest = $derived.by(() => {
     const sums = Array.from({ length: COLS }, (_, c) => rows.reduce((a, r) => a + r.cells[c], 0));
     const c = sums.indexOf(Math.max(...sums));
-    return c < 0 ? null : FIRST + c;
+    return c < 0 ? null : hourOf(c);
   });
 </script>
 
@@ -89,10 +94,10 @@
     {#key by}
     <div class="grid" class:fit in:zoomFade={{ out: widened }}>
       <!-- Outside the scroller, so the hours never move. -->
-      <div class="hours"><span></span>{#each Array(COLS) as _, c}<span>{(FIRST + c) % 3 === 0 ? String(FIRST + c).padStart(2, "0") : ""}</span>{/each}</div>
+      <div class="hours"><span></span>{#each Array(COLS) as _, c}<span class:night={inCurfew(hourOf(c))}>{c % 3 === 0 ? String(hourOf(c)).padStart(2, "0") : ""}</span>{/each}</div>
       <div class="rows" bind:this={scroller}>
         {#each rows as r (r.key)}
-          <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}</span>{#each r.cells as v}<i style="background: {shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
+          <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
         {/each}
       </div>
     </div>
@@ -106,7 +111,9 @@
 
 <style>
   .grid { display: flex; flex-direction: column; gap: 4px; }
-  .hours, .row { display: grid; grid-template-columns: 44px repeat(18, minmax(0, 1fr)); gap: 3px; align-items: center; }
+  .hours, .row { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
+  /* Curfew's hours: their labels in the night colour (empty cells are NIGHT). */
+  .hours span.night { color: #7d8cff; }
   .hours span { font: 500 10px var(--mono); color: var(--muted); white-space: nowrap; }
   /* In a tablet slot the rows take whatever height is left. */
   .grid.fit { flex: 1; min-height: 0; }

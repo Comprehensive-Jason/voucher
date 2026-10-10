@@ -20,6 +20,7 @@
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import { selection } from "$lib/selection.svelte";
+  import { setCurfew } from "$lib/curfew.svelte";
   import { historyDays } from "$lib/time";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$lib/types";
 
@@ -34,6 +35,7 @@
   onMount(async () => {
     try {
       const status = await ledger<Status>("GET", "/status");
+      setCurfew(status.settings.curfew_start, status.settings.curfew_end);
       blocklists = status.settings.blocklists;
       today = status.today;
       timeZone = status.settings.time_zone;
