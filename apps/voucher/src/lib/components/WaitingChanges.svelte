@@ -63,8 +63,8 @@
 {#if status}
   {@const s = status.settings}
   {#if status.pending.length}
-    <div class="pending" transition:reveal={{ axis }}>
-      <div class="ptext">
+    <div class="notice" transition:reveal={{ axis }}>
+      <div class="ntext">
         <span class="cap">Waiting for {hhmm(s.morning_boundary)}, {until(status.pending[0][1])}</span>
         <span>{status.pending.length === 1 ? describe(status.pending[0], s) : `${status.pending.length} Loosenings`}</span>
       </div>
@@ -98,7 +98,6 @@
 {/if}
 
 <style>
-  .pending { border-radius: 16px; background: var(--goal-bg); border: 1px solid var(--goal-line); padding: 10px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .shead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   .stitle { display: flex; flex-direction: column; gap: 4px; }
   .stitle h2 { margin: 0; font-size: 18px; }
@@ -109,8 +108,6 @@
   .pcard.gone { background: transparent; border-color: var(--line); color: var(--muted); }
   .pcard.gone .pdesc { text-decoration: line-through; }
   .gonelabel { color: var(--muted); padding-right: 6px; }
-  .pending .btn, .pcard .btn { flex: none; }
-  .ptext { min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
-  .ptext .cap { color: var(--goal); letter-spacing: .06em; }
+  .pcard .btn { flex: none; }
   .error { margin: 0; color: var(--danger); }
 </style>

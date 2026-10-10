@@ -331,7 +331,7 @@
        down, in Arrange's order and sizes (a third is about a landscape
        third's height). -->
   <div class="wide portrait">
-    <section class="col today"><TodayColumn {live} wide /><RulesNotices compact /><div class="leftfoot">{@render rulesButton()}</div></section>
+    <section class="col today"><TodayColumn {live} wide /><RulesNotices /><div class="leftfoot">{@render rulesButton()}</div></section>
     <div class="vstrip" role="group" aria-label="Charts">
       {#each arrangement.order as id (id)}
         <div class="slot" role="group" aria-label={PANELS[id].name} style="height: calc({arrangement.size(id)} * var(--third) + {arrangement.size(id) - 1} * var(--gap)); flex: none">
@@ -348,7 +348,7 @@
       <!-- Above the page bar, Rules' notices (Protection off, a Loosening
            waiting for the morning, the grace period): the list above gives
            them room, so nothing over them moves when they come or go. -->
-      <RulesNotices compact />
+      <RulesNotices />
       <!-- At the foot of the Today column: the page bar for the cards, so the
            cards get the screen's full height. -->
       <div class="leftfoot">

@@ -104,6 +104,18 @@ button { font: inherit; color: inherit; }
 .iconbtn.small { width: 32px; height: 32px; border-radius: 10px; }
 .iconbtn.bare { border-color: transparent; background: none; color: var(--muted); }
 .iconbtn:disabled { opacity: .35; cursor: default; }
+
+/* A notice: a tinted card with a caps line in its tone, its text, and its
+   buttons on the right. Tones: .goal (gold: waiting, partly on), .good
+   (green: the grace period), .danger (red: Protection off). */
+.notice { --tone: var(--goal); --tone-bg: var(--goal-bg); --tone-line: var(--goal-line); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 16px; background: var(--tone-bg); border: 1px solid var(--tone-line); }
+.notice.good { --tone: var(--voucher); --tone-bg: var(--unlocked-bg); --tone-line: var(--unlocked-line); }
+.notice.danger { --tone: var(--danger); --tone-bg: var(--danger-bg); --tone-line: var(--danger-line); }
+.notice .ntext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.35; color: var(--ink); }
+.notice .ntext .cap { color: var(--tone); letter-spacing: .06em; }
+.notice .btn { flex: none; }
+/* A notice's own fix, filled in its tone. */
+.notice .btn.fix { border-color: transparent; background: var(--tone); color: var(--ground); }
 /* An empty list that will fill in (apps, sites): a dashed placeholder. Plain empty states use .empty alone. */
 .empty.box { display: flex; align-items: center; justify-content: center; min-height: 64px; padding: 12px; border: 1.5px dashed var(--line); border-radius: 14px; text-align: center; }
 

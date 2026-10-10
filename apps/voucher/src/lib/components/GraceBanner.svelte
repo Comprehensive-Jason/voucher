@@ -37,8 +37,8 @@
 </script>
 
 {#if until && status}
-  <div class="grace" transition:reveal={{ axis }}>
-    <div class="text">
+  <div class="notice good" transition:reveal={{ axis }}>
+    <div class="ntext">
       <span class="cap">Grace period until {when}</span>
       <span>{confirming ? `From now on, a Loosening waits for ${hhmm(status.settings.morning_boundary)}.` : "Every change applies at once while you tune your rules."}</span>
     </div>
@@ -52,8 +52,4 @@
 {/if}
 
 <style>
-  .grace { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; border-radius: 14px; background: var(--unlocked-bg); border: 1px solid var(--unlocked-line); }
-  .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--ink); line-height: 1.35; }
-  .cap { color: var(--voucher); }
-  .btn { flex: none; }
 </style>
