@@ -5,7 +5,8 @@
   // deviation of its weekly averages) and at least 10%. "Keep it going" is
   // the good direction, "Worth a look" the other; biggest changes first, 3
   // of each, the rest behind "more". With under 16 weeks of history it
-  // compares the last 2 weeks with everything before, and says so.
+  // compares the last 2 weeks with everything before. The line under it
+  // names the two spans, kept to one line.
   import TrendCard from "../../components/TrendCard.svelte";
   import { measured } from "../../notes.svelte";
   import { clock } from "../../time";
@@ -85,7 +86,7 @@
       {#if !showAll && (good.length > 3 || bad.length > 3)}<button class="more" onclick={() => (showAll = true)}>More</button>{/if}
     </div>
   {/if}
-  {#snippet foot()}{long ? "Last 4 weeks against the 12 before." : "Last 2 weeks against everything before: 16 weeks of history make this steadier."}{/snippet}
+  {#snippet foot()}{long ? "Last 4 weeks against the 12 before." : `Last 2 weeks against the ${Math.round(base.length / 7)} before.`}{/snippet}
 </TrendCard>
 
 <style>

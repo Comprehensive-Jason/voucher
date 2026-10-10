@@ -42,7 +42,8 @@ export function goalRuns(history: DayTotal[]): { length: number; end: string }[]
 export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const monthOf = (day: string) => MONTHS[Number(day.slice(5, 7)) - 1];
 /** "10:42" from hours after midnight (10.7). */
-export const clockOfHours = (h: number) => `${String(Math.floor(h) % 24).padStart(2, "0")}:${String(Math.round((h % 1) * 60) % 60).padStart(2, "0")}`;
+// Rounded to the minute first, so 12:59.7 reads 13:00, not 12:00.
+export const clockOfHours = (h: number) => { const m = Math.round(h * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
 /** Monday of the week holding `day`. */
 export const mondayOf = (day: string) => {
   const d = new Date(`${day}T12:00:00Z`);

@@ -2,7 +2,8 @@
   // When does each kind of work go best for me? A row per source: how its
   // Vouchers spread over the hours from 06:00, each row scaled to its own
   // busiest hour so a quiet source's shape shows as clearly as a busy one's.
-  // The range picks which Days count. The hours sit under the rows, outside
+  // That busiest hour's bar is the solid one, with its time over it; the
+  // rest are dimmer. The range picks which Days count. The hours sit under the rows, outside
   // their scroller.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
@@ -55,7 +56,7 @@
           <div class="row" title="{r.name}: busiest around {hh(r.peak)}">
             <span class="name">{r.name}</span>
             <!-- A filled ridge: each hour as tall as its share of the source's busiest hour. -->
-            <div class="ridge">{#each r.cells as n, c}<span class="hour" class:night={inCurfew(hourOf(c))}><i style="height: {(n / top) * 100}%; background: {r.color}"></i></span>{/each}</div>
+            <div class="ridge">{#each r.cells as n, c}<span class="hour" class:night={inCurfew(hourOf(c))} class:peak={c === r.peak}><i style="height: {(n / top) * 100}%; background: {r.color}"></i>{#if c === r.peak}<b class:start={c < 2} class:end={c > COLS - 3}>{hh(c)}</b>{/if}</span>{/each}</div>
           </div>
         {/each}
       </div>
@@ -65,9 +66,6 @@
     </div>
     {/key}
   {/if}
-  {#snippet foot()}
-    {#if rows.length}{#each rows.slice(0, 3) as r, i}{i ? (i === Math.min(rows.length, 3) - 1 ? ", and " : ", ") : ""}<b>{r.name}</b> peaks at {hh(r.peak)}{/each}.{:else}Not enough history yet.{/if}
-  {/snippet}
 </TrendCard>
 
 <style>
@@ -76,10 +74,21 @@
   .row { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: end; gap: 8px; }
   .rows { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .grid.fit .rows { flex: 1; min-height: 0; }
-  .name { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
-  .ridge { height: 26px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; align-items: end; border-bottom: 1px solid #2c3036; }
-  .ridge .hour { height: 100%; display: flex; align-items: flex-end; }
+  /* In a tablet slot the rows share the height left, so the peaks' times don't push the last row out of view;
+     past a few sources they keep a floor and scroll. */
+  .grid.fit .row { flex: 1 1 0; min-height: 34px; }
+  .grid.fit .ridge { height: auto; align-self: stretch; }
+  /* Centred on the ridge, below the peak's time. */
+  .name { margin-top: 11px; font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
+  /* The top 11px holds the peak's time, over the ridge rather than on it. */
+  .ridge { height: 26px; margin-top: 11px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; align-items: end; border-bottom: 1px solid #2c3036; }
+  .ridge .hour { position: relative; height: 100%; display: flex; align-items: flex-end; }
   /* Curfew's hours, in the night colour behind the ridge. */
   .ridge .hour.night { background: rgba(125, 140, 255, .09); }
-  .ridge i { display: block; width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; opacity: .85; }
+  .ridge i { display: block; width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; opacity: .45; }
+  .ridge .peak i { opacity: 1; }
+  /* The peak's time, centred over its bar; at either end it lines up with the bar's outer edge instead, so it stays on the card. */
+  .ridge b { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding-bottom: 1px; font: 600 var(--axis-size)/10px var(--mono); color: var(--ink); white-space: nowrap; }
+  .ridge b.start { left: 0; transform: none; }
+  .ridge b.end { left: auto; right: 0; transform: none; }
 </style>

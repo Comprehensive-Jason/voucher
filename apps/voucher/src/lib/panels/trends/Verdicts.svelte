@@ -4,8 +4,9 @@
   // over the last eight weeks. Goal Days that felt bad, or missed Days that
   // felt good, are the interesting ones: they say the goal or the sources
   // may be weighing the wrong things. A strip of the last four weeks shows
-  // each answer, outlined in gold where the goal was met. The lines under it
-  // sum up the answers and, with enough of them, what the mismatch suggests.
+  // each answer, outlined in gold where the goal was met. With enough
+  // answers, one line under it says what the mismatch suggests; the table
+  // already gives the counts.
   import TrendCard from "../../components/TrendCard.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal, Verdict } from "../../types";
@@ -25,20 +26,17 @@
   /** What the mismatch suggests, once there are enough answers to say. */
   const hint = $derived.by(() => {
     if (answered.length < 10) return null;
-    if (met.n >= 4 && pct(met.n - met.good, met.n) >= 30) return "Goal Days that went badly are common: the goal may count work that doesn't matter much to you.";
-    if (missed.n >= 4 && pct(missed.good, missed.n) >= 50) return "Many missed Days still went well: the goal may ask too much, or miss what you actually do.";
-    return "Goal Days and good Days mostly agree: the goal seems to measure what you care about.";
+    if (met.n >= 4 && pct(met.n - met.good, met.n) >= 30) return "Many goal Days went badly: the goal may count the wrong work.";
+    if (missed.n >= 4 && pct(missed.good, missed.n) >= 50) return "Many missed Days went well: the goal may ask too much.";
+    return "Goal Days and good Days mostly agree.";
   });
   const strip = $derived(history.slice(-28));
   const LABEL: Record<Verdict, string> = { yes: "Yes", mostly: "Mostly", no: "No" };
 </script>
 
-{#snippet summary()}
-  Of <b>{met.n}</b> goal Days you answered, <b class="ok">{met.good}</b> went the way you wanted{#if missed.n}; of <b>{missed.n}</b> missed Days, <b class="ok">{missed.good}</b> did anyway{/if}.
-  {#if hint}<span class="hint">{hint}</span>{/if}
-{/snippet}
+{#snippet summary()}{hint}{/snippet}
 
-<TrendCard title="Goal Days vs good Days" foot={answered.length >= 3 ? summary : undefined}>
+<TrendCard title="Goal Days vs good Days" foot={answered.length >= 3 && hint ? summary : undefined}>
   {#if answered.length < 3}
     <p class="empty">Your answers to the Curfew question ("Did today go the way you wanted?") show here after a few nights.</p>
   {:else}
@@ -54,10 +52,6 @@
 </TrendCard>
 
 <style>
-  /* Beats the foot's own bold colour. */
-  :global(.foot) b.ok { color: var(--voucher); }
-  /* The hint gets a line of its own under the counts. */
-  .hint { display: block; margin-top: 4px; }
   .table { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 6px 8px; align-items: center; }
   .table.fit { flex: 1; min-height: 0; align-content: center; }
   .h { text-align: center; color: var(--muted); }

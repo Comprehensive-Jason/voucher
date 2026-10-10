@@ -8,8 +8,9 @@
   //   least that long the last 30 Days held, with the 30 before as an
   //   outline; the further right the bars hold up, the longer you sustain
   //   focus.
-  // The sentence under the chart reads the picked view out, then says what
-  // counts as a stretch.
+  // Typical labels its line: the latest week's value at the right end, and
+  // the first week's, faint, over its column. The line under the chart only
+  // says what counts as a stretch.
   import TrendCard from "../../components/TrendCard.svelte";
   import ChartAxis from "../../components/ChartAxis.svelte";
   import Legend from "../../components/Legend.svelte";
@@ -36,7 +37,7 @@
   const before = $derived(history.slice(-60, -30).flatMap((d) => d.stretches ?? []));
   const atLeast = (list: number[]) => LENGTHS.map((m) => list.filter((s) => s >= m).length);
 
-  const W = 600, x1 = 592, y1 = 8;
+  const W = 600, y1 = 8;
   const H = $derived(fit ? drawHeight(pw, ph, 180) : 180);
   const y0 = $derived(H - 22);
   /** Drawing units per screen pixel: chart text is 11px on screen, 11 * k here. */
@@ -49,12 +50,25 @@
   const x0 = $derived(Math.round(16 + k * (7 + 6.6 * String(ticks[2]).length)));
   const lx0 = 40;
   const yAt = (v: number) => y0 - (v / top) * (y0 - y1);
+  const typical = $derived(weeks.length ? Math.round(weeks.at(-1)!.mid) : 0);
+  const endText = $derived(`${typical} min`);
+  // Typical's right edge leaves room for the end label past the last
+  // column (bold 9px figures, about 5.6px each), solved from the slot width.
+  const x1 = $derived.by(() => {
+    const n = Math.max(1, weeks.length), room = W - 2 - k * (3 + 5.6 * endText.length);
+    return Math.min(592, x0 + (room - x0) / (1 - 0.2 / n));
+  });
   const slot = $derived((x1 - x0) / Math.max(1, weeks.length));
   const counts = $derived({ now: atLeast(recent), then: atLeast(before) });
   const most = $derived(Math.max(1, ...counts.now, ...counts.then));
-  const bandW = (x1 - lx0) / LENGTHS.length;
-  const typical = $derived(weeks.length ? Math.round(weeks.at(-1)!.mid) : 0);
+  const bandW = (592 - lx0) / LENGTHS.length;
   const firstTypical = $derived(weeks.length ? Math.round(weeks[0].mid) : 0);
+  /** The first week's value over its column, or under it when the column reaches the top. */
+  const startY = $derived.by(() => {
+    if (weeks.length < 4) return null;
+    const above = yAt(weeks[0].hi) - 4 * k;
+    return above - 6.7 * k >= y1 - 2 * k ? above : Math.min(yAt(weeks[0].lo) + 11 * k, y0 - 2 * k);
+  });
 </script>
 
 <TrendCard title="Focus stretches">
@@ -73,6 +87,8 @@
             <rect x={x0 + slot * j + slot * 0.2} y={yAt(w.hi)} width={slot * 0.6} height={Math.max(2, yAt(w.lo) - yAt(w.hi))} rx="3" fill="#b08cff" opacity=".45" />
           {/each}
           <path d={weeks.map((w, j) => `${j ? "L" : "M"}${x0 + slot * j + slot / 2},${yAt(w.mid)}`).join("")} fill="none" stroke="#f2f2f0" stroke-width="2" />
+          {#if startY !== null}<text class="tag" x={x0 + slot / 2} y={startY} text-anchor="middle" style="fill: var(--ink); opacity: .6">{firstTypical}</text>{/if}
+          <text class="tag end" x={x0 + slot * (weeks.length - 0.2) + 3 * k} y={yAt(weeks.at(-1)!.mid) + 3.2 * k} style="fill: var(--ink)">{endText}</text>
           {#each weeks as w, j (w.monday)}{#if w.monday.slice(8) <= "07"}<text x={x0 + slot * j + slot / 2} y={H - 4} text-anchor="middle">{monthOf(w.monday)}</text>{/if}{/each}
         {:else}
           {#each LENGTHS as m, i}
@@ -83,7 +99,7 @@
             <text x={x + bw / 2} y={y0 - (counts.now[i] / most) * (y0 - y1 - 14) - 4} text-anchor="middle" style="fill: var(--ink)">{counts.now[i]}</text>
             <text x={x + bw / 2} y={H - 4} text-anchor="middle">{m >= 60 ? `${m / 60} h+` : `${m} min+`}</text>
           {/each}
-          <line x1={lx0} x2={x1} y1={y0} y2={y0} stroke="#3a3f45" />
+          <line x1={lx0} x2={592} y1={y0} y2={y0} stroke="#3a3f45" />
         {/if}
       </svg>
     </div>
@@ -96,12 +112,13 @@
       { kind: "outline", color: "#6c7177", label: "The 30 before" },
     ]} />
   {/if}
-  {#snippet foot()}
-    {#if days.length}
-      {#if view === "typical"}Your typical stretch lately: <b>{typical} min</b>{#if weeks.length > 3}, {typical >= firstTypical ? "up" : "down"} from {firstTypical} min {weeks.length} weeks ago{/if}.
-      {:else}In the last 30 Days, <b>{counts.now[3]}</b> {counts.now[3] === 1 ? "stretch" : "stretches"} lasted an hour or more (the 30 before: {counts.then[3]}), and <b>{counts.now[2]}</b> half an hour or more.{/if}
-    {/if}
-    A stretch is unbroken time in your focus apps (Obsidian, reading, Anki, and the like); a break under 2 minutes doesn't end it.
-  {/snippet}
+  {#snippet foot()}A stretch: unbroken time in focus apps; breaks under 2 min don't end it.{/snippet}
 </TrendCard>
 
+
+<style>
+  /* Values on the chart: a halo in the card's colour keeps them readable
+     where they cross a grid line or a column. */
+  svg.chart text.tag { paint-order: stroke; stroke: var(--surface); stroke-width: calc(3px * var(--k, 1)); stroke-linejoin: round; }
+  svg.chart text.end { font-weight: 700; }
+</style>

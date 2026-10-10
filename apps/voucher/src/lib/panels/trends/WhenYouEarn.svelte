@@ -2,8 +2,9 @@
   // What are my productive hours? A row per Day (or the average Day of each
   // week or month), a cell per hour from 06:00, brighter for more Vouchers.
   // Newest at the bottom; scroll up for earlier ones, as far as the log
-  // keeps them. The hours sit under the rows, outside the scroller, so they
-  // never move.
+  // keeps them. The busiest hour's column is outlined, with its time and
+  // "busiest" over it. The hours sit under the rows, outside the scroller,
+  // so they never move.
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import HourAxis from "../../components/HourAxis.svelte";
@@ -78,12 +79,16 @@
   // Opens on the row holding the shared Day (today's, at first), and goes back to it after a switch.
   let scroller = $state<HTMLDivElement>();
 
-  /** The busiest hour across everything in view. */
+  /** The column of the busiest hour across everything in view, or null with nothing earned. */
   const busiest = $derived.by(() => {
     const sums = Array.from({ length: COLS }, (_, c) => rows.reduce((a, r) => a + r.cells[c], 0));
-    const c = sums.indexOf(Math.max(...sums));
-    return c < 0 ? null : hourOf(c);
+    const top = Math.max(...sums);
+    return top > 0 ? sums.indexOf(top) : null;
   });
+  // Its label reads away from the column, toward the open side, so it never runs off the card;
+  // the time sits next to the column either way.
+  // Grid lines: line 1 starts the label column, line c + 2 starts hour column c.
+  const peakSpan = $derived(busiest === null ? "" : busiest < COLS / 2 ? `${busiest + 3} / -1` : `2 / ${busiest + 2}`);
 </script>
 
 <TrendCard title="When you earn" date={{ day: selection.day ?? lastDay, today: lastDay, oldest: history[0]?.day, unit: by, onpick: (d) => selection.set("when", { day: d === lastDay ? null : d, picked: false }) }}>
@@ -96,10 +101,21 @@
     <!-- Each switch zooms in like the bar graph's Day, Week, and Month. -->
     {#key by}
     <div class="grid" class:fit in:zoomFade={{ out: widened }}>
-      <div class="rows" bind:this={scroller}>
-        {#each rows as r (r.key)}
-          <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
-        {/each}
+      <div class="stage">
+        <!-- The busiest hour: a label beside its column, on the same columns as the rows. -->
+        {#if busiest !== null}
+          {@const time = `${String(hourOf(busiest)).padStart(2, "0")}:00`}
+          <div class="cols peak" aria-hidden="true"><span style="grid-column: {peakSpan}" class:end={busiest >= COLS / 2}>{#if busiest >= COLS / 2}busiest <b>{time}</b>{:else}<b>{time}</b> busiest{/if}</span></div>
+        {/if}
+        <div class="rows" bind:this={scroller}>
+          {#each rows as r (r.key)}
+            <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}</span>{#each r.cells as v, c}<i style="background: {v <= 0 && inCurfew(hourOf(c)) ? NIGHT : shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
+          {/each}
+        </div>
+        <!-- Over the scroller, not in it, so the outline stays put while the rows scroll. -->
+        {#if busiest !== null}
+          <div class="cols outline" aria-hidden="true"><i style="grid-column: {busiest + 2}"></i></div>
+        {/if}
       </div>
       <!-- Under the rows and outside the scroller, so the hours never move.
            The label column (44px) plus HourAxis's own 2px gap meets the cells. -->
@@ -108,16 +124,23 @@
     {/key}
     <Legend scale={{ from: "Fewer", colors: SHADES, to: `More Vouchers${by === "day" ? "" : ", per Day on average"}` }} />
   {/if}
-  {#snippet foot()}
-    {#if busiest !== null && rows.length}Your busiest hour is <b>{String(busiest).padStart(2, "0")}:00</b>, across the {rows.length} {by === "day" ? "Days" : by === "week" ? "weeks" : "months"} kept.{:else}Not enough history yet.{/if}
-  {/snippet}
 </TrendCard>
 
 <style>
   .grid { display: flex; flex-direction: column; gap: 4px; }
+  .stage { position: relative; display: flex; flex-direction: column; gap: 3px; }
+  /* The rows' columns, for the busiest hour's label and outline. */
+  .cols { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); column-gap: 2px; pointer-events: none; }
+  .peak { height: 12px; }
+  .peak span { min-width: 0; padding: 0 2px; font: 500 var(--axis-size)/12px var(--mono); color: var(--muted); white-space: nowrap; }
+  .peak span.end { text-align: right; }
+  .peak b { color: var(--ink); font-weight: 700; }
+  /* From the label's row down to the bottom of the rows in view. */
+  .outline { position: absolute; inset: 0; }
+  .outline i { margin: 0 -1px; border: 1px solid rgba(242, 242, 240, .45); border-radius: 4px; }
   .row { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
   /* In a tablet slot the rows take whatever height is left. */
-  .grid.fit { flex: 1; min-height: 0; }
+  .grid.fit, .grid.fit .stage { flex: 1; min-height: 0; }
   .grid.fit .rows { flex: 1; min-height: 0; max-height: none; }
   .rows { position: relative; display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .rows::-webkit-scrollbar { display: none; }

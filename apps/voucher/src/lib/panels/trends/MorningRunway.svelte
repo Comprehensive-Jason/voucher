@@ -5,8 +5,10 @@
   // Curfew's hours shaded in the night colour; a hollow dot in the "none"
   // column at the far right for a Day with no Unlock at all. The further
   // right the dots, the longer the morning ran before the first Distraction.
-  // The dashed line is the middle first Unlock of the last 4 weeks. The
-  // hours sit under the scroller and never move, drawn as HourAxis draws them.
+  // The gold dashed line is the middle first Unlock of the last 4 weeks, its
+  // time over it; a fainter one marks the 4 weeks before, with its time, when
+  // the two are 10 minutes or more apart. The hours sit under the scroller
+  // and never move, drawn as HourAxis draws them.
   // It follows the shared Day: that Day's dot is ringed and its week scrolled
   // into view, and tapping a dot shares its Day.
   import TrendCard from "../../components/TrendCard.svelte";
@@ -37,16 +39,21 @@
   const recent = $derived(median(days.slice(-28).flatMap((d) => (d.first_tear ? [hoursAt(d.first_tear)] : []))));
   const before = $derived(median(days.slice(-56, -28).flatMap((d) => (d.first_tear ? [hoursAt(d.first_tear)] : []))));
 
+  /** The 4 weeks before, drawn only when they differ from lately by 10 minutes or more. */
+  const showBefore = $derived(!Number.isNaN(recent) && !Number.isNaN(before) && Math.abs(recent - before) * 60 >= 10);
+
   // Drawn 600 wide; each week a 22-high row.
-  const W = 600, x0 = 52, x1 = 560, ROW = 22;
+  const W = 600, x1 = 560, ROW = 22;
   const H = $derived(weeks.length * ROW);
+  /** The drawing's units per pixel, which keeps its text one size (see TrendCard). */
+  let width = $state(0);
+  const k = $derived(W / (width || W));
+  /** Where the hours start: room for a week's date ("09-07") at the axis size, however narrow the card. */
+  const x0 = $derived(Math.max(52, Math.round(38 * k)));
   const xAt = (h: number) => x0 + ((Math.min(h, END) - START) / (END - START)) * (x1 - x0);
   /** The Day's hours, 6 to 29 (29 is 05:00), and which fall in Curfew. */
   const HOURS = Array.from({ length: END - START }, (_, i) => START + i);
   const night = $derived(HOURS.filter((h) => inCurfew(h % 24)));
-  /** The drawing's units per pixel, which keeps its text one size (see TrendCard). */
-  let width = $state(0);
-  const k = $derived(W / (width || W));
 
   // Open at the newest weeks; follow the shared Day to its week.
   let scroller = $state<HTMLDivElement>();
@@ -73,11 +80,21 @@
     <p class="empty">First Unlocks show here as the log fills.</p>
   {:else}
     <div class="wrap" class:fit bind:clientWidth={width}>
+      <!-- The usual times, over their lines and outside the scroller, so they stay in view.
+           With both drawn, each reads outward from its line so the two never overlap. -->
+      {#if !Number.isNaN(recent)}
+        {@const late = !showBefore || recent >= before}
+        <svg class="chart times" viewBox="0 0 {W} {14 * k}" style="--k: {k}" aria-hidden="true">
+          <text class="time recent" x={xAt(recent) + (showBefore ? (late ? 4 : -4) * k : 0)} y={10 * k} text-anchor={showBefore ? (late ? "start" : "end") : "middle"}>{clockOfHours(recent)}</text>
+          {#if showBefore}<text class="time" x={xAt(before) + (late ? -4 : 4) * k} y={10 * k} text-anchor={late ? "end" : "start"}>{clockOfHours(before)}</text>{/if}
+        </svg>
+      {/if}
       <div class="rows" bind:this={scroller}>
         <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Each Day's first Unlock, by week">
           <!-- Curfew's hours, in the night colour behind the rows. -->
           {#each night as h (h)}<rect x={xAt(h)} y="0" width={xAt(h + 1) - xAt(h)} height={H} fill="rgba(125, 140, 255, .09)" />{/each}
-          {#if !Number.isNaN(recent)}<line x1={xAt(recent)} x2={xAt(recent)} y1="0" y2={H} stroke="var(--goal)" stroke-dasharray="4 4" />{/if}
+          {#if showBefore}<line x1={xAt(before)} x2={xAt(before)} y1="0" y2={H} stroke="var(--muted)" stroke-opacity=".5" stroke-width={k} stroke-dasharray="{2 * k} {4 * k}" />{/if}
+          {#if !Number.isNaN(recent)}<line x1={xAt(recent)} x2={xAt(recent)} y1="0" y2={H} stroke="var(--goal)" stroke-width={1.2 * k} stroke-dasharray="{3 * k} {3 * k}" />{/if}
           {#if chosenRow >= 0}<rect x="0" y={chosenRow * ROW} width={W} height={ROW} rx="4" fill="#ffffff" opacity=".045" />{/if}
           {#each weeks as w, r (w.monday)}
             {@const y = r * ROW + ROW / 2}
@@ -103,13 +120,11 @@
         <text class="hour" x={x1 + 22} y="13" text-anchor="middle">none</text>
       </svg>
     </div>
-    <Legend items={[{ kind: "dot", color: "var(--voucher)", label: "A Day's first Unlock" }, { kind: "ring", color: "var(--voucher)", label: "No Unlock" }, { kind: "usual", color: "var(--goal)", label: "Usual lately" }]} note="further right: a longer morning" />
+    <!-- The note fits the legend's one line only beside three keys; a fourth pushes it out. -->
+    <Legend
+      items={[{ kind: "dot", color: "var(--voucher)", label: "A Day's first Unlock" }, { kind: "ring", color: "var(--voucher)", label: "No Unlock" }, { kind: "usual", color: "var(--goal)", label: "Usual lately" }, ...(showBefore ? [{ kind: "usual" as const, color: "var(--muted)", label: "4 weeks before" }] : [])]}
+      note={showBefore ? undefined : "further right: a longer morning"} />
   {/if}
-  {#snippet foot()}
-    {#if !Number.isNaN(recent)}
-      Lately your first Unlock comes around <b>{clockOfHours(recent)}</b>{#if !Number.isNaN(before)}, against <b>{clockOfHours(before)}</b> in the 4 weeks before{/if}.
-    {:else}No Unlocks in the kept log yet.{/if}
-  {/snippet}
 </TrendCard>
 
 <style>
@@ -119,7 +134,10 @@
   .rows::-webkit-scrollbar { display: none; }
   .wrap.fit { flex: 1; min-height: 0; }
   .wrap.fit .rows { flex: 1; min-height: 0; max-height: none; }
-  .axis { flex: none; }
+  .axis, .times { flex: none; }
+  /* Two classes deep, to outrank TrendCard's axis-ink for chart text. */
+  .times text.time { fill: var(--muted); }
+  .times text.time.recent { fill: var(--goal); font-weight: 700; }
   .dot { cursor: pointer; }
   /* HourAxis's look: 10px mono hour labels, Curfew's in the night colour. */
   .axis text.hour { font-size: calc(var(--axis-size) * var(--k, 1)); font-weight: 500; }

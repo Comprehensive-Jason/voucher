@@ -3,8 +3,9 @@
   // opening an app on a blocklist while nothing is unlocked; "walked away"
   // means that time ended without an Unlock. One bar per Day of the week
   // holding the picked Day: its height is the opens, its green part the
-  // walk-aways and its salmon part the Unlocks, with both numbers on it; the
-  // line under it gives the week's share against the week before.
+  // walk-aways and its salmon part the Unlocks, with both numbers on it. A
+  // badge over the bars gives the week's share walked away, and the week
+  // before's beside it, so the card needs no line under it.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
   import { mondayOf } from "../../trends";
@@ -34,16 +35,17 @@
   const UNLOCKED = "color-mix(in srgb, var(--spend) 40%, transparent)";
 </script>
 
-{#snippet summary()}
-  You opened a blocked app <b>{now.opens}</b> {now.opens === 1 ? "time" : "times"} and walked away <b>{now.walked}</b> {now.walked === 1 ? "time" : "times"}{#if now.opens}{" "}(<b class="won">{pct(now)}%</b>){/if}.
-  {#if before.opens}The week before: {pct(before)}%.{/if}
-{/snippet}
-
-<TrendCard title="Walk-away wins" foot={any ? summary : undefined} date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: "week", onpick: (d) => selection.set("walkaway", { day: d === today ? null : d, picked: false }) }}>
+<TrendCard title="Walk-away wins" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: "week", onpick: (d) => selection.set("walkaway", { day: d === today ? null : d, picked: false }) }}>
   {#if !any}
     <p class="empty">Opens of blocked apps show here once the phone reports them.</p>
   {:else}
     <div class="week" class:fit>
+      <!-- The week's share, in a lane of its own above the bars so a tall bar never runs into it. -->
+      {#if now.opens}
+        <div class="badge" title="Walked away {now.walked} of {now.opens} {now.opens === 1 ? 'time' : 'times'}{before.opens ? `; the week before, ${before.walked} of ${before.opens}` : ''}">
+          <b>{pct(now)}% walked away</b>{#if before.opens}<span>{pct(before)}% the week before</span>{/if}
+        </div>
+      {/if}
       {#each week as d, i (d.day)}
         <div class="day" class:future={d.future} title="{d.day}: walked away {d.walked} of {d.opens}">
           {#if d.opens}<span class="n">{d.walked}/{d.opens}</span>{/if}
@@ -57,11 +59,13 @@
 </TrendCard>
 
 <style>
-  /* Beats the foot's own bold colour. */
-  :global(.foot) b.won { color: var(--voucher); }
-  /* The bottom margin leaves room for the weekday labels hanging under the bars. */
-  .week { height: 110px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; border-bottom: 1px solid #3a3f45; padding-top: 14px; }
-  .week.fit { flex: 1; min-height: 70px; height: auto; }
+  /* The bottom margin leaves room for the weekday labels hanging under the
+     bars; the top padding is the badge's lane over the bars' own labels. */
+  .week { position: relative; height: 130px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; border-bottom: 1px solid #3a3f45; padding-top: 34px; }
+  .badge { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: baseline; gap: 8px; min-width: 0; white-space: nowrap; }
+  .badge b { padding: 1px 8px; border-radius: 999px; background: var(--unlocked-bg); color: var(--voucher); font: 700 12px/18px var(--mono); }
+  .badge span { font: 500 11px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .week.fit { flex: 1; min-height: 90px; height: auto; }
   .day { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
   .day.future { opacity: .3; }
   .n { font: 600 10px var(--mono); color: var(--ink); margin-bottom: 3px; }

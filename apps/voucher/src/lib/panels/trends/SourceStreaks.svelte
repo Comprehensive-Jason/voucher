@@ -1,7 +1,8 @@
 <script lang="ts">
   // Which habits am I keeping up? A row per switched-on source, a cell filled
   // in its colour on each Day it earned at least one Voucher, and how many
-  // Days in a row it's earned up to now. The Days scroll sideways, back as
+  // Days in a row it's earned up to now; the longest run (every source tied
+  // for it) has its name and run in ink, the rest muted. The Days scroll sideways, back as
   // far as the log keeps them, with the month and each Monday's date along
   // the top; it opens at today. It follows the shared Day (that Day's column
   // is outlined and scrolled into view), and tapping a cell shares its Day.
@@ -34,7 +35,8 @@
       for (let i = hit.length - 1; i >= 0; i--) { if (hit[i]) run++; else if (i < hit.length - 1) break; }
       return { ...s, hit, run };
     }));
-  const longest = $derived([...rows].sort((a, b) => b.run - a.run)[0]);
+  /** The longest current run, in Days; 0 when no source is on a run. */
+  const longest = $derived(Math.max(0, ...rows.map((r) => r.run)));
 
   /** The label over a Day's column: the month where one starts, each Monday's date, else nothing. */
   const label = (day: string) => {
@@ -64,7 +66,7 @@
   <div class="grid" class:fit style="--cell: {CELL}px; --gap: {GAP}px">
     <div class="side">
       <span class="dates"></span>
-      {#each rows as r (r.id)}<span class="name">{r.name}</span>{/each}
+      {#each rows as r (r.id)}<span class="name" class:best={longest > 0 && r.run === longest}>{r.name}</span>{/each}
     </div>
     <div class="scroll" bind:this={scroller}>
       <div class="track" style="grid-template-columns: repeat({days.length}, var(--cell))">
@@ -78,12 +80,9 @@
     </div>
     <div class="side runs">
       <span class="dates"></span>
-      {#each rows as r (r.id)}<span class="run" class:none={!r.run}>{r.run ? `${r.run} ${r.run === 1 ? "Day" : "Days"}` : "–"}</span>{/each}
+      {#each rows as r (r.id)}<span class="run" class:best={longest > 0 && r.run === longest}>{r.run ? `${r.run} ${r.run === 1 ? "Day" : "Days"}` : "–"}</span>{/each}
     </div>
   </div>
-  {#snippet foot()}
-    {#if longest && longest.run}<b>{longest.name}</b> has earned every Day for <b>{longest.run}</b> {longest.run === 1 ? "Day" : "Days"}. Filled squares are Days a source earned at least one Voucher.{:else}Filled squares are Days a source earned at least one Voucher.{/if}
-  {/snippet}
 </TrendCard>
 
 <style>
@@ -95,9 +94,11 @@
   .side:not(.runs) { width: 96px; }
   /* As wide as its longest run ("12 Days"), so the words fit. */
   .runs { min-width: 34px; }
-  .name { font-size: 12.5px; line-height: var(--cell); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .run { font: 700 11px/var(--cell) var(--mono); color: var(--ink); text-align: right; white-space: nowrap; }
-  .run.none { color: var(--muted); }
+  .name { font-size: 12.5px; line-height: var(--cell); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .run { font: 500 11px/var(--cell) var(--mono); color: var(--muted); text-align: right; white-space: nowrap; }
+  /* The longest run going: name and run in ink. */
+  .name.best { color: var(--ink); font-weight: 600; }
+  .run.best { color: var(--ink); font-weight: 700; }
   /* The Days scroll sideways, inside the card. */
   .scroll { flex: 1; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
   .scroll::-webkit-scrollbar { display: none; }

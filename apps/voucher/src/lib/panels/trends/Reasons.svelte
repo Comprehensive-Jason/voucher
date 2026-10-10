@@ -2,8 +2,8 @@
   // What pulls me? The reasons tapped after Unlocks ("Why now?") over the
   // last four weeks, most common first, and the top one for each part of the
   // Day, so a pattern (bored afternoons, tired evenings) shows. A reason
-  // turns an Unlock from a lapse into information. The line under it names
-  // the most common one.
+  // turns an Unlock from a lapse into information. The most common reason's
+  // bar is in full colour, the rest dimmer; the line under it gives the span.
   import TrendCard from "../../components/TrendCard.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal } from "../../types";
@@ -27,9 +27,7 @@
   }));
 </script>
 
-{#snippet summary()}
-  <b>{all.length}</b> {all.length === 1 ? "reason" : "reasons"} in four weeks; most often <b>{name(counts[0][0]).toLowerCase()}</b>.
-{/snippet}
+{#snippet summary()}Last 4 weeks.{/snippet}
 
 <TrendCard title="Why you unlock" foot={all.length ? summary : undefined}>
   {#if !all.length}
@@ -37,7 +35,7 @@
   {:else}
     <div class="bars" class:fit>
       {#each counts as [r, n] (r)}
-        <div class="reason"><span class="name">{name(r)}</span><span class="track"><i style="width: {(n / most) * 100}%"></i></span><b class="mono">{n}</b></div>
+        <div class="reason" class:top={n === most}><span class="name">{name(r)}</span><span class="track"><i style="width: {(n / most) * 100}%"></i></span><b class="mono">{n}</b></div>
       {/each}
     </div>
     <div class="parts">
@@ -54,6 +52,10 @@
   .track { height: 10px; border-radius: 5px; background: #22262a; overflow: hidden; }
   .track i { display: block; height: 100%; border-radius: 5px; background: var(--spend); transition: width var(--t-move) var(--ease-out); }
   .reason b { text-align: right; font-size: 12px; color: var(--muted); }
+  /* The most common reason (or reasons, on a tie) stands out; the rest step back. */
+  .reason:not(.top) .track i { opacity: .4; }
+  .reason:not(.top) .name { color: var(--muted); }
+  .reason.top b { color: var(--ink); }
   .parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .parts div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #1f2226; min-width: 0; }
   .parts b { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
