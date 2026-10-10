@@ -42,6 +42,8 @@
   --night-ink: #c9cfff;
   --night-voucher: #2e3a78;
   --night-bg: #151935;
+  --night-band: color-mix(in srgb, var(--night) 9%, transparent); /* Curfew's hours behind a chart, the same on every card */
+  --night-cell: color-mix(in srgb, var(--night) 12%, var(--heat-0)); /* an empty grid square in Curfew's hours */
   --font: "Space Grotesk", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
 }

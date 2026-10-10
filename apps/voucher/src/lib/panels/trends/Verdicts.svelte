@@ -100,8 +100,6 @@
   .strip i { position: relative; aspect-ratio: 1; border-radius: 3px; background: var(--heat-0); box-sizing: border-box; }
   /* A Day with a Marker: Activity's corner, in the Marker colour. */
   .strip i.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
-  /* A dark edge along the tick's slant, so grey still reads on the light greens (as in Source streaks). */
-  .strip i.marked::after { filter: drop-shadow(-1px 1px 0 var(--surface)); }
   .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: var(--mostly); } .strip i.no { background: var(--worse); }
   .strip i.met { outline: 1.5px solid var(--goal); outline-offset: -1.5px; }
 </style>

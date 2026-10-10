@@ -92,8 +92,8 @@
   const lead = $derived(rows.some((r) => r.label.length > 6) ? (marks.length ? 70 : 58) : 44);
   const max = $derived(Math.max(1e-9, ...rows.flatMap((r) => r.cells)));
   const SHADES = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--voucher)"];
-  /** An empty hour during Curfew. */
-  const NIGHT = "var(--night-bg)";
+  /** An empty hour during Curfew: the empty square, tinted as every chart tints Curfew. */
+  const NIGHT = "var(--night-cell)";
   const shade = (v: number) => (v <= 0 ? SHADES[0] : SHADES[Math.min(4, 1 + Math.floor((v / max) * 3.999))]);
 
   // Opens on the row holding the shared Day (today's, at first), and goes back to it after a switch.

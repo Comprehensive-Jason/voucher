@@ -167,7 +167,7 @@
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
     <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Today's Vouchers against your usual Day">
       <!-- Curfew's hours, in the night colour: earning still counts there. -->
-      {#each Array(END - START) as _, i}{#if inCurfew((START + i) % 24)}<rect x={xAt(START + i)} y={y1} width={xAt(START + i + 1) - xAt(START + i) + 0.5} height={y0 - y1} fill="var(--night)" fill-opacity=".09" />{/if}{/each}
+      {#each Array(END - START) as _, i}{#if inCurfew((START + i) % 24)}<rect x={xAt(START + i)} y={y1} width={xAt(START + i + 1) - xAt(START + i) + 0.5} height={y0 - y1} style="fill: var(--night-band)" />{/if}{/each}
       <ChartAxis {ticks} {yAt} {x0} {x1} {y0} {y1} title="Vouchers" />
       <path d={bandPath} fill="var(--voucher)" fill-opacity=".16" />
       <MarkerLines marks={marks.map((m) => ({ x: xAt(m.h), text: m.text, rule: m.rule }))} {y0} {y1} />
@@ -182,7 +182,8 @@
       <text class="tag big" x={count.x} y={count.y} text-anchor={count.anchor} style="fill: var(--voucher)">{soFar}</text>
       <text class="tag" x={range.x} y={range.y} text-anchor={range.anchor} style="fill: var(--voucher); opacity: .8">{rangeText}</text>
       {#if goalTime}<text class="tag" x={goalTime.x} y={goalTime.y} text-anchor="middle" style="fill: var(--goal)">{goalTime.text}</text>{/if}
-      {#each [6, 9, 12, 15, 18, 21, 24] as h}<text x={xAt(h)} y={H - 6} text-anchor="middle">{String(h % 24).padStart(2, "0")}</text>{/each}
+      <!-- Every third hour across the whole Day, as HourAxis draws them: Curfew's in the night colour. -->
+      {#each [6, 9, 12, 15, 18, 21, 24, 27] as h}<text x={xAt(h)} y={H - 6} text-anchor="middle" style={inCurfew(h % 24) ? "fill: var(--night)" : undefined}>{String(h % 24).padStart(2, "0")}</text>{/each}
     </svg>
     </div>
     <Legend items={[

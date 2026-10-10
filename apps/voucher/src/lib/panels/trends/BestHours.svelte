@@ -84,7 +84,7 @@
   .ridge { height: 26px; margin-top: 11px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; align-items: end; border-bottom: 1px solid #2c3036; }
   .ridge .hour { position: relative; height: 100%; display: flex; align-items: flex-end; }
   /* Curfew's hours, in the night colour behind the ridge. */
-  .ridge .hour.night { background: color-mix(in srgb, var(--night) 9%, transparent); }
+  .ridge .hour.night { background: var(--night-band); }
   .ridge i { display: block; width: 100%; border-radius: 2px 2px 0 0; min-height: 1px; opacity: .45; }
   .ridge .peak i { opacity: 1; }
   /* The peak's time, centred over its bar; at either end it lines up with the bar's outer edge instead, so it stays on the card. */
