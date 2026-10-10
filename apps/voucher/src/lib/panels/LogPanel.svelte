@@ -2,7 +2,8 @@
   // The Log: one Day's earnings and Redemptions, newest first, with the moment
   // the Daily goal was met marked in place. Arrows step through past Days.
   // `compact` is the tablet's side card: one line per entry, no totals.
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { selection } from "../selection.svelte";
   import { ledger } from "../api";
   import { POLL_MS } from "../live.svelte";
   import { serviceOf, sourceOf } from "../sources";
@@ -79,7 +80,22 @@
   function step(by: number) {
     back = Math.min(OLDEST, Math.max(0, back + by));
     load();
+    share();
   }
+  /** The Day this Log moved to, for the other cards (null for today). */
+  function share() {
+    if (today) selection.set("log", { day: back === 0 ? null : shiftDay(today, -back), picked: false });
+  }
+  // A Day picked on another card opens here too.
+  $effect(() => {
+    selection.seq;
+    untrack(() => {
+      if (selection.from === "log" || !today) return;
+      const want = selection.day ?? today;
+      const next = Math.min(OLDEST, Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${want}T12:00:00Z`)) / 86_400_000)));
+      if (next !== back) { back = next; load(); }
+    });
+  });
 
   // Today's Log keeps itself current; a past Day doesn't change.
   onMount(() => {
@@ -93,7 +109,7 @@
   <header>
     {#if compact}<span class="cap">Log</span>{:else}<h1>Log</h1>{/if}
     <span class="spacer"></span>
-    <TodayButton show={back > 0} onclick={() => { back = 0; load(); }} />
+    <TodayButton show={back > 0} onclick={() => { back = 0; load(); share(); }} />
     <div class="switcher">
       <button class="day" aria-label="Previous day" disabled={back >= OLDEST} onclick={() => step(1)}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6" /></svg>

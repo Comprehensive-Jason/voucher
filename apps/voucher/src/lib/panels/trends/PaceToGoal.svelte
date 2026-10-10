@@ -1,13 +1,15 @@
 <script lang="ts">
-  // Am I ahead of my usual self today? Today's Vouchers as a rising line over
-  // the middle half of the last 30 Days (by the end of each hour), with the
-  // Daily goal across. Under it, the splits: for each Voucher toward the goal,
-  // how many minutes ahead of (or behind) your usual time for it you were.
-  // The Day runs from 06:00; hours after midnight count as 24 to 29.
+  // Am I ahead of my usual self? The picked Day's Vouchers (today's, unless
+  // another card picked a Day) as a rising line over the middle half of the
+  // 30 Days before it (by the end of each hour), with the Daily goal across
+  // and a tick at your usual time for reaching it. The Day runs from 06:00;
+  // hours after midnight count as 24 to 29.
   import TrendCard from "../../components/TrendCard.svelte";
   import { clock } from "../../time";
   import { clockOfHours, median, quantile } from "../../trends";
   import type { DaySummary, DayTotal } from "../../types";
+  import { ledger } from "../../api";
+  import { selection } from "../../selection.svelte";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
@@ -17,12 +19,22 @@
   const START = 6, END = 30;
   /** Hours since midnight of the Day's start, after-midnight hours past 24. */
   const hoursAt = (at: string) => { const [h, m] = clock(at, timeZone).split(":").map(Number); return (h < START ? h + 24 : h) + m / 60; };
-  const goal = $derived(today.goal);
+  // The picked Day: today's live summary, or that Day's fetched from the Ledger.
+  const chosen = $derived(selection.day ?? today.day);
+  const isToday = $derived(chosen === today.day);
+  let fetched = $state<DaySummary | null>(null);
+  $effect(() => {
+    const day = chosen;
+    if (day === today.day) return;
+    ledger<DaySummary>("GET", `/day?date=${day}`).then((d) => { if (chosen === day) fetched = d; }).catch(() => {});
+  });
+  const summary = $derived(isToday ? today : fetched?.day === chosen ? fetched : null);
+  const goal = $derived(summary?.goal ?? today.goal);
 
-  // Today's Vouchers in the order they came.
-  const todayTimes = $derived(today.log.filter((e) => e.kind === "earned").map((e) => hoursAt(e.at)).sort((a, b) => a - b));
+  // The Day's Vouchers in the order they came.
+  const todayTimes = $derived((summary?.log ?? []).filter((e) => e.kind === "earned").map((e) => hoursAt(e.at)).sort((a, b) => a - b));
   // Each past Day's running total at the end of each hour, and when its k-th Voucher came (spread evenly within its hour).
-  const past = $derived(history.slice(0, -1).filter((d) => d.hours && d.hours.length).slice(-30));
+  const past = $derived(history.filter((d) => d.day < chosen && d.hours && d.hours.length).slice(-30));
   const perDay = $derived(past.map((d) => {
     const counts = Array.from({ length: END - START }, (_, i) => d.hours![(START + i) % 24]);
     const cum: number[] = [];
@@ -38,22 +50,13 @@
   /** Your usual time for the k-th Voucher: the middle of the Days that reached it. */
   const usualTime = (k: number) => median(perDay.map((d) => d.times[k - 1]).filter((t) => t !== undefined));
   const usualGoal = $derived(usualTime(goal));
-  const splits = $derived(todayTimes.slice(0, goal).map((t, i) => ({ k: i + 1, ahead: (usualTime(i + 1) - t) * 60 })).filter((s) => !Number.isNaN(s.ahead)));
-  /** Where a usual Day loses the most time: the longest gap between Vouchers toward the goal. */
-  const slowest = $derived.by(() => {
-    let best: { from: number; gap: number } | null = null;
-    for (let k = 1; k < goal; k++) {
-      const gap = usualTime(k + 1) - usualTime(k);
-      if (!Number.isNaN(gap) && (!best || gap > best.gap)) best = { from: k, gap };
-    }
-    return best;
-  });
-  const nowH = $derived(hoursAt(new Date().toISOString()));
+  // Today runs up to now; a past Day to its end.
+  const nowH = $derived(isToday ? hoursAt(new Date().toISOString()) : END);
   const soFar = $derived(todayTimes.filter((t) => t <= nowH).length);
   const usualNow = $derived.by(() => { const b = band.find((x) => x.h >= nowH) ?? band.at(-1); return b; });
 
   const W = 600, x0 = 30, x1 = 592, y1 = 10;
-  const H = $derived(fit ? drawHeight(pw, ph, 200) : 200);
+  const H = $derived(fit ? drawHeight(pw, ph, 240) : 240);
   const y0 = $derived(H - 28);
   const top = $derived(Math.max(goal + 2, ...band.map((b) => b.hi), todayTimes.length) || 1);
   const xAt = (h: number) => x0 + ((h - START) / (END - START)) * (x1 - x0);
@@ -64,8 +67,6 @@
     for (const t of todayTimes.filter((t) => t <= nowH)) { d += `L${xAt(t)},${yAt(n)}L${xAt(t)},${yAt(++n)}`; }
     return d + `L${xAt(Math.min(nowH, END))},${yAt(n)}`;
   });
-  const splitMax = $derived(Math.max(30, ...splits.map((s) => Math.abs(s.ahead))));
-  const mins = (m: number) => `${Math.round(Math.abs(m))} min`;
 </script>
 
 <TrendCard title="Pace to goal">
@@ -83,40 +84,21 @@
       {#each [6, 9, 12, 15, 18, 21, 24] as h}<text x={xAt(h)} y={H - 6} text-anchor="middle">{String(h % 24).padStart(2, "0")}</text>{/each}
     </svg>
     </div>
-    {#if splits.length}
-      <!-- One bar per Voucher so far: up and green when it came sooner than usual, down and red when later. -->
-      <div class="splits" aria-label="Splits">
-        {#each Array(goal) as _, i}
-          {@const s = splits[i]}
-          <div class="split" title={s ? `Voucher ${s.k}: ${mins(s.ahead)} ${s.ahead >= 0 ? "ahead" : "behind"}` : `Voucher ${i + 1}`}>
-            {#if s}<i class:behind={s.ahead < 0} style="height: {(Math.abs(s.ahead) / splitMax) * 40}%"></i>{/if}
-            <span>{i + 1}</span>
-          </div>
-        {/each}
-      </div>
-    {/if}
     <div class="legend">
-      <span><i style="background: var(--voucher)"></i>Today</span>
+      <span><i style="background: var(--voucher)"></i>{isToday ? "Today" : chosen}</span>
       <span><i class="box"></i>Your usual Day (middle half of the last {perDay.length})</span>
     </div>
   {/if}
   {#snippet foot()}
     {#if perDay.length >= 3 && usualNow}
-      At <b>{clockOfHours(Math.min(nowH, END))}</b> you have <b>{soFar}</b>, where a usual Day has {Math.round(usualNow.lo)} to {Math.round(usualNow.hi)}.
+      {#if isToday}At <b>{clockOfHours(Math.min(nowH, END))}</b> you have <b>{soFar}</b>, where a usual Day has {Math.round(usualNow.lo)} to {Math.round(usualNow.hi)}.
+      {:else}<b>{chosen}</b> ended with <b>{soFar}</b>, where a usual Day ends with {Math.round(usualNow.lo)} to {Math.round(usualNow.hi)}.{/if}
       {#if !Number.isNaN(usualGoal)}Most Days reach the goal around <b>{clockOfHours(usualGoal)}</b>.{/if}
-      {#if slowest}Usually the longest wait is between Vouchers {slowest.from} and {slowest.from + 1}.{/if}
     {:else}Not enough history yet.{/if}
   {/snippet}
 </TrendCard>
 
 <style>
-  .splits { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; height: 54px; }
-  .split { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-  /* Ahead rises from the middle line, behind hangs from it. */
-  .split i { position: absolute; left: 15%; right: 15%; bottom: 50%; background: var(--voucher); border-radius: 2px 2px 0 0; min-height: 2px; }
-  .split i.behind { bottom: auto; top: 50%; background: #ff8a7a; border-radius: 0 0 2px 2px; }
-  .split::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #2c3036; }
-  .split span { position: relative; font: 500 9px var(--mono); color: #6f757b; }
   .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }

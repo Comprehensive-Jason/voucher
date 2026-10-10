@@ -7,6 +7,8 @@
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import { monthOf, mondayOf } from "../../trends";
   import { zoomFade } from "../../motion";
+  import { selection } from "../../selection.svelte";
+  import { untrack } from "svelte";
   import type { DayTotal } from "../../types";
   import { fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
@@ -18,6 +20,28 @@
   let widened = $state(true);
   const LEVELS: By[] = ["day", "week", "month"];
   function setBy(next: By) { widened = LEVELS.indexOf(next) > LEVELS.indexOf(by); by = next; }
+  /** A switch made here, which the other cards follow. */
+  function pickBy(next: By) { setBy(next); selection.set("when", { span: next, picked: false }); }
+  // Days, Weeks, or Months as the other cards are, and the row holding their Day outlined and in view.
+  $effect(() => {
+    selection.seq;
+    untrack(() => { if (selection.from !== "when" && selection.span !== by) setBy(selection.span); });
+  });
+  const lastDay = $derived(history.at(-1)?.day ?? "");
+  const chosenKey = $derived.by(() => {
+    const d = selection.day ?? lastDay;
+    return by === "day" ? d : by === "week" ? mondayOf(d) : d.slice(0, 7);
+  });
+  $effect(() => {
+    const key = chosenKey;
+    rows.length;
+    by;
+    // Only the rows scroll (scrollIntoView would move the tablet's strip of cards too).
+    untrack(() => {
+      const el = scroller?.querySelector<HTMLElement>(`[data-key="${key}"]`);
+      if (scroller && el) scroller.scrollTo({ top: el.offsetTop - scroller.clientHeight + el.offsetHeight * 2, behavior: "smooth" });
+    });
+  });
 
   const FIRST = 6, COLS = 18;
   const cols = (hours: number[]) => {
@@ -43,9 +67,8 @@
   const SHADES = ["#22262a", "#1d4d33", "#24804f", "#2fb36b", "#3ddc84"];
   const shade = (v: number) => (v <= 0 ? SHADES[0] : SHADES[Math.min(4, 1 + Math.floor((v / max) * 3.999))]);
 
-  // Open at the newest rows, and again after a switch.
+  // Opens on the row holding the shared Day (today's, at first), and goes back to it after a switch.
   let scroller = $state<HTMLDivElement>();
-  $effect(() => { by; rows.length; if (scroller) scroller.scrollTop = scroller.scrollHeight; });
 
   /** The busiest hour across everything in view. */
   const busiest = $derived.by(() => {
@@ -57,7 +80,7 @@
 
 <TrendCard title="When you earn">
   {#snippet tools()}
-    <ZoomSwitch options={[{ id: "day", label: "Days" }, { id: "week", label: "Weeks" }, { id: "month", label: "Months" }]} value={by} onchange={(v) => setBy(v as By)} />
+    <ZoomSwitch options={[{ id: "day", label: "Days" }, { id: "week", label: "Weeks" }, { id: "month", label: "Months" }]} value={by} onchange={(v) => pickBy(v as By)} />
   {/snippet}
   {#if !rows.length}
     <p class="empty">Vouchers earned by the hour show here as the log fills.</p>
@@ -69,7 +92,7 @@
       <div class="hours"><span></span>{#each Array(COLS) as _, c}<span>{(FIRST + c) % 3 === 0 ? String(FIRST + c).padStart(2, "0") : ""}</span>{/each}</div>
       <div class="rows" bind:this={scroller}>
         {#each rows as r (r.key)}
-          <div class="row"><span class="label">{r.label}</span>{#each r.cells as v}<i style="background: {shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
+          <div class="row" class:chosen={r.key === chosenKey} data-key={r.key}><span class="label">{r.label}</span>{#each r.cells as v}<i style="background: {shade(v)}" title="{v.toFixed(by === 'day' ? 0 : 1)}"></i>{/each}</div>
         {/each}
       </div>
     </div>
@@ -88,10 +111,13 @@
   /* In a tablet slot the rows take whatever height is left. */
   .grid.fit { flex: 1; min-height: 0; }
   .grid.fit .rows { flex: 1; min-height: 0; max-height: none; }
-  .rows { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
+  .rows { position: relative; display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .rows::-webkit-scrollbar { display: none; }
   .row i { display: block; height: 14px; border-radius: 3px; }
   .label { font: 500 10px var(--mono); color: var(--muted); }
+  /* The row holding the Day picked on any card. */
+  .row.chosen .label { color: var(--ink); font-weight: 700; }
+  .row.chosen i { box-shadow: 0 0 0 1px rgba(242, 242, 240, .5); }
   .legend { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
   .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   .legend span:last-child { margin-left: 4px; }

@@ -25,6 +25,7 @@
   import TodayButton from "../components/TodayButton.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
   import { ms, zoomFade } from "../motion";
+  import { selection } from "../selection.svelte";
 
   let listEl = $state<HTMLDivElement>();
   /** One page's exact width. Pages fill the scroller, which can be a fraction
@@ -37,7 +38,7 @@
     return (first && parseFloat(getComputedStyle(first).width)) || el.clientWidth;
   }
 
-  let { today, timeZone, tall = false, firstDay, focus = null, shownDay = $bindable(), measure = "earned", blocklists = {}, device = null }: {
+  let { today, timeZone, tall = false, firstDay, measure = "earned", blocklists = {}, device = null }: {
     today: DaySummary; timeZone: string; tall?: boolean;
     /** What the bars count: Vouchers earned, or minutes in Distractions. */
     measure?: "earned" | "distraction";
@@ -47,10 +48,6 @@
     device?: DeviceUsage | null;
     /** The oldest Day whose log the Ledger keeps; without it, only today shows. */
     firstDay?: string;
-    /** A Day to scroll to (from the history grid); `at` makes each request new. */
-    focus?: { day: string; at: number } | null;
-    /** The Day in view, for the history grid to mark. */
-    shownDay?: string;
   } = $props();
 
   const FIRST_HOUR = 6;
@@ -201,33 +198,48 @@
     try { past[day] = await ledger<DaySummary>("GET", `/day?date=${day}`); } catch { /* stays blank */ }
   }
 
-  // Report the Day in view, and scroll to a Day the history grid asks for
-  // (the nearest kept Day if its log is gone).
-  $effect(() => { shownDay = days[shown]; });
+  // ---- The shared Day and span ----
+  // Whatever Day and span another card picks, this one shows (selection.svelte.ts);
+  // what's picked or scrolled to here, the others show.
+  const me = $derived(measure);
   $effect(() => {
-    const want = focus;
-    if (!want) return;
-    untrack(() => {
-      // The chart keeps its zoom: Day slides to that Day; Week or Month
-      // slides to the page holding it, with its bar picked.
-      if (zoom !== "day") {
-        if (!periodScroller) return;
-        let index = pages.indexOf(zoom === "week" ? mondayOf(want.day) : monthOf(want.day));
-        if (index < 0) index = want.day < pages[0] ? 0 : pages.length - 1;
-        const at = daysOf(pages[index]).indexOf(want.day);
-        const pick = at >= 0 && totalOf(want.day)?.earned ? at : null;
-        if (index === page) { periodPick = pick; return; }
-        // Passing other pages would clear the pick, so it's made once the scroll lands.
-        landing = { page: index, pick };
-        periodScroller.scrollTo({ left: index * pageWidth(periodScroller), behavior: "smooth" });
-        return;
-      }
-      if (!scroller) return;
-      let index = days.indexOf(want.day);
-      if (index < 0) index = want.day < days[0] ? 0 : days.length - 1;
-      scroller.scrollTo({ left: index * pageWidth(scroller), behavior: "smooth" });
-    });
+    selection.seq;
+    untrack(() => { if (selection.from !== me) follow(); });
   });
+  async function follow() {
+    const want = selection.day ?? today.day;
+    if (selection.span !== zoom) await setZoom(selection.span, want);
+    // Day slides to that Day; Week or Month slides to the page holding it,
+    // with its bar picked if a Day was picked.
+    if (zoom !== "day") {
+      if (!periodScroller) return;
+      let index = pages.indexOf(zoom === "week" ? mondayOf(want) : monthOf(want));
+      if (index < 0) index = want < pages[0] ? 0 : pages.length - 1;
+      const at = daysOf(pages[index]).indexOf(want);
+      const pick = selection.picked && at >= 0 ? at : null;
+      if (index === page) { periodPick = pick; return; }
+      // Passing other pages would clear the pick, so it's made once the scroll lands.
+      landing = { page: index, pick };
+      periodScroller.scrollTo({ left: index * pageWidth(periodScroller), behavior: "smooth" });
+      return;
+    }
+    if (!scroller) return;
+    let index = days.indexOf(want);
+    if (index < 0) index = want < days[0] ? 0 : days.length - 1;
+    if (index !== shown) scroller.scrollTo({ left: index * pageWidth(scroller), behavior: "smooth" });
+  }
+  /** Tells the other cards the Day this one settled on (null for today). */
+  function share(day: string | undefined, picked = false) {
+    if (day) selection.set(me, { day: day === today.day ? null : day, picked });
+  }
+  /** After a swipe or step in Week or Month: the shared Day stays if it's on
+   *  the new page, else becomes the page's latest Day so far. */
+  function sharePage() {
+    if (landing || !pages[page]) return;
+    const onPage = daysOf(pages[page]);
+    const now = selection.day ?? today.day;
+    if (!onPage.includes(now)) share(onPage.filter((d) => d <= today.day).at(-1));
+  }
 
   // The picked hour, on the Day in view; moving to another Day lets it go.
   let pick = $state<number | null>(null);
@@ -349,12 +361,18 @@
   let enteringTimer = 0;
   let zoomedOut = $state(true);
   const LEVELS: Zoom[] = ["day", "week", "month"];
-  async function setZoom(z: Zoom) {
+  /** A switch made here: this card zooms, and the others follow. */
+  async function pickZoom(z: Zoom) {
+    // Opens on the shared Day, so every card lands on the same one.
+    await setZoom(z, selection.day ?? today.day);
+    selection.set(me, { span: z, picked: false });
+  }
+  async function setZoom(z: Zoom, at?: string) {
     if (z === zoom) return;
-    // The time in view now: the Day on screen, or the picked (else last) Day of the page.
-    const anchor = zoom === "day" ? days[shown]
+    // The time in view now: the shared Day, else the Day on screen, or the picked (else last) Day of the page.
+    const anchor = at ?? (zoom === "day" ? days[shown]
       : periodPick !== null ? pageCols[periodPick]?.day
-      : pageCols.filter((c) => !c.future).at(-1)?.day ?? today.day;
+      : pageCols.filter((c) => !c.future).at(-1)?.day ?? today.day);
     zoomedOut = LEVELS.indexOf(z) > LEVELS.indexOf(zoom);
     // Which page opens is settled before the new view draws, so its first
     // frame already knows which page is in view (only that one plays the rise).
@@ -453,7 +471,7 @@
     </div>
     <div class="tools">
       <TodayButton show={!onLatest} onclick={backToToday} />
-      <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => setZoom(z as Zoom)} />
+      <ZoomSwitch options={[{ id: "day", label: "Day" }, { id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={zoom} onchange={(z) => pickZoom(z as Zoom)} />
     </div>
   </div>
   <!-- A new zoom level grows in from the old one's scale (larger when zooming
@@ -461,7 +479,7 @@
   {#key entrance}
   <div class="viewport" class:entering in:zoomFade={{ out: zoomedOut }}>
   {#if zoom === "day"}
-  <div class="days" bind:this={scroller} onscroll={onScroll}>
+  <div class="days" bind:this={scroller} onscroll={onScroll} onscrollend={() => share(days[shown])}>
     {#each days as day (day)}
       {@const cols = columnsOf(summaryOf(day))}
       {@const unit = unitOf(cols)}
@@ -494,7 +512,7 @@
     {/each}
   </div>
   {:else}
-    <div class="days" bind:this={periodScroller} onscroll={onPeriodScroll}>
+    <div class="days" bind:this={periodScroller} onscroll={onPeriodScroll} onscrollend={sharePage}>
       {#each pages as first, pi (first)}
         {@const cols = colsOf(first)}
         {@const busiest = Math.max(0, ...cols.map((c) => c.total))}
@@ -511,7 +529,7 @@
               {@const picked = here && periodPick === i}
               <button class="col" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future} class:goal={c.goal}
                 style="--i: {i}" aria-label="{c.day}, {c.total} earned" aria-pressed={picked} disabled={c.future}
-                onclick={() => (periodPick = periodPick === i || (!c.total && !c.unlocked) ? null : i)}>
+                onclick={() => { periodPick = periodPick === i || (!c.total && !c.unlocked) ? null : i; share(c.day, periodPick !== null); }}>
                 {#if minutes && c.unlocked}<i class="allow" style="height: {c.unlocked * unit}px"></i>{/if}
                 {#if c.total}
                   <!-- A month's bars are too narrow for every count: it labels the busiest Day and the picked one. -->

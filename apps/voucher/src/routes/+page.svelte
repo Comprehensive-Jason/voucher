@@ -15,6 +15,7 @@
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
+  import { selection } from "$lib/selection.svelte";
   import LogPanel from "$lib/panels/LogPanel.svelte";
   import TrendLines from "$lib/panels/trends/TrendLines.svelte";
   import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
@@ -38,9 +39,6 @@
   let status = $state<Status | null>(null);
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
-  // Tapping a Day in the history grid scrolls the hour chart to it.
-  let focus = $state<{ day: string; at: number } | null>(null);
-  let shownDay = $state<string | undefined>();
 
   // The tablet's other columns refresh less often than the Voucher stack.
   async function loadWide() {
@@ -243,9 +241,9 @@
   {#snippet panel(id: PanelId)}
     {#if id === "log"}<div class="logcard"><LogPanel compact /></div>
     {:else if status}
-      {#if id === "earned"}<HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} {focus} bind:shownDay tall />
-      {:else if id === "heat"}<Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} keyBelow={false} />
-      {:else if id === "distraction"}<HourChart measure="distraction" today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} {focus} blocklists={status.settings.blocklists} device={usage} tall />
+      {#if id === "earned"}<HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} tall />
+      {:else if id === "heat"}<Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={selection.day ?? status.today.day} onpick={(day) => selection.set("heat", { day, picked: true })} keyBelow={false} />
+      {:else if id === "distraction"}<HourChart measure="distraction" today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} blocklists={status.settings.blocklists} device={usage} tall />
       {:else if id === "trend"}<TrendLines {history} goal={status.today.goal} />
       {:else if id === "when"}<WhenYouEarn {history} />
       {:else if id === "pace"}<PaceToGoal {history} today={status.today} timeZone={status.settings.time_zone} />
@@ -255,7 +253,7 @@
       {:else if id === "streaks"}<SourceStreaks {history} sources={status.today.sources} />
       {:else if id === "records"}<PersonalRecords {history} timeZone={status.settings.time_zone} />
       {:else if id === "best"}<BestHours {history} />
-      {:else if id === "gooddays"}<GoodDays {history} timeZone={status.settings.time_zone} />
+      {:else if id === "gooddays"}<GoodDays {history} />
       {:else if id === "arrows"}<TrendArrows {history} timeZone={status.settings.time_zone} />
       {:else if id === "replay"}<Replay {history} />
       {:else if id === "focus"}<FocusStretches {history} />

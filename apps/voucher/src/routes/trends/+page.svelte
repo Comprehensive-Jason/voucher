@@ -19,15 +19,13 @@
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
+  import { selection } from "$lib/selection.svelte";
   import { historyDays } from "$lib/time";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$lib/types";
 
   let today = $state<DaySummary | null>(null);
   let timeZone = $state("UTC");
   let firstDay = $state<string | undefined>();
-  // Tapping a Day in the history grid scrolls the hour chart to it.
-  let focus = $state<{ day: string; at: number } | null>(null);
-  let shownDay = $state<string | undefined>();
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
   let blocklists = $state<Status["settings"]["blocklists"]>({});
@@ -63,9 +61,9 @@
   {#if error}
     <p class="error">{error}</p>
   {:else if today}
-    <HourChart {today} {timeZone} {firstDay} {focus} bind:shownDay />
-    <Heatmap {history} goal={today.goal} {firstDay} selected={shownDay} onpick={(day) => (focus = { day, at: Date.now() })} />
-    <HourChart measure="distraction" {today} {timeZone} {firstDay} {focus} {blocklists} device={usage} />
+    <HourChart {today} {timeZone} {firstDay} />
+    <Heatmap {history} goal={today.goal} {firstDay} selected={selection.day ?? today.day} onpick={(day) => selection.set("heat", { day, picked: true })} />
+    <HourChart measure="distraction" {today} {timeZone} {firstDay} {blocklists} device={usage} />
     <PaceToGoal {history} {today} {timeZone} />
     <TrendLines {history} goal={today.goal} />
     <WhenYouEarn {history} />
@@ -77,7 +75,7 @@
     <TrendArrows {history} {timeZone} />
     <Replay {history} />
     <BestHours {history} />
-    <GoodDays {history} {timeZone} />
+    <GoodDays {history} />
     <FocusStretches {history} />
     <WalkAway {history} />
   {/if}

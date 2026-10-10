@@ -52,6 +52,11 @@
   {#if !days.length}
     <p class="empty">Stretches in focus apps show here once the phone reports them.</p>
   {:else}
+    <!-- What the chart says, in a sentence. -->
+    <p class="lead">
+      {#if view === "typical"}Your typical stretch lately: <b>{typical} min</b>{#if weeks.length > 3}, {typical >= firstTypical ? "up" : "down"} from {firstTypical} min {weeks.length} weeks ago{/if}.
+      {:else}In the last 30 Days, <b>{counts.now[3]}</b> {counts.now[3] === 1 ? "stretch" : "stretches"} lasted an hour or more (the 30 before: {counts.then[3]}), and <b>{counts.now[2]}</b> half an hour or more.{/if}
+    </p>
     {#key view}
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph} in:zoomFade={{ out: view === "longest" }}>
       <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label={view === "typical" ? "Typical focus stretch by week" : "Stretches at least each length, last 30 Days"}>
@@ -79,14 +84,28 @@
       </svg>
     </div>
     {/key}
+    <div class="legend">
+      {#if view === "typical"}
+        <span><i class="box"></i>One week: the middle half of its stretches</span>
+        <span><i class="line"></i>Each week's typical stretch</span>
+      {:else}
+        <span><i class="box solid"></i>Last 30 Days</span>
+        <span><i class="box outline"></i>The 30 before</span>
+      {/if}
+    </div>
   {/if}
-  {#snippet foot()}
-    {#if !days.length}Needs the phone to report focus stretches.
-    {:else if view === "typical"}A typical stretch is <b>{typical} min</b> lately{#if weeks.length > 3}, from {firstTypical} min {weeks.length} weeks ago{/if}.
-    {:else}Last 30 Days filled; the outline is the 30 before. The further right the bars hold up, the longer you sustain focus.{/if}
-  {/snippet}
+  {#snippet foot()}A stretch is unbroken time in your focus apps (Obsidian, reading, Anki and the like); a break under 2 minutes doesn't end it.{/snippet}
 </TrendCard>
 
 <style>
+  .lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+  .lead b { color: var(--ink); font-family: var(--mono); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 10px; border-radius: 3px; }
+  .legend i.box { background: rgba(176, 140, 255, .45); }
+  .legend i.box.solid { background: #b08cff; }
+  .legend i.box.outline { background: none; border: 1.5px dashed #6c7177; }
+  .legend i.line { height: 2px; background: #f2f2f0; }
   .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>
