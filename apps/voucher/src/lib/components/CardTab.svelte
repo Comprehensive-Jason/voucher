@@ -6,7 +6,7 @@
   // card and tab read as one shape. It stands on the card's top border line,
   // `rise` px above it, flush with the card's left side (whose top-left
   // corner is square, so the edge runs on without a break).
-  let { name, rise = 16 }: { name: string; rise?: number } = $props();
+  let { name, rise = 20 }: { name: string; rise?: number } = $props();
   /** The tab's top-left corner, the width of the ramp down on its right, and the name's inset (the card's own padding, so it lines up with what's below). */
   const R = 10, RAMP = 22, PAD = 18;
   let textWidth = $state(0);
