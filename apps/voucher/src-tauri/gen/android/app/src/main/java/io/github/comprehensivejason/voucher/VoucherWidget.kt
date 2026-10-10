@@ -59,7 +59,7 @@ class VoucherWidget : AppWidgetProvider() {
             var accent = 0xFF3DDC84.toInt()
             var valColor = 0xFFF2F2F0.toInt()
             var labelColor = 0xFFA3A8AD.toInt()
-            var button = "Tear one off"
+            var button = "Unlock"
             var buttonBg = 0xFF3DDC84.toInt()
             var buttonInk = 0xFF07170D.toInt()
             var tear = true
@@ -89,7 +89,7 @@ class VoucherWidget : AppWidgetProvider() {
                 d.bank == 0 -> {
                     valColor = 0xFFA3A8AD.toInt(); label = "Bank empty"
                     label2 = closest(d)?.let { "${it.first}: ${it.second} min to go" } ?: ""
-                    button = "Nothing to tear"; buttonBg = 0xFF2A2E33.toInt(); buttonInk = 0xFFA3A8AD.toInt(); tear = false
+                    button = "No Vouchers"; buttonBg = 0xFF2A2E33.toInt(); buttonInk = 0xFFA3A8AD.toInt(); tear = false
                 }
                 else -> label = "in the Bank · locked"
             }

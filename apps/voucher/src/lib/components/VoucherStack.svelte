@@ -238,7 +238,7 @@
       <div class="mono minutes">{running ? "+" : ""}{minutes} min</div>
       <div class="hint">
         {#if mode === "curfew"}
-          <span>Can't be torn tonight</span>
+          <span>Nothing unlocks tonight</span>
         {:else}
           <span>{running ? "Drag right to tear another" : "Drag right to tear"}</span>
           <svg aria-hidden="true" width="36" height="16" viewBox="0 0 36 16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2l6 6-6 6" opacity=".3" /><path d="M15 2l6 6-6 6" opacity=".6" /><path d="M27 2l6 6-6 6" /></svg>

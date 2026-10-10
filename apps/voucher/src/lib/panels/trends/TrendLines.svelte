@@ -42,7 +42,7 @@
     <p class="empty">A week of history draws the first point.</p>
   {:else}
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
-    <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Seven-day averages of Vouchers earned and torn">
+    <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Seven-day averages of Vouchers earned and unlocked">
       {#each ticks as t}
         <line x1={x0} x2={x1} y1={yAt(t)} y2={yAt(t)} stroke="#2c3036" stroke-dasharray="3 4" />
         <text x={x0 - 6} y={yAt(t) + 3} text-anchor="end">{t}</text>
@@ -51,21 +51,21 @@
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" opacity=".7" />
       <text x={x1} y={yAt(goal) - 5} text-anchor="end" style="fill: var(--goal)">goal {goal}</text>
       <path d={line(net)} fill="none" stroke="#f2f2f0" stroke-width="1.6" stroke-dasharray="2 3" opacity=".8" />
-      <path d={line(torn)} fill="none" stroke="#ff8a7a" stroke-width="2.2" stroke-linejoin="round" />
+      <path d={line(torn)} fill="none" style="stroke: var(--spend)" stroke-width="2.2" stroke-linejoin="round" />
       <path d={line(earned)} fill="none" stroke="var(--voucher)" stroke-width="2.4" stroke-linejoin="round" />
       {#each months as m}<text x={xAt(m.i)} y={H - 6}>{monthOf(m.d.day)}</text>{/each}
     </svg>
     </div>
     <div class="legend">
       <span><i style="background: var(--voucher)"></i>Earned</span>
-      <span><i style="background: #ff8a7a"></i>Torn</span>
-      <span><i class="dash"></i>Kept (earned less torn)</span>
+      <span><i style="background: var(--spend)"></i>Unlocked</span>
+      <span><i class="dash"></i>Kept (earned less unlocked)</span>
       <span class="small">7-day averages</span>
     </div>
   {/if}
   {#snippet foot()}
     {#if days.length >= 8}
-      Earning went from <b>{one(first(earned))}</b> to <b>{one(earned.at(-1) ?? 0)}</b> a day; tearing from <b>{one(first(torn))}</b> to <b>{one(torn.at(-1) ?? 0)}</b>.
+      Earning went from <b>{one(first(earned))}</b> to <b>{one(earned.at(-1) ?? 0)}</b> a day; unlocking from <b>{one(first(torn))}</b> to <b>{one(torn.at(-1) ?? 0)}</b>.
     {:else}Not enough history yet.{/if}
   {/snippet}
 </TrendCard>

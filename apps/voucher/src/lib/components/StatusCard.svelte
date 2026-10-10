@@ -38,7 +38,7 @@
 <div class="card {mode}">
   {#if mode === "running"}
     <div class="row"><span class="cap" style="color: var(--voucher)">Unlocked</span>
-      <span class="mono small">{data.unlockVouchers ? `${data.unlockVouchers} torn · ` : ""}locks {data.unlockEndsAt ? hm(data.unlockEndsAt) : ""}</span></div>
+      <span class="mono small">{data.unlockVouchers ? `${data.unlockVouchers} ${data.unlockVouchers === 1 ? "Voucher" : "Vouchers"} · ` : ""}locks {data.unlockEndsAt ? hm(data.unlockEndsAt) : ""}</span></div>
     <div class="mono timer">{mmss}</div>
     <div class="bar"><i style="width: {runFraction * 100}%; background: var(--voucher)"></i></div>
   {:else if mode === "curfew"}

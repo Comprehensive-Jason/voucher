@@ -128,7 +128,7 @@ object Enforcer {
         dpm.setShortSupportMessage(admin, if (d.curfew) {
             "It's Curfew. Time to sleep: everything opens again at ${d.curfewEnd}."
         } else {
-            "Paused by Voucher. ${d.bank} vouchers banked: tear one from the Voucher notification, widget, or tile."
+            "Paused by Voucher. ${d.bank} Vouchers banked: unlock from the Voucher notification, widget, or tile."
         })
         // Sites: Chromium browsers read a URLBlocklist from managed configuration.
         val sites = strings(blocked?.optJSONArray("sites")).filterNot { it.startsWith("list:") }

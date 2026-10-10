@@ -52,7 +52,7 @@
         out.push({ time: clock(e.at, timeZone), title: `Voucher was off for ${mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`}`,
           source: e.device, color: "#ff8a7a", value: "", tone: "lost", marker: "gap" });
       } else {
-        out.push({ time: clock(e.at, timeZone), title: `Redeemed ${e.tickets}, ${e.minutes} min`, source: "All distractions",
+        out.push({ time: clock(e.at, timeZone), title: `Unlocked ${e.minutes} min · ${e.tickets} ${e.tickets === 1 ? "Voucher" : "Vouchers"}`, source: "All distractions",
           color: "var(--ink)", value: `−${e.tickets}`, tone: "spend", marker: "redeemed" });
       }
     }
@@ -132,7 +132,7 @@
           <span class="mono value {r.tone}">{r.value}</span>
         </div>
       {:else}
-        <p class="empty">{shown.earned > 0 ? "Only this Day's totals are kept now." : "Nothing earned or torn this Day."}</p>
+        <p class="empty">{shown.earned > 0 ? "Only this Day's totals are kept now." : "Nothing earned or unlocked this Day."}</p>
       {/each}
     </div>
     {/key}

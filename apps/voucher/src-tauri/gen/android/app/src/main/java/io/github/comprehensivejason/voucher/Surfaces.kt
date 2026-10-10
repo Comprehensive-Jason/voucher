@@ -66,7 +66,7 @@ object Surfaces {
         }
         if (d.goal > 0) b.setProgress(d.goal, d.earned.coerceAtMost(d.goal), false)
         if (!d.curfew && !d.released && d.bank > 0) {
-            b.addAction(Notification.Action.Builder(null, "Tear one, ${d.unlockMinutes} min", tearIntent(ctx)).build())
+            b.addAction(Notification.Action.Builder(null, "Unlock ${d.unlockMinutes} min", tearIntent(ctx)).build())
         }
         b.addAction(Notification.Action.Builder(null, "Open", openIntent(ctx)).build())
         return b.build()

@@ -49,7 +49,7 @@ object Moments {
             .setContentIntent(open)
             .setAutoCancel(true)
             .setColor(0xFF3DDC84.toInt())
-        if (tear) builder.addAction(Notification.Action.Builder(null, "Tear one, $unlockMinutes min", Surfaces.tearIntent(ctx)).build())
+        if (tear) builder.addAction(Notification.Action.Builder(null, "Unlock $unlockMinutes min", Surfaces.tearIntent(ctx)).build())
         builder.addAction(Notification.Action.Builder(null, "Open", open).build())
         ctx.getSystemService(NotificationManager::class.java).notify(ID, builder.build())
     }

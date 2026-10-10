@@ -543,7 +543,7 @@
       <div class="row" class:zero={!shownBreakdown.unlocked}><span class="mk"><i class="allowmark"></i></span><span class="name">Unlocked</span><b class="mono">{shownBreakdown.unlocked ? `${shownBreakdown.unlocked} min` : "–"}</b></div>
     {/if}
     {#if !minutes && shownBreakdown.anyRedeemed}
-      <div class="row" class:zero={!shownBreakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Redeemed</span><b class="mono">{shownBreakdown.redeemed || "–"}</b></div>
+      <div class="row" class:zero={!shownBreakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Unlocked</span><b class="mono">{shownBreakdown.redeemed ? `${shownBreakdown.redeemed} ${shownBreakdown.redeemed === 1 ? "Voucher" : "Vouchers"}` : "–"}</b></div>
     {/if}
     <!-- The gold mark under a bar: the hour the Daily goal was met, or a Day that met it. -->
     {#if !minutes}<div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>{/if}

@@ -24,7 +24,7 @@
     const week = best([...weeks.entries()], ([, n]) => n);
     if (week) out.push({ name: "Most goal Days in a week", value: `${week[1]} of 7`, when: `week of ${week[0]}` });
     const late = best(history.filter((d) => d.first_tear), (d) => { const [h, m] = clock(d.first_tear!, timeZone).split(":").map(Number); return (h < 6 ? h + 24 : h) * 60 + m; });
-    if (late) out.push({ name: "Latest first tear", value: clock(late.first_tear!, timeZone), when: late.day, day: late.day });
+    if (late) out.push({ name: "Latest first unlock", value: clock(late.first_tear!, timeZone), when: late.day, day: late.day });
     const sources = history.flatMap((d) => Object.entries(d.by_source ?? {}).map(([id, n]) => ({ d, id, n })));
     const src = best(sources, (s) => s.n);
     if (src) out.push({ name: `Most from one source`, value: `${src.n} ${styleOf(src.id).name}`, when: src.d.day, day: src.d.day });

@@ -36,17 +36,17 @@
 
 <TrendCard title="Morning runway">
   {#if !weeks.length}
-    <p class="empty">First tears show here as the log fills.</p>
+    <p class="empty">First unlocks show here as the log fills.</p>
   {:else}
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
-    <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Each Day's first tear, by week">
+    <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Each Day's first unlock, by week">
       {#each weeks as w, r}
         {@const y = y1 + r * rowH + rowH / 2}
         <text x={x0 - 8} y={y + 3} text-anchor="end">{w.monday.slice(5)}</text>
         <line x1={x0} x2={x1} y1={y} y2={y} stroke="#23272b" />
         {#each w.list as d, i}
-          {#if d.t === null}<circle cx={x1 + 22} cy={y + (i - 3) * 1.6} r="4" fill="none" stroke="var(--voucher)" stroke-width="1.5"><title>{d.day}: no tear</title></circle>
-          {:else}<circle cx={xAt(d.t)} cy={y + (i - 3) * 1.6} r="4" fill="var(--voucher)" opacity=".8"><title>{d.day}: first tear {clockOfHours(d.t)}</title></circle>{/if}
+          {#if d.t === null}<circle cx={x1 + 22} cy={y + (i - 3) * 1.6} r="4" fill="none" stroke="var(--voucher)" stroke-width="1.5"><title>{d.day}: no unlock</title></circle>
+          {:else}<circle cx={xAt(d.t)} cy={y + (i - 3) * 1.6} r="4" fill="var(--voucher)" opacity=".8"><title>{d.day}: first unlock {clockOfHours(d.t)}</title></circle>{/if}
         {/each}
       {/each}
       {#if !Number.isNaN(recent)}<line x1={xAt(recent)} x2={xAt(recent)} y1={y1} y2={H - 20} stroke="var(--goal)" stroke-dasharray="4 4" />{/if}
@@ -57,8 +57,8 @@
   {/if}
   {#snippet foot()}
     {#if !Number.isNaN(recent)}
-      Lately your first tear comes around <b>{clockOfHours(recent)}</b>{#if !Number.isNaN(before)}, against <b>{clockOfHours(before)}</b> in the 4 weeks before{/if}.
-    {:else}No tears in the kept log yet.{/if}
+      Lately your first unlock comes around <b>{clockOfHours(recent)}</b>{#if !Number.isNaN(before)}, against <b>{clockOfHours(before)}</b> in the 4 weeks before{/if}.
+    {:else}No unlocks in the kept log yet.{/if}
   {/snippet}
 </TrendCard>
 

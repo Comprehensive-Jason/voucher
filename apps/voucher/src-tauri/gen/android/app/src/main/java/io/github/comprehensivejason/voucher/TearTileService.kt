@@ -4,7 +4,7 @@ import android.graphics.drawable.Icon
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 
-/** The Quick Settings tile: "Tear one · 9 banked". A tap Redeems one Voucher. */
+/** The Quick Settings tile: "Unlock · 9 banked". A tap Redeems one Voucher. */
 class TearTileService : TileService() {
     override fun onStartListening() {
         val d = Surfaces.last
@@ -19,8 +19,8 @@ class TearTileService : TileService() {
                 tile.subtitle = if (d.bank > 0) "+1 · $left min left" else "$left min left"
                 tile.state = if (d.bank > 0) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             }
-            d.bank > 0 -> { tile.subtitle = "Tear one · ${d.bank} banked"; tile.state = Tile.STATE_ACTIVE }
-            else -> { tile.subtitle = "Nothing to tear"; tile.state = Tile.STATE_INACTIVE }
+            d.bank > 0 -> { tile.subtitle = "Unlock · ${d.bank} banked"; tile.state = Tile.STATE_ACTIVE }
+            else -> { tile.subtitle = "No Vouchers"; tile.state = Tile.STATE_INACTIVE }
         }
         tile.updateTile()
     }

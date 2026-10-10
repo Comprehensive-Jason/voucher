@@ -57,6 +57,7 @@ _Avoid_: chain, combo
 **Redeem**:
 To spend one Voucher from the Bank to open one Unlock.
 _Avoid_: spend, cash in, use
+_On screen_: the app says "unlock" for this everywhere ("Unlocked 20 min · 2 Vouchers", "first unlock"); "tear" names only the gesture that does it ("Drag right to tear"). "Redeem" stays the word in code and here.
 
 **Unlock**:
 A signed window during which Distractions are allowed. Each Redemption adds one Unlock length; Redeeming during an Unlock extends it rather than starting a second one. When it ends, everything locks again.
