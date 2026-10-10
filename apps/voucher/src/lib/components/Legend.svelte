@@ -2,9 +2,9 @@
   /** One key in a chart's legend: what the mark looks like, and what it means. */
   export type LegendItem = {
     /** line: a solid stroke; dash: a dotted stroke; box: a filled square; outline: a dashed hollow square;
-     *  frame: a solid hollow square; dot: a filled circle; ring: a hollow circle; flag: a Marker; usual: a dashed
+     *  frame: a solid hollow square; corner: a square with a Marker's corner tick (heat grids); dot: a filled circle; ring: a hollow circle; flag: a Marker; usual: a dashed
      *  vertical line; hatch: unwatched time. */
-    kind: "line" | "dash" | "box" | "outline" | "frame" | "dot" | "ring" | "flag" | "usual" | "hatch";
+    kind: "line" | "dash" | "box" | "outline" | "frame" | "corner" | "dot" | "ring" | "flag" | "usual" | "hatch";
     color?: string;
     label: string;
   };
@@ -38,6 +38,9 @@
   .dash { width: 14px; height: 3px; background: repeating-linear-gradient(90deg, var(--c) 0 3px, transparent 3px 5px); }
   .box { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
   .outline { width: 10px; height: 10px; border-radius: 3px; border: 1.5px dashed var(--c); box-sizing: border-box; }
+  /* A grid square with the corner tick a Marker's Day carries (Activity). */
+  .corner { width: 10px; height: 10px; border-radius: 3px; background: var(--heat-0); position: relative; overflow: hidden; }
+  .corner::after { content: ""; position: absolute; top: 0; right: 0; border-top: 6px solid var(--c); border-left: 6px solid transparent; }
   .frame { width: 10px; height: 10px; border-radius: 3px; border: 1.5px solid var(--c); box-sizing: border-box; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
   .ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--c); box-sizing: border-box; }

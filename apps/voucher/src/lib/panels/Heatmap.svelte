@@ -177,7 +177,11 @@
   </div>
   <!-- In a tablet slot the key always shows, on one line under the grid. -->
   {#if keyBelow || inSlot}
-    <Legend scale={{ from: "Fewer", colors: HEAT, to: "More" }} items={[{ kind: "box", color: "var(--goal)", label: `Goal met, ${goal}+` }]} />
+    <Legend scale={{ from: "Fewer", colors: HEAT, to: "More" }} items={[
+      { kind: "box", color: "var(--goal)", label: `Goal met, ${goal}+` },
+      ...(byHand.size ? [{ kind: "corner" as const, color: "var(--marker)", label: "Marker" }] : []),
+      ...(marked.size > byHand.size ? [{ kind: "corner" as const, color: "var(--muted)", label: "Rule change" }] : []),
+    ]} />
   {/if}
 </section>
 

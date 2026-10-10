@@ -36,7 +36,8 @@
   {#if missing}
     <div class="notice {missing.level === 'off' ? 'danger' : 'goal'}" transition:reveal={{ axis }}>
       <div class="ntext">
-        <span class="cap">{missing.title}</span>
+        <!-- A broken shield first, so the eye catches on it before reading. -->
+        <span class="cap shieldline"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" /><path d="M12.5 6.5l-2 4.5h3l-2 5" /></svg>{missing.title}</span>
         <span>{missing.text}</span>
       </div>
       <button class="btn small fix" onclick={() => missing && fixProtection(missing.part)}>{missing.action}</button>
@@ -48,6 +49,8 @@
 
 <style>
   .notices { display: flex; flex-direction: column; gap: 10px; }
+  .shieldline { display: inline-flex; align-items: center; gap: 6px; }
+  .shieldline svg { flex: none; margin-block: -3px; }
   .notices:not(:has(> *)) { display: none; }
   /* The tablet header: side by side, each as wide as its share. */
   .row { flex-direction: row; align-items: stretch; }

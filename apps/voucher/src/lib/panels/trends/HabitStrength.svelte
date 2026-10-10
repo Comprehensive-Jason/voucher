@@ -10,7 +10,9 @@
   // Days in a row, ended by a goal Day) usually lasts: the median of every
   // finished lapse, once there are 3. From 9 on it gives the last 6 lapses'
   // median instead, and the earlier ones' beside it ("down from 3") when the
-  // two differ, so a miss reads as information.
+  // two differ, so a miss reads as information. Each finished lapse is drawn
+  // too: a red bar in the tick lane where it ran, and for one longer than
+  // usual a faint red band behind the line, so the long ones stand out.
   import TrendCard from "../../components/TrendCard.svelte";
   import ChartAxis from "../../components/ChartAxis.svelte";
   import { monthOf } from "../../trends";
@@ -46,6 +48,17 @@
   /** The middle length (the upper one of an even count), so it's always a whole number of Days. */
   const middle = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
   const nDays = (n: number) => `${n} ${n === 1 ? "Day" : "Days"}`;
+  /** The finished lapses on the chart, as first and last Day: missed Days in a row, after a goal Day and ended by one. */
+  const runs = $derived.by(() => {
+    const out: { from: number; to: number }[] = [];
+    let start = -1, seenGoal = false;
+    days.forEach((d, i) => {
+      if (d.goal_met) { if (start >= 0 && seenGoal) out.push({ from: start, to: i - 1 }); start = -1; seenGoal = true; }
+      else if (start < 0) start = i;
+    });
+    return out;
+  });
+  const usualRun = $derived(lapses.length ? middle(lapses) : Infinity);
   const lapse = $derived.by(() => {
     if (lapses.length < 3) return null;
     if (lapses.length >= 9) {
@@ -104,6 +117,13 @@
   <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
   <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Habit strength over time">
     <ChartAxis ticks={[0, 0.5, 1]} {yAt} {x0} {x1} {y0} {y1} title="Strength" format={(v) => `${v * 100}%`} />
+    {#each runs as r (r.from)}
+      {@const half = days.length > 1 ? (x1 - x0) / (days.length - 1) / 2 : 0}
+      {@const long = r.to - r.from + 1 > usualRun}
+      <!-- Every lapse as a red bar in the tick lane; a longer one than usual also as a faint band behind the line. -->
+      {#if long}<rect x={xAt(r.from) - half} y={y1} width={xAt(r.to) - xAt(r.from) + 2 * half} height={y0 - y1} fill="var(--worse)" opacity=".16" />{/if}
+      <rect x={xAt(r.from) - half + 0.6} y={y0 + 5} width={Math.max(1.2, xAt(r.to) - xAt(r.from) + 2 * half - 1.2)} height="4" rx="1" fill="var(--worse)" opacity={long ? 1 : 0.7}><title>A lapse of {nDays(r.to - r.from + 1)}</title></rect>
+    {/each}
     {#each days as d, i}{#if d.goal_met}<rect x={xAt(i) - 0.9} y={y0 + 4} width="1.8" height="6" fill="var(--voucher)" />{/if}{/each}
     <path d={scores.map((s, i) => `${i ? "L" : "M"}${xAt(i).toFixed(1)},${yAt(s).toFixed(1)}`).join("")} fill="none" stroke="var(--goal)" stroke-width="2.4" stroke-linejoin="round" />
     {#each months as m}<text x={xAt(m.i)} y={H - 4}>{monthOf(m.d.day)}</text>{/each}
@@ -117,7 +137,7 @@
   </svg>
   </div>
   <!-- What the score is can't be drawn, so it keeps one line of definition. -->
-  {#snippet foot()}Goal Days (the ticks) lift it; a missed Day dents it but never zeroes it.{/snippet}
+  {#snippet foot()}Goal Days lift it; misses dent it. Red: lapses, shaded if long.{/snippet}
 </TrendCard>
 
 <style>

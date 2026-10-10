@@ -2,7 +2,7 @@
   // One-tap Markers for life events ("Sick", "New term"), so Before and after
   // can compare the Days either side of them. A tap adds a Marker for now,
   // which the Ledger files under today's Day; the chip then shows a check and
-  // can't add it twice. "Other…" opens a small field for anything else. A
+  // tapping it again takes the Marker back. "Other…" opens a small field for anything else. A
   // Marker already written today (here, in the Log, or on another device) shows
   // as added too. Looks like the "Why now?" chips (ReasonChips); a darker
   // surface can tint them with --chip-bg, --chip-line, and --chip-ink.
@@ -23,7 +23,8 @@
   $effect(() => { notes.load(); });
 
   /** Today's hand-written Markers, by key, and their own words. */
-  const today = $derived(new Map(notes.on(dayNow()).filter((m) => !m.rule).map((m) => [key(m.text), m.text])));
+  const mine = $derived(notes.on(dayNow()).filter((m) => !m.rule));
+  const today = $derived(new Map(mine.map((m) => [key(m.text), m.text])));
   const added = (text: string) => today.has(key(text)) || sending.has(key(text));
   /** Today's Markers that aren't one of the choices: "Other…" entries, and any from the Log. */
   const others = $derived([...new Map([...today, ...sending])].filter(([k]) => !choices.some((c) => key(c) === k)).map(([, text]) => text));
@@ -36,6 +37,14 @@
     try { await notes.add(text); } catch { failed = true; }
     sending.delete(key(text));
   }
+
+  /** Takes a tapped choice back: removes today's Markers with those words. */
+  async function undo(text: string) {
+    if (sending.has(key(text))) return;
+    failed = false;
+    try { for (const m of mine.filter((m) => key(m.text) === key(text))) await notes.remove(m.at); } catch { failed = true; }
+  }
+  const toggle = (text: string) => (added(text) ? undo(text) : add(text));
 
   /** Saves "Other…"; if the Ledger can't be reached, the words come back to try again. */
   async function save() {
@@ -55,10 +64,10 @@
   <div class="chips">
     {#each choices as c (c)}
       {@const on = added(c)}
-      <button class:on disabled={on} aria-pressed={on} onclick={() => add(c)}>{#if on}{@render check()}{/if}{c}</button>
+      <button class:on aria-pressed={on} title={on ? "Tap again to take it back" : undefined} onclick={() => toggle(c)}>{#if on}{@render check()}{/if}{c}</button>
     {/each}
     {#each others as text (text)}
-      <button class="on other" disabled aria-pressed="true" title={text}>{@render check()}<span>{text}</span></button>
+      <button class="on other" aria-pressed="true" title="{text}: tap again to take it back" onclick={() => undo(text)}>{@render check()}<span>{text}</span></button>
     {/each}
     {#if !writing}
       <button onclick={() => (writing = true)}>Other…</button>
