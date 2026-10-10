@@ -1,10 +1,10 @@
 <script lang="ts">
-  // How did a week or a month go, told in a few numbers at once: what you
-  // earned (against the period before), your top source, your goal Days, your
-  // Distraction time, your best Day, and a question drawn from the slowest
-  // weekday. It replays the week or month holding the Day picked on any card
-  // (its switcher says "so far" until the current one ends), and its
-  // Week/Month switch moves with the others'.
+  // How did a week, month, or year go, as averages (never totals): Vouchers
+  // a Day (against the period before), the top source's share, how often
+  // the goal was met, Distraction a Day, the best Day, and over a year the
+  // best month. It replays the period holding the Day picked on any card,
+  // and its Week/Month switch moves with the others'. Today counts only once
+  // it's the period's only Day, since it's still going.
   import { untrack } from "svelte";
   import TrendCard from "../../components/TrendCard.svelte";
   import { measured } from "../../notes.svelte";
@@ -52,41 +52,38 @@
   const prev = $derived(period ? inRange(period.prevStart, period.prevEnd) : []);
   const sum = (list: DayTotal[], f: (d: DayTotal) => number) => list.reduce((n, d) => n + f(d), 0);
 
-  type Card = { big: string; line: string; tone?: "goal" | "spend"; wide?: boolean };
+  type Card = { big: string; line: string; tone?: "goal" | "spend" };
+  /** The Days to average over: today counts only once it's the period's only Day, since it's still going. */
+  const settled = $derived(days.length > 1 ? days.filter((d) => d.day !== today) : days);
+  const perDay = (list: DayTotal[], f: (d: DayTotal) => number) => (list.length ? sum(list, f) / list.length : null);
+  const one = (v: number) => v.toFixed(1).replace(/\.0$/, "");
+  /** Averages only, never totals: Vouchers a Day, the top source's share, the goal rate, Distraction a Day, the best Day, and over a year the best month. */
   const cards = $derived.by((): Card[] => {
-    if (!period || !days.length) return [];
-    const earned = sum(days, (d) => d.earned), before = sum(prev, (d) => d.earned);
-    const out: Card[] = [{ big: String(earned), line: `Vouchers earned${before ? `, ${earned >= before ? "up" : "down"} from ${before} the ${span} before` : ""}` }];
+    if (!period || !settled.length) return [];
+    const out: Card[] = [];
+    const rate = perDay(settled, (d) => d.earned)!, before = perDay(prev, (d) => d.earned);
+    const span_ = span === "week" ? "week" : span === "month" ? "month" : "year";
+    out.push({ big: one(rate), line: `Vouchers a Day${before !== null ? `, ${rate >= before ? "up" : "down"} from ${one(before)} the ${span_} before` : ""}` });
     const bySource = new Map<string, number>();
-    for (const d of days) for (const [id, n] of Object.entries(d.by_source ?? {})) bySource.set(id, (bySource.get(id) ?? 0) + n);
+    for (const d of settled) for (const [id, n] of Object.entries(d.by_source ?? {})) bySource.set(id, (bySource.get(id) ?? 0) + n);
+    const total = [...bySource.values()].reduce((a, b) => a + b, 0);
     const top = [...bySource.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (top && earned) out.push({ big: styleOf(top[0]).name, line: `Top source: ${top[1]} Vouchers, ${Math.round((top[1] / earned) * 100)}%` });
-    const goalDays = days.filter((d) => d.goal_met).length;
-    const longest = Math.max(0, ...goalRuns(days).map((r) => r.length));
-    out.push({ big: `${goalDays} of ${days.length}`, line: `Goal Days${longest > 1 ? `, a streak of ${longest}` : ""}`, tone: "goal" });
+    if (top && total) out.push({ big: styleOf(top[0]).name, line: `Top source: ${Math.round((top[1] / total) * 100)}% of Vouchers, about ${one(top[1] / settled.length)} a Day` });
+    const met = settled.filter((d) => d.goal_met).length;
+    const longest = Math.max(0, ...goalRuns(settled).map((r) => r.length));
+    out.push({ big: `${Math.round((met / settled.length) * 100)}%`, line: `of Days met the goal${longest > 1 ? `; longest streak ${longest} Days` : ""}`, tone: "goal" });
     // Days no device reported are left out, not counted as none.
-    const kept = days.filter(measured);
-    const used = sum(kept, (d) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0));
-    const unlocked = sum(days, (d) => d.unlocked_minutes ?? 0);
-    const gap = days.length - kept.length;
-    if (used || unlocked) out.push({ big: kept.length ? `${used} min` : "Unknown", line: `In Distractions, of ${unlocked} min unlocked${gap ? `; ${gap} ${gap === 1 ? "Day" : "Days"} not measured` : ""}`, tone: "spend" });
-    const best = days.reduce((a, b) => (b.earned > a.earned ? b : a));
-    out.push({ big: String(best.earned), line: `Best Day, ${best.day}` });
-    // Over a month or a year: the everyday rate, and over a year its best month (what Activity's year view used to sum up).
-    if (span !== "week") out.push({ big: (earned / days.length).toFixed(1), line: "Vouchers per Day on average" });
+    const kept = settled.filter(measured);
+    const used = perDay(kept, (d) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0));
+    const unlocked = perDay(settled, (d) => d.unlocked_minutes ?? 0)!;
+    out.push({ big: used === null ? "Unknown" : `${Math.round(used)} min`, line: `In Distractions a Day, of ${Math.round(unlocked)} min unlocked${kept.length < settled.length ? `; ${settled.length - kept.length} not measured` : ""}`, tone: "spend" });
+    const best = settled.reduce((a, b) => (b.earned > a.earned ? b : a));
+    out.push({ big: String(best.earned), line: `Best Day, ${best.day.slice(5)}` });
     if (span === "year") {
-      const months = new Map<string, number>();
-      for (const d of days) months.set(d.day.slice(0, 7), (months.get(d.day.slice(0, 7)) ?? 0) + d.earned);
-      const topMonth = [...months.entries()].sort((a, b) => b[1] - a[1])[0];
-      if (topMonth) out.push({ big: MONTHS[Number(topMonth[0].slice(5, 7)) - 1], line: `Best month, ${topMonth[1]} Vouchers` });
-    }
-    // The question: the weekday that earned least on average (a month or a year has every weekday more than once).
-    if (span !== "week") {
-      const weekdays = ["Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays", "Sundays"];
-      const per = weekdays.map((_, i) => days.filter((d) => (new Date(`${d.day}T12:00:00Z`).getUTCDay() + 6) % 7 === i));
-      const avg = per.map((l) => (l.length ? sum(l, (d) => d.earned) / l.length : Infinity));
-      const slow = avg.indexOf(Math.min(...avg));
-      if (Number.isFinite(avg[slow])) out.push({ big: weekdays[slow], line: `were slowest, about ${avg[slow].toFixed(1)} a Day. What gets in the way?`, wide: true });
+      const months = new Map<string, DayTotal[]>();
+      for (const d of settled) months.set(d.day.slice(0, 7), [...(months.get(d.day.slice(0, 7)) ?? []), d]);
+      const topMonth = [...months.entries()].map(([m, l]) => [m, sum(l, (d) => d.earned) / l.length] as const).sort((a, b) => b[1] - a[1])[0];
+      if (topMonth) out.push({ big: MONTHS[Number(topMonth[0].slice(5, 7)) - 1], line: `Best month, ${one(topMonth[1])} Vouchers a Day` });
     }
     return out;
   });
@@ -103,7 +100,7 @@
     <div class="stage" class:fit in:zoomFade={{ out: span === "month" }}>
       <div class="grid">
         {#each cards as c, i (i)}
-          <div class="tile" class:wide={c.wide}>
+          <div class="tile">
             <b class:goal={c.tone === "goal"} class:spend={c.tone === "spend"}>{c.big}</b>
             <span>{c.line}</span>
           </div>
@@ -116,20 +113,14 @@
 
 <style>
   .stage { display: flex; flex-direction: column; gap: 8px; }
-  .stage.fit { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
-  /* Every number at once, two to a row, in tiles that look like the shared
-     stat boxes (theme.css .stats). */
-  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .tile { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 10px; background: #1f2226; min-width: 0; }
-  .tile.wide { grid-column: span 2; }
-  /* At a third of a column, three to a row and smaller, so most fit without scrolling. */
-  .stage.fit .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  .stage.fit .tile { gap: 2px; }
-  .stage.fit .tile b { font-size: 19px; }
-  .stage.fit .tile span { font-size: 11.5px; line-height: 1.3; }
-  .stage.fit .tile.wide { grid-column: span 3; }
-  .tile b { font: 700 24px/1.1 var(--font); color: var(--voucher); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* In a tablet slot the boxes fill the card, without scrolling. */
+  .stage.fit { flex: 1; min-height: 0; }
+  /* Three to a row, two rows, every box the same size (theme.css .stats look). */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 8px; }
+  .stage.fit .grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .tile { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 12px; border-radius: 10px; background: #1f2226; min-width: 0; min-height: 0; overflow: hidden; }
+  .tile b { font: 700 22px/1.1 var(--font); color: var(--voucher); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tile b.goal { color: var(--goal); }
   .tile b.spend { color: var(--spend); }
-  .tile span { font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+  .tile span { font-size: 12px; line-height: 1.35; color: var(--muted); }
 </style>
