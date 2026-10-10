@@ -16,7 +16,7 @@
 
   let { live, wide = false, onmarker }: {
     live: Live; wide?: boolean;
-    /** The tablet's Marker button, beside the status card, was tapped. */
+    /** The Marker button, beside the status card, was tapped. */
     onmarker?: () => void;
   } = $props();
 </script>
@@ -27,7 +27,7 @@
   <BankMeter brand={wide} mode={live.mode} bank={data.bank} limit={data.bankLimit} goalDone={data.goalDone} goalTarget={data.goalTarget} streakDays={data.streakDays} />
   <VoucherStack mode={live.mode} bank={Math.max(0, data.bank - wins.held)} unlockMinutes={data.unlockMinutes} room={data.curfewRoomMinutes} curfewStart={data.curfewStart} ontear={live.tear} />
   <ReasonChips tornAt={live.tornAt} />
-  {#if wide}
+  {#if onmarker}
     <div class="statusrow"><MarkerButton tall onclick={onmarker} /><StatusCard mode={live.mode} now={live.now} {data} /></div>
   {:else}
     <StatusCard mode={live.mode} now={live.now} {data} />

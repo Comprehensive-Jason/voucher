@@ -420,7 +420,7 @@
   </div>
   {/if}
 {:else}
-  <main><TodayColumn {live} /></main>
+  <main><TodayColumn {live} onmarker={() => (addingMarker = true)} /></main>
 {/if}
 <VerdictSheet curfewActive={live.data?.curfewActive ?? false} />
 {#if addingMarker}<MarkerSheet onclose={() => (addingMarker = false)} />{/if}

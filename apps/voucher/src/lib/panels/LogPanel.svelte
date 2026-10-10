@@ -109,23 +109,8 @@
     });
   });
 
-  // ---- Adding a Marker ----
-  // A dated note for this Day ("new term", "dose up"): now when it's today,
-  // midday of a past Day otherwise. Charts draw it as a thin line.
-  let writing = $state(false);
-  let draft = $state("");
-  let saving = $state(false);
-  async function saveMarker() {
-    const text = draft.trim();
-    if (!text || !day) return;
-    saving = true;
-    try {
-      await notes.add(text, back === 0 ? undefined : new Date(`${day}T12:00:00`).toISOString());
-      draft = ""; writing = false;
-      await load();
-    } catch (e) { error = String(e); }
-    saving = false;
-  }
+  // Markers are added from the Marker button beside the status card; the Log
+  // lists them among the entries and can remove one written by hand.
   async function removeMarker(at: string) {
     await notes.remove(at);
     await load();
@@ -143,24 +128,11 @@
   <!-- The date switcher is the card's title; the name "Log" is on its tab. -->
   <CardHead title="Log"
     nav={{ label: day && today ? dayLabel(day, today) : "", back: back < OLDEST, forward: back > 0, onback: () => step(1), onforward: () => step(-1) }}
-    today={{ show: back > 0, onclick: () => { back = 0; load(); share(); } }}>
-    {#snippet tools()}
-      <button class="iconbtn small bare add" class:on={writing} aria-label="Add a Marker" title="Add a Marker: a dated note charts show as a line" onclick={() => (writing = !writing)}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2.5 4L16 12H5" /></svg>
-      </button>
-    {/snippet}
-  </CardHead>
+    today={{ show: back > 0, onclick: () => { back = 0; load(); share(); } }} />
 
   {#if error}
     <p class="error">{error}</p>
   {:else if shown}
-    {#if writing}
-      <form class="write" transition:fade={{ duration: ms("base") }} onsubmit={(e) => { e.preventDefault(); saveMarker(); }}>
-        <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={draft} maxlength="200" placeholder={back === 0 ? "What changed? (new term, dose up, …)" : `A note for ${day}`} autofocus />
-        <button class="btn small" type="submit" disabled={!draft.trim() || saving}>Add</button>
-      </form>
-    {/if}
     <div class="frame">
     <ScrollCue target={list} />
     <!-- A different Day's rows fade in, rather than replacing these at once. -->
@@ -201,10 +173,6 @@
   .dot { display: flex; align-items: center; justify-content: center; }
   .title { min-width: 0; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
   .title.goal { color: var(--goal); }
-  .add.on { background: var(--raised); color: var(--marker); }
-  .write { display: flex; gap: 8px; padding: 6px 0; }
-  .write input { flex: 1; min-width: 0; height: 34px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 500 14px var(--font); }
-  .write input:focus { outline: none; border-color: var(--marker); }
   /* Keeps a Marker's row as tall as the others. */
   .drop { margin: -8px 0; }
   .value { font-size: 13px; font-weight: 500; text-align: right; }
