@@ -3,8 +3,9 @@
   // Vouchers earned and torn, and the gap between them (what was kept), over
   // 12 weeks or half a year, with the Daily goal for reference, and Markers
   // as thin lines so a change in the lines can be matched to what changed.
-  // Earned and unlocked carry their values on the chart: bold at the right
-  // end, faint at the start, so the change reads without a sentence.
+  // Earned and torn carry their values on the chart: bold at the right end,
+  // faint at the start, so the change reads without a sentence. Torn is in
+  // salmon, Unlocks' colour everywhere.
   import TrendCard from "../../components/TrendCard.svelte";
   import ChartAxis from "../../components/ChartAxis.svelte";
   import MarkerLines from "../../components/MarkerLines.svelte";
@@ -98,7 +99,7 @@
     return list.map((e) => ({ ...e, x, y: e.y + 3.2 * k }));
   });
   /** Faint start values just inside the left edge: earned's above its line,
-   *  unlocked's below its own (or above, if that's where there's room),
+   *  torn's below its own (or above, if that's where there's room),
    *  each kept clear of all three lines. */
   const starts = $derived.by(() => {
     const x = x0 + 3 * k, out: { text: string; x: number; y: number; color: string }[] = [];
@@ -129,13 +130,13 @@
     <!-- A new range zooms in like the bar graph's Day, Week, and Month: half a year from larger, 12 weeks from smaller. -->
     {#key span}
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph} in:zoomFade={{ out: span === "182" }}>
-    <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Seven-day averages of Vouchers earned and unlocked">
+    <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Seven-day averages of Vouchers earned and torn">
       <ChartAxis {ticks} {yAt} {x0} {x1} {y0} {y1} title={roomy ? AXIS : "Vouchers a Day"} />
       {#if bottom < 0}<line x1={x0} x2={x1} y1={yAt(0)} y2={yAt(0)} stroke="#3a3f45" />{/if}
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" opacity=".7" />
       <text x={x1} y={yAt(goal) - 5} text-anchor="end" style="fill: var(--goal)">goal {goal}</text>
       <MarkerLines marks={marks.map((m) => ({ x: xAt(m.i), text: m.text, rule: m.rule }))} {y0} {y1} />
-      <path d={line(net)} fill="none" stroke="#f2f2f0" stroke-width="1.6" stroke-dasharray="2 3" opacity=".8" />
+      <path d={line(net)} fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="2 3" opacity=".8" />
       <path d={line(torn)} fill="none" style="stroke: var(--spend)" stroke-width="2.2" stroke-linejoin="round" />
       <path d={line(earned)} fill="none" stroke="var(--voucher)" stroke-width="2.4" stroke-linejoin="round" />
       {#each starts as s}<text class="tag" x={s.x} y={s.y} style="fill: {s.color}; opacity: .65">{s.text}</text>{/each}
@@ -148,9 +149,9 @@
     <!-- Short labels keep the legend to one line on a third-width card. -->
     <Legend note={roomy || noteX !== null ? undefined : NOTE} items={[
       { kind: "line", color: "var(--voucher)", label: "Earned" },
-      { kind: "line", color: "var(--spend)", label: "Unlocked" },
-      { kind: "dash", color: "#f2f2f0", label: "Kept" },
-      ...(marks.length ? [{ kind: "flag" as const, color: "#b69cff", label: "Marker" }] : []),
+      { kind: "line", color: "var(--spend)", label: "Torn" },
+      { kind: "dash", color: "var(--ink)", label: "Kept" },
+      ...(marks.length ? [{ kind: "flag" as const, color: marks.every((m) => m.rule) ? "var(--muted)" : "var(--marker)", label: "Marker" }] : []),
     ]} />
   {/if}
 </TrendCard>

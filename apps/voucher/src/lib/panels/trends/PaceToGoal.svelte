@@ -10,7 +10,7 @@
   import ChartAxis from "../../components/ChartAxis.svelte";
   import MarkerLines from "../../components/MarkerLines.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { clock } from "../../time";
+  import { clock, dayLabel } from "../../time";
   import { clockOfHours, median, quantile } from "../../trends";
   import type { DaySummary, DayTotal } from "../../types";
   import { ledger } from "../../api";
@@ -167,16 +167,16 @@
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
     <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Today's Vouchers against your usual Day">
       <!-- Curfew's hours, in the night colour: earning still counts there. -->
-      {#each Array(END - START) as _, i}{#if inCurfew((START + i) % 24)}<rect x={xAt(START + i)} y={y1} width={xAt(START + i + 1) - xAt(START + i) + 0.5} height={y0 - y1} fill="rgba(125,140,255,.09)" />{/if}{/each}
+      {#each Array(END - START) as _, i}{#if inCurfew((START + i) % 24)}<rect x={xAt(START + i)} y={y1} width={xAt(START + i + 1) - xAt(START + i) + 0.5} height={y0 - y1} fill="var(--night)" fill-opacity=".09" />{/if}{/each}
       <ChartAxis {ticks} {yAt} {x0} {x1} {y0} {y1} title="Vouchers" />
-      <path d={bandPath} fill="rgba(61,220,132,.16)" />
+      <path d={bandPath} fill="var(--voucher)" fill-opacity=".16" />
       <MarkerLines marks={marks.map((m) => ({ x: xAt(m.h), text: m.text, rule: m.rule }))} {y0} {y1} />
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" />
       <text class="tag" x={x0 + 4 * k} y={goalY - 5 * k} style="fill: var(--goal)">{goalText}</text>
       {#if !Number.isNaN(usualGoal)}<line x1={xAt(usualGoal)} x2={xAt(usualGoal)} y1={goalY - 5 * k} y2={goalY + 5 * k} stroke="var(--goal)" stroke-width="2" />{/if}
       <!-- The usual range at now: a whisker through the dot's hour. -->
-      <line x1={nowX} x2={nowX} y1={yAt(usualNow.hi)} y2={yAt(usualNow.lo)} stroke="rgba(61,220,132,.7)" stroke-width="1.5" />
-      {#each [usualNow.hi, usualNow.lo] as v}<line x1={nowX - 4 * k} x2={nowX + 4 * k} y1={yAt(v)} y2={yAt(v)} stroke="rgba(61,220,132,.7)" stroke-width="1.5" />{/each}
+      <line x1={nowX} x2={nowX} y1={yAt(usualNow.hi)} y2={yAt(usualNow.lo)} stroke="var(--voucher)" stroke-opacity=".7" stroke-width="1.5" />
+      {#each [usualNow.hi, usualNow.lo] as v}<line x1={nowX - 4 * k} x2={nowX + 4 * k} y1={yAt(v)} y2={yAt(v)} stroke="var(--voucher)" stroke-opacity=".7" stroke-width="1.5" />{/each}
       <path d={todayPath} fill="none" stroke="var(--voucher)" stroke-width="2.4" stroke-linejoin="round" />
       <circle cx={nowX} cy={nowY} r="4.5" fill="var(--voucher)" />
       <text class="tag big" x={count.x} y={count.y} text-anchor={count.anchor} style="fill: var(--voucher)">{soFar}</text>
@@ -186,8 +186,8 @@
     </svg>
     </div>
     <Legend items={[
-      { kind: "line", color: "var(--voucher)", label: isToday ? "Today" : chosen },
-      { kind: "box", color: "rgba(61, 220, 132, .16)", label: `Your usual Day (middle half of the last ${perDay.length})` },
+      { kind: "line", color: "var(--voucher)", label: dayLabel(chosen, today.day) },
+      { kind: "box", color: "color-mix(in srgb, var(--voucher) 16%, transparent)", label: `Your usual Day (middle half of the last ${perDay.length})` },
     ]} />
   {/if}
 </TrendCard>

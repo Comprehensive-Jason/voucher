@@ -30,9 +30,9 @@
     const list: Measure[] = [
       { name: "Vouchers earned a Day", value: (d) => d.earned, up: true, show: one },
       { name: "Goal Days a week", value: (d) => (d.goal_met ? 7 : 0), up: true, show: one },
-      { name: "Minutes unlocked a Day", value: (d) => d.unlocked_minutes ?? null, up: false, show: (v) => `${Math.round(v)} min` },
-      { name: "Distraction minutes a Day", value: (d) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : null), up: false, show: (v) => `${Math.round(v)} min` },
-      { name: "First unlock", value: (d) => { if (!d.first_tear) return null; const [h, m] = clock(d.first_tear, timeZone).split(":").map(Number); return (h < 6 ? h + 24 : h) + m / 60; }, up: true, show: clockOfHours },
+      { name: "Unlocked a Day", value: (d) => d.unlocked_minutes ?? null, up: false, show: (v) => `${Math.round(v)} min` },
+      { name: "Distraction a Day", value: (d) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : null), up: false, show: (v) => `${Math.round(v)} min` },
+      { name: "First Unlock", value: (d) => { if (!d.first_tear) return null; const [h, m] = clock(d.first_tear, timeZone).split(":").map(Number); return (h < 6 ? h + 24 : h) + m / 60; }, up: true, show: clockOfHours },
     ];
     for (const id of new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))) {
       list.push({ name: `${styleOf(id).name} a Day`, value: (d) => (d.hours && d.hours.length ? d.by_source?.[id] ?? 0 : null), up: true, show: one });
@@ -94,10 +94,11 @@
   .groups.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .group { display: flex; flex-direction: column; gap: 4px; }
   .change { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--divider); font-size: 13.5px; }
-  .arrow { font-size: 11px; color: var(--spend); }
+  /* Up or down, the arrow says which way it went: green for better, --worse for worse. */
+  .arrow { font-size: 11px; color: var(--worse); }
   .change.good .arrow { color: var(--voucher); }
   .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vals { font-size: 12px; color: var(--muted); }
   .vals b { color: var(--ink); }
-  .more { align-self: flex-start; height: 30px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: #1f2226; color: var(--muted); font: 700 12px var(--font); cursor: pointer; }
+  .more { align-self: flex-start; height: 30px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 12px var(--font); cursor: pointer; }
 </style>

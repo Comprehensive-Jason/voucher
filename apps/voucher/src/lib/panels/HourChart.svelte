@@ -192,7 +192,7 @@
       sum.n += p.n;
       all.set(p.name, sum);
     }
-    return { label: "All day", parts: partsOf(all), redeemed: cols.reduce((n, c) => n + c.redeemed, 0), unlocked: cols.reduce((n, c) => n + c.unlocked, 0) };
+    return { label: "All Day", parts: partsOf(all), redeemed: cols.reduce((n, c) => n + c.redeemed, 0), unlocked: cols.reduce((n, c) => n + c.unlocked, 0) };
   }
   /** The top tick line's number: the smallest even number at or above the
    *  busiest hour, and at least 2, so the half-way line is a whole number. */
@@ -365,7 +365,7 @@
     if (minutes) rows.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     return { label: picked ? dayLabel(picked.day, today.day) : labelOf(page), total: rows.reduce((n, r) => n + r.n, 0), rows,
       redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0),
-      goal: picked ? (picked.goal ? "met" : "–") : `${pageCols.filter((c) => c.goal).length} of ${pageCols.filter((c) => !c.future).length} days`,
+      goal: picked ? (picked.goal ? "met" : "–") : `${pageCols.filter((c) => c.goal).length} of ${pageCols.filter((c) => !c.future).length} Days`,
       goalMet: picked ? picked.goal : pageCols.some((c) => c.goal),
       unlocked: picked ? picked.unlocked : pageCols.reduce((n, c) => n + c.unlocked, 0) };
   });
@@ -588,7 +588,7 @@
       <!-- Unlocks: the minutes they allowed (the salmon outline on the bars) and the Vouchers torn (the triangles under them). -->
       {@const u = shownBreakdown.unlocked}
       {@const r = shownBreakdown.redeemed}
-      <div class="row" class:zero={!u && !r}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Unlocked</span><b class="mono">{[u ? `${u} min` : "", r ? `${r} ${r === 1 ? "Voucher" : "Vouchers"}` : ""].filter(Boolean).join(" · ") || "–"}</b></div>
+      <div class="row" class:zero={!u && !r}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Unlocked</span><b class="mono">{[u ? `${u} min` : "", r ? `${r} torn` : ""].filter(Boolean).join(" · ") || "–"}</b></div>
     {/if}
     <!-- The gold star under a bar: the hour the Daily goal was met, or a Day that met it. -->
     {#if !minutes}<div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>{/if}
@@ -601,16 +601,16 @@
       {/each}
     {/if}
     {#if minutes && !shownBreakdown.rows.length}
-      <div class="row none">{zoom !== "day" ? `No Distraction time ${zoom === "week" ? "this week" : "this month"}` : days[shown] === today.day ? "No Distraction time yet" : "No Distraction time this Day, or none kept this far back"}</div>
+      <div class="row none empty">{zoom !== "day" ? `No Distraction time ${zoom === "week" ? "this week" : "this month"}` : days[shown] === today.day ? "No Distraction time yet" : "No Distraction time this Day, or none kept this far back"}</div>
     {:else if !minutes && !shownBreakdown.rows.length}
-      <div class="row none">{zoom !== "day" ? `Nothing earned ${zoom === "week" ? "this week" : "this month"}` : current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
+      <div class="row none empty">{zoom !== "day" ? `Nothing earned ${zoom === "week" ? "this week" : "this month"}` : current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
     {/if}
     </div>
     </div>
     <!-- Stays at the bottom of the box, however long the list is. -->
-    {#if minutes && device?.measured === false}<div class="hintline">Minutes need usage access on this device: turn it on in Rules, under Protection.</div>
-    {:else if minutes && device && device.blockedOpens}<div class="hintline">Today on this device: <b>{device.blockedOpens}</b> blocked opens, <b>{Math.min(device.closedWithoutTearing, device.blockedOpens)}</b> left without unlocking</div>
-    {:else if shownBreakdown.rows.length}<div class="hintline">{zoom === "day" ? (pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole day") : periodPick === null ? "Tap a bar to see that day" : `Tap it again for the whole ${zoom}`}</div>{/if}
+    {#if minutes && device?.measured === false}<p class="foot">Minutes need usage access on this device: turn it on in Rules, under Protection.</p>
+    {:else if minutes && device && device.blockedOpens}<p class="foot">Today on this device: <b>{device.blockedOpens}</b> blocked opens, <b>{Math.min(device.closedWithoutTearing, device.blockedOpens)}</b> left without unlocking</p>
+    {:else if shownBreakdown.rows.length}<p class="foot">{zoom === "day" ? (pick === null ? "Tap a bar to see that hour" : "Tap it again for the whole Day") : periodPick === null ? "Tap a bar to see that Day" : `Tap it again for the whole ${zoom}`}</p>{/if}
   </div>
 </section>
 
@@ -664,19 +664,18 @@
   /* Distraction time: the minutes Unlocks allowed, as a salmon outline (Unlocks' colour everywhere)
      drawn over the bar, so time used past it shows above its top edge. */
   .allow { position: absolute; z-index: 2; left: -2px; right: -2px; bottom: 0; border: 1.5px solid var(--spend); border-top-width: 2.5px; border-bottom: 0; border-radius: 5px 5px 0 0; pointer-events: none; }
-  .hintline b { color: var(--ink); font-family: var(--mono); }
   .bar { position: relative; display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
   /* Hours Voucher wasn't watching (a device was silent): hatched, so a low bar there reads as unknown, not as none. */
   .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .09) 0 3px, transparent 3px 7px); pointer-events: none; }
   .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
-  /* A Marker: a short flag at the top of its hour; violet for one written by hand, grey for a rule change. */
-  .flag { position: absolute; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: #b69cff; border-radius: 1px; pointer-events: none; }
+  /* A Marker: a short flag at the top of its hour; the Marker colour for one written by hand, grey for a rule change. */
+  .flag { position: absolute; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: var(--marker); border-radius: 1px; pointer-events: none; }
   .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 6px; height: 5px; background: inherit; border-radius: 0 2px 2px 0; }
-  .flag.rule, .flagmark.rule { background: #8b9198; }
-  .flagmark { display: block; width: 3px; height: 12px; margin-left: 3px; border-radius: 1px; background: #b69cff; }
+  .flag.rule, .flagmark.rule { background: var(--muted); }
+  .flagmark { display: block; width: 3px; height: 12px; margin-left: 3px; border-radius: 1px; background: var(--marker); }
   /* Curfew's hours: a night-coloured band behind the bars, across the gaps too. */
-  .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: rgba(125, 140, 255, .09); pointer-events: none; }
+  .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: color-mix(in srgb, var(--night) 9%, transparent); pointer-events: none; }
   .tall .col.night::before { --gap: 6px; }
   .axis.hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
   .tall .axis.hours { gap: 6px; }
@@ -692,7 +691,7 @@
   .axis { display: flex; justify-content: space-between; font-size: var(--axis-size); color: var(--axis-ink); }
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
-  .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: #1f2226; font-size: 13px; color: #c9cdd1; }
+  .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: var(--raised); font-size: 13px; color: #c9cdd1; }
   .lframe { position: relative; display: flex; flex-direction: column; }
   .list { position: relative; display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }
@@ -701,8 +700,10 @@
   .row b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
   .row.zero { color: var(--muted); } .row.zero b { color: var(--muted); }
   .when { color: var(--muted); }
-  .none { display: block; color: var(--muted); }
-  .hintline { font-size: 11px; color: #6f757b; padding: 6px 0 4px; border-top: 1px solid var(--divider); }
+  /* An empty list: the shared .empty look (theme.css), in the row's place. */
+  .row.none { display: block; padding: 6px 0; }
+  /* The shared .foot (theme.css), with a little room under it in the box. */
+  .foot { padding: 10px 0 6px; }
   .mk { display: flex; align-items: center; }
   .row.zero .mk { opacity: .35; }
   .tall { gap: 14px; padding: 18px; border-radius: 18px; }
@@ -714,7 +715,7 @@
   .tall .legend { flex: 1; min-height: 96px; }
   .tall .lframe { flex: 1; min-height: 0; }
   .tall .list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
-  .tall .hintline { flex: none; }
+  .tall .foot { flex: none; }
   .tall .row.head { flex: none; }
   .tall .chart, .tall .dots { gap: 6px; }
   .tall .day { gap: 14px; }

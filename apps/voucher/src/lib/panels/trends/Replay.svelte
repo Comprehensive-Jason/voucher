@@ -51,7 +51,8 @@
   const days = $derived(period ? inRange(period.start, period.end) : []);
   const sum = (list: DayTotal[], f: (d: DayTotal) => number) => list.reduce((n, d) => n + f(d), 0);
 
-  type Card = { big: string; line: string; tone?: "goal" | "spend" };
+  /** A box's number and what it is; `gold` for the goal's, the only one whose colour means something. */
+  type Card = { big: string; line: string; gold?: boolean };
   /** The Days to average over: today counts only once it's the period's only Day, since it's still going. */
   const settled = $derived(days.length > 1 ? days.filter((d) => d.day !== today) : days);
   const perDay = (list: DayTotal[], f: (d: DayTotal) => number) => (list.length ? sum(list, f) / list.length : null);
@@ -75,8 +76,8 @@
     return [
       { big: one(rate), line: "Vouchers a Day" },
       { big: top && total ? styleOf(top[0]).name : "–", line: top && total ? `${Math.round((top[1] / total) * 100)}% of Vouchers` : "Top source" },
-      { big: `${Math.round((met / settled.length) * 100)}%`, line: "Days met the goal", tone: "goal" },
-      { big: used === null ? "–" : `${Math.round(used)} min`, line: "Distracted a Day", tone: "spend" },
+      { big: `${Math.round((met / settled.length) * 100)}%`, line: "Days met the goal", gold: true },
+      { big: used === null ? "–" : `${Math.round(used)} min`, line: "Distracted a Day" },
       { big: busiest === null ? "–" : `${String(busiest).padStart(2, "0")}:00`, line: "Busiest hour" },
       { big: answered.length ? `${Math.round((good / answered.length) * 100)}%` : "–", line: "Days went well" },
     ];
@@ -92,12 +93,9 @@
   {:else}
     {#key `${span}${period?.start}`}
     <div class="stage" class:fit in:zoomFade={{ out: span === "month" }}>
-      <div class="grid">
+      <div class="stats six">
         {#each cards as c, i (i)}
-          <div class="tile">
-            <b class:goal={c.tone === "goal"} class:spend={c.tone === "spend"}>{c.big}</b>
-            <span>{c.line}</span>
-          </div>
+          <div class:gold={c.gold}><b>{c.big}</b><span>{c.line}</span></div>
         {/each}
       </div>
     </div>
@@ -109,13 +107,11 @@
   .stage { display: flex; flex-direction: column; gap: 8px; }
   /* In a tablet slot the boxes fill the card, without scrolling. */
   .stage.fit { flex: 1; min-height: 0; }
-  /* Three to a row, two rows, every box the same size (theme.css .stats look). */
-  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 8px; }
-  .stage.fit .grid { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
-  .tile { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 12px; border-radius: 10px; background: #1f2226; min-width: 0; min-height: 0; overflow: hidden; }
-  .tile b { font: 700 22px/1.1 var(--font); color: var(--voucher); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tile b.goal { color: var(--goal); }
-  .tile b.spend { color: var(--spend); }
-  /* One short line under the number, never wrapping into it. */
-  .tile span { font-size: 12px; line-height: 1.3; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The shared stat boxes (theme.css .stats), three to a row and two rows,
+     every box the same size. */
+  .six { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; }
+  /* In a tablet slot the boxes share the card's height, numbers centred and a size up. */
+  .stage.fit .six { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+  .stage.fit .six > div { justify-content: center; min-height: 0; overflow: hidden; }
+  .stage.fit .six b { font-size: 22px; }
 </style>

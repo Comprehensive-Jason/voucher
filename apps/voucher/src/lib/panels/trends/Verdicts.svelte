@@ -4,12 +4,14 @@
   // over the last eight weeks. Goal Days that felt bad, or missed Days that
   // felt good, are the interesting ones: they say the goal or the sources
   // may be weighing the wrong things. A strip of the last four weeks shows
-  // each answer, outlined in gold where the goal was met. With enough
+  // each answer, outlined in gold where the goal was met; "No" answers take
+  // the --worse colour, in the table and the strip. With enough
   // answers, one line under it says what the mismatch suggests; the table
   // already gives the counts.
   import TrendCard from "../../components/TrendCard.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal, Verdict } from "../../types";
+  import { shortDate } from "../../time";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();
@@ -31,6 +33,7 @@
     return "Goal Days and good Days mostly agree.";
   });
   const strip = $derived(history.slice(-28));
+  const today = $derived(history.at(-1)?.day ?? "");
   const LABEL: Record<Verdict, string> = { yes: "Yes", mostly: "Mostly", no: "No" };
 </script>
 
@@ -46,7 +49,7 @@
       <span class="cap row">Missed</span>{#each ["yes", "mostly", "no"] as v}<b class="n {v}">{count(false, v as Verdict)}</b>{/each}
     </div>
     <div class="strip" aria-label="The last four weeks' answers">
-      {#each strip as d (d.day)}<i class={d.verdict ?? "none"} class:met={d.goal_met} title="{d.day}: {d.verdict ? LABEL[d.verdict] : 'no answer'}{d.goal_met ? ', goal met' : ''}"></i>{/each}
+      {#each strip as d (d.day)}<i class={d.verdict ?? "none"} class:met={d.goal_met} title="{shortDate(d.day, today)}: {d.verdict ? LABEL[d.verdict] : 'no answer'}{d.goal_met ? ', goal met' : ''}"></i>{/each}
     </div>
   {/if}
 </TrendCard>
@@ -57,10 +60,11 @@
   .h { text-align: center; color: var(--muted); }
   .row { color: var(--muted); }
   .row.gold { color: var(--goal); }
-  .n { text-align: center; padding: 6px 0; border-radius: 10px; background: #1f2226; font: 700 16px var(--mono); }
-  .n.yes { color: var(--voucher); } .n.mostly { color: #d9c65b; } .n.no { color: var(--spend); }
+  /* Each count in a box with the shared stat boxes' look (theme.css .stats). */
+  .n { text-align: center; padding: 8px 10px; border-radius: 10px; background: var(--raised); font: 700 18px/1.1 var(--mono); min-width: 0; }
+  .n.yes { color: var(--voucher); } .n.mostly { color: #d9c65b; } .n.no { color: var(--worse); }
   .strip { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: 3px; }
-  .strip i { aspect-ratio: 1; border-radius: 3px; background: #22262a; box-sizing: border-box; }
-  .strip i.yes { background: #2fb36b; } .strip i.mostly { background: #8f8640; } .strip i.no { background: #a54a40; }
+  .strip i { aspect-ratio: 1; border-radius: 3px; background: var(--heat-0); box-sizing: border-box; }
+  .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: #8f8640; } .strip i.no { background: var(--worse); }
   .strip i.met { outline: 1.5px solid var(--goal); outline-offset: -1.5px; }
 </style>

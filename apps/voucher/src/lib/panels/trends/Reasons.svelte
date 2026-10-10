@@ -38,8 +38,9 @@
         <div class="reason" class:top={n === most}><span class="name">{name(r)}</span><span class="track"><i style="width: {(n / most) * 100}%"></i></span><b class="mono">{n}</b></div>
       {/each}
     </div>
-    <div class="parts">
-      {#each parts as p}<div class:none={!p.top}><span class="cap">{p.name}</span><b>{p.top ?? "–"}</b></div>{/each}
+    <!-- The top reason for each part of the Day, in the shared stat boxes. -->
+    <div class="stats parts">
+      {#each parts as p}<div class:none={!p.top}><b>{p.top ?? "–"}</b><span>{p.name}</span></div>{/each}
     </div>
   {/if}
 </TrendCard>
@@ -49,16 +50,14 @@
   .bars.fit { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
   .reason { flex: none; display: grid; grid-template-columns: 110px minmax(0, 1fr) 26px; gap: 8px; align-items: center; font-size: 13px; }
   .name { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .track { height: 10px; border-radius: 5px; background: #22262a; overflow: hidden; }
+  .track { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
   .track i { display: block; height: 100%; border-radius: 5px; background: var(--spend); transition: width var(--t-move) var(--ease-out); }
   .reason b { text-align: right; font-size: 12px; color: var(--muted); }
   /* The most common reason (or reasons, on a tie) stands out; the rest step back. */
   .reason:not(.top) .track i { opacity: .4; }
   .reason:not(.top) .name { color: var(--muted); }
   .reason.top b { color: var(--ink); }
-  .parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-  .parts div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: #1f2226; min-width: 0; }
-  .parts b { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The boxes hold words, not numbers, so a size down to fit four across a phone. */
+  .parts b { font-size: 14px; }
   .parts .none b { color: var(--muted); }
-  .parts .cap { color: var(--muted); }
 </style>

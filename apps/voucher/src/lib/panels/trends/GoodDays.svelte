@@ -30,10 +30,11 @@
   type Finding = { cause: { name: string; color: string }; effect: Effect; nextDay: boolean; withAvg: number; withoutAvg: number; withN: number; withoutN: number; size: number };
   const findings = $derived.by((): Finding[] => {
     const sources = [...new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))];
-    // What a Day can be better at: each source's Vouchers, and less Distraction time and unlocking.
+    // What a Day can be better at: each source's Vouchers, and less Distraction
+    // time (grey: it isn't an Unlock) and unlocking (salmon, Unlocks' colour).
     const effects: Effect[] = [
       ...sources.map((id) => ({ id, name: styleOf(id).short, color: styleOf(id).color, value: (d: DayTotal) => d.by_source?.[id] ?? 0, more: true, unit: "", what: `${styleOf(id).name} Vouchers` })),
-      { id: "~used", name: "Distraction", color: "var(--spend)", value: (d: DayTotal) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : NaN), more: false, unit: " min", what: "minutes in Distractions" },
+      { id: "~used", name: "Distraction", color: "var(--muted)", value: (d: DayTotal) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : NaN), more: false, unit: " min", what: "minutes in Distractions" },
       { id: "~unlocked", name: "Unlocked", color: "var(--spend)", value: (d: DayTotal) => d.unlocked_minutes ?? NaN, more: false, unit: " min", what: "minutes unlocked" },
     ];
     const out: Finding[] = [];
@@ -110,7 +111,7 @@
   .list.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .list.more { mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
   /* One row a finding: cause, link, effect, then the paired bars and the badge. */
-  .finding { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; column-gap: 7px; padding: 7px 10px; border-radius: 10px; background: #1f2226; font-size: 13px; }
+  .finding { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; column-gap: 7px; padding: 7px 10px; border-radius: 10px; background: var(--raised); font-size: 13px; }
   .who { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink); }
   .who i { flex: none; width: 8px; height: 8px; border-radius: 50%; }
   .who span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

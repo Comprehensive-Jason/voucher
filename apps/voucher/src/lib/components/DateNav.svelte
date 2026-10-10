@@ -16,7 +16,7 @@
 </div>
 
 <style>
-  .datenav { flex: none; display: inline-flex; align-items: center; height: 28px; padding: 0 2px; border-radius: 999px; border: 1px solid var(--line); background: #1f2226; min-width: 0; max-width: 100%; }
+  .datenav { flex: none; display: inline-flex; align-items: center; height: 28px; padding: 0 2px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); min-width: 0; max-width: 100%; }
   .nav { flex: none; width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: none; color: var(--muted); cursor: pointer; transition: opacity var(--t-base), color var(--t-base), background-color var(--t-base); }
   .nav:disabled { opacity: .3; cursor: default; }
   .nav:not(:disabled):active { color: var(--ink); background: #2c3036; }

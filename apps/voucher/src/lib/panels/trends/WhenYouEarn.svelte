@@ -16,6 +16,7 @@
   import { untrack } from "svelte";
   import type { DayTotal } from "../../types";
   import { fitsSlot } from "../../fit.svelte";
+  import { shortDate } from "../../time";
   const fit = fitsSlot();
 
   let { history }: { history: DayTotal[] } = $props();
@@ -59,21 +60,23 @@
   // Only Days whose hours the log still holds.
   const kept = $derived(history.filter((d) => d.hours && d.hours.length));
   const rows = $derived.by(() => {
-    if (by === "day") return kept.map((d) => ({ key: d.day, label: d.day.slice(5), cells: cols(d.hours!) }));
+    if (by === "day") return kept.map((d) => ({ key: d.day, label: shortDate(d.day, lastDay), cells: cols(d.hours!) }));
     const groups = new Map<string, number[][]>();
     for (const d of kept) {
       const key = by === "week" ? mondayOf(d.day) : d.day.slice(0, 7);
       groups.set(key, [...(groups.get(key) ?? []), cols(d.hours!)]);
     }
     return [...groups.entries()].map(([key, list]) => ({
-      key, label: by === "week" ? key.slice(5) : `${monthOf(key + "-01")} ${key.slice(2, 4)}`,
+      key, label: by === "week" ? shortDate(key, lastDay) : `${monthOf(key + "-01")}${key.slice(0, 4) === lastDay.slice(0, 4) ? "" : ` ${key.slice(0, 4)}`}`,
       cells: Array.from({ length: COLS }, (_, c) => list.reduce((a, r) => a + r[c], 0) / list.length),
     }));
   });
+  /** The label column: room for "09-18", or for a date or month with its year ("2025-09-18", "Sep 2025"). */
+  const lead = $derived(rows.some((r) => r.label.length > 6) ? 58 : 44);
   const max = $derived(Math.max(1e-9, ...rows.flatMap((r) => r.cells)));
-  const SHADES = ["#22262a", "#1d4d33", "#24804f", "#2fb36b", "#3ddc84"];
+  const SHADES = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--voucher)"];
   /** An empty hour during Curfew. */
-  const NIGHT = "#1b1f36";
+  const NIGHT = "var(--night-bg)";
   const shade = (v: number) => (v <= 0 ? SHADES[0] : SHADES[Math.min(4, 1 + Math.floor((v / max) * 3.999))]);
 
   // Opens on the row holding the shared Day (today's, at first), and goes back to it after a switch.
@@ -100,7 +103,7 @@
   {:else}
     <!-- Each switch zooms in like the bar graph's Day, Week, and Month. -->
     {#key by}
-    <div class="grid" class:fit in:zoomFade={{ out: widened }}>
+    <div class="grid" class:fit style="--lead: {lead}px" in:zoomFade={{ out: widened }}>
       <div class="stage">
         <!-- The busiest hour: a label beside its column, on the same columns as the rows. -->
         {#if busiest !== null}
@@ -118,8 +121,8 @@
         {/if}
       </div>
       <!-- Under the rows and outside the scroller, so the hours never move.
-           The label column (44px) plus HourAxis's own 2px gap meets the cells. -->
-      <HourAxis lead={44} />
+           The label column plus HourAxis's own 2px gap meets the cells. -->
+      <HourAxis {lead} />
     </div>
     {/key}
     <Legend scale={{ from: "Fewer", colors: SHADES, to: `More Vouchers${by === "day" ? "" : ", per Day on average"}` }} />
@@ -130,15 +133,15 @@
   .grid { display: flex; flex-direction: column; gap: 4px; }
   .stage { position: relative; display: flex; flex-direction: column; gap: 3px; }
   /* The rows' columns, for the busiest hour's label and outline. */
-  .cols { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); column-gap: 2px; pointer-events: none; }
+  .cols { display: grid; grid-template-columns: var(--lead) repeat(24, minmax(0, 1fr)); column-gap: 2px; pointer-events: none; }
   .peak { height: 12px; }
   .peak span { min-width: 0; padding: 0 2px; font: 500 var(--axis-size)/12px var(--mono); color: var(--muted); white-space: nowrap; }
   .peak span.end { text-align: right; }
   .peak b { color: var(--ink); font-weight: 700; }
   /* From the label's row down to the bottom of the rows in view. */
   .outline { position: absolute; inset: 0; }
-  .outline i { margin: 0 -1px; border: 1px solid rgba(242, 242, 240, .45); border-radius: 4px; }
-  .row { display: grid; grid-template-columns: 44px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
+  .outline i { margin: 0 -1px; border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent); border-radius: 4px; }
+  .row { display: grid; grid-template-columns: var(--lead) repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
   /* In a tablet slot the rows take whatever height is left. */
   .grid.fit, .grid.fit .stage { flex: 1; min-height: 0; }
   .grid.fit .rows { flex: 1; min-height: 0; max-height: none; }
@@ -148,5 +151,5 @@
   .label { font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); }
   /* The row holding the Day picked on any card. */
   .row.chosen .label { color: var(--ink); font-weight: 700; }
-  .row.chosen i { box-shadow: 0 0 0 1px rgba(242, 242, 240, .5); }
+  .row.chosen i { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 50%, transparent); }
 </style>

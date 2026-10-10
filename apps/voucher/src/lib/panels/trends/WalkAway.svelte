@@ -9,6 +9,7 @@
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
   import { mondayOf } from "../../trends";
+  import { shortDate } from "../../time";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal } from "../../types";
@@ -31,8 +32,8 @@
   const most = $derived(Math.max(1, ...week.map((d) => d.opens)));
   const DAY = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const any = $derived(history.some((d) => d.opens));
-  /** Salmon for Unlocks, dimmed so the walk-aways' green still reads on top. */
-  const UNLOCKED = "color-mix(in srgb, var(--spend) 40%, transparent)";
+  /** Salmon, Unlocks' colour everywhere, for the opens unlocked instead. */
+  const UNLOCKED = "var(--spend)";
 </script>
 
 <TrendCard title="Walk-away wins" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: "week", onpick: (d) => selection.set("walkaway", { day: d === today ? null : d, picked: false }) }}>
@@ -47,7 +48,7 @@
         </div>
       {/if}
       {#each week as d, i (d.day)}
-        <div class="day" class:future={d.future} title="{d.day}: walked away {d.walked} of {d.opens}">
+        <div class="day" class:future={d.future} title="{shortDate(d.day, today)}: walked away {d.walked} of {d.opens}">
           {#if d.opens}<span class="n">{d.walked}/{d.opens}</span>{/if}
           <div class="bar" style="background: {d.opens ? UNLOCKED : 'var(--line)'}; height: {(d.opens / most) * 100}%"><i style="height: {d.opens ? (d.walked / d.opens) * 100 : 0}%"></i></div>
           <span class="label" class:chosen={d.day === (selection.day ?? today)}>{DAY[i]}</span>
@@ -69,7 +70,7 @@
   .day { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
   .day.future { opacity: .3; }
   .n { font: 600 10px var(--mono); color: var(--ink); margin-bottom: 3px; }
-  /* Dim salmon (set inline, shared with the legend) for the opens unlocked
+  /* Salmon (set inline, shared with the legend) for the opens unlocked
      instead; green, from the bottom, for the walk-aways; a grey stub for none. */
   .bar { width: 70%; min-height: 2px; border-radius: 4px 4px 0 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
   .bar i { display: block; background: var(--voucher); }

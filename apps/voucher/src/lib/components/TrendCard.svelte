@@ -1,9 +1,10 @@
 <script lang="ts">
   // The frame every Trends card shares: the heading (CardHead), the chart,
   // and one line under it saying what the chart shows. A card that follows
-  // the shared Day passes `date`, and gets the date switcher and Today button
-  // as the heading's second line; a card that steps through something else
-  // (Before and after's Markers) passes its own `nav` for that line.
+  // the shared Day passes `date`, and gets the date switcher in the title's
+  // place and the Today button beside its switches, all on the heading's one
+  // line; a card that steps through something else (Before and after's
+  // Markers) passes its own `nav` for the switcher.
   import type { Snippet } from "svelte";
   import { fitsSlot } from "../fit.svelte";
   import CardHead from "./CardHead.svelte";
@@ -21,8 +22,6 @@
 </section>
 
 <style>
-  .foot { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); border-top: 1px solid var(--divider); padding-top: 10px; }
-  .foot :global(b) { color: var(--ink); font-family: var(--mono); font-weight: 700; }
   /* Charts draw in SVG; their text keeps the app's mono figures. */
   .card :global(svg.chart) { display: block; width: 100%; height: auto; overflow: visible; }
   /* Text inside a chart stays one size however wide the card is: each chart

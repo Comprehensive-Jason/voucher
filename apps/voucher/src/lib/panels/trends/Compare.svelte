@@ -12,6 +12,7 @@
   import { dayOfMoment, notes } from "../../notes.svelte";
   import { measured } from "../../notes.svelte";
   import type { DayTotal } from "../../types";
+  import { shortDate } from "../../time";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();
@@ -20,6 +21,7 @@
   const SPAN = 14, SETTLE = 3;
   /** Settled Days only: today is still going. */
   const days = $derived(history.slice(0, -1));
+  const today = $derived(history.at(-1)?.day ?? "");
   const index = $derived(new Map(days.map((d, i) => [d.day, i])));
   /** Markers with at least a week of Days before them, newest first. */
   const choices = $derived(notes.markers.filter((m) => (index.get(dayOfMoment(m.at)) ?? -1) >= 7).slice().reverse());
@@ -63,8 +65,12 @@
     return total >= 10 ? { share: Math.round((asBig / total) * 100), total } : null;
   });
   /** The settling-in Days left out, as "09-14 to 09-16". */
-  const settled = $derived(at === null ? "" : `${days[at]?.day.slice(5) ?? ""} to ${days[Math.min(days.length - 1, at + SETTLE - 1)]?.day.slice(5) ?? ""}`);
-  const label = (m: { at: string; text: string }) => `${dayOfMoment(m.at).slice(5)} ${m.text}`;
+  const settled = $derived.by(() => {
+    if (at === null) return "";
+    const from = days[at]?.day, to = days[Math.min(days.length - 1, at + SETTLE - 1)]?.day;
+    return `${from ? shortDate(from, today) : ""} to ${to ? shortDate(to, today) : ""}`;
+  });
+  const label = (m: { at: string; text: string }) => `${shortDate(dayOfMoment(m.at), today)} ${m.text}`;
   /** Whether the table and its summary show (not an empty state). */
   const compared = $derived(choices.length > 0 && after.length >= 5);
 </script>
@@ -107,7 +113,7 @@
   .table b:nth-of-type(2n) { color: var(--ink); }
   .arrow { text-align: center; font-size: 11px; color: var(--muted); }
   .arrow.good { color: var(--voucher); }
-  .arrow.bad { color: var(--spend); }
+  .arrow.bad { color: var(--worse); }
   /* The luck sentence gets a line of its own under the first. */
   .luck { display: block; margin-top: 4px; }
   /* Beats the foot's own bold colour. */

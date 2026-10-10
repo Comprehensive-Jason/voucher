@@ -8,6 +8,8 @@
   //   least that long the last 30 Days held, with the 30 before as an
   //   outline; the further right the bars hold up, the longer you sustain
   //   focus.
+  // Neutral greys and ink: focus apps span every source, so no source's
+  // colour (and no reserved one) fits.
   // Typical labels its line: the latest week's value at the right end, and
   // the first week's, faint, over its column. The line under the chart only
   // says what counts as a stretch.
@@ -84,9 +86,9 @@
         {#if view === "typical"}
           <ChartAxis {ticks} {yAt} {x0} {x1} {y0} {y1} title="Minutes" />
           {#each weeks as w, j (w.monday)}
-            <rect x={x0 + slot * j + slot * 0.2} y={yAt(w.hi)} width={slot * 0.6} height={Math.max(2, yAt(w.lo) - yAt(w.hi))} rx="3" fill="#b08cff" opacity=".45" />
+            <rect x={x0 + slot * j + slot * 0.2} y={yAt(w.hi)} width={slot * 0.6} height={Math.max(2, yAt(w.lo) - yAt(w.hi))} rx="3" fill="var(--muted)" opacity=".3" />
           {/each}
-          <path d={weeks.map((w, j) => `${j ? "L" : "M"}${x0 + slot * j + slot / 2},${yAt(w.mid)}`).join("")} fill="none" stroke="#f2f2f0" stroke-width="2" />
+          <path d={weeks.map((w, j) => `${j ? "L" : "M"}${x0 + slot * j + slot / 2},${yAt(w.mid)}`).join("")} fill="none" stroke="var(--ink)" stroke-width="2" />
           {#if startY !== null}<text class="tag" x={x0 + slot / 2} y={startY} text-anchor="middle" style="fill: var(--ink); opacity: .6">{firstTypical}</text>{/if}
           <text class="tag end" x={x0 + slot * (weeks.length - 0.2) + 3 * k} y={yAt(weeks.at(-1)!.mid) + 3.2 * k} style="fill: var(--ink)">{endText}</text>
           {#each weeks as w, j (w.monday)}{#if w.monday.slice(8) <= "07"}<text x={x0 + slot * j + slot / 2} y={H - 4} text-anchor="middle">{monthOf(w.monday)}</text>{/if}{/each}
@@ -95,7 +97,7 @@
             {@const x = lx0 + bandW * i + bandW * 0.18}
             {@const bw = bandW * 0.64}
             <rect x={x} y={y0 - (counts.then[i] / most) * (y0 - y1 - 14)} width={bw} height={(counts.then[i] / most) * (y0 - y1 - 14)} rx="3" fill="none" stroke="#6c7177" stroke-dasharray="3 3" />
-            <rect x={x + bw * 0.15} y={y0 - (counts.now[i] / most) * (y0 - y1 - 14)} width={bw * 0.7} height={(counts.now[i] / most) * (y0 - y1 - 14)} rx="3" fill="#b08cff" />
+            <rect x={x + bw * 0.15} y={y0 - (counts.now[i] / most) * (y0 - y1 - 14)} width={bw * 0.7} height={(counts.now[i] / most) * (y0 - y1 - 14)} rx="3" fill="var(--muted)" />
             <text x={x + bw / 2} y={y0 - (counts.now[i] / most) * (y0 - y1 - 14) - 4} text-anchor="middle" style="fill: var(--ink)">{counts.now[i]}</text>
             <text x={x + bw / 2} y={H - 4} text-anchor="middle">{m >= 60 ? `${m / 60} h+` : `${m} min+`}</text>
           {/each}
@@ -105,10 +107,10 @@
     </div>
     {/key}
     <Legend items={view === "typical" ? [
-      { kind: "box", color: "rgba(176, 140, 255, .45)", label: "One week: the middle half of its stretches" },
-      { kind: "line", color: "#f2f2f0", label: "Each week's typical stretch" },
+      { kind: "box", color: "color-mix(in srgb, var(--muted) 30%, transparent)", label: "One week: the middle half of its stretches" },
+      { kind: "line", color: "var(--ink)", label: "Each week's typical stretch" },
     ] : [
-      { kind: "box", color: "#b08cff", label: "Last 30 Days" },
+      { kind: "box", color: "var(--muted)", label: "Last 30 Days" },
       { kind: "outline", color: "#6c7177", label: "The 30 before" },
     ]} />
   {/if}

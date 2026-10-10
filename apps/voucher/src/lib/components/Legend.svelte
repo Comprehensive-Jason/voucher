@@ -12,7 +12,8 @@
 <script lang="ts">
   // The legend under a chart, the same on every card: a row of keys, and
   // optionally a small note at the right ("7-day averages"). A `scale` draws
-  // a Fewer-to-More run of colours instead, for heat grids.
+  // a Fewer-to-More run of colours instead, for heat grids. A flag key is a
+  // hand-written Marker's colour unless given one (rule changes: --muted).
   let { items = [], scale, note }: { items?: LegendItem[]; scale?: { from: string; colors: string[]; to: string }; note?: string } = $props();
 </script>
 
@@ -21,7 +22,7 @@
     <span class="scale">{scale.from}{#each scale.colors as c}<i class="swatch" style="background: {c}"></i>{/each}{scale.to}</span>
   {/if}
   {#each items as it (it.label)}
-    <span><i class="{it.kind}" style="--c: {it.color ?? 'var(--muted)'}"></i>{it.label}</span>
+    <span><i class="{it.kind}" style="--c: {it.color ?? (it.kind === 'flag' ? 'var(--marker)' : 'var(--muted)')}"></i>{it.label}</span>
   {/each}
   {#if note}<span class="note">{note}</span>{/if}
 </div>
@@ -41,5 +42,5 @@
   .flag { width: 3px; height: 12px; border-radius: 1px; background: var(--c); }
   .usual { width: 2px; height: 12px; background: repeating-linear-gradient(180deg, var(--c) 0 3px, transparent 3px 5px); }
   .hatch { width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
-  .note { margin-left: auto; font-size: 11px; color: #6f757b; }
+  .note { margin-left: auto; font-size: 11px; color: var(--axis-ink); }
 </style>

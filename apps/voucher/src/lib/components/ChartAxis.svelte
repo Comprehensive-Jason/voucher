@@ -10,7 +10,7 @@
 
 <g class="axis">
   {#each ticks as t}
-    <line x1={x0} x2={x1} y1={yAt(t)} y2={yAt(t)} stroke="#2c3036" stroke-dasharray={t ? "3 4" : ""} />
+    <line x1={x0} x2={x1} y1={yAt(t)} y2={yAt(t)} stroke="var(--line)" stroke-dasharray={t ? "3 4" : ""} />
     <text x={x0 - 6} y={yAt(t) + 3.5} text-anchor="end">{format(t)}</text>
   {/each}
   <text class="title" x="10" y={mid} text-anchor="middle" transform="rotate(-90 10 {mid})">{title}</text>

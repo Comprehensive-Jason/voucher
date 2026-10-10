@@ -2,7 +2,7 @@
   // What are my bests, to try to beat? Records only go up; one set today is
   // marked New.
   import TrendCard from "../../components/TrendCard.svelte";
-  import { clock } from "../../time";
+  import { clock, shortDate } from "../../time";
   import { goalRuns, mondayOf } from "../../trends";
   import { styleOf } from "../../sources";
   import { fitsSlot } from "../../fit.svelte";
@@ -10,24 +10,25 @@
   import type { DayTotal } from "../../types";
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
-  const today = $derived(history.at(-1)?.day);
+  const today = $derived(history.at(-1)?.day ?? "");
+  const date = (day: string) => shortDate(day, today);
   const best = <T,>(list: T[], score: (t: T) => number) => list.reduce<T | null>((a, b) => (a === null || score(b) > score(a) ? b : a), null);
 
   const records = $derived.by(() => {
     const out: { name: string; value: string; when: string; day?: string }[] = [];
     const most = best(history, (d) => d.earned);
-    if (most && most.earned) out.push({ name: "Most Vouchers in a Day", value: String(most.earned), when: most.day, day: most.day });
+    if (most && most.earned) out.push({ name: "Most Vouchers in a Day", value: String(most.earned), when: date(most.day), day: most.day });
     const run = best(goalRuns(history), (r) => r.length);
-    if (run) out.push({ name: "Longest streak", value: `${run.length} ${run.length === 1 ? "Day" : "Days"}`, when: `to ${run.end}`, day: run.end });
+    if (run) out.push({ name: "Longest streak", value: `${run.length} ${run.length === 1 ? "Day" : "Days"}`, when: `to ${date(run.end)}`, day: run.end });
     const weeks = new Map<string, number>();
     for (const d of history) if (d.goal_met) weeks.set(mondayOf(d.day), (weeks.get(mondayOf(d.day)) ?? 0) + 1);
     const week = best([...weeks.entries()], ([, n]) => n);
-    if (week) out.push({ name: "Most goal Days in a week", value: `${week[1]} of 7`, when: `week of ${week[0]}` });
+    if (week) out.push({ name: "Most goal Days in a week", value: `${week[1]} of 7`, when: `Week of ${date(week[0])}` });
     const late = best(history.filter((d) => d.first_tear), (d) => { const [h, m] = clock(d.first_tear!, timeZone).split(":").map(Number); return (h < 6 ? h + 24 : h) * 60 + m; });
-    if (late) out.push({ name: "Latest first unlock", value: clock(late.first_tear!, timeZone), when: late.day, day: late.day });
+    if (late) out.push({ name: "Latest first Unlock", value: clock(late.first_tear!, timeZone), when: date(late.day), day: late.day });
     const sources = history.flatMap((d) => Object.entries(d.by_source ?? {}).map(([id, n]) => ({ d, id, n })));
     const src = best(sources, (s) => s.n);
-    if (src) out.push({ name: `Most from one source`, value: `${src.n} ${styleOf(src.id).name}`, when: src.d.day, day: src.d.day });
+    if (src) out.push({ name: `Most from one source`, value: `${src.n} ${styleOf(src.id).name}`, when: date(src.d.day), day: src.d.day });
     return out;
   });
 </script>
@@ -53,7 +54,7 @@
   .rec { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; padding: 4px 0; border-top: 1px solid var(--divider); }
   .rec:first-child { border-top: 0; }
   .name { font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
-  .name em { font: 700 10px var(--mono); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: #0e0f11; background: var(--goal); border-radius: 999px; padding: 1px 7px; }
+  .name em { font: 700 10px var(--mono); font-style: normal; letter-spacing: .08em; text-transform: uppercase; color: var(--ground); background: var(--goal); border-radius: 999px; padding: 1px 7px; }
   .rec b { grid-row: span 2; align-self: center; font: 700 16px var(--mono); color: var(--goal); text-align: right; }
   .when { font: 500 11px var(--mono); color: var(--muted); }
 </style>

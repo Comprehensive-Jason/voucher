@@ -2,14 +2,16 @@
   // Which habits am I keeping up? A row per switched-on source, a cell filled
   // in its colour on each Day it earned at least one Voucher, and how many
   // Days in a row it's earned up to now; the longest run (every source tied
-  // for it) has its name and run in ink, the rest muted. The Days scroll sideways, back as
-  // far as the log keeps them, with the month and each Monday's date along
-  // the top; it opens at today. It follows the shared Day (that Day's column
+  // for it) has its name and run in ink, the rest muted. The Days scroll
+  // sideways, back as far as the log keeps them, with the month's name where
+  // one starts and each Monday's date ("09-14") along the top; it opens at
+  // today. It follows the shared Day (that Day's column
   // is outlined and scrolled into view), and tapping a cell shares its Day.
   import { untrack } from "svelte";
   import TrendCard from "../../components/TrendCard.svelte";
   import { compareSources, styleOf } from "../../sources";
   import { MONTHS } from "../../trends";
+  import { shortDate } from "../../time";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal, SourceProgress } from "../../types";
@@ -38,10 +40,15 @@
   /** The longest current run, in Days; 0 when no source is on a run. */
   const longest = $derived(Math.max(0, ...rows.map((r) => r.run)));
 
-  /** The label over a Day's column: the month where one starts, each Monday's date, else nothing. */
+  /** The label over a Day's column: the month's name where one starts, each
+   *  Monday's date, else nothing. A date runs about two columns wide, so a
+   *  Monday just before or after a month's start leaves the month its room. */
   const label = (day: string) => {
-    if (day.endsWith("-01")) return MONTHS[Number(day.slice(5, 7)) - 1];
-    return new Date(`${day}T12:00:00Z`).getUTCDay() === 1 ? String(Number(day.slice(8))) : "";
+    const date = Number(day.slice(8));
+    if (date === 1) return MONTHS[Number(day.slice(5, 7)) - 1];
+    if (new Date(`${day}T12:00:00Z`).getUTCDay() !== 1) return "";
+    const last = new Date(Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)), 0)).getUTCDate();
+    return date === 2 || date >= last - 1 ? "" : shortDate(day, today);
   };
 
   const CELL = 13, GAP = 3;
@@ -73,7 +80,7 @@
         {#each days as d (d.day)}<span class="date" class:month={d.day.endsWith("-01")} class:on={d.day === chosen}>{#if label(d.day)}<b>{label(d.day)}</b>{/if}</span>{/each}
         {#each rows as r (r.id)}
           {#each r.hit as on, i (days[i].day)}
-            <button class="cell" class:on={days[i].day === chosen} style={on ? `background: ${r.color}` : ""} title="{days[i].day}: {r.name} {on ? 'earned' : 'did not earn'}" aria-label="{days[i].day}, {r.name}" onclick={() => pick(days[i].day)}></button>
+            <button class="cell" class:on={days[i].day === chosen} style={on ? `background: ${r.color}` : ""} title="{shortDate(days[i].day, today)}: {r.name} {on ? 'earned' : 'did not earn'}" aria-label="{days[i].day}, {r.name}" onclick={() => pick(days[i].day)}></button>
           {/each}
         {/each}
       </div>
@@ -107,6 +114,6 @@
   .date b { position: absolute; left: 0; bottom: 1px; font: 500 var(--axis-size) var(--mono); color: var(--axis-ink); white-space: nowrap; }
   .date.month b { color: var(--muted); font-weight: 700; }
   .date.on b { color: var(--ink); }
-  .cell { display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 3px; background: #22262a; cursor: pointer; }
+  .cell { display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 3px; background: var(--heat-0); cursor: pointer; }
   .cell.on { outline: 1.5px solid var(--ink); outline-offset: 0; }
 </style>

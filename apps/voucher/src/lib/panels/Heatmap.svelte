@@ -11,7 +11,7 @@
   import TodayButton from "../components/TodayButton.svelte";
   import Legend from "../components/Legend.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
-  import { shiftDay } from "../time";
+  import { shiftDay, shortDate } from "../time";
   import { easeOut, ms } from "../motion";
   import { fitsSlot } from "../fit.svelte";
   import { dayOfMoment, notes } from "../notes.svelte";
@@ -115,13 +115,20 @@
     scroller?.scrollTo({ left: scroller.scrollWidth, behavior: "smooth" });
     if (lastDay) onpick?.(lastDay);
   }
-  // Days with a Marker get a small corner tick, and the Marker's text in the tooltip.
+  // Days with a Marker get a small corner tick, and the Marker's text in the
+  // tooltip: the Marker colour for one written by hand, grey when the Day's
+  // Markers are all rule changes.
   $effect(() => { notes.load(); });
   const marked = $derived.by(() => {
     const out = new Map<string, string[]>();
     for (const m of notes.markers) { const d = dayOfMoment(m.at); out.set(d, [...(out.get(d) ?? []), m.text]); }
     return out;
   });
+  const byHand = $derived(new Set(notes.markers.filter((m) => !m.rule).map((m) => dayOfMoment(m.at))));
+  /** A Day's tooltip: its date, then its Markers. */
+  const tip = (day: string) => [lastDay ? shortDate(day, lastDay) : day, ...(marked.get(day) ?? [])].join("\n");
+  /** The heat greens, fewer to more, for the cells (h0 to h3) and the legend. */
+  const HEAT = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)"];
 </script>
 
 <section class="card tile" class:wide={!keyBelow} style="--cell: {cell}px; --ycell: {yearCell}px">
@@ -146,7 +153,7 @@
             <span class="month">{week.month}</span>
             {#each week.days as c (c.day)}
               {#if c.blank}<div class="h blank"></div>
-              {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={[c.day, ...(marked.get(c.day) ?? [])].join("\n")} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+              {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} class:rule={marked.has(c.day) && !byHand.has(c.day)} title={tip(c.day)} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
             {/each}
           {/each}
         </div>
@@ -157,7 +164,7 @@
               <span class="month">{week.month}</span>
               {#each week.days as c (c.day)}
                 {#if c.blank}<div class="h blank"></div>
-                {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={[c.day, ...(marked.get(c.day) ?? [])].join("\n")} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+                {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} class:rule={marked.has(c.day) && !byHand.has(c.day)} title={tip(c.day)} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
               {/each}
             {/each}
           </div>
@@ -165,8 +172,9 @@
       {/if}
     </div>
   </div>
-  {#if keyBelow}
-    <Legend scale={{ from: "Fewer", colors: ["#22262a", "#1d4d33", "#24804f", "#2fb36b"], to: "More" }} items={[{ kind: "box", color: "var(--goal)", label: `Goal met, ${goal}+` }]} />
+  <!-- In a tablet slot the key always shows, on one line under the grid. -->
+  {#if keyBelow || inSlot}
+    <Legend scale={{ from: "Fewer", colors: HEAT, to: "More" }} items={[{ kind: "box", color: "var(--goal)", label: `Goal met, ${goal}+` }]} />
   {/if}
 </section>
 
@@ -200,15 +208,16 @@
   .yheat .month { font-size: 9px; }
   /* Month names fade out early while zooming (--zoom-t runs 0 to 1), so they never show stretched. */
   .month { scroll-snap-align: start; align-items: flex-end; overflow: visible; opacity: clamp(0, (var(--zoom-t, 1) - .75) * 4, 1); }
-  .h { aspect-ratio: 1; border-radius: 4px; background: #22262a; padding: 0; border: 0; display: block; width: 100%; }
+  .h { aspect-ratio: 1; border-radius: 4px; background: var(--heat-0); padding: 0; border: 0; display: block; width: 100%; }
   button.h { cursor: pointer; position: relative; }
-  /* A Day with a Marker: a violet corner. */
-  .h.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid #b69cff; border-left: 6px solid transparent; border-top-right-radius: 3px; }
+  /* A Day with a Marker: a corner in the Marker colour, grey for rule changes only. */
+  .h.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
   .yheat .h.marked::after { border-top-width: 4px; border-left-width: 4px; }
+  .h.marked.rule::after { border-top-color: var(--muted); }
   /* The Day the hour chart is showing. */
   .h.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
   button.h:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }
-  .h1 { background: #1d4d33; } .h2 { background: #24804f; } .h3 { background: #2fb36b; } .h4 { background: var(--goal); }
+  .h1 { background: var(--heat-1); } .h2 { background: var(--heat-2); } .h3 { background: var(--heat-3); } .h4 { background: var(--goal); }
   .h.blank { background: transparent; }
   .wide { padding: 18px; border-radius: 18px; flex: none; }
 </style>
