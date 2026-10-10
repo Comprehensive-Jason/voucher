@@ -103,6 +103,18 @@
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/voucher_widget" />
         </receiver>
 
+        <!-- The live wallpaper: the Bank as a fill in today's source colours. -->
+        <service
+            android:name=".VoucherWallpaper"
+            android:label="@string/wallpaper_label"
+            android:permission="android.permission.BIND_WALLPAPER"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data android:name="android.service.wallpaper" android:resource="@xml/voucher_wallpaper" />
+        </service>
+
         <service
             android:name=".VoucherAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"

@@ -33,7 +33,8 @@ class VoucherWidget : AppWidgetProvider() {
 
         private fun nameOf(s: JSONObject) = s.optString("name").ifEmpty { s.optString("id") }
 
-        private fun colorOf(s: JSONObject): Int {
+        /** A source's colour: the one chosen on Rules, or the shipped default. */
+        fun colorOf(s: JSONObject): Int {
             val chosen = s.optString("color")
             if (chosen.length == 7 && chosen.startsWith("#")) return (0xFF000000 or chosen.substring(1).toLong(16)).toInt()
             return (DEFAULT_COLORS[s.optString("id")] ?: 0xFFC9CDD1).toInt()
