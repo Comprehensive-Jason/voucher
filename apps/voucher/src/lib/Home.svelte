@@ -32,12 +32,10 @@
   import PaceToGoal from "$lib/panels/trends/PaceToGoal.svelte";
   import MorningRunway from "$lib/panels/trends/MorningRunway.svelte";
   import HabitStrength from "$lib/panels/trends/HabitStrength.svelte";
-  import StreakLadder from "$lib/panels/trends/StreakLadder.svelte";
   import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
   import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
   import BestHours from "$lib/panels/trends/BestHours.svelte";
   import GoodDays from "$lib/panels/trends/GoodDays.svelte";
-  import TrendArrows from "$lib/panels/trends/TrendArrows.svelte";
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
@@ -312,12 +310,10 @@
       {:else if id === "pace"}<PaceToGoal {history} today={status.today} timeZone={status.settings.time_zone} />
       {:else if id === "runway"}<MorningRunway {history} timeZone={status.settings.time_zone} />
       {:else if id === "strength"}<HabitStrength {history} />
-      {:else if id === "ladder"}<StreakLadder {history} />
       {:else if id === "streaks"}<SourceStreaks {history} sources={status.today.sources} />
       {:else if id === "records"}<PersonalRecords {history} timeZone={status.settings.time_zone} />
       {:else if id === "best"}<BestHours {history} />
       {:else if id === "gooddays"}<GoodDays {history} />
-      {:else if id === "arrows"}<TrendArrows {history} timeZone={status.settings.time_zone} />
       {:else if id === "replay"}<Replay {history} />
       {:else if id === "focus"}<FocusStretches {history} />
       {:else if id === "walkaway"}<WalkAway {history} />
@@ -474,6 +470,12 @@
   .endcol .add { border-style: dashed; }
   .endcol .reset { color: var(--muted); font-weight: 500; font-size: 13px; }
   .leftfoot { margin-top: auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+  /* One row: Rules, the page bar, and Arrange or Done. While Arrange and Done
+     cross-fade they share the right cell, overlapping, instead of the
+     second wrapping onto a row of its own and pushing the column up. */
+  .leftfoot > * { grid-row: 1; }
+  .leftfoot > a.iconbtn { grid-column: 1; justify-self: start; }
+  .leftfoot .pages { grid-column: 2; }
   .leftfoot .arrangepill, .leftfoot .donepill { grid-column: 3; justify-self: end; }
   .arrangepill { height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }
   .donepill { height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }

@@ -13,12 +13,10 @@
   import PaceToGoal from "$lib/panels/trends/PaceToGoal.svelte";
   import MorningRunway from "$lib/panels/trends/MorningRunway.svelte";
   import HabitStrength from "$lib/panels/trends/HabitStrength.svelte";
-  import StreakLadder from "$lib/panels/trends/StreakLadder.svelte";
   import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
   import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
   import BestHours from "$lib/panels/trends/BestHours.svelte";
   import GoodDays from "$lib/panels/trends/GoodDays.svelte";
-  import TrendArrows from "$lib/panels/trends/TrendArrows.svelte";
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
@@ -113,12 +111,10 @@
     {:else if id === "pace"}<PaceToGoal {history} {today} {timeZone} />
     {:else if id === "runway"}<MorningRunway {history} {timeZone} />
     {:else if id === "strength"}<HabitStrength {history} />
-    {:else if id === "ladder"}<StreakLadder {history} />
     {:else if id === "streaks"}<SourceStreaks {history} sources={today.sources} />
     {:else if id === "records"}<PersonalRecords {history} {timeZone} />
     {:else if id === "best"}<BestHours {history} />
     {:else if id === "gooddays"}<GoodDays {history} />
-    {:else if id === "arrows"}<TrendArrows {history} {timeZone} />
     {:else if id === "replay"}<Replay {history} />
     {:else if id === "focus"}<FocusStretches {history} />
     {:else if id === "walkaway"}<WalkAway {history} />
