@@ -149,6 +149,12 @@
   .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .tile { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: #1f2226; min-width: 0; }
   .tile.wide { grid-column: span 2; }
+  /* At a third of a column, three to a row and smaller, so most fit without scrolling. */
+  .stage.fit .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .stage.fit .tile { padding: 8px 10px; gap: 2px; }
+  .stage.fit .tile b { font-size: 19px; }
+  .stage.fit .tile span { font-size: 11.5px; line-height: 1.3; }
+  .stage.fit .tile.wide { grid-column: span 3; }
   .tile b { font: 700 24px/1.1 var(--font); color: var(--voucher); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tile b.goal { color: var(--goal); }
   .tile b.spend { color: var(--spend); }

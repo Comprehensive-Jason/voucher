@@ -12,6 +12,7 @@
   import { inCurfew } from "../../curfew.svelte";
   import { selection } from "../../selection.svelte";
   import { notes } from "../../notes.svelte";
+  import DayStepper from "../../components/DayStepper.svelte";
   import { drawHeight, fitsSlot } from "../../fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
@@ -80,6 +81,9 @@
 </script>
 
 <TrendCard title="Pace to goal">
+  {#snippet tools()}
+    <DayStepper day={chosen} today={today.day} oldest={history[0]?.day} onpick={(d) => selection.set("pace", { day: d === today.day ? null : d, picked: false })} />
+  {/snippet}
   {#if perDay.length < 3}
     <p class="empty">A few Days of history draw your usual pace.</p>
   {:else}

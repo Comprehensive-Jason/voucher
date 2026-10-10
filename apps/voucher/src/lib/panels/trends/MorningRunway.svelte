@@ -2,13 +2,18 @@
   // How long do I hold out each morning? A row per week, newest at the
   // bottom (scroll up for earlier ones, as far as the log keeps them), a dot
   // at each Day's first unlock; a hollow dot at the far right for a Day with
-  // no unlock at all. The dashed line is the middle first unlock of the last
-  // 4 weeks. The hours sit under the scroller and never move.
+  // no unlock at all. The further right the dots, the longer the morning ran
+  // before the first Distraction. The dashed line is the middle first unlock
+  // of the last 4 weeks. The hours sit under the scroller and never move.
+  // It follows the shared Day: that Day's dot is ringed and its week scrolled
+  // into view, and tapping a dot shares its Day.
   import TrendCard from "../../components/TrendCard.svelte";
   import { clock } from "../../time";
   import { clockOfHours, median, mondayOf } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal } from "../../types";
+  import { selection } from "../../selection.svelte";
+  import { untrack } from "svelte";
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
   const fit = fitsSlot();
@@ -33,26 +38,55 @@
   const H = $derived(weeks.length * ROW);
   const xAt = (h: number) => x0 + ((Math.min(h, END) - START) / (END - START)) * (x1 - x0);
 
-  // Open at the newest weeks.
+  // Open at the newest weeks; follow the shared Day to its week.
   let scroller = $state<HTMLDivElement>();
+  const today = $derived(history.at(-1)?.day ?? "");
+  const chosen = $derived(selection.day ?? today);
+  const chosenRow = $derived(weeks.findIndex((w) => w.monday === mondayOf(chosen)));
   $effect(() => { weeks.length; if (scroller) scroller.scrollTop = scroller.scrollHeight; });
+  $effect(() => {
+    selection.seq;
+    const row = chosenRow;
+    untrack(() => {
+      if (!scroller || selection.from === "runway") return;
+      if (row < 0) { scroller.scrollTo({ top: scroller.scrollHeight, behavior: "smooth" }); return; }
+      // The row's place in pixels: the SVG scales to the scroller's width.
+      const px = (row * ROW + ROW / 2) * (scroller.clientWidth / W);
+      scroller.scrollTo({ top: Math.max(0, px - scroller.clientHeight / 2), behavior: "smooth" });
+    });
+  });
+  const pick = (day: string) => selection.set("runway", { day: day === today ? null : day, picked: true });
 </script>
 
 <TrendCard title="Morning runway">
   {#if !weeks.length}
     <p class="empty">First unlocks show here as the log fills.</p>
   {:else}
+    <div class="legend">
+      <span><i class="dot"></i>A Day's first Unlock</span>
+      <span><i class="ring"></i>No Unlock</span>
+      <span><i class="usual"></i>Usual lately</span>
+      <span class="small">further right: a longer morning</span>
+    </div>
     <div class="wrap" class:fit>
       <div class="rows" bind:this={scroller}>
         <svg class="chart" viewBox="0 0 {W} {H}" role="img" aria-label="Each Day's first unlock, by week">
           {#if !Number.isNaN(recent)}<line x1={xAt(recent)} x2={xAt(recent)} y1="0" y2={H} stroke="var(--goal)" stroke-dasharray="4 4" />{/if}
+          {#if chosenRow >= 0}<rect x="0" y={chosenRow * ROW} width={W} height={ROW} rx="4" fill="#ffffff" opacity=".045" />{/if}
           {#each weeks as w, r (w.monday)}
             {@const y = r * ROW + ROW / 2}
             <text x={x0 - 8} y={y + 3} text-anchor="end">{w.monday.slice(5)}</text>
             <line x1={x0} x2={x1} y1={y} y2={y} stroke="#23272b" />
             {#each w.list as d, i (d.day)}
-              {#if d.t === null}<circle cx={x1 + 22} cy={y + (i - 3) * 1.6} r="4" fill="none" stroke="var(--voucher)" stroke-width="1.5"><title>{d.day}: no unlock</title></circle>
-              {:else}<circle cx={xAt(d.t)} cy={y + (i - 3) * 1.6} r="4" fill="var(--voucher)" opacity=".8"><title>{d.day}: first unlock {clockOfHours(d.t)}</title></circle>{/if}
+              {@const cx = d.t === null ? x1 + 22 : xAt(d.t)}
+              {@const cy = y + (i - 3) * 1.6}
+              {#if d.day === chosen}<circle {cx} {cy} r="8" fill="none" stroke="var(--ink)" stroke-width="1.5" />{/if}
+              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+              <g class="dot" onclick={() => pick(d.day)}>
+                <circle {cx} {cy} r="9" fill="transparent" />
+                {#if d.t === null}<circle {cx} {cy} r="4" fill="none" stroke="var(--voucher)" stroke-width="1.5"><title>{d.day}: no unlock</title></circle>
+                {:else}<circle {cx} {cy} r="4" fill="var(--voucher)" opacity=".8"><title>{d.day}: first unlock {clockOfHours(d.t)}</title></circle>{/if}
+              </g>
             {/each}
           {/each}
         </svg>
@@ -78,5 +112,13 @@
   .wrap.fit { flex: 1; min-height: 0; }
   .wrap.fit .rows { flex: 1; min-height: 0; max-height: none; }
   .axis { flex: none; }
+  .dot { cursor: pointer; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .legend i.dot { background: var(--voucher); }
+  .legend i.ring { border: 1.5px solid var(--voucher); box-sizing: border-box; }
+  .legend i.usual { width: 2px; height: 12px; border-radius: 0; background: repeating-linear-gradient(180deg, var(--goal) 0 3px, transparent 3px 5px); }
+  .legend .small { margin-left: auto; font-size: 11px; color: #6f757b; }
   .empty { margin: 0; color: var(--muted); font-size: 13px; }
 </style>
