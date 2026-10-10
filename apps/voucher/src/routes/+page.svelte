@@ -40,6 +40,7 @@
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import VerdictSheet from "$lib/components/VerdictSheet.svelte";
+  import CardTab from "$lib/components/CardTab.svelte";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
@@ -321,7 +322,7 @@
             style="grid-column: {p.col + 1}; grid-row: {p.row + 1} / span {p.size}; --jiggle: {(p.col * 3 + p.row) % 4}"
             onpointerdown={(e) => onPress(e, id)}>
             <!-- The card's name, on a tab growing out of its top edge, so naming it costs the card no height. -->
-            <span class="tab"><span class="cap">{PANELS[id].name}</span></span>
+            <span class="tab"><CardTab name={PANELS[id].name} /></span>
             {@render panel(id)}
             {#if arranging}
               <!-- While arranging: its name, its size (if it has a choice), and Hide. Drag it anywhere. -->
@@ -396,16 +397,10 @@
   /* A stop at every column, so a view can sit across two pages. */
   .filler { grid-row: 1; height: 0; }
   .snap { grid-row: 1; align-self: start; height: 0; scroll-snap-align: start; pointer-events: none; }
-  /* Room at the top of each slot for its card's name tab. */
-  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 10px; }
-  /* The name tab: the card's own surface and border, grown up from its top
-     edge (its bottom covers the card's border, so the two read as one shape). */
-  .tab { position: absolute; z-index: 1; top: 0; left: 16px; height: 21px; display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--line); border-bottom: 0; border-radius: 9px 9px 0 0; background: var(--surface); max-width: calc(100% - 32px); }
-  .tab .cap { font-size: 10px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* Small curves where the tab meets the card's top edge, so it flows out of it instead of sitting on it. */
-  .tab::before, .tab::after { content: ""; position: absolute; bottom: 0; width: 8px; height: 8px; }
-  .tab::before { left: -9px; background: radial-gradient(circle at 0 0, transparent 7px, var(--line) 7px, var(--line) 8px, var(--surface) 8px); }
-  .tab::after { right: -9px; background: radial-gradient(circle at 100% 0, transparent 7px, var(--line) 7px, var(--line) 8px, var(--surface) 8px); }
+  /* Room at the top of each slot for its card's name tab (CardTab), which
+     rises 14 px above the card's top border, clear of the rounded corner. */
+  .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 14px; }
+  .tab { position: absolute; z-index: 1; top: 0; left: 22px; }
   .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
   /* Arranging: panels sit still under their buttons, a touch on one drags it
      rather than scrolling, and they jiggle to say they can move. */
