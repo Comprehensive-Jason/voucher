@@ -224,7 +224,7 @@ export function protectionParts(): { part: keyof Protection; name: string; what:
 export function missingProtection(guard: Protection | null) {
   if (!guard) return null;
   if (!guard.deviceOwner) return { level: "off", part: "deviceOwner" as const, title: "Protection off",
-    text: onWindows ? "The Voucher guard isn't running, so nothing is closed or blocked." : "Voucher isn't Device Owner on this phone, so nothing is paused.",
+    text: onWindows ? "The Voucher guard isn't running, so nothing is closed or blocked." : "Voucher isn't Device Owner on this device, so nothing is paused.",
     action: onWindows ? "See how to fix it" : "Set up app blocking" };
   if (!guard.usageAccess) return { level: "partial", part: "usageAccess" as const, title: "Protection partly on",
     text: onWindows ? "ActivityWatch isn't running, so Focused time on this PC can't be counted." : "Usage access is off, so Focused time and Distraction minutes can't be measured.",

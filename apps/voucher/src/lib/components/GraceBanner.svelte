@@ -3,6 +3,7 @@
   // until when, and lets the user end it early (a second tap confirms).
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED } from "../api";
+  import { POLL_MS } from "../live.svelte";
   import { hhmm } from "../rules";
   import { clock, dayLabel } from "../time";
   import type { Status } from "../types";
@@ -27,8 +28,10 @@
   }
   onMount(() => {
     load();
+    // The tablet's Today column stays open for days: ask again on its poll, so the banner goes when grace ends.
+    const poll = setInterval(load, POLL_MS);
     window.addEventListener(RULES_CHANGED, load);
-    return () => window.removeEventListener(RULES_CHANGED, load);
+    return () => { clearInterval(poll); window.removeEventListener(RULES_CHANGED, load); };
   });
 </script>
 

@@ -2,67 +2,34 @@
   // The notices that concern all of Rules: Protection off or partly on, the
   // Loosenings waiting for the morning (one card, or a Review sheet for
   // several), and the grace period after setup. `row` lays them side by side
-  // for the tablet's page header; otherwise they stack.
+  // for the tablet's Rules header; otherwise they stack, as on the phone's
+  // Rules. `compact` stacks them with each warning on one line, its fix
+  // beside it, for the foot of the tablet's Today column.
   import { onMount } from "svelte";
-  import { fixProtection, ledger, missingProtection, protection, RULES_CHANGED } from "../api";
-  import Sheet from "./Sheet.svelte";
+  import { fixProtection, missingProtection, protection } from "../api";
   import GraceBanner from "./GraceBanner.svelte";
-  import { describe, hhmm, until } from "../rules";
-  import type { Protection, Status } from "../types";
+  import WaitingChanges from "./WaitingChanges.svelte";
+  import type { Protection } from "../types";
   import { reveal } from "../motion";
+  import { POLL_MS } from "../live.svelte";
 
-  let { row = false }: { row?: boolean } = $props();
+  let { row = false, compact = false }: { row?: boolean; compact?: boolean } = $props();
   /** Notices open out in a column, and fade in place in a row. */
   const axis = $derived(row ? "x" as const : "y" as const);
 
-  let status = $state<Status | null>(null);
   let guard = $state<Protection | null>(null);
-  let error = $state<string | null>(null);
   const missing = $derived(missingProtection(guard));
 
-  async function load() {
-    try { status = await ledger<Status>("GET", "/status"); error = null; } catch (e) { error = String(e); }
-  }
-  async function cancel(index: number) {
-    try {
-      status = await ledger<Status>("POST", `/cancel?index=${index}`);
-      window.dispatchEvent(new Event(RULES_CHANGED));
-    } catch (e) { error = String(e); }
-  }
-
-  // Several waiting changes show as one card that opens a list of them all.
-  // The list is a snapshot taken when it opens: cancelling one greys its card
-  // in place instead of removing it, so nothing moves under a finger. It
-  // reflows only when closed and opened again.
-  let reviewing = $state(false);
-  let reviewList = $state<Status["pending"]>([]);
-  let cancelled = $state<boolean[]>([]);
-  function openReview() {
-    reviewList = [...(status?.pending ?? [])];
-    cancelled = reviewList.map(() => false);
-    reviewing = true;
-  }
-  /** Cancels one listed change, wherever it now sits among the waiting ones. */
-  async function cancelListed(j: number) {
-    const want = JSON.stringify(reviewList[j]);
-    const index = status?.pending.findIndex((p) => JSON.stringify(p) === want) ?? -1;
-    if (index < 0) { cancelled[j] = true; return; }
-    await cancel(index);
-    if (!error) cancelled[j] = true;
-  }
-  async function cancelAll() {
-    for (let j = 0; j < reviewList.length; j++) if (!cancelled[j]) await cancelListed(j);
-  }
-
   onMount(() => {
-    load().then(async () => { guard = await protection(); });
-    window.addEventListener(RULES_CHANGED, load);
-    return () => window.removeEventListener(RULES_CHANGED, load);
+    const check = () => protection().then((g) => (guard = g));
+    check();
+    // Today's column stays open for days, so look again on its poll.
+    const poll = setInterval(check, POLL_MS);
+    return () => clearInterval(poll);
   });
 </script>
 
-<div class="notices" class:row>
-  {#if error}<p class="error">{error}</p>{/if}
+<div class="notices" class:row class:compact>
   {#if missing}
     <div class="warn {missing.level}" transition:reveal={{ axis }}>
       <div class="warnbody">
@@ -72,49 +39,11 @@
       </div>
       <div class="warntext">{missing.text}</div>
       </div>
-      <button class="btn fix" class:small={row} onclick={() => missing && fixProtection(missing.part)}>{missing.action}</button>
+      <button class="btn fix" class:small={row || compact} onclick={() => missing && fixProtection(missing.part)}>{missing.action}</button>
     </div>
   {/if}
 
-  {#if status}
-    {@const s = status.settings}
-    <!-- One card whether one change waits or several, so going from one to
-         two changes its words without the card leaving and coming back. -->
-    {#if status.pending.length}
-      <div class="pending" transition:reveal={{ axis }}>
-        <div class="ptext">
-          <span class="cap">Waiting for {hhmm(s.morning_boundary)}, {until(status.pending[0][1])}</span>
-          <span>{status.pending.length === 1 ? describe(status.pending[0], s) : `${status.pending.length} Loosenings`}</span>
-        </div>
-        {#if status.pending.length === 1}
-          <button class="btn small" onclick={() => cancel(0)}>Cancel</button>
-        {:else}
-          <button class="btn small" onclick={openReview}>Review</button>
-        {/if}
-      </div>
-    {/if}
-    {#if reviewing}
-      {@const left = cancelled.filter((c) => !c).length}
-      <Sheet onclose={() => (reviewing = false)}>
-        <div class="shead">
-          <div class="stitle"><h2>Loosenings</h2><span class="cap">Waiting for {hhmm(s.morning_boundary)}{reviewList.length ? `, ${until(reviewList[0][1])}` : ""}</span></div>
-          <div class="sactions">
-            {#if left > 1}<button class="btn small" onclick={cancelAll}>Cancel all {left}</button>{/if}
-            <button class="btn small primary" onclick={() => (reviewing = false)}>Done</button>
-          </div>
-        </div>
-        <div class="plist">
-          {#each reviewList as p, j (j)}
-            <div class="pcard" class:gone={cancelled[j]}>
-              <span class="pdesc">{describe(p, s)}</span>
-              {#if cancelled[j]}<span class="cap gonelabel">Cancelled</span>{:else}<button class="btn small" onclick={() => cancelListed(j)}>Cancel</button>{/if}
-            </div>
-          {/each}
-        </div>
-      </Sheet>
-    {/if}
-
-  {/if}
+  <WaitingChanges {axis} />
   <GraceBanner {axis} />
 </div>
 
@@ -124,24 +53,10 @@
   /* The tablet header: side by side, each as wide as its share. */
   .row { flex-direction: row; align-items: stretch; }
   .row > :global(*) { flex: 1 1 0; min-width: 0; }
-  .row .warn { flex-direction: row; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; }
-  .row .warn .warnbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-  .row .warn .warntext { font-size: 13px; }
+  .row .warn, .compact .warn { flex-direction: row; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; }
+  .row .warn .warnbody, .compact .warn .warnbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .row .warn .warntext, .compact .warn .warntext { font-size: 13px; }
   .warnbody { display: flex; flex-direction: column; gap: 10px; }
-  .pending { border-radius: 16px; background: var(--goal-bg); border: 1px solid var(--goal-line); padding: 10px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .shead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-  .stitle { display: flex; flex-direction: column; gap: 4px; }
-  .stitle h2 { margin: 0; font-size: 18px; }
-  .sactions { display: flex; gap: 8px; }
-  /* Cards across the sheet's width: one column on a phone, several on a tablet. */
-  .plist { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 10px; }
-  .pcard { min-height: 64px; border-radius: 14px; background: var(--goal-bg); border: 1px solid var(--goal-line); padding: 10px 10px 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
-  .pcard.gone { background: transparent; border-color: var(--line); color: var(--muted); }
-  .pcard.gone .pdesc { text-decoration: line-through; }
-  .gonelabel { color: var(--muted); padding-right: 6px; }
-  .pending .btn, .pcard .btn { flex: none; }
-  .ptext { display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
-  .ptext .cap { color: var(--goal); letter-spacing: .06em; }
   .warn { border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
   .warn.off { background: var(--danger-bg); border: 1px solid var(--danger-line); --tone: var(--danger); }
   .warn.partial { background: var(--goal-bg); border: 1px solid var(--goal-line); --tone: var(--goal); }
@@ -149,5 +64,4 @@
   .warntext { font-size: 14px; line-height: 1.4; }
   /* The fix, in the warning's own color. */
   .warn .fix { flex: none; border-color: transparent; background: var(--tone); color: var(--ground); }
-  .error { margin: 0; color: var(--danger); }
 </style>
