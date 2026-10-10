@@ -63,6 +63,8 @@
     }
     return total >= 10 ? { share: Math.round((asBig / total) * 100), total } : null;
   });
+  /** The settling-in Days left out, as "09-14 to 09-16". */
+  const settled = $derived(at === null ? "" : `${days[at]?.day.slice(5) ?? ""} to ${days[Math.min(days.length - 1, at + SETTLE - 1)]?.day.slice(5) ?? ""}`);
   const label = (m: { at: string; text: string }) => `${dayOfMoment(m.at).slice(5)} ${m.text}`;
   /** Whether the table and its summary show (not an empty state). */
   const compared = $derived(choices.length > 0 && after.length >= 5);
@@ -73,13 +75,8 @@
 {/snippet}
 
 {#snippet summary()}
-  {before.length} Days before "{marker?.text}", against {after.length} after, leaving out {SETTLE} settling-in Days.
-  {#if luck}
-    <span class="luck" class:unusual={luck.share <= 10}>
-      {#if luck.share <= 10}A swing in Vouchers a Day this big happened in only <b>{luck.share}%</b> of other stretches, so it's likely more than chance.
-      {:else}Swings this big in Vouchers a Day happen in <b>{luck.share}%</b> of other stretches, so this could be ordinary ups and downs.{/if}
-    </span>
-  {/if}
+  Left out {settled} to settle in.
+  {#if luck}<span class="luck" class:unusual={luck.share <= 10}>{#if luck.share <= 10}<b>Likely real</b>: a swing this big shows up in only {luck.share}% of other stretches.{:else}<b>Could be chance</b>: swings this big show up in {luck.share}% of other stretches.{/if}</span>{/if}
 {/snippet}
 
 <TrendCard title="Before and after" nav={choices.length ? markers : undefined} foot={compared ? summary : undefined}>

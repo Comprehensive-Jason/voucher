@@ -13,5 +13,10 @@
     <line x1={x0} x2={x1} y1={yAt(t)} y2={yAt(t)} stroke="#2c3036" stroke-dasharray={t ? "3 4" : ""} />
     <text x={x0 - 6} y={yAt(t) + 3.5} text-anchor="end">{format(t)}</text>
   {/each}
-  <text x="10" y={mid} text-anchor="middle" transform="rotate(-90 10 {mid})">{title}</text>
+  <text class="title" x="10" y={mid} text-anchor="middle" transform="rotate(-90 10 {mid})">{title}</text>
 </g>
+
+<style>
+  /* The axis's name is quieter than its numbers: smaller and dimmer, so it labels without cluttering. */
+  .title { font-size: calc(9px * var(--k, 1)); fill: #5d6369; letter-spacing: .04em; }
+</style>

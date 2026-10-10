@@ -39,7 +39,7 @@
   {#if before.opens}The week before: {pct(before)}%.{/if}
 {/snippet}
 
-<TrendCard title="Walk-away wins" foot={any ? summary : undefined} date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: "week", soFar: true, onpick: (d) => selection.set("walkaway", { day: d === today ? null : d, picked: false }) }}>
+<TrendCard title="Walk-away wins" foot={any ? summary : undefined} date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: "week", onpick: (d) => selection.set("walkaway", { day: d === today ? null : d, picked: false }) }}>
   {#if !any}
     <p class="empty">Opens of blocked apps show here once the phone reports them.</p>
   {:else}

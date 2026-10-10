@@ -1,7 +1,7 @@
 <script lang="ts">
   // Two twins share this chart (`measure`): Vouchers earned, from the log,
   // and Distraction time, from the minutes the phone reports per app and
-  // hour (shown by blocklist), drawn over a light grey outline of the time
+  // hour (shown by blocklist), drawn over a salmon outline of the time
   // Unlocks allowed.
   //
   // Zoom: Day shows one Day hour by hour (below); Week and Month show a bar
@@ -9,8 +9,10 @@
   // stacking, ticks, and list, and arrows that step a whole week or month.
   //
   // Each Day's earnings hour by hour (its totals are in the list below): a bar per hour, split into a segment per
-  // source and topped with its count, over faint tick lines, with a triangle under
-  // each hour that had a Redemption. Tap a bar to pick that hour: the others
+  // source and topped with its count, over faint tick lines. The strip under
+  // the bars marks the hour the Daily goal was met with a star on Vouchers
+  // earned, and each hour's Unlocks (a triangle and the Vouchers torn) on
+  // Distraction time. Tap a bar to pick that hour: the others
   // fade and the line below lists its count per source (otherwise it lists
   // the whole Day's). Today shows first; swipe (or the arrows) back through
   // earlier Days, as far as the Ledger keeps logs. Past Days load as they
@@ -159,6 +161,8 @@
         });
       }
       unlockedByHour(summary?.log ?? []).forEach((m, h) => (cols[colOf(h)].unlocked += m));
+      // The Vouchers torn in each hour, for the triangles under the bars.
+      for (const e of summary?.log ?? []) if (e.kind === "redeemed") cols[colOf(hourOf(e.at, timeZone))].redeemed += e.tickets;
       return cols.map((c) => ({ ...c, parts: partsOf(c.counts), segments: segmentsOf(c.counts) }));
     }
     for (const e of summary?.log ?? []) {
@@ -269,11 +273,12 @@
     if (minutes) rows.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     // The Daily goal for the whole Day, whichever hour is picked: when it was met, or how far it got.
     const goal = !current ? "–" : current.goal_met_at ? `met ${clock(current.goal_met_at, timeZone)}` : `${current.earned} of ${current.goal}`;
-    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, anyRedeemed: day.redeemed > 0, goal, goalMet: !!current?.goal_met, unlocked: now.unlocked };
+    return { label: now.label, total: rows.reduce((n, r) => n + r.n, 0), rows, redeemed: now.redeemed, goal, goalMet: !!current?.goal_met, unlocked: now.unlocked };
   });
-  /** The hour the Daily goal was met, on the Day in view (a gold mark under its bar). */
+  /** The hour the Daily goal was met, on the Day in view (a gold star under its
+   *  bar). Vouchers earned only: Distraction time's strip holds the Unlocks. */
   function goalColOf(summary: DaySummary | undefined): number | null {
-    if (!summary?.goal_met_at) return null;
+    if (minutes || !summary?.goal_met_at) return null;
     const h = hourOf(summary.goal_met_at, timeZone);
     return columnOf(h);
   }
@@ -337,7 +342,7 @@
       if (minutes) {
         for (const [app, n] of Object.entries(t?.used ?? {})) if (n) addTo(counts, app, n, t?.used_lists);
         const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
-        return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: 0, goal: false, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
+        return { day, total, unlocked: t?.unlocked_minutes ?? 0, redeemed: t?.redeemed ?? 0, goal: false, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day };
       }
       for (const [id, n] of Object.entries(t?.by_source ?? {})) {
         const { name, color } = styleOf(id);
@@ -360,7 +365,7 @@
     const rows = partsOf(all).map((q) => ({ ...q, n: picked ? picked.parts.find((r) => r.name === q.name)?.n ?? 0 : q.n }));
     if (minutes) rows.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
     return { label: picked ? dayLabel(picked.day, today.day) : labelOf(page), total: rows.reduce((n, r) => n + r.n, 0), rows,
-      redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0), anyRedeemed: pageCols.some((c) => c.redeemed > 0),
+      redeemed: picked ? picked.redeemed : pageCols.reduce((n, c) => n + c.redeemed, 0),
       goal: picked ? (picked.goal ? "met" : "–") : `${pageCols.filter((c) => c.goal).length} of ${pageCols.filter((c) => !c.future).length} days`,
       goalMet: picked ? picked.goal : pageCols.some((c) => c.goal),
       unlocked: picked ? picked.unlocked : pageCols.reduce((n, c) => n + c.unlocked, 0) };
@@ -506,13 +511,16 @@
                   {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                 </div>
               {/if}
-              {#if !minutes && i === goalCol}<i class="goalmark" title="Daily goal met"></i>{/if}
               {#if marks.length}<i class="flag" class:rule={marks.every((m) => m.rule)}></i>{/if}
             </button>
           {/each}
         </div>
         <div class="dots">
-          {#each cols as c}<div>{#if !minutes && c.redeemed}<Marker kind="redeemed" size={tall ? 9 : 7} /><span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
+          <!-- Vouchers earned: a star in the hour the Daily goal was met. Distraction time: each hour's Unlocks. -->
+          {#each cols as c, i}
+            {#if i === goalCol}<div title="Daily goal met"><Marker kind="goal" size={tall ? 12 : 9} /></div>
+            {:else}<div>{#if minutes && c.redeemed}<Marker kind="redeemed" size={tall ? 9 : 7} /><span class="mono tn">{c.redeemed}</span>{/if}</div>{/if}
+          {/each}
         </div>
         <!-- A label every three hours, each over its own column. -->
         <div class="mono axis hours">{#each Array(HOURS) as _, i}<span>{i % 3 === 0 ? String(hourOfColumn(i)).padStart(2, "0") : ""}</span>{/each}</div>
@@ -546,13 +554,16 @@
                     {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                   </div>
                 {/if}
-                {#if !minutes && c.goal}<i class="goalmark" title="Daily goal met"></i>{/if}
               </button>
             {/each}
           </div>
           <div class="dots" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
-            <!-- A month's columns only have room for the count; the list names the triangle. -->
-            {#each cols as c}<div>{#if !minutes && c.redeemed}{#if n <= 7}<Marker kind="redeemed" size={tall ? 9 : 7} />{/if}<span class="mono tn">{c.redeemed}</span>{/if}</div>{/each}
+            <!-- A star under each Day that met the Daily goal, or the Vouchers torn that Day; a month's
+                 columns only have room for the count, and the list names the triangle. -->
+            {#each cols as c}
+              {#if !minutes && c.goal}<div title="Daily goal met"><Marker kind="goal" size={tall ? 12 : n > 7 ? 8 : 9} /></div>
+              {:else}<div>{#if minutes && c.redeemed}{#if n <= 7}<Marker kind="redeemed" size={tall ? 9 : 7} />{/if}<span class="mono tn">{c.redeemed}</span>{/if}</div>{/if}
+            {/each}
           </div>
           <div class="mono axis periodaxis" style="grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
             {#each cols as c, i}
@@ -575,13 +586,12 @@
       <div class="row" class:zero={!row.n}><span class="mk"><Marker kind="source" color={row.color} /></span><span class="name">{row.name}</span><b class="mono">{row.n ? (minutes ? `${row.n} min` : row.n) : "–"}</b></div>
     {/each}
     {#if minutes}
-      <!-- The grey outline behind the bars: time Unlocks allowed. -->
-      <div class="row" class:zero={!shownBreakdown.unlocked}><span class="mk"><i class="allowmark"></i></span><span class="name">Unlocked</span><b class="mono">{shownBreakdown.unlocked ? `${shownBreakdown.unlocked} min` : "–"}</b></div>
+      <!-- Unlocks: the minutes they allowed (the salmon outline on the bars) and the Vouchers torn (the triangles under them). -->
+      {@const u = shownBreakdown.unlocked}
+      {@const r = shownBreakdown.redeemed}
+      <div class="row" class:zero={!u && !r}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Unlocked</span><b class="mono">{[u ? `${u} min` : "", r ? `${r} ${r === 1 ? "Voucher" : "Vouchers"}` : ""].filter(Boolean).join(" · ") || "–"}</b></div>
     {/if}
-    {#if !minutes && shownBreakdown.anyRedeemed}
-      <div class="row" class:zero={!shownBreakdown.redeemed}><span class="mk"><Marker kind="redeemed" /></span><span class="name">Unlocked</span><b class="mono">{shownBreakdown.redeemed ? `${shownBreakdown.redeemed} ${shownBreakdown.redeemed === 1 ? "Voucher" : "Vouchers"}` : "–"}</b></div>
-    {/if}
-    <!-- The gold mark under a bar: the hour the Daily goal was met, or a Day that met it. -->
+    <!-- The gold star under a bar: the hour the Daily goal was met, or a Day that met it. -->
     {#if !minutes}<div class="row goalrow" class:zero={!shownBreakdown.goalMet}><span class="mk"><Marker kind="goal" /></span><span class="name">Daily goal</span><b class="mono">{shownBreakdown.goal}</b></div>{/if}
     {#if minutes && zoom === "day" && Array.from({ length: 24 }, (_, h) => silentAt(summaryOf(days[shown]), h)).some((m) => m >= 15)}
       <div class="row"><span class="mk"><i class="silentmark"></i></span><span class="name">Not watched</span><b class="mono">{Array.from({ length: 24 }, (_, h) => silentAt(summaryOf(days[shown]), h)).reduce((a, b) => a + b, 0)} min</b></div>
@@ -593,7 +603,7 @@
     {/if}
     {#if minutes && !shownBreakdown.rows.length}
       <div class="row none">{zoom !== "day" ? `No Distraction time ${zoom === "week" ? "this week" : "this month"}` : days[shown] === today.day ? "No Distraction time yet" : "No Distraction time this Day, or none kept this far back"}</div>
-    {:else if !minutes && !shownBreakdown.rows.length && !shownBreakdown.anyRedeemed}
+    {:else if !minutes && !shownBreakdown.rows.length}
       <div class="row none">{zoom !== "day" ? `Nothing earned ${zoom === "week" ? "this week" : "this month"}` : current && current.earned > 0 ? `${current.earned} earned; the hour-by-hour detail isn't kept this far back` : days[shown] === today.day ? "Nothing earned yet" : "Nothing earned this Day"}</div>
     {/if}
     </div>
@@ -654,7 +664,6 @@
   /* Distraction time: the minutes Unlocks allowed, as a salmon outline (Unlocks' colour everywhere)
      drawn over the bar, so time used past it shows above its top edge. */
   .allow { position: absolute; z-index: 2; left: -2px; right: -2px; bottom: 0; border: 1.5px solid var(--spend); border-top-width: 2.5px; border-bottom: 0; border-radius: 5px 5px 0 0; pointer-events: none; }
-  .allowmark { display: block; width: 10px; height: 10px; border: 1.5px solid var(--spend); border-radius: 3px; box-sizing: border-box; }
   .hintline b { color: var(--ink); font-family: var(--mono); }
   .bar { position: relative; display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
@@ -677,10 +686,6 @@
   /* How many were torn, beside the triangle (alone in a month's narrow columns). */
   .tn { font-size: 9px; line-height: 1; font-weight: 700; color: var(--ink); }
   .tall .tn { font-size: 10px; }
-  /* Gold just under the axis line below a bar: the Daily goal was met (that
-     Day, or in that hour). It sits in the gap above the triangles, so the bars
-     keep all their height. */
-  .goalmark { position: absolute; left: 0; right: 0; bottom: -7px; height: 3px; border-radius: 2px; background: var(--goal); pointer-events: none; }
   .col.goal .n { color: var(--goal); font-weight: 700; }
   .row.goalrow b { color: var(--goal); }
   .row.goalrow.zero b { color: var(--muted); }

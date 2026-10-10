@@ -79,7 +79,7 @@
   });
 </script>
 
-<TrendCard title="Replay" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: span, soFar: true, onpick: (d) => selection.set("replay", { day: d === today ? null : d, picked: false }) }}>
+<TrendCard title="Replay" date={{ day: selection.day ?? today, today, oldest: history[0]?.day, unit: span, onpick: (d) => selection.set("replay", { day: d === today ? null : d, picked: false }) }}>
   {#snippet tools()}
     <ZoomSwitch options={[{ id: "week", label: "Week" }, { id: "month", label: "Month" }]} value={span} onchange={(v) => pick(v as Span)} />
   {/snippet}

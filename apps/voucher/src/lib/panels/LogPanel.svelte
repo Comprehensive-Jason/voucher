@@ -1,3 +1,9 @@
+<script lang="ts" module>
+  import type { DaySummary as KeptDay } from "../types";
+  /** The Log's last look at today, so it reopens filled (back from Rules, say) while it asks again. */
+  const kept: { today: string | null; timeZone: string; shown: KeptDay | null; before: KeptDay | null } = { today: null, timeZone: "UTC", shown: null, before: null };
+</script>
+
 <script lang="ts">
   // The Log: one Day's earnings and Redemptions, newest first, with the moment
   // the Daily goal was met marked in place. Arrows step through past Days.
@@ -23,11 +29,11 @@
   /** The Ledger keeps half a year of entries; older Days have totals only. */
   const OLDEST = 183;
 
-  let today = $state<string | null>(null);
-  let timeZone = $state("UTC");
+  let today = $state<string | null>(kept.today);
+  let timeZone = $state(kept.timeZone);
   let back = $state(0);
-  let shown = $state<DaySummary | null>(null);
-  let before = $state<DaySummary | null>(null);
+  let shown = $state<DaySummary | null>(kept.shown);
+  let before = $state<DaySummary | null>(kept.before);
   let error = $state<string | null>(null);
 
   const day = $derived(today ? shiftDay(today, -back) : null);
@@ -79,6 +85,7 @@
         ledger<DaySummary>("GET", `/day?date=${d}`),
         ledger<DaySummary>("GET", `/day?date=${shiftDay(d, -1)}`),
       ]);
+      if (back === 0) Object.assign(kept, { today, timeZone, shown, before });
       error = null;
     } catch (e) {
       error = String(e);

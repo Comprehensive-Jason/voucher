@@ -1,15 +1,21 @@
+<script lang="ts" module>
+  import type { DayTotal as Kept, DeviceUsage as KeptUsage, Status as KeptStatus } from "$lib/types";
+  /** What the tablet's columns last showed, so coming back from Rules shows
+   *  it at once (then refreshes) instead of blank tiles for a few seconds. */
+  const kept: { status: KeptStatus | null; history: Kept[]; usage: KeptUsage | null } = { status: null, history: [], usage: null };
+</script>
+
 <script lang="ts">
   // Today. On a phone: one column, with the tab bar below. On a wide screen:
   // the Today column stays put on the left, and the rest is a row of columns
   // that scrolls sideways, two in view at a time, holding the charts and the
   // Log in whatever arrangement was chosen here (see arrangement.svelte.ts).
   import { onMount, tick } from "svelte";
-  import { goto } from "$app/navigation";
   import { fade } from "svelte/transition";
   import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
   import { fillSlots } from "$lib/fit.svelte";
   import { EASE, ms } from "$lib/motion";
-  import { deviceUsage, exportDays, ledger } from "$lib/api";
+  import { deviceUsage, ledger } from "$lib/api";
   import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$lib/wide.svelte";
   import { historyDays } from "$lib/time";
@@ -44,17 +50,17 @@
   const live = new Live();
   // The strip's panels fill their slots (thirds of a column).
   fillSlots();
-  let status = $state<Status | null>(null);
-  let history = $state<DayTotal[]>([]);
-  let usage = $state<DeviceUsage | null>(null);
+  let status = $state<Status | null>(kept.status);
+  let history = $state<DayTotal[]>(kept.history);
+  let usage = $state<DeviceUsage | null>(kept.usage);
 
   // The tablet's other columns refresh less often than the Voucher stack.
   async function loadWide() {
     try {
-      status = await ledger<Status>("GET", "/status");
+      status = kept.status = await ledger<Status>("GET", "/status");
       setCurfew(status.settings.curfew_start, status.settings.curfew_end);
-      history = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(status.today.day, status.first_day)}`);
-      usage = await deviceUsage();
+      history = kept.history = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(status.today.day, status.first_day)}`);
+      usage = kept.usage = await deviceUsage();
     } catch { /* the Today column shows the error */ }
   }
 
@@ -161,7 +167,7 @@
     if (!d || !strip) return;
     const box = strip.getBoundingClientRect();
     const x = d.x - box.left + strip.scrollLeft, y = d.y - box.top;
-    const width = strip.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0, pitch = width + GAP;
+    const pitch = colWidth() + GAP;
     const gap = 20, rowH = (strip.clientHeight - gap * (ROWS - 1)) / ROWS;
     const colUnder = Math.max(0, Math.floor(x / pitch));
     const others = arrangement.order.filter((p) => p !== d.id);
@@ -179,7 +185,7 @@
     const col = cols.findIndex((c) => c.includes(d.id));
     const row = cols[col].slice(0, cols[col].indexOf(d.id)).reduce((n, p) => n + arrangement.size(p), 0);
     const size = arrangement.size(d.id);
-    target = { at, ghost: { left: col * pitch, top: row * (rowH + gap), width, height: size * rowH + (size - 1) * gap } };
+    target = { at, ghost: { left: col * pitch, top: row * (rowH + gap), width: colWidth(), height: size * rowH + (size - 1) * gap } };
   }
   /** Held at either edge of the strip while dragging (a quarter second, so
    *  passing near it doesn't count), the strip scrolls. */
@@ -229,7 +235,11 @@
   // Two columns make a page, for the numbered bar under the strip; a swipe
   // stops at any column, and the bar lights the page mostly in view. The end
   // tile counts as a column.
-  const pageCount = $derived(Math.ceil((arrangement.columns.length + 1) / 2));
+  /** Columns in the strip: the panels', and while arranging, one more at the end for hidden panels. */
+  const totalCols = $derived(arrangement.columns.length + (arranging ? 1 : 0));
+  const pageCount = $derived(Math.max(1, Math.ceil(totalCols / 2)));
+  /** One column's width: half the strip less the gap between the two. */
+  const colWidth = () => (strip ? (strip.clientWidth - GAP) / 2 : 0);
   /** The pages in view, first and last: the same page when it sits square, two when the view straddles them. */
   let pages = $state({ a: 0, b: 0 });
   /** Which way the pill last moved, so its leading edge goes first and the trailing edge follows. */
@@ -242,7 +252,7 @@
     pages = { a, b };
   }
   /** One page's width: two columns and the gap after them. */
-  const pageWidth = () => 2 * ((strip?.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0) + GAP);
+  const pageWidth = () => 2 * (colWidth() + GAP);
   function onStripScroll() {
     if (!strip || !pageWidth() || heading !== null) return;
     const at = strip.scrollLeft / pageWidth();
@@ -300,9 +310,9 @@
         onpointermove={onMove} onpointerup={onRelease} onpointercancel={onRelease}
         style="--rows: {ROWS}; --cols: {arrangement.columns.length}">
         <!-- One invisible marker per column for the strip to stop on. -->
-        {#each Array(arrangement.columns.length + 1) as _, i (i)}<span class="snap" style="grid-column: {i + 1}"></span>{/each}
+        {#each Array(totalCols) as _, i (i)}<span class="snap" style="grid-column: {i + 1}"></span>{/each}
         <!-- An empty column to finish the last page, so it can scroll fully into view. -->
-        {#if (arrangement.columns.length + 1) % 2}<span class="filler" style="grid-column: {arrangement.columns.length + 2}"></span>{/if}
+        {#if totalCols % 2}<span class="filler" style="grid-column: {totalCols + 1}"></span>{/if}
         <!-- Panels in one keyed list, placed on the grid, so one being dragged
              into another column stays the same element under the finger. -->
         {#each placed as p (p.id)}
@@ -329,23 +339,15 @@
         {/each}
         <!-- Where a drop would land. -->
         {#if dragging && target?.ghost}<div class="ghost" style="left: {target.ghost.left}px; top: {target.ghost.top}px; width: {target.ghost.width}px; height: {target.ghost.height}px"></div>{/if}
-        <!-- The end of the row: hidden panels come back here. -->
-        <div class="endcol" style="grid-column: {arrangement.columns.length + 1}">
-          {#if arranging}
+        <!-- While arranging, one more column at the end: hidden panels come back here. -->
+        {#if arranging}
+          <div class="endcol" style="grid-column: {arrangement.columns.length + 1}" transition:fade={{ duration: ms("base") }}>
             {#each arrangement.hidden as id (id)}
               <button class="add" onclick={() => rearrange(() => arrangement.show(id))}>+ {PANELS[id].name}</button>
             {/each}
             <button class="reset" onclick={() => rearrange(() => arrangement.reset())}>Back to the default</button>
-          {:else}
-            <button class="arrange" onclick={() => (arranging = true)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2" /><rect x="14" y="3" width="7" height="5" rx="2" /><rect x="14" y="12" width="7" height="9" rx="2" /><rect x="3" y="16" width="7" height="5" rx="2" /></svg>
-              Arrange
-            </button>
-            <span class="hint">Or hold any card's heading</span>
-            <button class="arrange" onclick={() => goto("/preview")}>Wallpaper and watch preview</button>
-            <button class="arrange" onclick={() => exportDays().catch(() => {})}>Export every Day (CSV)</button>
-          {/if}
-        </div>
+          </div>
+        {/if}
       </div>
       <!-- Pages of two columns: tap one to go there. -->
       {#if pageCount > 1}
@@ -358,8 +360,14 @@
           {/each}
         </div>
       {/if}
+      <!-- Bottom right: Arrange once you're fully on the last page (not between it and the one before) (holding a card's heading works anywhere), Done while arranging. -->
       {#if arranging}
         <button class="donepill" onclick={() => (arranging = false)} transition:fade={{ duration: ms("base") }}>Done</button>
+      {:else if pages.a === pageCount - 1}
+        <button class="arrangepill" title="Or hold any card's heading" onclick={() => (arranging = true)} transition:fade={{ duration: ms("base") }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2" /><rect x="14" y="3" width="7" height="5" rx="2" /><rect x="14" y="12" width="7" height="9" rx="2" /><rect x="3" y="16" width="7" height="5" rx="2" /></svg>
+          Arrange
+        </button>
       {/if}
     </div>
   </div>
@@ -409,8 +417,7 @@
   .endcol > button { width: 100%; max-width: 240px; min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 700 14px var(--font); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; }
   .endcol .add { border-style: dashed; }
   .endcol .reset { color: var(--muted); font-weight: 500; font-size: 13px; }
-  .endcol .arrange { color: var(--muted); }
-  .endcol .hint { font-size: 12px; color: #6f757b; }
+  .arrangepill { position: absolute; right: 0; bottom: -55px; z-index: 6; height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: #1f2226; color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }
   .donepill { position: absolute; right: 0; bottom: -55px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
   /* Under the cards by the same gap as between them, centred, in the page's bottom margin. */
   .pages { position: absolute; left: 50%; bottom: calc(-1 * var(--gap) - 40px); transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }

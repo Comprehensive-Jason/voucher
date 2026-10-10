@@ -8,8 +8,12 @@ import { modeOf, type Today } from "./types";
  *  changes made while testing show up almost at once. */
 export const POLL_MS = import.meta.env.DEV ? 3_000 : 30_000;
 
+/** The last answer any screen showed, so a screen opened again (back from
+ *  Rules, say) starts from it instead of blank while it asks again. */
+let lastData: Today | null = null;
+
 export class Live {
-  data = $state<Today | null>(null);
+  data = $state<Today | null>(lastData);
   error = $state<string | null>(null);
   now = $state(Math.floor(Date.now() / 1000));
   mode = $derived(this.data ? modeOf(this.data, this.now) : "locked");
@@ -29,7 +33,7 @@ export class Live {
     try {
       const data = await today();
       if (n < this.#shown) return;
-      this.#shown = n; this.data = data; this.error = null;
+      this.#shown = n; this.data = lastData = data; this.error = null;
     } catch (e) { if (n >= this.#shown) this.error = String(e); }
   };
 
@@ -38,7 +42,7 @@ export class Live {
       const data = await tear(count);
       // A tear's answer is the newest there is: polls still on their way were
       // asked before it landed, so they're dropped.
-      this.#shown = ++this.#asked; this.data = data; this.error = null;
+      this.#shown = ++this.#asked; this.data = lastData = data; this.error = null;
       this.tornAt = Date.now();
     } catch (e) { this.error = String(e); }
   };
