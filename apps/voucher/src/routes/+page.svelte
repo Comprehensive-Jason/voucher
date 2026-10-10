@@ -4,6 +4,7 @@
   // that scrolls sideways, two in view at a time, holding the charts and the
   // Log in whatever arrangement was chosen here (see arrangement.svelte.ts).
   import { onMount, tick } from "svelte";
+  import { goto } from "$app/navigation";
   import { fade } from "svelte/transition";
   import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
   import { fillSlots } from "$lib/fit.svelte";
@@ -311,6 +312,7 @@
               Arrange
             </button>
             <span class="hint">Or hold any card's heading</span>
+            <button class="arrange" onclick={() => goto("/preview")}>Wallpaper and watch preview</button>
           {/if}
         </div>
       </div>
