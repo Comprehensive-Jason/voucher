@@ -35,6 +35,8 @@
   import WalkAway from "$lib/panels/trends/WalkAway.svelte";
   import type { DayTotal, DeviceUsage, Status } from "$lib/types";
 
+  /** The space between cards, both ways, in px (the CSS --gap). */
+  const GAP = 20;
   const live = new Live();
   // The strip's panels fill their slots (thirds of a column).
   fillSlots();
@@ -155,7 +157,7 @@
     if (!d || !strip) return;
     const box = strip.getBoundingClientRect();
     const x = d.x - box.left + strip.scrollLeft, y = d.y - box.top;
-    const width = strip.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0, pitch = width + 24;
+    const width = strip.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0, pitch = width + GAP;
     const gap = 20, rowH = (strip.clientHeight - gap * (ROWS - 1)) / ROWS;
     const colUnder = Math.max(0, Math.floor(x / pitch));
     const others = arrangement.order.filter((p) => p !== d.id);
@@ -226,16 +228,32 @@
   const pageCount = $derived(Math.ceil((arrangement.columns.length + 1) / 2));
   /** The pages in view, first and last: the same page when it sits square, two when the view straddles them. */
   let pages = $state({ a: 0, b: 0 });
+  /** Which way the pill last moved, so its leading edge goes first and the trailing edge follows. */
+  let pillRight = $state(true);
+  /** The page a tap on the bar is heading to; the pill goes straight there instead of following the scroll past the pages between. */
+  let heading: number | null = null;
+  function setPages(a: number, b: number) {
+    if (a === pages.a && b === pages.b) return;
+    pillRight = b > pages.b || a > pages.a;
+    pages = { a, b };
+  }
   /** One page's width: two columns and the gap after them. */
-  const pageWidth = () => 2 * ((strip?.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0) + 24);
+  const pageWidth = () => 2 * ((strip?.querySelector<HTMLElement>(".endcol")?.offsetWidth ?? 0) + GAP);
   function onStripScroll() {
-    if (!strip || !pageWidth()) return;
+    if (!strip || !pageWidth() || heading !== null) return;
     const at = strip.scrollLeft / pageWidth();
     const a = Math.min(pageCount - 1, Math.floor(at + 0.04));
-    pages = { a, b: Math.min(pageCount - 1, Math.max(a, Math.ceil(at - 0.04))) };
+    setPages(a, Math.min(pageCount - 1, Math.max(a, Math.ceil(at - 0.04))));
   }
   function goPage(i: number) {
-    strip?.scrollTo({ left: i * pageWidth(), behavior: "smooth" });
+    if (!strip) return;
+    heading = i;
+    setPages(i, i);
+    // Back to following the scroll once it lands (or soon after, if it was already there).
+    const land = () => { if (heading !== i) return; heading = null; onStripScroll(); };
+    strip.addEventListener("scrollend", land, { once: true });
+    setTimeout(land, 1500);
+    strip.scrollTo({ left: i * pageWidth(), behavior: "smooth" });
   }
   $effect(() => {
     if (!wide.on) return;
@@ -325,7 +343,7 @@
       {#if pageCount > 1}
         <div class="pages" role="tablist" aria-label="Pages of charts">
           <!-- One pill behind the numbers, stretching over both pages while the view sits across two. -->
-          <span class="thumb" style="left: {3 + pages.a * 44}px; width: {40 + (pages.b - pages.a) * 44}px"></span>
+          <span class="thumb" class:right={pillRight} style="left: {3 + pages.a * 44}px; right: {3 + (pageCount - 1 - pages.b) * 44}px"></span>
           {#each Array(pageCount) as _, i (i)}
             {@const on = i >= pages.a && i <= pages.b}
             <button role="tab" aria-selected={on} class:on onclick={() => goPage(i)}>{i + 1}</button>
@@ -347,12 +365,12 @@
      beside it scrolls, with two columns in view. */
   /* The right margin sits outside the strip, so every page (two columns)
      scrolls exactly into place, the last one too. The bottom margin is deep enough to hold the "more" and Done pills well clear of the screen's edge. */
-  .wide { height: 100%; display: flex; gap: 24px; padding: calc(28px + env(safe-area-inset-top)) 28px calc(64px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
-  .wide > .today { flex: 0 0 calc((100% - 48px) / 3); }
+  .wide { --gap: 20px; height: 100%; display: flex; gap: var(--gap); padding: calc(28px + env(safe-area-inset-top)) 28px calc(72px + env(safe-area-inset-bottom)) 28px; box-sizing: border-box; }
+  .wide > .today { flex: 0 0 calc((100% - 2 * var(--gap)) / 3); }
   .stripwrap { position: relative; flex: 1; min-width: 0; display: flex; }
   /* One grid: a column per arrangement column (two in view), three equal
      rows, and the end tile after them. */
-  .strip { --colw: calc((100% - 24px) / 2); position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols), var(--colw)) var(--colw); grid-auto-columns: var(--colw); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); column-gap: 24px; row-gap: 20px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .strip { --colw: calc((100% - var(--gap)) / 2); position: relative; flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols), var(--colw)) var(--colw); grid-auto-columns: var(--colw); grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); gap: var(--gap); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .strip::-webkit-scrollbar { display: none; }
   /* The strip can't snap while a drag scrolls it. */
   .strip.dragging { scroll-snap-type: none; }
@@ -384,14 +402,15 @@
   .endcol .reset { color: var(--muted); font-weight: 500; font-size: 13px; }
   .endcol .arrange { color: var(--muted); }
   .endcol .hint { font-size: 12px; color: #6f757b; }
-  .donepill { position: absolute; right: 0; bottom: -42px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
-  /* Just under the cards, in the page's bottom margin, so it covers nothing. */
-  /* Under the cards, centred on them, in the page's bottom margin. */
-  .pages { position: absolute; left: 50%; bottom: -46px; transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }
-  .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), width var(--t-move) var(--ease-out); }
+  .donepill { position: absolute; right: 0; bottom: -55px; z-index: 6; height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
+  /* Under the cards by the same gap as between them, centred, in the page's bottom margin. */
+  .pages { position: absolute; left: 50%; bottom: calc(-1 * var(--gap) - 40px); transform: translateX(-50%); z-index: 6; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: #1f2226; border: 1px solid var(--line); }
+  .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), right var(--t-move) var(--ease-out) 90ms; }
+  /* The edge on the side it's heading leads; the far edge follows a beat later, in one stretch and shrink. */
+  .thumb.right { transition: right var(--t-move) var(--ease-out), left var(--t-move) var(--ease-out) 90ms; }
   .pages button { position: relative; width: 40px; height: 32px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: background-color var(--t-base), color var(--t-base); }
   .pages button.on { color: var(--ink); }
-  .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; min-height: 0; }
+  .col { display: flex; flex-direction: column; gap: var(--gap, 20px); min-width: 0; min-height: 0; }
   /* Everything in the Today column keeps its size; the list of sources takes
      what's left and scrolls under its fixed heading when it's long. */
   .today > :global(*) { flex: none; }
