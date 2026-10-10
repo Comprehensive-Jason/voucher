@@ -1,28 +1,20 @@
 // What Trends knows besides the numbers: Markers (dated notes, some written
 // by the Ledger when a rule changed), the Curfew question's answers, why
-// Unlocks happened, and Replay guesses. Markers and guesses are loaded once
-// and shared by every card that draws them.
+// Unlocks happened. Markers are loaded once and shared by every card that
+// draws them.
 import { ledger } from "./api";
 import { curfew } from "./curfew.svelte";
 import type { Marker, Verdict } from "./types";
 
 class Notes {
   markers = $state<Marker[]>([]);
-  guesses = $state<Record<string, number>>({});
   #loading: Promise<void> | null = null;
 
-  /** Loads Markers and guesses once; later calls wait on the same load. */
+  /** Loads Markers once; later calls wait on the same load. */
   load(again = false) {
     if (!this.#loading || again) {
       this.#loading = (async () => {
-        try {
-          const [markers, guesses] = await Promise.all([
-            ledger<Marker[]>("GET", "/markers"),
-            ledger<Record<string, number>>("GET", "/guesses"),
-          ]);
-          this.markers = markers;
-          this.guesses = guesses;
-        } catch { /* an older Ledger has neither */ }
+        try { this.markers = await ledger<Marker[]>("GET", "/markers"); } catch { /* an older Ledger has none */ }
       })();
     }
     return this.#loading;
@@ -35,10 +27,6 @@ class Notes {
 
   async remove(at: string) {
     this.markers = await ledger<Marker[]>("POST", `/marker/remove?at=${encodeURIComponent(at)}`);
-  }
-
-  async guess(period: string, n: number) {
-    this.guesses = await ledger<Record<string, number>>("POST", "/guess", { period, guess: n });
   }
 
   /** Markers in a Day, oldest first. */

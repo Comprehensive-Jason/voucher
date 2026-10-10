@@ -1,4 +1,4 @@
-// Markers, the Curfew question, Unlock reasons, Replay guesses, silences,
+// Markers, the Curfew question, Unlock reasons, silences,
 // and the export: what Trends uses to tell a rule change, a lapse, or a
 // missing report apart from real behaviour.
 use ed25519_dalek::SigningKey;
@@ -118,14 +118,6 @@ fn a_reason_changed_within_a_minute_replaces_the_first() {
     assert!(!ledger.add_reason(" ", at("2026-10-02T16:30-07:00")));
     let day = ledger.history(1, at("2026-10-02T20:00-07:00")).pop().unwrap();
     assert_eq!(day.reasons, [(14, "tired".to_string()), (16, "anxious".to_string())]);
-}
-
-#[test]
-fn the_first_guess_stands() {
-    let mut ledger = set_up();
-    assert!(ledger.guess("week 2026-10-05", 4));
-    assert!(!ledger.guess("week 2026-10-05", 6));
-    assert_eq!(ledger.guesses()["week 2026-10-05"], 4);
 }
 
 #[test]

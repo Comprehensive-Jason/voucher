@@ -821,9 +821,6 @@ struct State {
     /// Why Unlocks happened, oldest first.
     #[serde(default)]
     reasons: Vec<Reason>,
-    /// Replay guesses, by period ("week 2026-10-05", "month 2026-10").
-    #[serde(default)]
-    guesses: BTreeMap<String, u32>,
 }
 
 fn set_up_already() -> bool {
@@ -850,7 +847,6 @@ impl Ledger {
                 markers: Vec::new(),
                 verdicts: BTreeMap::new(),
                 reasons: Vec::new(),
-                guesses: BTreeMap::new(),
             },
         }
     }
@@ -1746,7 +1742,7 @@ impl Ledger {
     }
 }
 
-/// Markers, the Curfew question, Unlock reasons, Replay guesses, and export.
+/// Markers, the Curfew question, Unlock reasons, and export.
 impl Ledger {
     /// Spreads a device's silence over the clock hours of the Days it
     /// covers, so Trends can tell "not enforced" from "nothing used".
@@ -1852,21 +1848,6 @@ impl Ledger {
         true
     }
 
-    /// Replay guesses, by period.
-    pub fn guesses(&self) -> &BTreeMap<String, u32> {
-        &self.state.guesses
-    }
-
-    /// Keeps the first guess for a period; a guess can't be changed once
-    /// the answer has been seen.
-    pub fn guess(&mut self, period: &str, guess: u32) -> bool {
-        if period.is_empty() || period.len() > 40 || self.state.guesses.contains_key(period) {
-            return false;
-        }
-        self.state.guesses.insert(period.to_string(), guess);
-        true
-    }
-
     /// Every Day from the first to today as CSV, one row each, for questions
     /// no card answers yet. Per-source columns only cover Days the log keeps.
     pub fn days_csv(&mut self, now: Timestamp) -> String {
@@ -1928,7 +1909,7 @@ impl Ledger {
     }
 
     /// Everything Trends knows, as one JSON document: every Day, Markers,
-    /// guesses, and the settings in force.
+    /// and the settings in force.
     pub fn export_json(&mut self, now: Timestamp) -> serde_json::Value {
         let first = self.first_day(now);
         let today = day_of(&self.state.settings, now);
@@ -1937,7 +1918,6 @@ impl Ledger {
             "exported_at": now,
             "days": self.history(span, now),
             "markers": self.state.markers,
-            "guesses": self.state.guesses,
             "settings": self.state.settings,
         })
     }

@@ -53,6 +53,7 @@ button { font: inherit; color: inherit; }
 /* A card's top row: its title on the left, its controls on the right, every
    item centred on one line, and the same height on every card. */
 .cardhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+.cardhead > .cap { white-space: nowrap; }
 .cardhead .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
 /* Every bar slides to a new value (lib/motion.ts sets the timing). */

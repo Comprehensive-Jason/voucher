@@ -11,6 +11,7 @@
   import { MONTHS } from "../../trends";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
+  import DayStepper from "../../components/DayStepper.svelte";
   import type { DayTotal, SourceProgress } from "../../types";
   const fit = fitsSlot();
 
@@ -61,6 +62,9 @@
 </script>
 
 <TrendCard title="Source streaks">
+  {#snippet tools()}
+    <DayStepper day={selection.day ?? today} today={today} oldest={days[0]?.day} unit="day" onpick={(d) => selection.set("sourcestreaks-step", { day: d === today ? null : d, picked: false })} />
+  {/snippet}
   <div class="grid" class:fit style="--cell: {CELL}px; --gap: {GAP}px">
     <div class="side">
       <span class="dates"></span>

@@ -281,6 +281,168 @@ async function backfillUsage() {
   return filled;
 }
 
+// ---- Past Days ----
+// Everything the Trends cards read for a past Day, set by hand on a chosen
+// Day or sprinkled at random: goal and missed Days, streaks, Markers, the
+// Curfew question's answers, Why now? reasons, focus stretches, blocked opens,
+// silences, and Distraction time. The Ledger only takes reports for today and
+// yesterday, so like seedHistory these edit its saved state while it's stopped.
+
+const shiftDay = (day, n) => new Date(Date.parse(day + "T12:00:00Z") + n * 86400_000).toISOString().slice(0, 10);
+
+/** The moment `hour:minute` on a Day, in the Ledger's zone: a Day runs 06:00 to 06:00, so 01:00 is the next calendar date. */
+function momentOf(state, day, hour, minute = 0) {
+  const date = hour < 6 ? shiftDay(day, 1) : day;
+  const zone = Intl.DateTimeFormat("en-US", { timeZone: state.settings.time_zone, timeZoneName: "longOffset" });
+  const offset = zone.formatToParts(new Date(date + "T12:00:00Z")).find((x) => x.type === "timeZoneName").value.replace("GMT", "") || "+00:00";
+  return new Date(date + "T" + String(hour % 24).padStart(2, "0") + ":" + String(minute).padStart(2, "0") + ":00" + offset).toISOString();
+}
+
+/** The Day a moment belongs to, in the Ledger's zone. */
+function dayOfMoment(state, iso) {
+  const tz = state.settings.time_zone;
+  const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", hourCycle: "h23" }).format(new Date(iso)));
+  const local = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(iso));
+  return h < 6 ? shiftDay(local, -1) : local;
+}
+
+/** Stops the Ledger, lets `change` edit its saved state, and starts it again. */
+async function editState(change) {
+  const today = (await call("GET", "/status")).today.day;
+  await stopLedger();
+  const file = path.join(DATA, "state.json");
+  const state = JSON.parse(readFileSync(file, "utf8"));
+  state.markers ??= []; state.verdicts ??= {}; state.reasons ??= [];
+  let message;
+  try { message = change(state, today); }
+  finally {
+    state.log.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    state.markers.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    state.reasons.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+    writeFileSync(file, JSON.stringify(state));
+    startLedger();
+    await untilUp();
+  }
+  return message;
+}
+
+const scoreOf = (state, day) => (state.days[day] ??= { earned: 0, goal: state.settings.daily_goal, redeemed: 0, unlocked_minutes: 0, progress: {}, reported: {} });
+
+/** Replaces a Day's earnings with `n` made-up ones, spread over its waking hours. */
+function setEarned(state, day, n) {
+  const sources = Object.entries(state.settings.sources).filter(([, s]) => s.on).flatMap(([id, s]) => (s.kind === "tasks" ? [...s.packages, ...s.packages] : [id]));
+  const titles = ["Problem set", "Weekly review", "Reply to email", "Lecture notes", "Bike ride", "Flashcards", "Chapter"];
+  state.log = state.log.filter((e) => !(e.kind === "earned" && dayOfMoment(state, e.at) === day));
+  for (let i = 0; i < n; i++) {
+    const k = Math.floor(Math.random() * sources.length);
+    state.log.push({ kind: "earned", at: momentOf(state, day, 7 + Math.floor(Math.random() * 15), Math.floor(Math.random() * 60)),
+      task: sources[k] + ":past-" + day + "-" + i + "-" + Math.random().toString(36).slice(2, 6), title: titles[k % titles.length], kept: true });
+  }
+  scoreOf(state, day).earned = n;
+}
+const goalOf = (state, day) => scoreOf(state, day).goal || state.settings.daily_goal;
+const goalDay = (state, day) => setEarned(state, day, goalOf(state, day) + Math.floor(Math.random() * 4));
+const missDay = (state, day) => setEarned(state, day, Math.floor(goalOf(state, day) * (0.2 + Math.random() * 0.5)));
+
+/** A tear at `hour` on a Day, with its Unlock minutes, and optionally why. */
+function addTear(state, day, hour, reason) {
+  const at = momentOf(state, day, hour, Math.floor(Math.random() * 60));
+  state.log.push({ kind: "redeemed", at, tickets: 1, minutes: state.settings.unlock_minutes });
+  const score = scoreOf(state, day);
+  score.redeemed = (score.redeemed ?? 0) + 1;
+  score.unlocked_minutes = (score.unlocked_minutes ?? 0) + state.settings.unlock_minutes;
+  if (reason) state.reasons.push({ at, reason: reason.toLowerCase() });
+}
+
+/** The phone silent from `from` for `hours` on a Day: its silent minutes, and a Gap in the log. */
+function addSilence(state, day, from, hours) {
+  const silent = ((scoreOf(state, day).silent ??= {}).phone ??= Array(24).fill(0));
+  for (let h = from; h < from + hours; h++) silent[h % 24] = 60;
+  state.log.push({ kind: "gap", at: momentOf(state, day, from), device: "phone", until: momentOf(state, day, Math.min(from + hours, 29)) });
+}
+
+const REASONS = ["bored", "avoiding a task", "tired", "anxious", "urgent", "habit"];
+const MARKERS = ["New term starts", "Dose up", "Exam week", "Moved desks", "Sick", "Trip home", "Started a new routine", "Deadline crunch"];
+const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
+
+function pastChange(input) {
+  const day = input.day;
+  return (state, today) => {
+    if (input.op !== "random" && (!/^\d{4}-\d{2}-\d{2}$/.test(day ?? "") || day > today)) throw new Error("pick a Day up to today");
+    switch (input.op) {
+      case "goal": goalDay(state, day); return day + " is a goal Day";
+      case "miss": missDay(state, day); return day + " missed its goal";
+      case "streak": {
+        const n = Math.max(1, Math.min(120, Number(input.n) || 5));
+        for (let i = 0; i < n; i++) goalDay(state, shiftDay(day, -i));
+        missDay(state, shiftDay(day, -n));
+        return "A " + n + "-Day streak ending " + day + " (the Day before it missed)";
+      }
+      case "marker": {
+        const text = String(input.text || pickOne(MARKERS)).slice(0, 200);
+        state.markers.push({ at: momentOf(state, day, Number(input.hour ?? 9), Number(input.minute ?? 0)), text, rule: !!input.rule });
+        return "Marker on " + day + ": " + text;
+      }
+      case "verdict":
+        if (input.verdict) state.verdicts[day] = input.verdict; else delete state.verdicts[day];
+        return day + ": " + (input.verdict ?? "answer cleared");
+      case "reason": addTear(state, day, Number(input.hour ?? 14), input.reason || pickOne(REASONS)); return "An Unlock on " + day + " at " + (input.hour ?? 14) + ":xx, " + (input.reason || "a random reason");
+      case "stretches": {
+        const list = String(input.list || "").split(/[ ,]+/).map(Number).filter((m) => m > 0 && m <= 1440);
+        (scoreOf(state, day).stretches ??= {}).portal = list.length ? list : fakeStretches();
+        return "Focus stretches on " + day + ": " + scoreOf(state, day).stretches.portal.join(", ") + " min";
+      }
+      case "opens": {
+        const opens = Math.max(0, Number(input.opens) || 0), walked = Math.min(opens, Math.max(0, Number(input.walked) || 0));
+        (scoreOf(state, day).blocked ??= {}).portal = [opens, walked];
+        return day + ": " + opens + " blocked opens, " + walked + " walked away";
+      }
+      case "silence": addSilence(state, day, Number(input.from ?? 14), Math.max(1, Number(input.hours) || 2)); return "Phone silent on " + day + " from " + (input.from ?? 14) + ":00 for " + (input.hours || 2) + " h";
+      case "usage": {
+        const score = scoreOf(state, day);
+        score.usage = { portal: fakeDayUsage([], state.settings.unlock_minutes) };
+        score.usage_lists = listsFor(Object.keys(score.usage.portal), state.settings.blocklists);
+        return "Distraction time made up for " + day;
+      }
+      case "random": return sprinkle(state, today, Math.max(7, Math.min(365, Number(input.days) || 60)));
+      default: throw new Error("unknown change " + input.op);
+    }
+  };
+}
+
+/** A believable mix over the last `days` Days: a few Markers, most nights
+ *  answered (agreeing with the goal, mostly), a reason on most tears, a few
+ *  silent afternoons, and stretches and opens where a Day has none. */
+function sprinkle(state, today, days) {
+  let marks = 0, answers = 0, reasons = 0, silences = 0;
+  for (let back = 1; back <= days; back++) {
+    const day = shiftDay(today, -back);
+    const score = scoreOf(state, day);
+    const met = score.earned >= (score.goal || state.settings.daily_goal);
+    if (Math.random() < 0.85) {
+      const r = Math.random();
+      state.verdicts[day] = met ? (r < 0.65 ? "yes" : r < 0.9 ? "mostly" : "no") : (r < 0.15 ? "yes" : r < 0.5 ? "mostly" : "no");
+      answers++;
+    }
+    for (const e of state.log) {
+      if (e.kind === "redeemed" && dayOfMoment(state, e.at) === day && Math.random() < 0.75 && !state.reasons.some((x) => x.at === e.at)) {
+        state.reasons.push({ at: e.at, reason: pickOne(REASONS) }); reasons++;
+      }
+    }
+    if (!state.log.some((e) => e.kind === "redeemed" && dayOfMoment(state, e.at) === day) && Math.random() < 0.5) { addTear(state, day, 10 + Math.floor(Math.random() * 11), pickOne(REASONS)); reasons++; }
+    if (Math.random() < 0.08) { addSilence(state, day, 9 + Math.floor(Math.random() * 10), 1 + Math.floor(Math.random() * 3)); silences++; }
+    if (!score.stretches || !Object.keys(score.stretches).length) score.stretches = { portal: fakeStretches() };
+    if (!score.blocked || !Object.keys(score.blocked).length) score.blocked = { portal: fakeOpens() };
+  }
+  const texts = [...MARKERS].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < Math.min(texts.length, Math.max(2, Math.round(days / 25))); i++) {
+    const back = 3 + Math.floor(Math.random() * (days - 3));
+    state.markers.push({ at: momentOf(state, shiftDay(today, -back), 8 + Math.floor(Math.random() * 12), Math.floor(Math.random() * 60)), text: texts[i], rule: false });
+    marks++;
+  }
+  return "Over " + days + " Days: " + marks + " Markers, " + answers + " Curfew answers, " + reasons + " reasons, " + silences + " silences";
+}
+
 const send = (res, status, type, body) => { res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" }); res.end(body); };
 
 const server = createServer(async (req, res) => {
@@ -317,6 +479,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/grace") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/grace")));
     if (req.method === "POST" && req.url === "/api/usage-history") return send(res, 200, "application/json", JSON.stringify({ filled: await backfillUsage() }));
     if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
+    if (req.method === "POST" && req.url === "/api/past") return send(res, 200, "application/json", JSON.stringify({ message: await editState(pastChange(input)) }));
     if (req.method === "POST" && req.url === "/api/reset") { await reset(); return send(res, 200, "application/json", "{}"); }
     send(res, 404, "text/plain", "not found");
   } catch (e) {
@@ -363,6 +526,12 @@ const PAGE = String.raw`<!doctype html>
   #toast { min-height: 20px; font-size: 13px; color: var(--green); }
   h2 { margin: 12px 0 0; font-size: 17px; }
   #toast.bad { color: var(--gold); }
+  .past { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .past .src label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .past input[type=number] { flex: 0 0 72px; }
+  .past select { min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 0 10px; font: 14px var(--font); }
+  .pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .pick input[type=date] { flex: 0 0 auto; }
 </style></head>
 <body><div class="wrap">
   <header>
@@ -376,6 +545,30 @@ const PAGE = String.raw`<!doctype html>
   <h2>Distraction time on this device (made up)</h2>
   <span class="note">What a dev build shows under "In Distractions today" and on the blocked-app screen, instead of what Android measures.</span>
   <div class="grid" id="usage"></div>
+  <h2>Past Days</h2>
+  <span class="note">For the Trends cards: pick a Day, then add to it. Each change restarts the test Ledger for a moment.</span>
+  <div class="pick"><input type="date" id="pday" aria-label="Day"><button data-pshift="-1">‹ Day before</button><button data-pshift="1">Day after ›</button>
+    <label class="note"><input type="number" id="rdays" value="60" min="7" max="365" aria-label="Days back"> Days back</label><button class="go" data-past="random">Sprinkle random data</button></div>
+  <div class="past">
+    <div class="src"><span class="name">Goal and streaks</span>
+      <div class="buttons"><button data-past="goal">Goal Day</button><button data-past="miss">Missed Day</button></div>
+      <div class="row"><input type="number" id="streakn" value="5" min="1" max="120" aria-label="Streak length"><button data-past="streak">Streak this long, ending here</button></div></div>
+    <div class="src"><span class="name">Marker</span>
+      <div class="row"><input id="mtext" type="text" autocomplete="off" data-protonpass-ignore="true" data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-form-type="other" placeholder="New term starts" aria-label="Marker text"><input type="number" id="mhour" value="9" min="6" max="29" aria-label="Hour"></div>
+      <div class="buttons"><button data-past="marker">Add Marker</button><label><input type="checkbox" id="mrule"> as a rule change</label></div></div>
+    <div class="src"><span class="name">Curfew question</span>
+      <div class="buttons"><button data-past="verdict" data-v="yes">Yes</button><button data-past="verdict" data-v="mostly">Mostly</button><button data-past="verdict" data-v="no">No</button><button data-past="verdict" data-v="">Clear</button></div></div>
+    <div class="src"><span class="name">Unlock, with why</span>
+      <div class="row"><select id="reason" aria-label="Reason"><option>Bored</option><option>Avoiding a task</option><option>Tired</option><option>Anxious</option><option>Urgent</option><option>Habit</option></select><input type="number" id="rhour" value="14" min="6" max="29" aria-label="Hour"><button data-past="reason">Add</button></div></div>
+    <div class="src"><span class="name">Focus stretches</span>
+      <div class="row"><input id="slist" type="text" autocomplete="off" data-form-type="other" placeholder="25, 40, 90 (blank: random)" aria-label="Stretch minutes"><button data-past="stretches">Set</button></div></div>
+    <div class="src"><span class="name">Blocked opens</span>
+      <div class="row"><label>opens <input type="number" id="opens" value="8" min="0"></label><label>walked away <input type="number" id="walked" value="5" min="0"></label><button data-past="opens">Set</button></div></div>
+    <div class="src"><span class="name">Phone silent</span>
+      <div class="row"><label>from <input type="number" id="sfrom" value="14" min="6" max="29"></label><label>hours <input type="number" id="shours" value="2" min="1" max="12"></label><button data-past="silence">Add</button></div></div>
+    <div class="src"><span class="name">Distraction time</span>
+      <div class="buttons"><button data-past="usage">Make up this Day's</button></div></div>
+  </div>
   <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="usagehistory">Fill in Distraction time for past Days</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
 <script>
@@ -476,11 +669,21 @@ document.addEventListener("click", (e) => {
   if (b.dataset.ureset) act(() => api("POST", "/api/usage", { reset: true }), () => "Placeholder Distraction time back");
   if (b.dataset.uclear) act(() => api("POST", "/api/usage", { clear: true }), () => "Distraction time cleared");
   if (b.dataset.credit) act(() => api("POST", "/api/credit", { count: Number(b.dataset.credit) }), (c) => "+" + c.kept + " in the Bank" + (c.forfeited ? ", " + c.forfeited + " over the limit" : ""));
+  if (b.dataset.pshift) { const d = new Date($("pday").value + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + Number(b.dataset.pshift)); $("pday").value = d.toISOString().slice(0, 10); }
+  if (b.dataset.past) {
+    const op = b.dataset.past, day = $("pday").value;
+    const extra = { goal: {}, miss: {}, streak: { n: $("streakn").value }, marker: { text: $("mtext").value.trim(), hour: $("mhour").value, rule: $("mrule").checked },
+      verdict: { verdict: b.dataset.v || null }, reason: { reason: $("reason").value, hour: $("rhour").value }, stretches: { list: $("slist").value },
+      opens: { opens: $("opens").value, walked: $("walked").value }, silence: { from: $("sfrom").value, hours: $("shours").value }, usage: {}, random: { days: $("rdays").value } }[op];
+    if (op === "marker") $("mtext").value = "";
+    act(() => api("POST", "/api/past", { op, day, ...extra }), (r) => r.message);
+  }
   if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added 4 more weeks of made-up Days, before the oldest");
   if (b.id === "usagehistory") act(() => api("POST", "/api/usage-history"), (c) => "Distraction time made up for " + c.filled + " past Days");
   if (b.id === "grace") act(() => api("POST", "/api/grace"), () => "Grace period on: changes apply at once for 2 days");
   if (b.id === "reset") act(() => api("POST", "/api/reset"), () => "Fresh test Ledger: Bank and Day emptied");
 });
+$("pday").value = new Date(Date.now() - 86400_000).toLocaleDateString("en-CA");
 refresh();
 setInterval(refresh, 2000);
 </script></body></html>`;

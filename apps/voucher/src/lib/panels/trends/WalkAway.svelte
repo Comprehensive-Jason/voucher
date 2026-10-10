@@ -9,6 +9,7 @@
   import { mondayOf } from "../../trends";
   import { selection } from "../../selection.svelte";
   import { fitsSlot } from "../../fit.svelte";
+  import DayStepper from "../../components/DayStepper.svelte";
   import type { DayTotal } from "../../types";
 
   let { history }: { history: DayTotal[] } = $props();
@@ -32,6 +33,9 @@
 </script>
 
 <TrendCard title="Walk-away wins">
+  {#snippet tools()}
+    <DayStepper day={selection.day ?? today} today={today} oldest={history[0]?.day} unit="week" onpick={(d) => selection.set("walkaway", { day: d === today ? null : d, picked: false })} />
+  {/snippet}
   {#if !any}
     <p class="empty">Opens of blocked apps show here once the phone reports them.</p>
   {:else}

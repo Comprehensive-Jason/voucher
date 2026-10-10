@@ -68,7 +68,6 @@ let markers = [
   { at: "2026-09-14T10:12:00-07:00", text: "Daily goal 16", rule: true },
   { at: "2026-10-02T21:30:00-07:00", text: "Instagram blocked in Social; Curfew 22:00 to 06:00", rule: true },
 ];
-const guesses: Record<string, number> = { "week 2026-09-28": 4 };
 
 function blankDay(day: string): DaySummary {
   return { day, earned: 16, redeemed: 6, unlocked_minutes: 60, goal: 16, goal_met: true, goal_met_at: null,
@@ -188,11 +187,9 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     return markers.at(-1);
   }
   if (route === "/marker/remove") { markers = markers.filter((m) => m.rule || m.at !== params.get("at")); return markers; }
-  if (route === "/guesses") return guesses;
-  if (route === "/guess") { const b = body as { period: string; guess: number }; guesses[b.period] ??= b.guess; return guesses; }
   if (route === "/verdict" || route === "/reason") return { message: "kept" };
   if (route === "/export/days.csv") return "day,goal,earned\n2026-10-07,16,11\n";
-  if (route === "/export.json") return { days: history(30), markers, guesses };
+  if (route === "/export.json") return { days: history(30), markers };
   if (route === "/cancel") {
     pending = pending.filter((_, i) => i !== Number(params.get("index")));
     return sampleLedger("GET", "/status", null);

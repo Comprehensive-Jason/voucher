@@ -480,23 +480,12 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 }),
             ),
         },
-        (Method::Get, "/guesses") => (200, json(ledger.guesses())),
-        // A Replay guess: {"period": "week 2026-10-05", "guess": 4}. The first one stands.
-        (Method::Post, "/guess") => match read_json::<NewGuess>(&mut request) {
-            Some(g) if ledger.guess(&g.period, g.guess) => (200, json(ledger.guesses())),
-            _ => (
-                409,
-                json(&Message {
-                    message: "that period already has a guess",
-                }),
-            ),
-        },
         // Every Day as CSV, one row each.
         (Method::Get, "/export/days.csv") => {
             content_type = "text/csv; charset=utf-8";
             (200, ledger.days_csv(now))
         }
-        // Every Day, Marker, and guess, and the settings, as JSON.
+        // Every Day and Marker, and the settings, as JSON.
         (Method::Get, "/export.json") => (200, json(&ledger.export_json(now))),
         // The public key, for a device connecting for the first time.
         (Method::Get, "/key") => (200, json(&ledger.public_key())),
@@ -657,12 +646,6 @@ struct NewVerdict {
 #[derive(serde::Deserialize)]
 struct NewReason {
     reason: String,
-}
-
-#[derive(serde::Deserialize)]
-struct NewGuess {
-    period: String,
-    guess: u32,
 }
 
 /// A request's body as JSON, or None if it isn't `T`.
