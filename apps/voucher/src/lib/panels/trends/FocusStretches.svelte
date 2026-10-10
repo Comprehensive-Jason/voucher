@@ -55,13 +55,18 @@
   /** The label under a column: the weekday's date, the week's Monday, or the month. */
   const labelOf = (key: string) => (range === "year" ? monthOf(key + "-01") : shortDate(key, today));
 
-  const W = 600, y1 = 8;
+  const W = 600;
   /** A Marker flag's pole, in screen pixels (the bar graph's flag). */
   const FLAG = 14;
   const H = $derived(fit ? drawHeight(pw, ph, 180) : 180);
   const y0 = $derived(H - 22);
   /** Drawing units per screen pixel: chart text is 11px on screen, 11 * k here. */
   const k = $derived(W / (pw || W));
+  /** The Markers' lane across the top: the flags stand in it, from `flagY`, and
+   *  the plot (its top tick, the columns, the line's labels) starts under it.
+   *  It keeps its height with no Marker in view, so adding one doesn't move the chart. */
+  const flagY = 4;
+  const y1 = $derived(Math.round(flagY + (FLAG + 4) * k));
   const top = $derived(Math.max(15, ...weeks.map((w) => w.hi)) * 1.1);
   const ticks = $derived([0, Math.round(top / 2), Math.round(top)]);
   // Room at the left for the axis's name and its widest number, held in
@@ -82,8 +87,8 @@
   const startY = $derived.by(() => {
     if (weeks.length < 4) return null;
     const above = yAt(weeks[0].hi) - 4 * k;
-    // Under the first column's flag, if it has one, rather than through its pole.
-    const roof = marksOf.has(weeks[0].key) ? y1 + FLAG * k + 2 * k : y1 - 2 * k;
+    // No higher than just over the top tick, clear of the Markers' lane.
+    const roof = y1 - 2 * k;
     return above - 6.7 * k >= roof ? above : Math.min(yAt(weeks[0].lo) + 11 * k, y0 - 2 * k);
   });
 </script>
@@ -105,17 +110,17 @@
         <path d={weeks.map((w, j) => `${j ? "L" : "M"}${x0 + slot * j + slot / 2},${yAt(w.mid)}`).join("")} fill="none" stroke="var(--ink)" stroke-width="2" />
         {#if startY !== null}<text class="tag" x={x0 + slot / 2} y={startY} text-anchor="middle" style="fill: var(--ink); opacity: .6">{firstTypical}</text>{/if}
         <text class="tag end" x={x0 + slot * (weeks.length - 0.2) + 3 * k} y={yAt(weeks.at(-1)!.mid) + 3.2 * k} style="fill: var(--ink)">{endText}</text>
-        <!-- A notched flag at the top of each column holding a Marker, as on the bar graph's bars. -->
+        <!-- A notched flag in the lane over each column holding a Marker, as on the bar graph. -->
         {#each weeks as w, j (w.key)}
           {@const list = marksOf.get(w.key)}
           {#if list}
             {@const cx = x0 + slot * j + slot / 2}
             {@const color = "var(--marker)"}
             <g class="flag"><title>{flagTitle(list)}</title>
-              <rect x={cx - 0.8 * k} y={y1} width={1.6 * k} height={FLAG * k} rx={0.8 * k} fill={color} />
-              <path d="M{cx},{y1} h{7 * k} l{-2 * k},{3 * k} {2 * k},{3 * k} h{-7 * k} z" fill={color} />
+              <rect x={cx - 0.8 * k} y={flagY} width={1.6 * k} height={FLAG * k} rx={0.8 * k} fill={color} />
+              <path d="M{cx},{flagY} h{7 * k} l{-2 * k},{3 * k} {2 * k},{3 * k} h{-7 * k} z" fill={color} />
               <!-- A wider invisible target, so the tooltip doesn't need a pixel-exact hover. -->
-              <rect x={cx - 3 * k} y={y1 - 2 * k} width={12 * k} height={(FLAG + 4) * k} fill="transparent" />
+              <rect x={cx - 3 * k} y={flagY - 2 * k} width={12 * k} height={(FLAG + 4) * k} fill="transparent" />
             </g>
           {/if}
         {/each}

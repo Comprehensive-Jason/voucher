@@ -132,14 +132,10 @@
     Math.max(0, ...Object.values(summary?.silent ?? {}).map((hours) => hours[h] ?? 0));
   /** Markers in clock hour `h` of `day`. */
   const marksAt = (day: string, h: number) => notes.on(day).filter((m) => Math.floor(hourOfMoment(m.at)) === h);
-  /** A bar's Marker flag stands centred at the top of its column, unless the
-   *  bar's count reaches up into the flag's height: then it stands just right
-   *  of the count, so it never covers the number. */
-  const FLAG = 14;
-  function flagAside(total: number, barHeight: number, counted: boolean): string | undefined {
-    if (!counted || !total || chart - barHeight - 3 - 11 >= FLAG) return undefined;
-    return `left: calc(50% + ${Math.ceil(String(total).length * (tall ? 3.4 : 3.1)) + 3}px)`;
-  }
+  /** The lane above the plot that holds the Markers' flags, one per column,
+   *  clear of the bars and their counts. It keeps its height on a Day with
+   *  none, as the strip under the bars does, so adding one doesn't move the chart. */
+  const LANE = 14;
   /** A bar's tooltip lines for its Markers: each one's time and text. */
   const markTitle = (marks: MarkerNote[]) => marks.map((m) => `${clockOf(m.at)} ${m.text}`);
   $effect(() => { notes.load(); });
@@ -535,7 +531,14 @@
       {@const here = days[shown] === day}
       {@const goalCol = goalColOf(summaryOf(day))}
       <div class="day" class:here>
-        <div class="chart" style="height: {chart}px">
+        <div class="chart" style="height: {chart + LANE}px; padding-top: {LANE}px">
+          <!-- The Markers' lane: a flag over each hour holding one, above the bars and their counts. -->
+          <div class="lane" style="height: {LANE}px">
+            {#each cols as _, i}
+              {@const marks = marksAt(day, hourOfColumn(i))}
+              <div class:faded={here && pick !== null && pick !== i} title={marks.length ? markTitle(marks).join("\n") : undefined}>{#if marks.length}<i class="flag"></i>{/if}</div>
+            {/each}
+          </div>
           <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
           <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
           {#each cols as c, i}
@@ -552,7 +555,6 @@
                   {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                 </div>
               {/if}
-              {#if marks.length}<i class="flag" style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), true)}></i>{/if}
             </button>
           {/each}
         </div>
@@ -564,7 +566,7 @@
           {/each}
         </div>
         <!-- A label every three hours, each over its own column. -->
-        <div class="mono axis hours">{#each Array(HOURS) as _, i}<span>{i % 3 === 0 ? String(hourOfColumn(i)).padStart(2, "0") : ""}</span>{/each}</div>
+        <div class="mono axis hours">{#each Array(HOURS) as _, i}<span class:night={inCurfew(hourOfColumn(i))}>{i % 3 === 0 ? String(hourOfColumn(i)).padStart(2, "0") : ""}</span>{/each}</div>
       </div>
     {/each}
   </div>
@@ -579,7 +581,12 @@
         {@const here = pi === page}
         {@const gap = n > 7 ? 2 : tall ? 10 : 8}
         <div class="day period" class:here>
-          <div class="chart" style="height: {chart}px; grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
+          <div class="chart" style="height: {chart + LANE}px; padding-top: {LANE}px; grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
+            <div class="lane" style="height: {LANE}px; grid-template-columns: repeat({n}, minmax(0, 1fr)); gap: {gap}px">
+              {#each cols as c, i (c.day)}
+                <div class:faded={here && periodPick !== null && periodPick !== i} title={c.marks.length ? markTitle(c.marks).join("\n") : undefined}>{#if c.marks.length}<i class="flag"></i>{/if}</div>
+              {/each}
+            </div>
             <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{top / 2}</span></div>
             <div class="tick" style="bottom: {plot}px"><span class="mono">{top}</span></div>
             {#each cols as c, i (c.day)}
@@ -597,7 +604,6 @@
                     {#each c.segments as seg}<i style="flex: {seg.n} 0 {MIN_SEGMENT}px; background: {seg.color}"></i>{/each}
                   </div>
                 {/if}
-                {#if c.marks.length}<i class="flag" style={flagAside(c.total, Math.max(c.total * unit, c.segments.length * MIN_SEGMENT), counted)}></i>{/if}
               </button>
             {/each}
           </div>
@@ -730,7 +736,13 @@
   /* Hours Voucher wasn't watching (a device was silent): hatched, so a low bar there reads as unknown, not as none. */
   .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .09) 0 3px, transparent 3px 7px); pointer-events: none; }
   .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
-  /* A Marker: a short flag at the top of its hour, in the Marker colour. */
+  /* The Markers' lane across the top of the chart, in the plot's columns: the
+     chart's top padding, so the bars, their counts, and the top tick sit under it. */
+  .lane { position: absolute; top: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
+  .tall .lane { gap: 6px; }
+  .lane div { position: relative; min-width: 0; transition: opacity var(--t-base) ease; }
+  .lane div.faded { opacity: .3; }
+  /* A Marker: a short flag over its column, in the Marker colour. */
   .flag { position: absolute; z-index: 3; top: 0; left: 50%; width: 2px; height: 14px; margin-left: -1px; background: var(--marker); border-radius: 1px; pointer-events: none; }
   /* The notched flag of every Marker (the button, the Log, the keys). */
   .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 7px; height: 6px; background: inherit; clip-path: polygon(0 0, 100% 0, 72% 50%, 100% 100%, 0 100%); }
@@ -740,6 +752,8 @@
   .axis.hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
   .tall .axis.hours { gap: 6px; }
   .axis.hours span { display: flex; justify-content: center; white-space: nowrap; overflow: visible; }
+  /* Curfew's hours in the night colour, as on every hour axis (HourAxis). */
+  .axis.hours span.night { color: var(--night); }
   .dots { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; height: 10px; }
   .dots div { display: flex; justify-content: center; align-items: center; gap: 2px; min-width: 0; }
   /* How many were torn, beside the triangle (alone in a month's narrow columns). */
