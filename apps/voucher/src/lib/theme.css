@@ -29,8 +29,8 @@
   --mostly: var(--heat-1);     /* a "Mostly" answer: a weaker yes, the dim green */
   --mostly-ink: #3f9065;       /* its numbers: the same green, dim beside Yes but readable (4.1:1 on --raised, bold 18px) */
   --raised: #1f2226;           /* controls and boxes raised on a surface */
-  --marker: #5d2efc;           /* Markers, by hand or from a rule change: electric violet, clear of every other meaning */
-  --marker-ink: #ffffff;       /* text on a Marker fill (6.4:1) */
+  --marker: #4e52da;           /* Markers, by hand or from a rule change: violet-blue, clear of every other meaning (3:1 on cards) */
+  --marker-ink: #ffffff;       /* text on a Marker fill (5.9:1) */
   --heat-0: #22262a;           /* heat grids, fewer to more */
   --heat-1: #1d4d33;
   --heat-2: #24804f;
