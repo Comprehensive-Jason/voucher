@@ -12,6 +12,7 @@
   import { POLL_MS } from "../live.svelte";
   import type { Status } from "../types";
   import { reveal } from "../motion";
+  import { actionFailed } from "../toast.svelte";
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();
 
@@ -21,11 +22,13 @@
   async function load() {
     try { { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } error = null; } catch (e) { error = String(e); }
   }
-  async function cancel(index: number) {
+  /** Cancels one waiting change; true if the Ledger took it. */
+  async function cancel(index: number): Promise<boolean> {
     try {
       status = await ledger<Status>("POST", `/cancel?index=${index}`);
       window.dispatchEvent(new Event(RULES_CHANGED));
-    } catch (e) { error = String(e); }
+      return true;
+    } catch (e) { actionFailed(e, "Couldn't cancel: the Ledger said no."); return false; }
   }
 
   // The Review list is a snapshot taken when it opens: cancelling one greys
@@ -44,8 +47,7 @@
     const want = JSON.stringify(reviewList[j]);
     const index = status?.pending.findIndex((p) => JSON.stringify(p) === want) ?? -1;
     if (index < 0) { cancelled[j] = true; return; }
-    await cancel(index);
-    if (!error) cancelled[j] = true;
+    if (await cancel(index)) cancelled[j] = true;
   }
   async function cancelAll() {
     for (let j = 0; j < reviewList.length; j++) if (!cancelled[j]) await cancelListed(j);

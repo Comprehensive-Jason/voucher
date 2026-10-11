@@ -19,10 +19,35 @@ export function device<T>(command: string, args?: Record<string, unknown>): Prom
 /** The browser preview pretends the Ledger is down with `?ledger=down`, to see the app as a device does then. */
 const previewDown = !inTauri && typeof location !== "undefined" && new URLSearchParams(location.search).get("ledger") === "down";
 
-/** Runs a Ledger call, telling lib/health.svelte.ts whether it got through. */
-async function watched<T>(call: () => Promise<T> | T): Promise<T> {
+/** The browser preview plays one of the Ledger's test faults with `?fault=`,
+ *  to see how the app shows it: `refuse-changes` (a Rules change refused),
+ *  `refuse-tear`, `fail-marker`, `fail-export`, `token` (Todoist's token
+ *  turned down), `unauthorized` (the access code), or `garbled` (a reply that
+ *  doesn't parse). Each throws the message the app's Rust side would. */
+type Fault = "refuse-changes" | "refuse-tear" | "fail-marker" | "fail-export" | "token" | "unauthorized" | "garbled";
+const previewFault = (!inTauri && typeof location !== "undefined" ? new URLSearchParams(location.search).get("fault") : null) as Fault | null;
+
+/** The error a preview fault throws for this request, if any. */
+function faultFor(method: string, path: string): Error | null {
+  const route = path.split("?")[0];
+  switch (previewFault) {
+    case "unauthorized": return new Error("The Ledger wants its access code: reconnect in Setup.");
+    case "garbled": return new Error("Unexpected Ledger reply: expected value at line 1 column 1");
+    case "refuse-changes": return method === "POST" && route === "/change" ? new Error("The Ledger refused this (400)") : null;
+    case "refuse-tear": return route === "tear" ? new Error("Refused by the Ledger") : null;
+    case "fail-marker": return method === "POST" && route.startsWith("/marker") ? new Error("The Ledger refused this (500)") : null;
+    case "fail-export": return route.startsWith("/export") ? new Error("The Ledger refused this (500)") : null;
+    default: return null;
+  }
+}
+
+/** Runs a Ledger call, telling lib/health.svelte.ts whether it got through.
+ *  `method` and `path` name it for the preview's faults. */
+async function watched<T>(call: () => Promise<T> | T, method = "GET", path = ""): Promise<T> {
   try {
     if (previewDown) throw new Error("Can't reach the Ledger: io: Connection refused (os error 111)");
+    const fault = faultFor(method, path);
+    if (fault) throw fault;
     const reply = await call();
     noteSuccess();
     return reply;
@@ -30,7 +55,7 @@ async function watched<T>(call: () => Promise<T> | T): Promise<T> {
 }
 
 export async function today(): Promise<Today> {
-  const t = await watched(() => (inTauri ? invoke<Today>("today") : sampleToday()));
+  const t = await watched(() => (inTauri ? invoke<Today>("today") : sampleToday()), "GET", "today");
   // Today names each source and carries its colour; older desktop builds send only colours.
   rememberSources(t.sources?.some((s) => s.name) ? t.sources : t.sourceColors ?? {});
   return t;
@@ -38,11 +63,13 @@ export async function today(): Promise<Today> {
 
 export function tear(count: number): Promise<Today> {
   if (inTauri) return watched(() => invoke<Today>("tear", { count }));
-  const t = sampleToday();
-  const now = Math.floor(Date.now() / 1000);
-  const from = t.unlockEndsAt && t.unlockEndsAt > now ? t.unlockEndsAt : now;
-  return Promise.resolve({ ...t, bank: t.bank - count, unlockEndsAt: from + count * t.unlockMinutes * 60,
-    unlockStartedAt: t.unlockStartedAt ?? now, unlockVouchers: t.unlockVouchers + count });
+  return watched(() => {
+    const t = sampleToday();
+    const now = Math.floor(Date.now() / 1000);
+    const from = t.unlockEndsAt && t.unlockEndsAt > now ? t.unlockEndsAt : now;
+    return { ...t, bank: t.bank - count, unlockEndsAt: from + count * t.unlockMinutes * 60,
+      unlockStartedAt: t.unlockStartedAt ?? now, unlockVouchers: t.unlockVouchers + count };
+  }, "POST", "tear");
 }
 
 function sampleSources(): SourceProgress[] {
@@ -119,7 +146,7 @@ export async function ledger<T>(method: "GET" | "POST", path: string, body?: unk
   if (previewLatency) await new Promise((r) => setTimeout(r, previewLatency));
   const reply = await watched(() => (inTauri
     ? invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
-    : (sampleLedger(method, path, body) as T)));
+    : previewReply<T>(method, path, body)), method, path);
   if (path === "/status" || (method === "POST" && path.startsWith("/cancel"))) lastStatus = reply as Status;
   // A settings change tells every panel showing settings to look again, so
   // e.g. a loosening made under Sources shows at once among Limits' changes.
@@ -130,6 +157,16 @@ export async function ledger<T>(method: "GET" | "POST", path: string, body?: unk
   if (path === "/status") {
     const sources = (reply as { settings?: { sources?: Record<string, { name?: string; color?: string }> } }).settings?.sources;
     if (sources) rememberSources(sources);
+  }
+  return reply;
+}
+
+/** The sample Ledger's answer, with `?fault=token` turning Todoist's token down. */
+function previewReply<T>(method: string, path: string, body: unknown): T {
+  const reply = sampleLedger(method, path, body) as T;
+  if (previewFault === "token" && path === "/status") {
+    const s = reply as Status;
+    return { ...s, source_errors: { ...s.source_errors, todoist: "sign-in expired" } } as T;
   }
   return reply;
 }

@@ -8,6 +8,7 @@
   import { connection, device } from "$lib/api";
   import { motionVars } from "$lib/motion";
   import Home from "$lib/Home.svelte";
+  import Toast from "$lib/components/Toast.svelte";
 
   // Every animation's timing comes from lib/motion.ts, as CSS variables on the
   // root, set before anything draws.
@@ -75,6 +76,8 @@
        restyles every element on it, a long pause halfway through the slide. -->
   {#if keepHome}<div class="body home" class:under={!atHome} aria-hidden={!atHome}><Home /></div>{/if}
   {#if !atHome}<div class="body" class:over={keepHome}>{@render children()}</div>{/if}
+  <!-- Short messages at the spot when an action doesn't go through (lib/toast.svelte.ts). -->
+  <Toast />
   {#if !wide.on && !alone}<NavTabs {active} />{/if}
 </div>
 

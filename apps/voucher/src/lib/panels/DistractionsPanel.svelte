@@ -2,6 +2,7 @@
   // Rules, Distractions: the blocklists. Switching one on applies now;
   // switching one off waits for 06:00.
   import { shownByNotice } from "../health.svelte";
+  import { actionFailed } from "../toast.svelte";
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import Switch from "../components/Switch.svelte";
@@ -29,15 +30,17 @@
       const effect = await ledger<"Now" | { At: string }>("POST", "/change", { BlocklistOn: { id, on } });
       note = effect === "Now" ? "Applied now." : `Switches off at ${hhmm(status!.settings.morning_boundary)}.`;
       await load();
-    } catch (e) { error = String(e); }
+    } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
 
   /** The blocklist whose color is being picked. */
   let coloring = $state<string | null>(null);
+  /** Its color dot, for a message if the Ledger turns the color down. */
+  let colorDot: Element | null = null;
   async function setColor(id: string, color: string | null) {
     coloring = null;
     if (!color) return;
-    try { await ledger("POST", "/change", { BlocklistColor: { id, color } }); await load(); } catch (e) { error = String(e); }
+    try { await ledger("POST", "/change", { BlocklistColor: { id, color } }); await load(); } catch (e) { actionFailed(e, "The Ledger turned this color down.", colorDot); }
   }
 
   onMount(() => {
@@ -56,7 +59,7 @@
   {#if status}
     {#each lists as [id, list] (id)}
       <RulesCard row>
-        <button class="dot" style="background: {list.color}" aria-label="{list.name} color" onclick={() => (coloring = id)}></button>
+        <button class="dot" style="background: {list.color}" aria-label="{list.name} color" onclick={(e) => { coloring = id; colorDot = e.currentTarget; }}></button>
         <a class="open" href="/rules/distractions/edit?id={id}" aria-label="Edit {list.name} blocklist">
           <span class="text">
             <span class="title"><span class="name">{list.name}</span><Tag premade={list.premade} /></span>

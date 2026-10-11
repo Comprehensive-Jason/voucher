@@ -3,6 +3,7 @@
 // countdown, and a poll every 30 seconds.
 import { today, tear } from "./api";
 import { modeOf, type Today } from "./types";
+import { actionFailed } from "./toast.svelte";
 
 /** How often to ask the Ledger again. A dev build asks every few seconds, so
  *  changes made while testing show up almost at once. */
@@ -37,14 +38,21 @@ export class Live {
     } catch (e) { if (n >= this.#shown) this.error = String(e); }
   };
 
-  tear = async (count: number) => {
+  /** Tears `count` Vouchers off; true if the Ledger took it. One it turns
+   *  down says so by the stack, as a short message (lib/toast.svelte.ts);
+   *  connection trouble is the Ledger notice's, and stays in `error`. */
+  tear = async (count: number): Promise<boolean> => {
     try {
       const data = await tear(count);
       // A tear's answer is the newest there is: polls still on their way were
       // asked before it landed, so they're dropped.
       this.#shown = ++this.#asked; this.data = lastData = data; this.error = null;
       this.tornAt = Date.now();
-    } catch (e) { this.error = String(e); }
+      return true;
+    } catch (e) {
+      if (!actionFailed(e, "Couldn't tear: the Ledger said no.")) this.error = String(e);
+      return false;
+    }
   };
   /** When this screen last unlocked, for the "Why now?" chips (0: not yet). */
   tornAt = $state(0);

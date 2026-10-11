@@ -6,6 +6,7 @@
   // is a single tap. Taking an app or site out, renaming, or deleting applies
   // now; a new group, or a new app or site in one, waits for 06:00.
   import { shownByNotice } from "$lib/health.svelte";
+  import { actionFailed } from "$lib/toast.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -68,12 +69,14 @@
       error = null;
     } catch (e) { error = String(e); }
   }
-  async function send(change: Record<string, unknown>) {
+  /** Sends one change; true if the Ledger took it. */
+  async function send(change: Record<string, unknown>): Promise<boolean> {
     try {
       const effect = await ledger<"Now" | { At: string }>("POST", "/change", change);
       note = effect === "Now" ? "Applied now." : `Waits for ${morning}.`;
       await load();
-    } catch (e) { error = String(e); }
+      return true;
+    } catch (e) { actionFailed(e, "The Ledger turned this change down."); return false; }
   }
   function rename() {
     if (id && group && name.trim() && name.trim() !== group.name) send({ RenameSource: { id, name: name.trim() } });
@@ -137,7 +140,7 @@
     try {
       await ledger("POST", "/change", { AddSource: { id: key, source } });
       goto("/rules/sources");
-    } catch (e) { error = String(e); }
+    } catch (e) { actionFailed(e, "The Ledger turned this source down."); }
   }
 
   const back = () => goto("/rules/sources");
@@ -200,7 +203,7 @@
           {#if group.kind === "focus"}
             <div class="actions">
               {#if confirming}
-                <button class="btn wide danger" onclick={async () => { await send({ DeleteSource: id }); back(); }}>Delete {group.name} now</button>
+                <button class="btn wide danger" onclick={async () => { if (await send({ DeleteSource: id })) back(); }}>Delete {group.name} now</button>
                 <div class="footnote">Deleting applies now. Adding it back later waits for {morning}.</div>
               {:else}
                 <button class="btn wide danger" onclick={() => (confirming = true)}>Delete source</button>

@@ -8,6 +8,7 @@
   import { clock, dayLabel } from "../time";
   import type { Status } from "../types";
   import { reveal } from "../motion";
+  import { actionFailed } from "../toast.svelte";
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();
 
@@ -25,7 +26,7 @@
   async function load() { try { { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } } catch {} }
   async function end() {
     confirming = false;
-    try { await ledger("POST", "/grace/end"); window.dispatchEvent(new Event(RULES_CHANGED)); await load(); } catch {}
+    try { await ledger("POST", "/grace/end"); window.dispatchEvent(new Event(RULES_CHANGED)); await load(); } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
   onMount(() => {
     load();

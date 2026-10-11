@@ -1,15 +1,16 @@
 <script lang="ts">
-  // The notices that concern all of Rules: Protection off or partly on, the
-  // Loosenings waiting for the morning (one card, or a Review sheet for
-  // several), and the grace period after setup. `row` lays them side by side
-  // for the tablet's Rules header; otherwise they stack, as on the phone's
-  // Rules and at the foot of the tablet's Today column. All three are the
-  // shared .notice card (theme.css).
+  // The notices that concern all of Rules: Protection off or partly on, a
+  // task service that needs a new token, the Loosenings waiting for the
+  // morning (one card, or a Review sheet for several), and the grace period
+  // after setup. `row` lays them side by side for the tablet's Rules header;
+  // otherwise they stack, as on the phone's Rules and at the foot of the
+  // tablet's Today column. All are the shared .notice card (theme.css).
   import { onMount } from "svelte";
   import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "../api";
   import GraceBanner from "./GraceBanner.svelte";
   import WaitingChanges from "./WaitingChanges.svelte";
   import LedgerNotice from "./LedgerNotice.svelte";
+  import TasksNotice from "./TasksNotice.svelte";
   import type { Protection } from "../types";
   import { reveal } from "../motion";
   import { POLL_MS } from "../live.svelte";
@@ -31,9 +32,9 @@
   });
 </script>
 
-<!-- Most serious first: the Ledger can't be reached, Protection off, then the
-     grace period (everything applies at once), then Loosenings waiting for
-     the morning. -->
+<!-- Most serious first: the Ledger can't be reached, Protection off, tasks
+     not counting, then the grace period (everything applies at once), then
+     Loosenings waiting for the morning. -->
 <div class="notices" class:row>
   <LedgerNotice {axis} />
   {#if missing}
@@ -46,6 +47,7 @@
       <button class="btn small fix" onclick={() => missing && fixProtection(missing.part)}>{missing.action}</button>
     </div>
   {/if}
+  <TasksNotice {axis} />
   <GraceBanner {axis} />
   <WaitingChanges {axis} />
 </div>

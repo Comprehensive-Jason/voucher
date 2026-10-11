@@ -16,8 +16,7 @@
   onMount(() => live.start());
 
   async function onTear(count: number) {
-    await live.tear(count);
-    if (live.error) return;
+    if (!(await live.tear(count))) return;
     // A program comes back once the guard stops closing it; a site needs only a reload.
     if (!site && path) await device("openApp", { pkg: path });
     await device("goHome", { closed: false });

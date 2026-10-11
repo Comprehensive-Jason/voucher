@@ -4,6 +4,7 @@
   // time adds up. Switching a source off or slowing it applies now; switching
   // on, speeding up, or adding waits for 06:00.
   import { shownByNotice } from "../health.svelte";
+  import { actionFailed } from "../toast.svelte";
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import RuleSlider from "../components/RuleSlider.svelte";
@@ -14,6 +15,7 @@
   import ColorSheet from "../components/ColorSheet.svelte";
   import { RATE_RANGE, compareSources, defaultColorOf, memberName, needsToken, rateText, serviceOf, styleOf } from "../sources";
   import { hhmm, until } from "../rules";
+  import { noteTokenSaved, tokenPending } from "../tokens.svelte";
   import type { Source, SourceKind, Status } from "../types";
 
   let status = $state<Status | null>(statusNow());
@@ -22,11 +24,13 @@
   let note = $state<string | null>(null);
   /** The source whose color is being picked. */
   let coloring = $state<string | null>(null);
+  /** Its color dot, for a message if the Ledger turns the color down. */
+  let colorDot: Element | null = null;
   /** The rate a source's knob is snapped to while dragging, shown greyed. */
   let ratePreview = $state<Record<string, number | null>>({});
   async function setColor(id: string, color: string | null) {
     coloring = null;
-    try { await ledger("POST", "/change", { SourceColor: { id, color } }); await load(); } catch (e) { error = String(e); }
+    try { await ledger("POST", "/change", { SourceColor: { id, color } }); await load(); } catch (e) { actionFailed(e, "The Ledger turned this color down.", colorDot); }
   }
 
   const RANGE = RATE_RANGE;
@@ -50,12 +54,13 @@
     const hit = status?.pending.find(([c]) => (c as any).Source?.id === id);
     return hit ? { ...(hit[0] as any).Source, at: hit[1] } : null;
   }
-  /** The task services in this group that need a new token. */
-  const brokenServices = (s: Source) => s.kind === "tasks" ? s.packages.filter((p) => needsToken(status?.source_errors[p])) : [];
+  /** The task services in this group that need a new token (not one just saved here). */
+  const brokenServices = (s: Source) => s.kind === "tasks" ? s.packages.filter((p) => needsToken(status?.source_errors[p]) && !tokenPending(p)) : [];
   function problemOf(s: Source): string | null {
     if (s.kind !== "tasks") return null;
     for (const p of s.packages) {
       const problem = status?.source_errors[p];
+      if (problem && needsToken(problem) && tokenPending(p)) return `${serviceOf(p).name}: token saved, checking soon`;
       if (problem) return `${serviceOf(p).name}: ${needsToken(problem) ? `${problem}, not counting` : `${problem}, retrying`}`;
     }
     return null;
@@ -69,7 +74,7 @@
       const effect = await ledger<"Now" | { At: string }>("POST", "/change", { Source: { id, on, every } });
       note = effect === "Now" ? "Applied now." : `Waits for ${hhmm(status!.settings.morning_boundary)}.`;
       await load();
-    } catch (e) { error = String(e); }
+    } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
   /** Higher is stricter and applies now; lower waits for 06:00. */
   async function maxHeartRate(bpm: number) {
@@ -77,7 +82,7 @@
       const effect = await ledger<"Now" | { At: string }>("POST", "/change", { MaxHeartRate: bpm });
       note = effect === "Now" ? "Applied now." : `Waits for ${hhmm(status!.settings.morning_boundary)}.`;
       await load();
-    } catch (e) { error = String(e); }
+    } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
 
   onMount(() => {
@@ -102,7 +107,7 @@
       {@const waiting = pendingFor(id)}
       <RulesCard>
         <div class="line">
-          <button class="dot" style="background: {style.color}" aria-label="{style.name} color" onclick={() => (coloring = id)}></button>
+          <button class="dot" style="background: {style.color}" aria-label="{style.name} color" onclick={(e) => { coloring = id; colorDot = e.currentTarget; }}></button>
           <a class="open" href="/rules/sources/group?id={encodeURIComponent(id)}" aria-label="Edit {style.name}">
             <span class="label">
               <span class="name" class:off={!s.on}>{style.name}</span>
@@ -155,7 +160,7 @@
 
 {#if reconnecting}
   <TokenSheet source={reconnecting} onclose={() => (reconnecting = null)}
-    onsaved={() => { note = "Token saved. It counts again from the next check, within 5 minutes."; reconnecting = null; load(); }} />
+    onsaved={() => { noteTokenSaved(reconnecting!); note = "Token saved. It counts again from the next check, within 5 minutes."; reconnecting = null; load(); }} />
 {/if}
 
 {#if coloring && status}

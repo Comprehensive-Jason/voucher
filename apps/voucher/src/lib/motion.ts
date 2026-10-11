@@ -22,6 +22,11 @@ export const MOTION = {
   stagger: 60,
 } as const;
 
+/** How long a short message at the spot (lib/toast.svelte.ts) stays before
+ *  it fades: long enough to read twice. Not shortened for reduced motion,
+ *  since it's reading time, not movement. */
+export const HOLD_MS = 4000;
+
 /** Easing curves: out for things arriving or settling, in for things leaving. */
 export const EASE = {
   out: "cubic-bezier(.2, .8, .2, 1)",

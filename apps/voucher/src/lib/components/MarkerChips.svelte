@@ -7,16 +7,20 @@
   // as added too. Looks like the "Why now?" chips (ReasonChips); a darker
   // surface can tint them with --chip-bg, --chip-line, and --chip-ink.
   import { fade } from "svelte/transition";
+  import { tick } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
   import { ms } from "../motion";
   import { MARKER_CHOICES, dayNow, notes } from "../notes.svelte";
+  import { actionFailed } from "../toast.svelte";
 
   let { choices = MARKER_CHOICES }: { choices?: string[] } = $props();
 
   const key = (text: string) => text.trim().toLowerCase();
   /** Taps still on their way to the Ledger, shown as added meanwhile: key to words. */
   const sending = new SvelteMap<string, string>();
-  let failed = $state(false);
+  let failed = false;
+  /** The "Other…" field, for a message by it. */
+  let field = $state<HTMLInputElement>();
   let writing = $state(false);
   let draft = $state("");
 
@@ -29,30 +33,42 @@
   /** Today's Markers that aren't one of the choices: "Other…" entries, and any from the Log. */
   const others = $derived([...new Map([...today, ...sending])].filter(([k]) => !choices.some((c) => key(c) === k)).map(([, text]) => text));
 
-  async function add(text: string) {
+  /** Adds a Marker; returns the error if it didn't save. */
+  async function add(text: string): Promise<unknown> {
     text = text.trim();
-    if (!text || added(text)) return;
+    if (!text || added(text)) return null;
     failed = false;
+    let error: unknown = null;
     sending.set(key(text), text);
-    try { await notes.add(text); } catch { failed = true; }
+    try { await notes.add(text); } catch (e) { failed = true; error = e; }
     sending.delete(key(text));
+    return error;
   }
 
   /** Takes a tapped choice back: removes today's Markers with those words. */
   async function undo(text: string) {
     if (sending.has(key(text))) return;
     failed = false;
-    try { for (const m of mine.filter((m) => key(m.text) === key(text))) await notes.remove(m.at); } catch { failed = true; }
+    try { for (const m of mine.filter((m) => key(m.text) === key(text))) await notes.remove(m.at); } catch (e) { failed = true; actionFailed(e, "That Marker is still there. Tap it again."); }
   }
-  const toggle = (text: string) => (added(text) ? undo(text) : add(text));
+  /** A chip that didn't save says so beside it. */
+  async function toggle(text: string) {
+    if (added(text)) return undo(text);
+    const error = await add(text);
+    if (error) actionFailed(error, "That Marker didn't save. Tap it again.");
+  }
 
   /** Saves "Other…"; if the Ledger can't be reached, the words come back to try again. */
   async function save() {
     const text = draft.trim();
     if (!text) return;
     draft = ""; writing = false;
-    await add(text);
-    if (failed) { draft = text; writing = true; }
+    const error = await add(text);
+    if (failed) {
+      draft = text; writing = true;
+      await tick();
+      actionFailed(error, "That Marker didn't save. Save it again.", field);
+    }
   }
 </script>
 
@@ -76,12 +92,11 @@
   {#if writing}
     <form class="write" in:fade={{ duration: ms("base") }} onsubmit={(e) => { e.preventDefault(); save(); }}>
       <!-- svelte-ignore a11y_autofocus -->
-      <input bind:value={draft} maxlength="200" placeholder="What changed?" aria-label="A Marker for today" autofocus
+      <input bind:this={field} bind:value={draft} maxlength="200" placeholder="What changed?" aria-label="A Marker for today" autofocus
         onkeydown={(e) => { if (e.key === "Escape") { e.stopPropagation(); writing = false; draft = ""; } }} />
       <button class="btn small" type="submit" disabled={!draft.trim()}>Save</button>
     </form>
   {/if}
-  {#if failed}<p class="failed" in:fade={{ duration: ms("base") }}>Couldn't reach the Ledger; tap it again.</p>{/if}
 </div>
 
 <style>
@@ -97,5 +112,4 @@
   .write input { flex: 1; min-width: 0; height: 34px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--chip-line, var(--line)); background: var(--chip-bg, var(--raised)); color: var(--ink); font: 500 14px var(--font); }
   .write input:focus { outline: none; border-color: var(--marker); }
   .write .btn { background: var(--chip-bg, var(--raised)); border-color: var(--chip-line, var(--line)); }
-  .failed { margin: 0; font-size: 12.5px; color: var(--goal); }
 </style>

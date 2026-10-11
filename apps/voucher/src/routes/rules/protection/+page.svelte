@@ -2,6 +2,7 @@
   // Protection on this device: each part's state and how to turn it on, plus
   // releasing the device, which waits for 06:00 like any Loosening.
   import { shownByNotice } from "$lib/health.svelte";
+  import { actionFailed } from "$lib/toast.svelte";
   import { onMount } from "svelte";
   import { deviceId, fixProtection, ledger, onWindows, protection, protectionParts } from "$lib/api";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
@@ -26,7 +27,7 @@
     } catch (e) { error = String(e); }
   }
   async function send(change: Record<string, unknown>) {
-    try { await ledger("POST", "/change", change); await load(); } catch (e) { error = String(e); }
+    try { await ledger("POST", "/change", change); await load(); } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
 
   onMount(() => {

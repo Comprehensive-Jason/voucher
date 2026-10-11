@@ -3,6 +3,7 @@
   // once: adding blocks now; switching off or removing waits for 06:00. On a
   // wide screen, Apps, Sites, and the installed apps sit side by side.
   import { shownByNotice } from "$lib/health.svelte";
+  import { actionFailed } from "$lib/toast.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { ledger } from "$lib/api";
@@ -54,7 +55,7 @@
       const effect = await ledger<"Now" | { At: string }>("POST", "/change", change);
       note = effect === "Now" ? "Applied now." : `Waits for ${morning}.`;
       await load();
-    } catch (e) { error = String(e); }
+    } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
   function rename() {
     if (list && name.trim() && name.trim() !== list.name) send({ RenameBlocklist: { id, name: name.trim() } });

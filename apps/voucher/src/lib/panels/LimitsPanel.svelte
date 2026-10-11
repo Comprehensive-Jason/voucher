@@ -2,6 +2,7 @@
   // Rules, Limits: the four numbers that set how strict Voucher is. Every
   // Loosening shows as a pending banner, with a ghost knob, until 06:00.
   import { shownByNotice } from "../health.svelte";
+  import { actionFailed } from "../toast.svelte";
   import { onMount } from "svelte";
   import { ledger, missingProtection, onWindows, protection, protectionNow, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import RulesNotices from "../components/RulesNotices.svelte";
@@ -33,7 +34,7 @@
       note = effect === "Now" ? "Applied now." : `Waits for ${hhmm(status!.settings.morning_boundary)}.`;
       await load();
     } catch (e) {
-      error = String(e);
+      actionFailed(e, "The Ledger turned this change down.");
     }
   }
 

@@ -1,0 +1,87 @@
+<script lang="ts">
+  // Tasks not counting: a task service (Todoist, ClickUp) turned Voucher's
+  // token down, or was never connected, so finished tasks aren't earning.
+  // Among Rules' notices, after Protection; Reconnect opens the same token
+  // sheet as Sources. It asks the Ledger itself, again whenever Rules change
+  // and on Today's poll, starting from the last answer so it doesn't pop in.
+  import { onMount } from "svelte";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
+  import { needsToken, serviceOf } from "../sources";
+  import { noteTokenSaved, tokenPending } from "../tokens.svelte";
+  import { POLL_MS } from "../live.svelte";
+  import { reveal } from "../motion";
+  import type { Status } from "../types";
+  import TokenSheet from "./TokenSheet.svelte";
+
+  let { axis = "y" }: { axis?: "x" | "y" } = $props();
+
+  let status = $state<Status | null>(statusNow());
+  let now = $state(Date.now());
+  let reconnecting = $state<string | null>(null);
+
+  /** Task services, in Tasks sources that are on, that need a new token. */
+  const broken = $derived.by(() => {
+    if (!status) return [];
+    const out: { service: string; problem: string }[] = [];
+    for (const s of Object.values(status.settings.sources)) {
+      if (s.kind !== "tasks" || !s.on) continue;
+      for (const p of s.packages) {
+        const problem = status.source_errors[p];
+        if (needsToken(problem) && !out.some((b) => b.service === p)) out.push({ service: p, problem: problem! });
+      }
+    }
+    return out;
+  });
+  // A token saved here waits for the Ledger's next check (lib/tokens.svelte.ts).
+  const waiting = $derived(broken.filter((b) => tokenPending(b.service, now)));
+  const asking = $derived(broken.filter((b) => !waiting.includes(b)));
+
+  /** "and"-joined service names: "Todoist", "Todoist and ClickUp". */
+  const names = (list: { service: string }[]) => list.map((b) => serviceOf(b.service).name).join(" and ");
+  const text = $derived(asking.length !== 1
+    ? `${names(asking)} need new tokens, so finished tasks aren't earning.`
+    : asking[0].problem === "not connected"
+      ? `${names(asking)} isn't connected, so finished tasks aren't earning.`
+      : `${names(asking)}'s token was turned down, so finished tasks aren't earning.`);
+
+  async function load() {
+    now = Date.now();
+    try { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } catch { /* the Ledger notice says so */ }
+  }
+
+  function onsaved() {
+    if (reconnecting) noteTokenSaved(reconnecting);
+    reconnecting = null;
+    now = Date.now();
+    // Sources shows the token's state too.
+    window.dispatchEvent(new Event(RULES_CHANGED));
+  }
+
+  onMount(() => {
+    load();
+    const poll = setInterval(load, POLL_MS);
+    window.addEventListener(RULES_CHANGED, load);
+    return () => { clearInterval(poll); window.removeEventListener(RULES_CHANGED, load); };
+  });
+</script>
+
+{#if asking.length}
+  <div class="notice" transition:reveal={{ axis }}>
+    <div class="ntext">
+      <span class="cap">Tasks not counting</span>
+      <span>{text}</span>
+    </div>
+    <button class="btn small fix" onclick={() => (reconnecting = asking[0].service)}>{asking.length > 1 ? `Reconnect ${serviceOf(asking[0].service).name}` : "Reconnect"}</button>
+  </div>
+{:else if waiting.length}
+  <div class="notice good" transition:reveal={{ axis }}>
+    <div class="ntext">
+      <span class="cap">Token saved</span>
+      <span>{names(waiting)} {waiting.length > 1 ? "count" : "counts"} again from the Ledger's next check, within 5 minutes.</span>
+    </div>
+  </div>
+{/if}
+
+{#if reconnecting}
+  <TokenSheet source={reconnecting} onclose={() => (reconnecting = null)} {onsaved} />
+{/if}

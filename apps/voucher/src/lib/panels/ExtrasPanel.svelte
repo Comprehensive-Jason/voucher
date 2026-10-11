@@ -2,24 +2,22 @@
   // Things beside the rules rather than rules: the wallpaper and watch preview,
   // and the Days export. Rules' fourth column on the tablet, its fourth tab on
   // the phone.
-  import { shownByNotice } from "../health.svelte";
+  import { actionFailed } from "../toast.svelte";
   import { exportDays } from "$lib/api";
   import RulesColumn from "$lib/components/RulesColumn.svelte";
   import RulesCard from "$lib/components/RulesCard.svelte";
 
   let { heading = false }: { heading?: boolean } = $props();
-  let error = $state<string | null>(null);
   let exporting = $state(false);
 
   async function exportCsv() {
     exporting = true;
-    try { await exportDays(); error = null; } catch (e) { error = String(e); }
+    try { await exportDays(); } catch (e) { actionFailed(e, "The export didn't download."); }
     exporting = false;
   }
 </script>
 
 <RulesColumn title="Extras" column={heading}>
-  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
   <RulesCard row href="/rules/preview">
     <span class="text">
       <span class="name">Wallpaper and watch preview</span>
@@ -41,5 +39,4 @@
   .name { font-size: 15px; font-weight: 700; }
   /* Four columns are narrow, so descriptions wrap rather than cut off. */
   .sub { font-size: 12px; line-height: 1.35; color: var(--muted); }
-  .error { margin: 0; color: var(--danger); }
 </style>

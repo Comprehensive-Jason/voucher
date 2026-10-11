@@ -2,7 +2,7 @@
   // A new blocklist, built up here and sent to the Ledger on Save. A new
   // blocklist only adds blocking, so it applies at once. On a wide screen,
   // Apps, Sites, and the installed apps sit side by side.
-  import { shownByNotice } from "$lib/health.svelte";
+  import { actionFailed } from "$lib/toast.svelte";
   import { goto } from "$app/navigation";
   import { ledger } from "$lib/api";
   import Tag from "$lib/components/Tag.svelte";
@@ -23,7 +23,6 @@
   let apps = $state<BlockedApp[]>([]);
   let sites = $state<BlockedSite[]>([]);
   let adding = $state<"app" | "site" | null>(null);
-  let error = $state<string | null>(null);
   let coloring = $state(false);
   /** The color, picked here or else the next unused one. */
   let color = $state(LIST_COLORS[0]);
@@ -57,7 +56,7 @@
       while (taken.has(key)) key = `${id}-${n++}`;
       await ledger("POST", "/change", { NewBlocklist: { id: key, list: { name: name.trim(), color, premade: false, on: true, apps, sites } } });
       goto("/rules/distractions");
-    } catch (e) { error = String(e); }
+    } catch (e) { actionFailed(e, "The Ledger turned this blocklist down."); }
   }
 </script>
 
@@ -65,7 +64,6 @@
   <PageHeader title="New blocklist" back="/rules/distractions" backLabel="Back to Distractions">
     <Tag premade={false} />
   </PageHeader>
-  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 
   <div class="panes">
     <div class="pane">
@@ -125,5 +123,4 @@
   input:focus { outline: none; border-color: var(--voucher); }
   .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
   .save { margin-top: auto; }
-  .error { margin: 0; color: var(--danger); }
 </style>
