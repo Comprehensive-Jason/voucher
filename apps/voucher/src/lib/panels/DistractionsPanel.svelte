@@ -4,6 +4,7 @@
   import { shownByNotice } from "../health.svelte";
   import { actionFailed } from "../toast.svelte";
   import { onMount } from "svelte";
+  import { sheet } from "$lib/sheet.svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import Switch from "../components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
@@ -44,10 +45,11 @@
   }
 
   onMount(() => {
-    load();
+    // Fresh answers once the page has slid in (lib/sheet.svelte.ts).
+    const cancel = sheet.afterSlide(load);
     // Reload when a change is made anywhere on Rules.
     window.addEventListener(RULES_CHANGED, load);
-    return () => window.removeEventListener(RULES_CHANGED, load);
+    return () => { cancel(); window.removeEventListener(RULES_CHANGED, load); };
   });
 
   /** On the tablet each panel is a column with its own heading. */

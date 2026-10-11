@@ -10,7 +10,7 @@
   // the Today column stays put on the left, and the rest is a row of columns
   // that scrolls sideways, two in view at a time, holding the charts and the
   // Log in whatever arrangement was chosen here (see arrangement.svelte.ts).
-  import { onMount, tick } from "svelte";
+  import { tick } from "svelte";
   import { page } from "$app/state";
   import { fade } from "svelte/transition";
   import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
@@ -19,6 +19,7 @@
   import { deviceUsage, ledger } from "$lib/api";
   import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$lib/wide.svelte";
+  import { sheet, whenIdle } from "$lib/sheet.svelte";
   import { historyDays } from "$lib/time";
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
   import RulesNotices from "$lib/components/RulesNotices.svelte";
@@ -68,19 +69,26 @@
   // (a long pause on the tablet) for nothing.
   /** The Marker button beside the status card opens the Marker choices. */
   let addingMarker = $state(false);
-  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  /** Each answer as last shown, as text, so a new one is compared without
+   *  turning the old one into text again (the history is long). */
+  const shown = { status: "", history: "", usage: "" };
+  /** True when `value` differs from what `key` last showed (and remembers it). */
+  function changed(key: keyof typeof shown, value: unknown) {
+    const text = JSON.stringify(value);
+    if (text === shown[key]) return false;
+    shown[key] = text;
+    return true;
+  }
   async function loadWide() {
     try {
       const s = await ledger<Status>("GET", "/status");
-      if (!same(s, status)) { status = kept.status = s; setCurfew(s.settings.curfew_start, s.settings.curfew_end); }
+      if (changed("status", s)) { status = kept.status = s; setCurfew(s.settings.curfew_start, s.settings.curfew_end); }
       const h = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(s.today.day, s.first_day)}`);
-      if (!same(h, history)) history = kept.history = h;
+      if (changed("history", h)) history = kept.history = h;
       const u = await deviceUsage();
-      if (!same(u, usage)) usage = kept.usage = u;
+      if (changed("usage", u)) usage = kept.usage = u;
     } catch { /* the Today column shows the error */ }
   }
-
-  onMount(() => live.start());
 
   // ---- Arranging ----
   // Hold a panel's heading (or, while arranging, any panel) and drag it: the
@@ -277,7 +285,33 @@
   }
   /** One page's width: two columns and the gap after them. */
   const pageWidth = () => 2 * (colWidth() + GAP);
+  // ---- Drawing only what's near ----
+  // Every column drawn costs every frame that redraws the dashboard (a
+  // poll's answer, the clock, Rules sliding over it), and most of the strip
+  // is out of view. So only the columns in view and one either side are
+  // drawn; the rest keep their place and size but skip drawing
+  // (content-visibility: hidden) until a scroll brings them near. A page
+  // tapped on the bar draws its columns from the start of the scroll there.
+  // While arranging, every column is drawn, since panels move between them.
+  /** The first and last column drawn. */
+  let near = $state({ a: 0, b: 3 });
+  function updateNear() {
+    if (!strip) return;
+    const pitch = colWidth() + GAP;
+    if (pitch <= GAP) return;
+    let a = Math.floor(strip.scrollLeft / pitch) - 1, b = Math.ceil((strip.scrollLeft + strip.clientWidth) / pitch);
+    if (heading !== null) { a = Math.min(a, heading * 2 - 1); b = Math.max(b, heading * 2 + 2); }
+    if (a !== near.a || b !== near.b) near = { a, b };
+  }
+  $effect(() => {
+    if (!strip) return;
+    updateNear();
+    const ro = new ResizeObserver(() => updateNear());
+    ro.observe(strip);
+    return () => ro.disconnect();
+  });
   function onStripScroll() {
+    updateNear();
     if (!strip || !pageWidth() || heading !== null) return;
     // At the end the strip can only show its last two columns: that's the last page, whole.
     const end = strip.scrollWidth - strip.clientWidth;
@@ -290,20 +324,36 @@
     if (!strip) return;
     heading = i;
     setPages(i, i);
+    updateNear();
     // Back to following the scroll once it lands (or soon after, if it was already there).
     const land = () => { if (heading !== i) return; heading = null; onStripScroll(); };
     strip.addEventListener("scrollend", land, { once: true });
     setTimeout(land, 1500);
     strip.scrollTo({ left: Math.min(i * pageWidth(), strip.scrollWidth - strip.clientWidth), behavior: "smooth" });
   }
-  // While Rules covers the dashboard it doesn't ask. Back on it, it asks
-  // once the sheet has slid away, so any redraw misses the slide.
+  // While Rules covers the dashboard, or slides over it or off it, the
+  // dashboard holds still: no clock, no polls, so nothing on it redraws (on
+  // the tablet, every redraw of the dashboard during a slide costs a frame).
+  // Back on it, it asks again once the sheet has gone and the screen is idle.
   const covered = $derived(page.url.pathname !== "/");
+  const still = $derived(wide.on && (covered || sheet.moving));
+  // Uncovered, the clock jumps to now at once, in the first frame of the
+  // slide back down (which redraws anyway), so what the sheet uncovers isn't
+  // stale; it ticks again, and the Ledger is asked, once the slide is over.
+  $effect(() => { if (!covered) live.now = Math.floor(Date.now() / 1000); });
+  let resumed = false;
   $effect(() => {
-    if (!wide.on || covered) return;
-    const first = setTimeout(loadWide, kept.status ? ms("move") + 100 : 0);
+    if (still) return;
+    let stop: (() => void) | undefined;
+    const cancel = resumed ? whenIdle(() => (stop = live.start())) : ((stop = live.start()), undefined);
+    resumed = true;
+    return () => { cancel?.(); stop?.(); };
+  });
+  $effect(() => {
+    if (!wide.on || still) return;
+    const cancel = kept.status ? whenIdle(loadWide) : (loadWide(), undefined);
     const timer = setInterval(loadWide, import.meta.env.DEV ? POLL_MS : 60_000);
-    return () => { clearTimeout(first); clearInterval(timer); };
+    return () => { cancel?.(); clearInterval(timer); };
   });
 </script>
 
@@ -311,7 +361,7 @@
   <!-- Rules opens from the foot of the Today column, left of the page bar. -->
   {#snippet rulesButton()}
     <span class="footleft">
-    <a class="iconbtn" href="/rules" aria-label="Rules">
+    <a class="iconbtn" href="/rules" aria-label="Rules" data-sveltekit-keepfocus>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
     </a>
     </span>
@@ -400,7 +450,7 @@
              into another column stays the same element under the finger. -->
         {#each placed as p (p.id)}
           {@const id = p.id}
-          <div class="slot" role="group" aria-label={PANELS[id].name} class:lifted={dragging?.id === id} data-id={id}
+          <div class="slot" role="group" aria-label={PANELS[id].name} class:lifted={dragging?.id === id} class:far={!arranging && (p.col < near.a || p.col > near.b)} data-id={id}
             style="grid-column: {p.col + 1}; grid-row: {p.row + 1} / span {p.size}; --jiggle: {(p.col * 3 + p.row) % 4}"
             onpointerdown={(e) => onPress(e, id)}>
             <!-- The card's name, on a tab growing out of its top edge, so naming it costs the card no height. -->
@@ -482,6 +532,8 @@
      top-left corner is square so its left edge runs straight up into the tab. */
   .slot { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding-top: 20px; }
   .slot > :global(.tile) { border-top-left-radius: 0; }
+  /* Out of view and not next to it: kept in place, not drawn. */
+  .slot.far { content-visibility: hidden; }
   .tab { position: absolute; z-index: 1; top: 0; left: 0; }
   .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
   /* Arranging: panels sit still under their buttons, a touch on one drags it

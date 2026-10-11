@@ -7,6 +7,7 @@
   // Ledger itself, again whenever Rules change and on Today's poll, starting
   // from the last answer so it doesn't pop in.
   import { onMount } from "svelte";
+  import { sheet } from "$lib/sheet.svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import { needsToken, serviceOf } from "../sources";
   import { andList, tokenAction, tokenPending, type TokenNeed } from "../tokens.svelte";
@@ -66,10 +67,11 @@
   }
 
   onMount(() => {
-    load();
+    // Fresh answers once a page sliding in has landed (lib/sheet.svelte.ts).
+    const cancel = sheet.afterSlide(load);
     const poll = setInterval(load, POLL_MS);
     window.addEventListener(RULES_CHANGED, load);
-    return () => { clearInterval(poll); window.removeEventListener(RULES_CHANGED, load); };
+    return () => { cancel(); clearInterval(poll); window.removeEventListener(RULES_CHANGED, load); };
   });
 </script>
 

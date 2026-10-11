@@ -2,6 +2,7 @@
   // The first two Days after setup, every change applies at once. This says
   // until when, and lets the user end it early (a second tap confirms).
   import { onMount } from "svelte";
+  import { sheet } from "$lib/sheet.svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import { POLL_MS } from "../live.svelte";
   import { hhmm } from "../rules";
@@ -29,11 +30,12 @@
     try { await ledger("POST", "/grace/end"); window.dispatchEvent(new Event(RULES_CHANGED)); await load(); } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
   onMount(() => {
-    load();
+    // Fresh answers once a page sliding in has landed (lib/sheet.svelte.ts).
+    const cancel = sheet.afterSlide(load);
     // The tablet's Today column stays open for days: ask again on its poll, so the banner goes when grace ends.
     const poll = setInterval(load, POLL_MS);
     window.addEventListener(RULES_CHANGED, load);
-    return () => { clearInterval(poll); window.removeEventListener(RULES_CHANGED, load); };
+    return () => { cancel(); clearInterval(poll); window.removeEventListener(RULES_CHANGED, load); };
   });
 </script>
 

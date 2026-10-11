@@ -16,7 +16,7 @@
 
 {#if wide.on}
   <div class="wide">
-    <PageHeader title="Rules" back={() => goto("/")} backIcon="down" backLabel="Back to Today">
+    <PageHeader title="Rules" back={() => goto("/", { keepFocus: true })} backIcon="down" backLabel="Back to Today">
       <!-- Page-wide notices fill the header beside the title. -->
       {#if NOTICES_IN_HEADER}<div class="noticeslot"><RulesNotices row /></div>{/if}
     </PageHeader>

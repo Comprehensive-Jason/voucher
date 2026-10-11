@@ -6,6 +6,7 @@
   // otherwise they stack, as on the phone's Rules and at the foot of the
   // tablet's Today column. All are the shared .notice card (theme.css).
   import { onMount } from "svelte";
+  import { sheet } from "$lib/sheet.svelte";
   import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "../api";
   import GraceBanner from "./GraceBanner.svelte";
   import WaitingChanges from "./WaitingChanges.svelte";
@@ -25,10 +26,11 @@
 
   onMount(() => {
     const check = () => protection().then((g) => { if (!sameAnswer(g, guard)) guard = g; });
-    check();
+    // Fresh answers once a page sliding in has landed (lib/sheet.svelte.ts).
+    const cancel = sheet.afterSlide(check);
     // Today's column stays open for days, so look again on its poll.
     const poll = setInterval(check, POLL_MS);
-    return () => clearInterval(poll);
+    return () => { cancel(); clearInterval(poll); };
   });
 </script>
 
