@@ -4,7 +4,11 @@
 // tasks. A colour chosen on Rules replaces the default.
 import { custom } from "./colors.svelte";
 import type { SourceKind } from "./types";
-export interface SourceStyle { name: string; short: string; color: string; sub?: string }
+export interface SourceStyle {
+  name: string; short: string; color: string; sub?: string;
+  /** For a task service: where its API token is found, shown beside its token field. */
+  tokenHelp?: string;
+}
 
 /** Defaults for the sources Voucher ships with, and for ones from before
  *  groups (`readwise`, `moonreader`) that older log entries still name. None
@@ -22,8 +26,8 @@ export const SOURCES: Record<string, SourceStyle> = {
 
 /** The task services, members of the Tasks group. */
 const SERVICES: Record<string, SourceStyle> = {
-  todoist: { name: "Todoist", short: "Todoist", color: "#289ffb", sub: "your completed tasks" },
-  clickup: { name: "ClickUp", short: "ClickUp", color: "#aeccfe", sub: "assigned to you" },
+  todoist: { name: "Todoist", short: "Todoist", color: "#289ffb", sub: "your completed tasks", tokenHelp: "An API token: in Todoist, Settings, Integrations, Developer." },
+  clickup: { name: "ClickUp", short: "ClickUp", color: "#aeccfe", sub: "assigned to you", tokenHelp: "A personal API token: in ClickUp, Settings, Apps." },
 };
 
 /** Colours for groups the user makes, in the order new ones take them (light

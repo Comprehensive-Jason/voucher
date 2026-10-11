@@ -14,3 +14,15 @@ export function noteTokenSaved(service: string) {
 
 /** Whether a token for this service was saved here and the Ledger hasn't checked it yet. */
 export const tokenPending = (service: string, now = Date.now()) => now - (saved[service] ?? 0) < NEXT_CHECK_MS;
+
+/** A task service whose token is wanted, and why ("sign-in expired", "not
+ *  connected"; none when the sheet is opened just to connect it). */
+export interface TokenNeed { service: string; problem?: string }
+
+/** The one button that opens the token sheet for all of them: "Connect" when
+ *  none was ever connected (or none says), else "Reconnect". */
+export const tokenAction = (needs: TokenNeed[]) =>
+  needs.length && needs.every((n) => !n.problem || n.problem === "not connected") ? "Connect" : "Reconnect";
+
+/** Names joined for reading: "Todoist", "Todoist and ClickUp", "A, B, and C". */
+export const andList = (names: string[]) => new Intl.ListFormat("en-US", { type: "conjunction" }).format(names);

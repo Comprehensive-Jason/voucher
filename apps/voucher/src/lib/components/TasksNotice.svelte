@@ -2,14 +2,14 @@
   // Tasks not counting: a task service (Todoist, ClickUp) turned Voucher's
   // token down, or was never connected, so finished tasks aren't earning.
   // Among Rules' notices, after Protection. The text names every broken
-  // service, and each gets its own button side by side (just "Reconnect"
-  // when there's one), opening the same token sheet as Sources. It asks the
+  // service; one button ("Reconnect", or "Connect" when none was ever
+  // connected) opens one token sheet with a field for each. It asks the
   // Ledger itself, again whenever Rules change and on Today's poll, starting
   // from the last answer so it doesn't pop in.
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import { needsToken, serviceOf } from "../sources";
-  import { noteTokenSaved, tokenPending } from "../tokens.svelte";
+  import { andList, tokenAction, tokenPending, type TokenNeed } from "../tokens.svelte";
   import { POLL_MS } from "../live.svelte";
   import { reveal } from "../motion";
   import type { Status } from "../types";
@@ -19,7 +19,8 @@
 
   let status = $state<Status | null>(statusNow());
   let now = $state(Date.now());
-  let reconnecting = $state<string | null>(null);
+  /** The services the open token sheet asks for, as they were when it opened. */
+  let reconnecting = $state<TokenNeed[] | null>(null);
 
   /** Task services, in Tasks sources that are on, that need a new token. */
   const broken = $derived.by(() => {
@@ -38,30 +39,27 @@
   const waiting = $derived(broken.filter((b) => tokenPending(b.service, now)));
   const asking = $derived(broken.filter((b) => !waiting.includes(b)));
 
-  /** "and"-joined service names: "Todoist", "Todoist and ClickUp". */
-  const names = (list: { service: string }[]) => list.map((b) => serviceOf(b.service).name).join(" and ");
+  /** Service names for reading: "Todoist", "Todoist and ClickUp", "A, B, and C". */
+  const names = (list: { service: string }[]) => andList(list.map((b) => serviceOf(b.service).name));
   /** What's wrong, naming every service: "Todoist's and ClickUp's tokens were
    *  turned down", "ClickUp isn't connected", or both kinds joined. */
   const text = $derived.by(() => {
     const down = asking.filter((b) => b.problem !== "not connected");
     const unconnected = asking.filter((b) => b.problem === "not connected");
     const parts: string[] = [];
-    if (down.length) parts.push(`${down.map((b) => `${serviceOf(b.service).name}'s`).join(" and ")} ${down.length > 1 ? "tokens were" : "token was"} turned down`);
+    if (down.length) parts.push(`${andList(down.map((b) => `${serviceOf(b.service).name}'s`))} ${down.length > 1 ? "tokens were" : "token was"} turned down`);
     if (unconnected.length) parts.push(`${names(unconnected)} ${unconnected.length > 1 ? "aren't" : "isn't"} connected`);
     return `${parts.join(" and ")}, so finished tasks aren't earning.`;
   });
-  /** A button's words: "Reconnect" alone, or the service's name beside the others. */
-  const label = (b: { service: string; problem: string }) =>
-    asking.length > 1 ? serviceOf(b.service).name : b.problem === "not connected" ? "Connect" : "Reconnect";
 
   async function load() {
     now = Date.now();
     try { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } catch { /* the Ledger notice says so */ }
   }
 
-  function onsaved() {
-    if (reconnecting) noteTokenSaved(reconnecting);
-    reconnecting = null;
+  /** The sheet notes each saved token itself; it closes once all filled ones saved. */
+  function onsaved(_saved: string[], done: boolean) {
+    if (done) reconnecting = null;
     now = Date.now();
     // Sources shows the token's state too.
     window.dispatchEvent(new Event(RULES_CHANGED));
@@ -81,9 +79,7 @@
       <span class="cap">Tasks not counting</span>
       <span>{text}</span>
     </div>
-    {#each asking as b (b.service)}
-      <button class="btn small fix" aria-label="{b.problem === "not connected" ? "Connect" : "Reconnect"} {serviceOf(b.service).name}" onclick={() => (reconnecting = b.service)}>{label(b)}</button>
-    {/each}
+    <button class="btn small fix" aria-label="{tokenAction(asking)} {names(asking)}" onclick={() => (reconnecting = asking.map((b) => ({ ...b })))}>{tokenAction(asking)}</button>
   </div>
 {:else if waiting.length}
   <div class="notice good" transition:reveal={{ axis }}>
@@ -95,5 +91,5 @@
 {/if}
 
 {#if reconnecting}
-  <TokenSheet source={reconnecting} onclose={() => (reconnecting = null)} {onsaved} />
+  <TokenSheet services={reconnecting} onclose={() => (reconnecting = null)} {onsaved} />
 {/if}

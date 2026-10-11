@@ -15,12 +15,13 @@
   import ColorSheet from "../components/ColorSheet.svelte";
   import { RATE_RANGE, compareSources, defaultColorOf, memberName, needsToken, rateText, serviceOf, styleOf } from "../sources";
   import { hhmm, until } from "../rules";
-  import { noteTokenSaved, tokenPending } from "../tokens.svelte";
+  import { andList, tokenAction, tokenPending, type TokenNeed } from "../tokens.svelte";
   import type { Source, SourceKind, Status } from "../types";
 
   let status = $state<Status | null>(statusNow());
   let error = $state<string | null>(null);
-  let reconnecting = $state<string | null>(null);
+  /** The task services the open token sheet asks for, as they were when it opened. */
+  let reconnecting = $state<TokenNeed[] | null>(null);
   let note = $state<string | null>(null);
   /** The source whose color is being picked. */
   let coloring = $state<string | null>(null);
@@ -54,8 +55,10 @@
     const hit = status?.pending.find(([c]) => (c as any).Source?.id === id);
     return hit ? { ...(hit[0] as any).Source, at: hit[1] } : null;
   }
-  /** The task services in this group that need a new token (not one just saved here). */
-  const brokenServices = (s: Source) => s.kind === "tasks" ? s.packages.filter((p) => needsToken(status?.source_errors[p]) && !tokenPending(p)) : [];
+  /** The task services in this group that need a new token (not one just saved here), and why. */
+  const brokenServices = (s: Source): TokenNeed[] => s.kind === "tasks"
+    ? s.packages.filter((p) => needsToken(status?.source_errors[p]) && !tokenPending(p)).map((p) => ({ service: p, problem: status!.source_errors[p] }))
+    : [];
   function problemOf(s: Source): string | null {
     if (s.kind !== "tasks") return null;
     // Every broken service is named; services with the same problem share one clause.
@@ -139,9 +142,9 @@
         {#if waiting}
           <div class="waiting">{waiting.on ? (s.on ? `${rate(s.kind, waiting.every)}` : "On") : "Off"} at {hhmm(status.settings.morning_boundary)}, {until(waiting.at)}</div>
         {/if}
-        {#each broken as service}
-          <button class="btn small" onclick={() => (reconnecting = service)}>Reconnect {serviceOf(service).name}</button>
-        {/each}
+        {#if broken.length}
+          <button class="btn small" aria-label="{tokenAction(broken)} {andList(broken.map((b) => serviceOf(b.service).name))}" onclick={() => (reconnecting = broken)}>{tokenAction(broken)}</button>
+        {/if}
       </RulesCard>
     {/each}
     {#each comingUp as g (g.id)}
@@ -162,8 +165,8 @@
 </RulesColumn>
 
 {#if reconnecting}
-  <TokenSheet source={reconnecting} onclose={() => (reconnecting = null)}
-    onsaved={() => { noteTokenSaved(reconnecting!); note = "Token saved. It counts again from the next check, within 5 minutes."; reconnecting = null; load(); }} />
+  <TokenSheet services={reconnecting} onclose={() => (reconnecting = null)}
+    onsaved={(saved, done) => { note = `${saved.length > 1 ? "Tokens" : "Token"} saved. Tasks count again from the next check, within 5 minutes.`; if (done) reconnecting = null; load(); }} />
 {/if}
 
 {#if coloring && status}
