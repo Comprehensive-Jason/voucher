@@ -1,23 +1,24 @@
 <script lang="ts">
   // Does doing one thing go with another going better? For each source, the
   // Days it earned against the Days it didn't, on the same Day and the Day
-  // after: did another source earn more, was a smaller share of the Day's
-  // Vouchers torn, were more blocked opens walked away from, was the Day's
-  // longest focus stretch longer, the night after longer, or the energy
-  // answer higher? A good night, a busy calendar, and late Distraction are
-  // drivers too (rules below), and a focus stretch with an Unlock or
-  // Distraction in the hour before it is set against stretches without.
-  // Plain averages, no guessing at causes. Unlocks and Distraction are never
-  // Day drivers of Voucher outcomes, and Unlocked or Distraction minutes
-  // never outcomes: earning is what pays for Unlocks, so those pairs would
-  // partly be the Bank's own bookkeeping; late Distraction goes only with
-  // the night after and the next Day's energy. A Day without the data (no
-  // night recorded, no calendar chosen, no energy answer, no Distraction
-  // spans) is missing, never zero. Which findings show, and how sure each
-  // is, comes from lib/correlate.ts (its showing rule and confidence tiers),
-  // every pair corrected together. Findings are grouped by what changed,
-  // groups by how much changed in all (each change as a share of its usual
-  // level), largest first.
+  // after: did another source earn more, were more blocked opens walked away
+  // from, was the Day's longest focus stretch longer, the night after
+  // longer, or the energy answer higher? A good night, a busy calendar, and
+  // late Distraction are drivers too (rules below), and a focus stretch with
+  // an Unlock or Distraction in the hour before it is set against stretches
+  // without. Plain averages, no guessing at causes. Unlocks and Distraction
+  // are never Day drivers of Voucher outcomes, and Unlocked minutes never an
+  // outcome: earning is what pays for Unlocks, so those pairs would partly
+  // be the Bank's own bookkeeping. For the same reason Distraction minutes
+  // are an outcome only of what lies outside that economy (a good night and
+  // a busy calendar), never of a source; late Distraction goes only with the
+  // night after and the next Day's energy. A Day without the data (no night
+  // recorded, no calendar chosen, no energy answer, no device reporting
+  // Distraction, no Distraction spans) is missing, never zero. Which
+  // findings show, and how sure each is, comes from lib/correlate.ts (its
+  // showing rule and confidence tiers), every pair corrected together.
+  // Findings are grouped by what changed, groups by how much changed in all
+  // (each change in its outcome's usual Day-to-Day spread), largest first.
   //
   // One-third slot (and the phone): group boxes in two columns that each keep
   // their own height, scrolling, with a fade while more is below. Two-thirds:
@@ -30,6 +31,7 @@
   import { correlate, MIN_N, STRETCH, type BreakDriver, type StretchDay, type Tested } from "../../correlate";
   import { curfew } from "../../curfew.svelte";
   import { clock } from "../../time";
+  import { measured } from "../../notes.svelte";
   import type { DayTotal } from "../../types";
 
   let { history, timeZone = "UTC" }: { history: DayTotal[]; timeZone?: string } = $props();
@@ -63,15 +65,17 @@
   const sources = $derived([...new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))]);
   /** The Day's longest focus stretch, as Before and after's "Longest focus" takes it. */
   const longest = (d: DayTotal) => (d.stretches?.length ? Math.max(...d.stretches) : NaN);
-  const SLEEP = "~asleep", ENERGY = "~energy", GOOD_NIGHT = "~goodnight", BUSY = "~busy", LATE = "~late";
+  const SLEEP = "~asleep", ENERGY = "~energy", DISTRACTED = "~distracted", GOOD_NIGHT = "~goodnight", BUSY = "~busy", LATE = "~late";
+  /** The Day's Distraction minutes, every app and device together, or NaN when no device reported. */
+  const distracted = (d: DayTotal) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : NaN);
   const measures = $derived<Measure[]>([
     ...sources.map((id): Measure => {
       const s = styleOf(id);
       return { id, name: s.name, color: s.color, unit: "vouchers", up: true, note: "Vouchers", value: (d) => d.by_source?.[id] ?? 0 };
     }),
-    { id: "~torn", name: "Vouchers torn", color: "var(--spend)", unit: "percent", up: false, note: "% of earned", value: (d) => (d.earned ? (d.redeemed / d.earned) * 100 : NaN) },
     { id: "~walked", name: "Walked away", color: "var(--muted)", unit: "percent", up: true, note: "% of blocked opens", value: (d) => (d.opens ? (Math.min(d.walked ?? 0, d.opens) / d.opens) * 100 : NaN) },
     { id: "~longest", name: "Longest focus stretch", color: "var(--ink)", unit: "minutes", up: true, note: "minutes", value: longest },
+    { id: DISTRACTED, name: "Distraction", color: "var(--muted)", unit: "minutes", up: false, note: "minutes", value: distracted },
     // The night that led into the Day.
     { id: SLEEP, name: "Time asleep", color: "var(--sleep)", unit: "minutes", up: true, note: "minutes", value: (d) => d.sleep?.asleep ?? NaN },
     { id: ENERGY, name: "Energy", color: "var(--energy)", unit: "energy", up: true, note: "1 to 5", value: (d) => d.energy ?? NaN },
@@ -131,6 +135,9 @@
    *  is an outcome only of the Day before (lag 1, "Night after") and a
    *  driver only of its own Day (lag 0): each night meets each Day once. */
   function skip(driver: string, outcome: string, lag: 0 | 1): boolean {
+    // Distraction minutes are what Unlocks are spent on and what earning
+    // pays for, so only drivers outside that economy go with them.
+    if (outcome === DISTRACTED) return !(driver === BUSY || (driver === GOOD_NIGHT && lag === 0));
     // An Anki session both makes an Anki Day and is a focus stretch, so the same Day's pair says nothing.
     if (lag === 0 && outcome === "~longest" && makesStretches(driver)) return true;
     if (outcome === SLEEP && lag === 0) return true;
@@ -151,10 +158,10 @@
   const groups = $derived.by((): Group[] => {
     const by = new Map<string, Tested[]>();
     for (const t of tested) if (t.shown) by.set(t.outcome, [...(by.get(t.outcome) ?? []), t]);
-    const total = (list: Tested[]) => list.reduce((a, t) => a + t.share, 0);
+    const total = (list: Tested[]) => list.reduce((a, t) => a + t.effect, 0);
     return [...by]
       .sort((a, b) => total(b[1]) - total(a[1]))
-      .map(([id, list]) => ({ outcome: measureOf.get(id)!, findings: list.sort((a, b) => b.share - a.share) }));
+      .map(([id, list]) => ({ outcome: measureOf.get(id)!, findings: list.sort((a, b) => b.effect - a.effect) }));
   });
   /** Outcomes with something to compare but no finding yet. */
   const quiet = $derived(measures.filter((m) => !groups.some((g) => g.outcome.id === m.id) && days.some((d) => !Number.isNaN(m.value(d)))));
@@ -280,7 +287,7 @@
 {/snippet}
 
 {#snippet pill(f: Tested, o: Measure)}
-  <b class="pill" class:good={better(f, o)} class:low={f.confidence === 1}>{change(f, o.unit)}</b>
+  <b class="pill" class:good={better(f, o)}>{change(f, o.unit)}</b>
 {/snippet}
 
 {#snippet split(f: Tested, w: number)}
@@ -423,14 +430,13 @@
   .who i { flex: none; width: 7px; height: 7px; border-radius: 50%; }
   .who span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* The change: green on a green tint when better, ink on crimson when worse;
-     a Low-confidence one is only outlined, its text in the outline's color
-     (crimson lifted toward ink so it reads at 4.5:1), so the weakest isn't
-     the loudest. */
-  .pill { font: 700 11px/1 var(--mono); padding: 2px 5px; border: 1px solid transparent; border-radius: 6px; white-space: nowrap; color: var(--ink); background: var(--worse); }
+  /* The change, one look at every confidence (the bars say how sure): its
+     direction's color on a tint of it, green when better and crimson when
+     worse. Crimson text is lib/about.ts's crimson text tint lifted a little
+     (#ef5e76), so it reads at 4.5:1 on the tint over a box (4.7:1) as well
+     as on the card (5.2:1). */
+  .pill { font: 700 11px/1 var(--mono); padding: 3px 5px; border-radius: 6px; white-space: nowrap; color: #ef5e76; background: color-mix(in oklab, var(--worse) 13%, transparent); }
   .pill.good { color: var(--voucher); background: color-mix(in oklab, var(--voucher) 13%, transparent); }
-  .pill.low { background: none; border-color: var(--worse); color: color-mix(in oklab, var(--worse), var(--ink) 45%); }
-  .pill.good.low { border-color: var(--voucher); color: var(--voucher); }
 
   /* Confidence: three bars like a signal icon. */
   .conf { flex: none; display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }

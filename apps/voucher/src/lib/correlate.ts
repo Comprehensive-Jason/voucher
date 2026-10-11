@@ -5,19 +5,30 @@
 // outcome (a number per Day: Chinese Vouchers, the longest focus stretch),
 // compare the outcome's plain average on Days with the driver against Days
 // without, on the same Day or the Day after. Then ask how often chance gives
-// a gap that big: slide the driver's Days along the calendar (wrapping
-// round), which keeps how its Days bunch and how often they come but breaks
-// any tie to the outcome, and count the slides whose gap is at least as big
-// either way. Slides of a week or less are skipped, since a streak would
-// still mostly line up with itself.
+// a gap that big: cut the calendar into whole Monday-to-Sunday weeks and
+// shuffle which week's driver pattern goes with which week's outcomes. Each
+// Monday still meets a Monday, so the weekly rhythm stays (a driver that
+// comes on weekdays still meets weekday outcomes), and a week's run of Days
+// moves together, but any tie between the driver and the outcome beyond
+// that is broken. Count the shuffles whose gap is at least as big either way.
 //
 // Stretch by stretch (breaks). Did a focus stretch have a break (Unlocked or
 // Distraction time) in the hour before it started, and was it longer or
 // shorter than the stretches without one? Stretches on the same Day aren't
 // independent (a scattered Day has short stretches and many breaks), so
-// chance is judged a whole Day at a time: each Day's stretches are checked
-// against another Day's breaks, slid along the calendar the same way, so a
-// Day's stretches always move together and so do its breaks.
+// chance is judged a whole Day at a time with the same week shuffles: each
+// Day's stretches are checked against the breaks of the same weekday in the
+// week it was shuffled with, so a Day's stretches always move together and
+// so do its breaks.
+//
+// The chance is (1 + shuffles at least as big) / (1 + shuffles drawn). The
+// shuffles are drawn at random from a seed made from the Days, so the same
+// Days always give the same answer. Every pair gets up to SHUFFLES of them,
+// stopping once ENOUGH have matched the real gap (its chance is then plainly
+// not small, and more shuffles would only refine a number that shows
+// nothing). A pair that chance almost never matches, and that isn't High
+// already, goes on to MORE_SHUFFLES, so a very small chance can be told
+// apart from merely small.
 //
 // Testing many pairs at once turns some up by luck, so every tested pair of
 // both kinds is corrected together (Benjamini-Hochberg) before it becomes a
@@ -49,14 +60,15 @@ export type Tested = {
   /** Days (or stretches) in each group. */
   withN: number;
   withoutN: number;
-  /** The outcome's usual level: its average over both groups. */
-  usual: number;
-  /** The change (with minus without) as a share of the usual level, ignoring direction. */
-  share: number;
-  /** Calendar slides whose gap was at least as big, and how many slides were compared. */
+  /** How much the outcome usually varies from Day to Day (or stretch to
+   *  stretch): the standard deviation over both groups, in its own units. */
+  spread: number;
+  /** The change (with minus without) in spreads, ignoring direction. */
+  effect: number;
+  /** Week shuffles whose gap was at least as big, and how many were compared. */
   extreme: number;
-  shifts: number;
-  /** (1 + extreme) / (1 + shifts). */
+  shuffles: number;
+  /** (1 + extreme) / (1 + shuffles). */
   p: number;
   /** p corrected across every tested pair. */
   q: number;
@@ -66,8 +78,6 @@ export type Tested = {
 };
 
 export type Options = {
-  /** Slides this close to zero (in Days, either way) are skipped. */
-  guard?: number;
   /** Pairs that are linked by how they are counted, not by anything you do. */
   skip?: (driver: string, outcome: string, lag: 0 | 1) => boolean;
 };
@@ -77,26 +87,40 @@ export type Options = {
 export const MIN_N = 8;
 /** Fewest different Days each side's stretches come from. */
 export const MIN_STRETCH_DAYS = 5;
-/** Smallest change shown, in the outcome's own units (Vouchers, minutes, or percentage points). */
+/** Smallest change shown, in the outcome's own units (Vouchers, minutes, percentage points, or energy steps). */
 export const FLOOR = 0.5;
-/** Smallest change shown, as a share of the usual level: Low and Medium need a quarter, High a tenth. */
-export const SHARE = 0.25;
-export const SHARE_HIGH = 0.1;
+/** Smallest change shown, in spreads (see Tested.spread): Low and Medium
+ *  need 0.3, High 0.2. A spread suits every unit alike, Vouchers, minutes,
+ *  percent, or energy. The standard deviation rather than a robust one
+ *  (MAD × 1.4826): a source that earns on fewer than half the Days has a
+ *  median of 0 and a MAD of 0, which would let any change through. */
+export const EFFECT = 0.3;
+export const EFFECT_HIGH = 0.2;
 /** A break: at least this many minutes of it in the hour before a stretch starts. */
 export const BREAK_MINUTES = 10;
 export const BREAK_WINDOW = 60;
+/** Week shuffles for every pair, and for a pair whose chance after those is
+ *  under MORE_BELOW and isn't High yet. 2,000 alone can't get a lone finding
+ *  to High: with about 110 pairs, the smallest chance (1 in 2,001) corrects
+ *  to just over 0.05. 20,000 brings that to about 0.006. A pair stops early
+ *  once ENOUGH shuffles have matched its gap (a chance of 5% or more), which
+ *  keeps the 100-odd pairs to a few milliseconds. */
+export const SHUFFLES = 2000;
+export const MORE_SHUFFLES = 20000;
+export const MORE_BELOW = 0.01;
+export const ENOUGH = 100;
 
 /** From the corrected chance q: High under 0.05, Medium under 0.2, Low under
  *  0.5, else Very low (more likely a fluke than real, so never shown). */
 export const confidenceOf = (q: number): Confidence => (q < 0.05 ? 3 : q < 0.2 ? 2 : q < 0.5 ? 1 : 0);
 
 /** At least MIN_N on each side and a change of at least FLOOR; then Low and
- *  Medium need a change of a quarter of the usual level, High a tenth, and
- *  Very low never shows. */
+ *  Medium need a change of EFFECT spreads, High EFFECT_HIGH, and Very low
+ *  never shows. */
 export function shows(t: Omit<Tested, "shown">): boolean {
-  if (t.withN < MIN_N || t.withoutN < MIN_N || !(t.usual > 0)) return false;
+  if (t.withN < MIN_N || t.withoutN < MIN_N || !(t.spread > 0)) return false;
   if (Math.abs(t.withAvg - t.withoutAvg) < FLOOR || !t.confidence) return false;
-  return t.share >= (t.confidence === 3 ? SHARE_HIGH : SHARE);
+  return t.effect >= (t.confidence === 3 ? EFFECT_HIGH : EFFECT);
 }
 
 const DAY = 86_400_000;
@@ -116,44 +140,100 @@ export function adjust(ps: number[]): number[] {
   return q;
 }
 
-/** An outcome's known Days only (calendar index and value), so the slides skip the unknowns. */
-type Known = { at: Int32Array; v: Float64Array };
-function known(y: Float64Array): Known {
-  const at: number[] = [], v: number[] = [];
-  y.forEach((x, i) => { if (x === x) { at.push(i); v.push(x); } });
-  return { at: Int32Array.from(at), v: Float64Array.from(v) };
+/** A small seeded generator (mulberry32): the same seed, the same shuffles. */
+function random(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-/** The with-minus-without gap with `c` slid `k` Days along a calendar of `n` (wrapping), or NaN when either group has fewer than `min`. */
-function gapAt({ at, v }: Known, c: Int8Array, n: number, k: number, min: number): number {
-  let s1 = 0, n1 = 0, s0 = 0, n0 = 0;
-  for (let r = 0; r < at.length; r++) {
-    let j = at[r] - k;
-    if (j < 0) j += n;
-    const f = c[j];
-    if (f === 1) { s1 += v[r]; n1++; } else if (f === 0) { s0 += v[r]; n0++; }
+/** A seed from the Days (FNV-1a over the dates). */
+function seedOf(days: string[]): number {
+  let h = 0x811c9dc5;
+  for (const d of days) for (let i = 0; i < d.length; i++) h = Math.imul(h ^ d.charCodeAt(i), 0x01000193);
+  return h >>> 0;
+}
+
+/** Week shuffles, drawn as needed and shared by every pair: in `upTo(c)`,
+ *  shuffle `s` sends week w's outcomes to week `list[s * weeks + w]`'s driver. */
+type Shuffles = { weeks: number; upTo: (count: number) => Uint16Array };
+function shufflesOf(weeks: number, seed: number): Shuffles {
+  const next = random(seed);
+  let list = new Uint16Array(0), made = 0;
+  const upTo = (count: number) => {
+    if (count <= made) return list;
+    const W = weeks, more = new Uint16Array(count * W);
+    more.set(list);
+    for (let s = made; s < count; s++) {
+      const o = s * W;
+      for (let w = 0; w < W; w++) more[o + w] = w;
+      for (let w = W - 1; w > 0; w--) {
+        const k = Math.floor(next() * (w + 1));
+        const t = more[o + w]; more[o + w] = more[o + k]; more[o + k] = t;
+      }
+    }
+    list = more;
+    made = count;
+    return list;
+  };
+  return { weeks, upTo };
+}
+
+/** A pair's sums for every (outcome week, driver week): at `(w * W + u) * 6`,
+ *  week w's outcomes against week u's driver, weekday by weekday, as the
+ *  with sum, count, and Days, then the without sum, count, and Days. Any
+ *  shuffle's gap is then one pass over the weeks instead of over every Day,
+ *  and the real gap is the shuffle that leaves every week in place. */
+type Table = Float64Array;
+const S1 = 0, N1 = 1, D1 = 2, S0 = 3, N0 = 4, D0 = 5;
+
+/** Each week's sums against its own week, added up: the real gap, or NaN
+ *  when a side has fewer than MIN_N or comes from fewer than `minDays` Days.
+ *  Writes the totals to `into`. */
+function realGap(t: Table, W: number, minDays: number, into: Float64Array): number {
+  let s1 = 0, n1 = 0, d1 = 0, s0 = 0, n0 = 0, d0 = 0;
+  for (let w = 0; w < W; w++) {
+    const k = (w * W + w) * 6;
+    s1 += t[k]; n1 += t[k + 1]; d1 += t[k + 2]; s0 += t[k + 3]; n0 += t[k + 4]; d0 += t[k + 5];
   }
-  return n1 >= min && n0 >= min ? s1 / n1 - s0 / n0 : NaN;
+  into[S1] = s1; into[N1] = n1; into[D1] = d1; into[S0] = s0; into[N0] = n0; into[D0] = d0;
+  return n1 >= MIN_N && n0 >= MIN_N && d1 >= minDays && d0 >= minDays ? s1 / n1 - s0 / n0 : NaN;
 }
 
-/** Count the slides (past the guard either way) whose gap is at least as big as `real`. */
-function slide(n: number, real: number, guard: number, gap: (k: number) => number): { extreme: number; shifts: number } {
-  const target = Math.abs(real) - 1e-9;
-  let extreme = 0, shifts = 0;
-  for (let k = guard + 1; k <= n - guard - 1; k++) {
-    const g = gap(k);
-    if (g !== g) continue;
-    shifts++;
-    if (Math.abs(g) >= target) extreme++;
+/** A pair's shuffle count so far: shuffles `[0, next)` drawn, `done` of
+ *  them with both sides full, `extreme` at least as big as the real gap. */
+type Tally = { t: Table; minDays: number; target: number; next: number; done: number; extreme: number };
+
+/** Go on counting a pair's shuffles up to `upTo`, stopping once ENOUGH have
+ *  matched; shuffles that leave a side short don't count. */
+function count(shuffles: Shuffles, tally: Tally, upTo: number): void {
+  const { t, minDays, target } = tally, W = shuffles.weeks, perm = shuffles.upTo(upTo);
+  let { extreme, done } = tally, s = tally.next;
+  for (; s < upTo && extreme < ENOUGH; s++) {
+    const o = s * W;
+    let s1 = 0, n1 = 0, s0 = 0, n0 = 0;
+    for (let w = 0, row = 0; w < W; w++, row += W) {
+      const k = (row + perm[o + w]) * 6;
+      s1 += t[k]; n1 += t[k + 1]; s0 += t[k + 3]; n0 += t[k + 4];
+    }
+    if (n1 < MIN_N || n0 < MIN_N) continue;
+    if (minDays) {
+      let d1 = 0, d0 = 0;
+      for (let w = 0, row = 0; w < W; w++, row += W) { const k = (row + perm[o + w]) * 6; d1 += t[k + 2]; d0 += t[k + 5]; }
+      if (d1 < minDays || d0 < minDays) continue;
+    }
+    done++;
+    const g = s1 / n1 - s0 / n0;
+    if (g >= target || -g >= target) extreme++;
   }
-  return { extreme, shifts };
+  tally.next = s; tally.done = done; tally.extreme = extreme;
 }
-
-/** The circular-shift test for one Day-level pair: how many slides beat the real gap, out of how many. */
-export function shiftTest(y: Float64Array, c: Int8Array, real: number, min: number, guard: number): { extreme: number; shifts: number } {
-  const k = known(y);
-  return slide(y.length, real, guard, (s) => gapAt(k, c, y.length, s, min));
-}
+const chance = (tally: Tally) => (1 + tally.extreme) / (1 + tally.done);
 
 /** Minutes of `breaks` in the window before `start`. */
 function before(breaks: [number, number][], start: number): number {
@@ -162,24 +242,14 @@ function before(breaks: [number, number][], start: number): number {
   return m;
 }
 
-/** Stretches after a break against stretches without, judging calendar Day
- *  `i`'s stretches against Day `j(i)`'s breaks; NaN-gapped when either side
- *  is short of MIN_N stretches or MIN_STRETCH_DAYS Days. */
-function breakGap(cal: (StretchDay | undefined)[], j: (i: number) => number) {
-  let s1 = 0, n1 = 0, d1 = 0, s0 = 0, n0 = 0, d0 = 0;
-  for (let i = 0; i < cal.length; i++) {
-    const own = cal[i], other = cal[j(i)];
-    if (!own || !other) continue;
-    let with_ = 0, without = 0;
-    for (const s of own.stretches) {
-      if (before(other.breaks, s.start) >= BREAK_MINUTES) { s1 += s.minutes; with_++; } else { s0 += s.minutes; without++; }
-    }
-    n1 += with_; n0 += without;
-    if (with_) d1++;
-    if (without) d0++;
+/** One Day's stretches judged against another Day's breaks: sums and counts
+ *  of the stretches with a break before and without. */
+function dayBreaks(own: StretchDay, other: StretchDay) {
+  let s1 = 0, n1 = 0, s0 = 0, n0 = 0;
+  for (const s of own.stretches) {
+    if (before(other.breaks, s.start) >= BREAK_MINUTES) { s1 += s.minutes; n1++; } else { s0 += s.minutes; n0++; }
   }
-  const enough = n1 >= MIN_N && n0 >= MIN_N && d1 >= MIN_STRETCH_DAYS && d0 >= MIN_STRETCH_DAYS;
-  return { gap: enough ? s1 / n1 - s0 / n0 : NaN, s1, n1, s0, n0, enough };
+  return { s1, n1, s0, n0 };
 }
 
 /** Every driver against every outcome, the same Day and the Day after, plus
@@ -188,13 +258,18 @@ function breakGap(cal: (StretchDay | undefined)[], j: (i: number) => number) {
  *  every tested pair (both groups had MIN_N), with its confidence corrected
  *  across all of them and whether it shows. */
 export function correlate(days: string[], drivers: Driver[], outcomes: Outcome[], breaks: BreakDriver[] = [], options: Options = {}): Tested[] {
-  const { guard = 7, skip } = options;
+  const { skip } = options;
   const all = [...days, ...breaks.flatMap((b) => b.days.map((d) => d.day))];
   if (!all.length) return [];
-  // Lay the Days on an unbroken calendar, so "the Day after" and a slide of k
-  // Days mean real Days; missing Days are unknown.
+  // Lay the Days on an unbroken calendar, so "the Day after" means the real
+  // Day after; missing Days are unknown. Then cut it into Monday-to-Sunday
+  // weeks: calendar Day i sits in slot i + lead, week (i + lead) / 7.
   const first = Math.min(...all.map(dayNumber));
   const n = Math.max(...all.map(dayNumber)) - first + 1;
+  const lead = (first + 3) % 7; // Day 0 (1970-01-01) was a Thursday, 3 after Monday.
+  const W = Math.ceil((n + lead) / 7);
+  const shuffles = shufflesOf(W, seedOf([...new Set(all)].sort()));
+
   const at = days.map((d) => dayNumber(d) - first);
   const series = (src: ArrayLike<number>) => { const y = new Float64Array(n).fill(NaN); at.forEach((i, r) => (y[i] = src[r])); return y; };
   const flags = (src: ArrayLike<number>, lag: number) => {
@@ -202,38 +277,90 @@ export function correlate(days: string[], drivers: Driver[], outcomes: Outcome[]
     at.forEach((i, r) => { if (i + lag < n) c[i + lag] = src[r] === 1 ? 1 : src[r] === 0 ? 0 : -1; });
     return c;
   };
-  const ys = outcomes.map((o) => { const y = series(o.values); return { id: o.id, y, k: known(y) }; });
+  const ys = outcomes.map((o) => ({ id: o.id, y: series(o.values) }));
   const out: Omit<Tested, "q" | "confidence" | "shown">[] = [];
+  /** Each pair's shuffle count, in `out`'s order, kept only where more shuffles may follow. */
+  const tallies: (Tally | undefined)[] = [];
+  /** One table, reused pair after pair; a pair that may need more shuffles keeps a copy. */
+  const table: Table = new Float64Array(W * W * 6);
+  const tally = (minDays: number, real: number): Tally => {
+    const x: Tally = { t: table, minDays, target: Math.abs(real) - 1e-9, next: 0, done: 0, extreme: 0 };
+    count(shuffles, x, SHUFFLES);
+    if (chance(x) < MORE_BELOW) { x.t = table.slice(); tallies.push(x); } else tallies.push(undefined);
+    return x;
+  };
   for (const d of drivers) {
     for (const lag of [0, 1] as const) {
       const c = flags(d.did, lag);
-      for (const { id, y, k } of ys) {
+      for (const { id, y } of ys) {
         if (id === d.id || skip?.(d.id, id, lag)) continue;
-        let s1 = 0, n1 = 0, s0 = 0, n0 = 0;
+        let s1 = 0, n1 = 0, s0 = 0, n0 = 0, sq = 0;
         for (let i = 0; i < n; i++) {
           const v = y[i];
           if (v !== v) continue;
-          if (c[i] === 1) { s1 += v; n1++; } else if (c[i] === 0) { s0 += v; n0++; }
+          if (c[i] === 1) { s1 += v; n1++; sq += v * v; } else if (c[i] === 0) { s0 += v; n0++; sq += v * v; }
         }
         if (n1 < MIN_N || n0 < MIN_N) continue;
-        const withAvg = s1 / n1, withoutAvg = s0 / n0, usual = (s1 + s0) / (n1 + n0);
+        const withAvg = s1 / n1, withoutAvg = s0 / n0, mean = (s1 + s0) / (n1 + n0);
+        const spread = Math.sqrt(Math.max(0, (sq - (n1 + n0) * mean * mean) / (n1 + n0 - 1)));
         const diff = withAvg - withoutAvg;
-        const { extreme, shifts } = slide(n, diff, guard, (s) => gapAt(k, c, n, s, MIN_N));
-        out.push({ driver: d.id, outcome: id, per: "day", lag, withAvg, withoutAvg, withN: n1, withoutN: n0, usual,
-          share: usual ? Math.abs(diff) / usual : 0, extreme, shifts, p: (1 + extreme) / (1 + shifts) });
+        // Calendar Day i (in week w) against the same weekday j of every week u.
+        const t = table.fill(0);
+        for (let i = 0; i < n; i++) {
+          const v = y[i];
+          if (v !== v) continue;
+          const w = ((i + lead) / 7) | 0, row = w * W;
+          for (let u = 0, j = i - 7 * w; u < W; u++, j += 7) {
+            if (j < 0 || j >= n || c[j] < 0) continue;
+            const k = (row + u) * 6 + (c[j] === 1 ? S1 : S0);
+            t[k] += v; t[k + 1]++;
+          }
+        }
+        const x = tally(0, diff);
+        out.push({ driver: d.id, outcome: id, per: "day", lag, withAvg, withoutAvg, withN: n1, withoutN: n0, spread,
+          effect: spread > 0 ? Math.abs(diff) / spread : 0, extreme: x.extreme, shuffles: x.done, p: chance(x) });
       }
     }
   }
   for (const b of breaks) {
     const cal: (StretchDay | undefined)[] = new Array(n);
     for (const d of b.days) cal[dayNumber(d.day) - first] = d;
-    const real = breakGap(cal, (i) => i);
-    if (!real.enough) continue;
-    const withAvg = real.s1 / real.n1, withoutAvg = real.s0 / real.n0, usual = (real.s1 + real.s0) / (real.n1 + real.n0);
-    const { extreme, shifts } = slide(n, real.gap, guard, (k) => breakGap(cal, (i) => (i - k + n) % n).gap);
-    out.push({ driver: b.id, outcome: STRETCH, per: "stretch", lag: 0, withAvg, withoutAvg, withN: real.n1, withoutN: real.n0, usual,
-      share: usual ? Math.abs(real.gap) / usual : 0, extreme, shifts, p: (1 + extreme) / (1 + shifts) });
+    // Week w's stretches against week u's breaks, weekday by weekday, with
+    // how many Days each side's stretches come from.
+    const t = table.fill(0);
+    for (let i = 0; i < n; i++) {
+      const own = cal[i];
+      if (!own) continue;
+      const w = ((i + lead) / 7) | 0, row = w * W;
+      for (let u = 0, j = i - 7 * w; u < W; u++, j += 7) {
+        const other = j < 0 || j >= n ? undefined : cal[j];
+        if (!other) continue;
+        const r = dayBreaks(own, other), k = (row + u) * 6;
+        t[k + S1] += r.s1; t[k + N1] += r.n1; t[k + S0] += r.s0; t[k + N0] += r.n0;
+        if (r.n1) t[k + D1]++;
+        if (r.n0) t[k + D0]++;
+      }
+    }
+    const totals = new Float64Array(6);
+    const gap = realGap(t, W, MIN_STRETCH_DAYS, totals);
+    if (gap !== gap) continue;
+    const real = { s1: totals[S1], n1: totals[N1], s0: totals[S0], n0: totals[N0], gap };
+    const withAvg = real.s1 / real.n1, withoutAvg = real.s0 / real.n0, mean = (real.s1 + real.s0) / (real.n1 + real.n0);
+    let sq = 0;
+    for (const d of cal) if (d) for (const s of d.stretches) sq += (s.minutes - mean) ** 2;
+    const spread = Math.sqrt(sq / (real.n1 + real.n0 - 1));
+    const x = tally(MIN_STRETCH_DAYS, real.gap);
+    out.push({ driver: b.id, outcome: STRETCH, per: "stretch", lag: 0, withAvg, withoutAvg, withN: real.n1, withoutN: real.n0, spread,
+      effect: spread > 0 ? Math.abs(real.gap) / spread : 0, extreme: x.extreme, shuffles: x.done, p: chance(x) });
   }
+  // More shuffles where a small chance isn't High yet, then the final correction.
+  const early = adjust(out.map((t) => t.p));
+  out.forEach((t, i) => {
+    if (t.p >= MORE_BELOW || confidenceOf(early[i]) === 3) return;
+    const x = tallies[i]!;
+    count(shuffles, x, MORE_SHUFFLES);
+    t.extreme = x.extreme; t.shuffles = x.done; t.p = chance(x);
+  });
   const qs = adjust(out.map((t) => t.p));
   return out.map((t, i) => {
     const r = { ...t, q: qs[i], confidence: confidenceOf(qs[i]) };
