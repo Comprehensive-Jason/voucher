@@ -3,8 +3,8 @@
   export type LegendItem = {
     /** line: a solid stroke; dash: a dotted stroke; box: a filled square; outline: a dashed hollow square;
      *  frame: a solid hollow square; corner: a square with a Marker's corner tick (heat grids); tick: a short upright mark (Habit strength's goal Days); dot: a filled circle; ring: a hollow circle; flag: a Marker; usual: a dashed
-     *  vertical line; hatch: unwatched time. */
-    kind: "line" | "dash" | "box" | "outline" | "frame" | "corner" | "tick" | "dot" | "ring" | "flag" | "usual" | "hatch";
+     *  vertical line; hatch: unwatched time; check: a done task (in ink). */
+    kind: "line" | "dash" | "box" | "outline" | "frame" | "corner" | "tick" | "dot" | "ring" | "flag" | "usual" | "hatch" | "check";
     color?: string;
     label: string;
   };
@@ -26,6 +26,8 @@
     {#if it.kind === "flag"}
       <!-- A Marker's key is its flag, drawn as on the charts and the Marker button. -->
       <span><svg class="flagkey" width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M1.6 11.2V1" stroke={it.color ?? "var(--marker)"} stroke-width="1.6" stroke-linecap="round" /><path d="M1.6 1h7l-2 2.75 2 2.75h-7z" fill={it.color ?? "var(--marker)"} /></svg>{it.label}</span>
+    {:else if it.kind === "check"}
+      <span><svg class="flagkey" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.6 5.2l2.4 2.4 4.6-5" fill="none" stroke={it.color ?? "var(--ink)"} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>{it.label}</span>
     {:else}
       <span><i class="{it.kind}" style="--c: {it.color ?? 'var(--muted)'}"></i>{it.label}</span>
     {/if}

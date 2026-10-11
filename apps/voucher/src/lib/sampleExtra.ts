@@ -2,7 +2,7 @@
 // lib/sample.ts's Days (and so to `?history=N`). A hash of each date picks
 // its figures, so any span agrees and screenshots are stable. Like the
 // Ledger: nights are later and longer at the weekend, about one in seven is
-// estimated (no Health Connect session), weekdays carry most meetings, and
+// estimated (no Health Connect session), weekdays carry most events, and
 // energy loosely follows the night before. Also each Day's Unlocks, focus
 // stretches with their starts, and Distraction spans, fitted to sample.ts's
 // tears and stretch lengths.
@@ -74,11 +74,11 @@ export function sampleCalendar(day: string): CalendarDay {
     const last = merged.at(-1);
     if (last && a <= last[1]) last[1] = Math.max(last[1], b); else merged.push([a, b]);
   }
-  const busy_hours = Array<number>(24).fill(0), meeting_hours = Array<number>(24).fill(0);
-  for (const [a] of list) meeting_hours[Math.floor(a / 60) % 24]++;
+  const busy_hours = Array<number>(24).fill(0), event_hours = Array<number>(24).fill(0);
+  for (const [a] of list) event_hours[Math.floor(a / 60) % 24]++;
   for (const [a, b] of merged) for (let m = a; m < b; m++) busy_hours[Math.floor(m / 60) % 24]++;
   return {
-    meetings: list.length, busy_minutes: merged.reduce((t, [a, b]) => t + b - a, 0), busy_hours, meeting_hours,
+    events: list.length, busy_minutes: merged.reduce((t, [a, b]) => t + b - a, 0), busy_hours, event_hours,
     busy: merged.map(([a, b]) => [local(day, a), local(day, b)]),
   };
 }

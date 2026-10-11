@@ -48,6 +48,10 @@
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
+  import Sleep from "$lib/panels/trends/Sleep.svelte";
+  import CalendarLoad from "$lib/panels/trends/CalendarLoad.svelte";
+  import Planned from "$lib/panels/trends/Planned.svelte";
+  import PanelOptions from "$lib/components/PanelOptions.svelte";
   import type { DayTotal, DeviceUsage, Status } from "$lib/types";
 
   /** The space between cards, both ways, in px (the CSS --gap). */
@@ -331,7 +335,10 @@
       {:else if id === "focus"}<FocusStretches {history} />
       {:else if id === "verdicts"}<Verdicts {history} />
       {:else if id === "compare"}<Compare {history} />
-      {:else if id === "reasons"}<Reasons {history} />{/if}
+      {:else if id === "reasons"}<Reasons {history} />
+      {:else if id === "sleep"}<Sleep {history} timeZone={status.settings.time_zone} blocklists={status.settings.blocklists} />
+      {:else if id === "calendar"}<CalendarLoad {history} />
+      {:else if id === "planned"}<Planned {history} timeZone={status.settings.time_zone} blocklists={status.settings.blocklists} />{/if}
     {/if}
   {/snippet}
   {#if wide.portrait}
@@ -414,6 +421,7 @@
                     {#each ABOUT[id].read as line, i (i)}<p class="point"><AboutText text={line} /></p>{/each}
                   </div>
                 </div>
+                {#if PANELS[id].options}<div class="options"><PanelOptions {id} /></div>{/if}
                 <div class="controls">
                   {#if PANELS[id].max > PANELS[id].min}
                     <div class="sizes">
@@ -501,6 +509,8 @@
   .about .for { font-size: 14px; line-height: 1.45; color: var(--ink); }
   .about .point { position: relative; padding-left: 13px; font-size: 13px; line-height: 1.45; color: var(--muted); }
   .about .point::before { content: ""; position: absolute; left: 2px; top: .66em; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+  /* A card's own options (PanelOptions), over its size at the bottom left. */
+  .options { flex: none; display: flex; flex-wrap: wrap; gap: 10px 16px; }
   /* Size at the bottom left, Hide at the bottom right. */
   .controls { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   /* The size picker is the shared switch at its large size. */

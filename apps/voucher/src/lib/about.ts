@@ -14,8 +14,8 @@ import type { PanelId } from "./arrangement.svelte";
 /** Each hue's color on the card (`mark`, its theme token) and as 13px text on
  *  --surface (`text`, at least 4.5:1). The dark ones get a lighter tint of the
  *  same OKLCH hue for text: crimson #e85770 (5.1:1, token 2.7:1), the danger
- *  red #fe3e30 (5.0:1, token 4.49:1), and sleep #8b8ff0 (the --sleep
- *  violet-blue lightened). `sources` has no one color: the words
+ *  red #fe3e30 (5.0:1, token 4.49:1), sleep #8b8ff0 (the --sleep
+ *  violet-blue lightened), and calendar #bc46ff (4.6:1, token 3.4:1). `sources` has no one color: the words
  *  get a band of source colors under them instead. */
 export const HUES = {
   green: { mark: "var(--voucher)", text: "var(--voucher)" },
@@ -26,6 +26,7 @@ export const HUES = {
   red: { mark: "var(--danger)", text: "#fe3e30" },
   marker: { mark: "var(--marker)", text: "var(--marker)" },
   sleep: { mark: "var(--sleep)", text: "#8b8ff0" },
+  calendar: { mark: "var(--calendar)", text: "#bc46ff" },
   night: { mark: "var(--night)", text: "var(--night)" },
   energy: { mark: "var(--energy)", text: "var(--energy)" },
   gray: { mark: "var(--muted)", text: "var(--muted)" },
@@ -194,21 +195,23 @@ export const ABOUT = checked({
     read: [
       "Each finding compares Days with something to Days without it, like \"Anki Days\", \"Day after Workout\", or \"Night after Anki\".",
       "What happens: a source earning, {night:a good night} (asleep at least as long as on half your nights), a busy Day (calendar time among your busiest third of Days), and late Distraction (15 minutes or more after 22:00).",
-      "What it looks at: each source's Vouchers, the share of Vouchers torn, the share of blocked opens you walked away from, the Day's longest focus stretch in minutes, {night:time asleep}, and your {energy:energy} answer. Findings are grouped by which of these changed.",
+      "What it looks at: each source's Vouchers, the share of blocked opens you walked away from, the Day's longest focus stretch in minutes, {gray:Distraction} minutes, {sleep:time asleep}, and your {energy:energy} answer. Findings are grouped by which of these changed.",
+      "{gray:Distraction} minutes are only compared with a good night and busy Days, never with a source: what you earn pays for Unlocks, so the two move together by design.",
       "A night belongs to the Day it leads into, so sleep is only compared with the Day before it and a good night only with its own Day. Late Distraction is only compared with that night's sleep and the next Day's energy.",
-      "A Day missing something (no night recorded, no calendar chosen, no energy answer) is left out of that comparison, not counted as zero.",
+      "A Day missing something (no night recorded, no calendar chosen, no energy answer, no device reporting Distraction) is left out of that comparison, not counted as zero.",
       "\"Focus stretch length\" works a little differently: it compares work stretches that had at least 10 minutes of {salmon:an Unlock}, or of Distraction, in the hour before with ones that didn't.",
       "The pill is the change, {green:green} when better and {crimson:crimson} when worse. The split bar counts Days without, hollow, and with, filled.",
-      "The bars say how sure the card is that a difference isn't just luck: 1 bar maybe, 2 bars probably, and 3 bars very likely. Findings that are more likely luck than real are hidden.",
-      "A finding shows once it has at least 8 Days on each side and a change of at least a quarter of the usual level, or a tenth when the card is very sure. Each group's scale fits what it shows.",
+      "The bars say how sure the card is that a difference isn't just luck: 1 bar maybe, 2 bars probably, and 3 bars very likely. To check, it shuffles whole weeks, pairing one week's activities with another week's results thousands of times, and sees how often that gives a difference as big. Findings that are more likely luck than real are hidden.",
+      "A finding shows once it has at least 8 Days on each side and a change of at least three tenths of how much that measure usually varies from Day to Day, or a fifth when the card is very sure. Each group's scale fits what it shows.",
       "These are things that go together, not proof that one causes the other.",
     ],
   },
   replay: {
-    for: "How a week, month, or year went, in six averages.",
+    for: "How a week, month, or year went, in eight averages.",
     read: [
       "Vouchers a Day, the top source and its share of Vouchers, and the share of Days that met the Daily goal, {gold:in gold}.",
       "Distraction minutes a Day, the busiest hour, and the share of Days that went well, from your Curfew answers, counting Yes and Mostly.",
+      "Time asleep a night and calendar events a Day. Nights not recorded and Days without a calendar are left out, not counted as none.",
       "It shows the period holding the picked Day, and the arrows step through periods. Week and Month switch with the other cards. Year is this card's own.",
       "Today counts only when it's the period's only Day. Days no device reported are left out of the Distraction minutes.",
     ],
@@ -246,6 +249,37 @@ export const ABOUT = checked({
       "Each row is a reason you tapped after an Unlock (\"Why now?\") in the last 4 weeks, most common first, with a {salmon:bar} and its count. The top reason's bar is in {salmon:full color}.",
       "The four cells split each reason by part of the Day: Morning 06 to 12, Afternoon 12 to 17, Evening 17 to 22, and Night 22 to 06. {salmon:Deeper salmon} means more.",
       "The line on top says how many of the period's Unlocks had a reason.",
+    ],
+  },
+  sleep: {
+    for: "How my nights go, and how the Day after each one went.",
+    read: [
+      "A row per night, newest at the bottom, on the hours from 20:00 to 12:00. A night belongs to the Day it wakes into. {night:Curfew's hours} are shaded.",
+      "A {sleep:filled bar} is a night Health Connect recorded. A {sleep:hollow dashed one} was estimated from when your devices were last and first used. Hours asleep are at the row's end.",
+      "The {gold:dashed gold lines} are your usual bedtime and wake-up over the last 4 weeks, their times over them.",
+      "Columns at the right show the Day after, picked here in Arrange: your Curfew answer ({green:Yes}, {mostly:Mostly}, or {crimson:No}), Vouchers earned as a {green:green bar} with a {gold:gold tick} at the Daily goal, and Distraction minutes in {sources:each blocklist's color}, hatched when no device reported.",
+      "A one-third card fits two columns, a taller one all three.",
+      "A {marker:flag} by a date marks a Marker. Tap a row to pick its Day for the other cards. The picked Day's row is lit.",
+    ],
+  },
+  calendar: {
+    for: "Whether busy Days cost Vouchers.",
+    read: [
+      "A column per Day over 4 weeks. Time in your chosen calendars' events rises above the middle line in {calendar:the calendar color}, and Vouchers hang below it in {green:green}.",
+      "Any timed event counts: a calendar can't say which events are meetings. All-day, declined, and free ones don't.",
+      "The {gold:dashed gold line} is the Daily goal, stepping where it changed. {marker:Thin lines} mark Markers.",
+      "The arrows step a week at a time. Tap a column to pick its Day for the other cards, and its column is lit.",
+      "With no calendar chosen, the card says where to choose one, in Sources.",
+    ],
+  },
+  planned: {
+    for: "Whether time I planned went where I planned it.",
+    read: [
+      "Time blocks are tasks with a start time and a duration in your task manager. Each block's minutes split into {green:in sources}, elsewhere (other apps, or away from devices), hatched no data, Distraction in {sources:each blocklist's color}, and {salmon:Unlocked}.",
+      "Only Distraction and Unlocked count as lost, and nothing claims source time was spent on the block's task. The bar and number at the top are the share of planned time lost in what's in view, leaving out no data.",
+      "Day shows the picked Day's blocks at their times from 06:00 to 06:00, with {night:Curfew's hours} shaded and a check over each done block.",
+      "Week and Month show a column per Day, as tall as its share lost, split by blocklist with {salmon:Unlocked} on top. {marker:Thin lines} mark Markers, and the picked Day is lit.",
+      "A block's Distraction is shared among blocklists by the Day's Distraction minutes, since devices don't say which app each minute was in.",
     ],
   },
 });

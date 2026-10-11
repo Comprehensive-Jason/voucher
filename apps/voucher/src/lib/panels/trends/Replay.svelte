@@ -1,8 +1,8 @@
 <script lang="ts">
-  // How did a week, month, or year go, in six averages (never totals):
+  // How did a week, month, or year go, in eight averages (never totals):
   // Vouchers a Day, the top source's share, how often the goal was met;
   // Distracted per Day, the busiest hour, and how often a Day went well (the
-  // Curfew question). It replays the period holding the Day picked on any
+  // Curfew question); time asleep a night, and calendar events a Day. It replays the period holding the Day picked on any
   // card, and its Week/Month switch moves with the others'. Today counts only
   // once it's the period's only Day, since it's still going.
   import { untrack } from "svelte";
@@ -57,7 +57,7 @@
   const settled = $derived(days.length > 1 ? days.filter((d) => d.day !== today) : days);
   const perDay = (list: DayTotal[], f: (d: DayTotal) => number) => (list.length ? sum(list, f) / list.length : null);
   const one = (v: number) => v.toFixed(1).replace(/\.0$/, "");
-  /** Six averages, never totals: Vouchers a Day, the top source's share, the goal rate; Distracted per Day, the busiest hour, the good-Day rate. Each says what it is in a few words. */
+  /** Eight averages, never totals: Vouchers a Day, the top source's share, the goal rate; Distracted per Day, the busiest hour, the good-Day rate; asleep a night, events a Day. Each says what it is in a few words. Nights and calendars not recorded are left out, not counted as none. */
   const cards = $derived.by((): Card[] => {
     if (!period || !settled.length) return [];
     const rate = perDay(settled, (d) => d.earned)!;
@@ -73,6 +73,8 @@
     const busiest = byHour.some((n) => n) ? byHour.indexOf(Math.max(...byHour)) : null;
     const answered = settled.filter((d) => d.verdict);
     const good = answered.filter((d) => d.verdict !== "no").length;
+    const asleep = perDay(settled.filter((d) => d.sleep), (d) => d.sleep!.asleep);
+    const events = perDay(settled.filter((d) => d.calendar), (d) => d.calendar!.events);
     return [
       { big: one(rate), line: "Vouchers a Day" },
       { big: top && total ? styleOf(top[0]).name : "–", line: top && total ? `${Math.round((top[1] / total) * 100)}% of Vouchers` : "Top source" },
@@ -80,6 +82,8 @@
       { big: used === null ? "–" : `${Math.round(used)} min`, line: "Distracted per Day" },
       { big: busiest === null ? "–" : `${String(busiest).padStart(2, "0")}:00`, line: "Busiest hour" },
       { big: answered.length ? `${Math.round((good / answered.length) * 100)}%` : "–", line: "Days went well" },
+      { big: asleep === null ? "–" : `${Math.floor(asleep / 60)}h${String(Math.round(asleep % 60)).padStart(2, "0")}`, line: "Asleep a night" },
+      { big: events === null ? "–" : one(events), line: "Events a Day" },
     ];
   });
 </script>
@@ -93,7 +97,7 @@
   {:else}
     {#key `${span}${period?.start}`}
     <div class="stage" class:fit in:zoomFade={{ out: span === "month" }}>
-      <div class="stats six">
+      <div class="stats eight">
         {#each cards as c, i (i)}
           <div class:gold={c.gold}><b>{c.big}</b><span>{c.line}</span></div>
         {/each}
@@ -107,11 +111,15 @@
   .stage { display: flex; flex-direction: column; gap: 8px; }
   /* In a tablet slot the boxes fill the card, without scrolling. */
   .stage.fit { flex: 1; min-height: 0; }
-  /* The shared stat boxes (theme.css .stats), three to a row and two rows,
-     every box the same size. */
-  .six { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; }
-  /* In a tablet slot the boxes share the card's height, numbers centred and a size up. */
-  .stage.fit .six { flex: 1; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); }
-  .stage.fit .six > div { justify-content: center; min-height: 0; overflow: hidden; }
-  .stage.fit .six b { font-size: 22px; }
+  /* The shared stat boxes (theme.css .stats), three to a row for two rows
+     and the last two sharing the third, each half its width, so every box
+     in a row is the same size. */
+  .eight { grid-auto-flow: row; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: 1fr; }
+  .eight > div { grid-column: span 2; }
+  .eight > div:nth-child(n + 7) { grid-column: span 3; }
+  /* In a tablet slot the boxes share the card's height, numbers centred at
+     the stat boxes' own 18px. */
+  .stage.fit .eight { flex: 1; min-height: 0; grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  /* Little padding above and below, so a phone's third still fits a number and its line. */
+  .stage.fit .eight > div { justify-content: center; min-height: 0; overflow: hidden; padding-block: 4px; }
 </style>

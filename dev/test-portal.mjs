@@ -652,14 +652,14 @@ function lateDays(state) {
 // it (activity moments edited into the saved state), so the Ledger estimates
 // it. Nights run later and longer at the weekend. Calendar events go in
 // through POST /calendars and /calendar from a "portal" device, which becomes
-// the reporting device; weekdays carry most meetings. Energy answers (edited
+// the reporting device; weekdays carry most events. Energy answers (edited
 // in, since the Ledger takes them only for the last week) loosely follow the
 // night before.
 
 const PORTAL_CALENDARS = [
   { account: "portal@example.com", name: "Classes", color: "#0b8043" },
   { account: "portal@example.com", name: "Work", color: "#4285f4" },
-  { account: "lab@example.edu", name: "Lab meetings", color: "#8e24aa" },
+  { account: "lab@example.edu", name: "Lab", color: "#8e24aa" },
 ];
 const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 /** 0 Sunday to 6 Saturday. */
@@ -727,7 +727,7 @@ async function fillCalendar(days) {
   const today = status.today.day, state = { settings: status.settings };
   await call("POST", "/calendars", { device: "portal", calendars: PORTAL_CALENDARS });
   const events = [];
-  let meetings = 0;
+  let count = 0;
   for (const day of span(today, days)) {
     const wd = weekdayOf(day);
     const n = wd === 0 || wd === 6 ? (Math.random() < 0.35 ? 1 : 0) : 2 + Math.floor(Math.random() * 5);
@@ -735,11 +735,11 @@ async function fillCalendar(days) {
       const start = (wd === 0 || wd === 6 ? 11 * 60 : 9 * 60) + Math.floor(Math.random() * (wd === 0 || wd === 6 ? 8 : 17)) * 30;
       const length = [30, 50, 60, 60, 90][Math.floor(Math.random() * 5)];
       events.push([at(state, day, start), at(state, day, start + length)]);
-      meetings++;
+      count++;
     }
   }
   const reply = await call("POST", "/calendar", { device: "portal", from: shiftDay(today, -days), to: today, events });
-  return "Calendar on " + reply.days + " Days: " + meetings + " meetings, from a \"portal\" device that now reports calendars";
+  return "Calendar on " + reply.days + " Days: " + count + " events, from a \"portal\" device that now reports calendars";
 }
 
 /** Energy answers on about four Days in five, higher after a longer night and lower on a busy Day. */
@@ -929,7 +929,7 @@ const PAGE = String.raw`<!doctype html>
     <div class="src"><span class="name">Distraction time</span>
       <div class="buttons"><button data-past="usage">Make up this Day's</button></div></div>
     <div class="src"><span class="name">Sleep, calendar, and energy</span>
-      <span class="detail">Fills the Days back set above (calendar: at most 183). Sleep runs later at the weekend and after late Distraction (from Breaks before stretches), about one night in six estimated; meetings mostly on weekdays; energy follows sleep and drops on busy Days.</span>
+      <span class="detail">Fills the Days back set above (calendar: at most 183). Sleep runs later at the weekend and after late Distraction (from Breaks before stretches), about one night in six estimated; events mostly on weekdays; energy follows sleep and drops on busy Days.</span>
       <div class="buttons"><button class="go" data-measures="all">Fill every Day</button><button data-measures="sleep">Sleep</button><button data-measures="calendar">Calendar</button><button data-measures="energy">Energy</button><button class="danger" data-measures="clear">Clear</button></div></div>
   </div>
   <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="usagehistory">Fill in Distraction time for past Days</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>

@@ -66,7 +66,7 @@ pub struct Sleep {
 
 /// Which calendars count toward the calendar load, and the one device that
 /// reads them: the device the choice was last saved on. One reporter means
-/// the same meeting never counts twice from two devices.
+/// the same event never counts twice from two devices.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CalendarChoice {
     #[serde(default)]
@@ -100,8 +100,9 @@ impl CalendarId {
 /// free ones, which the device leaves out), and no titles, people, or places.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CalendarDay {
-    /// Events starting in this Day.
-    pub meetings: u32,
+    /// Events starting in this Day. Older state files called these meetings.
+    #[serde(alias = "meetings")]
+    pub events: u32,
     /// Minutes with at least one event, overlaps counted once.
     pub busy_minutes: u32,
     /// Busy minutes in each clock hour (24, midnight first). Empty for Days
@@ -110,8 +111,8 @@ pub struct CalendarDay {
     pub busy_hours: Vec<u32>,
     /// Events starting in each clock hour (24, midnight first). Empty for
     /// Days older than the log keeps.
-    #[serde(default)]
-    pub meeting_hours: Vec<u32>,
+    #[serde(default, alias = "meeting_hours")]
+    pub event_hours: Vec<u32>,
     /// The busy stretches, overlaps merged, oldest first, as [start, end].
     /// Empty for Days older than the log keeps.
     #[serde(default)]
@@ -348,7 +349,7 @@ impl Ledger {
     }
 
     /// The reporting device's timed events for the Days `from` to `to`,
-    /// replacing what those Days held. Each event counts as a meeting in the
+    /// replacing what those Days held. Each event counts as an event in the
     /// Day it starts in, and its minutes count in every Day it covers. Days
     /// outside what the log keeps, or after today, are left alone. Returns
     /// how many Days were kept.
@@ -396,14 +397,14 @@ impl Ledger {
         let close = moment(tz, day.tomorrow().ok()?, settings.curfew_end)?;
         let mut load = CalendarDay {
             busy_hours: vec![0; 24],
-            meeting_hours: vec![0; 24],
+            event_hours: vec![0; 24],
             ..CalendarDay::default()
         };
         let mut covered = Vec::new();
         for &(start, end) in events {
             if open <= start && start < close {
-                load.meetings += 1;
-                load.meeting_hours[start.to_zoned(tz.clone()).hour() as usize] += 1;
+                load.events += 1;
+                load.event_hours[start.to_zoned(tz.clone()).hour() as usize] += 1;
             }
             let (a, b) = (start.max(open), end.min(close));
             if a < b {
@@ -465,7 +466,7 @@ impl Ledger {
         }
         for (_, load) in self.state.calendar.range_mut(..oldest) {
             load.busy_hours.clear();
-            load.meeting_hours.clear();
+            load.event_hours.clear();
             load.busy.clear();
         }
         self.state.planned.retain(|day, _| *day >= oldest);

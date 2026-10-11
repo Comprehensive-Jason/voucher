@@ -1,9 +1,9 @@
 <script lang="ts">
-  // Which calendars count toward each Day's calendar load (meetings and busy
+  // Which calendars count toward each Day's calendar load (events and busy
   // minutes, for Trends; nothing earns from them). Calendars are listed and
   // chosen on Android, grouped by account, each with its color. A calendar
   // is kept as its account and display name, which every device that syncs
-  // it shares; the device the choice is saved on reports it, so a meeting is
+  // it shares; the device the choice is saved on reports it, so an event is
   // never counted twice. Another Android device can take reporting over. On
   // Windows and in the browser preview the sheet explains this and shows the
   // current choice. (`?calendars=pick` previews Android's list, and
@@ -71,7 +71,7 @@
 
 <Sheet {onclose} label="calendars-h">
   <h2 id="calendars-h">Calendars</h2>
-  <p class="lead">Each Day's meetings and busy time, for Trends. They don't earn Vouchers. Only when events start and end is sent: no titles, people, or places. All-day, declined, and free events don't count.</p>
+  <p class="lead">Each Day's events and busy time, for Trends. They don't earn Vouchers. Only when events start and end is sent: no titles, people, or places. All-day, declined, and free events don't count.</p>
 
   {#if here === undefined}
     <p class="empty">Looking for this device's calendars…</p>
@@ -128,7 +128,7 @@
     {/if}
   </div>
   {#if here?.granted}
-    <p class="note">Saving makes this device the one that reports these calendars, so a meeting is never counted twice.</p>
+    <p class="note">Saving makes this device the one that reports these calendars, so an event is never counted twice.</p>
     <div class="actions">
       <button class="btn ghost" onclick={onclose}>Cancel</button>
       <button class="btn primary" disabled={!changed || saving} onclick={saveChoice}>Save</button>

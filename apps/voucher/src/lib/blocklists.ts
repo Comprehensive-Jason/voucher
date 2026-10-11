@@ -47,3 +47,24 @@ export function blocklistColorOf(label: string, blocklists: Record<string, Block
   const id = blocklistOf(label, blocklists);
   return id ? blocklists[id].color : "#9aa0a6";
 }
+
+/** One blocklist's share of some Distraction minutes, in its colour. */
+export type ListMinutes = { id: string; name: string; color: string; minutes: number };
+
+/** A Day's Distraction minutes (`used`, by app or site) added up by
+ *  blocklist, as Distraction time counts them: each goes to the blocklist
+ *  the measuring device said (`lists`), or the one naming it, or Other in
+ *  grey. By name, Other last. */
+export function minutesByList(used: Record<string, number> | undefined, lists: Record<string, string> | undefined, blocklists: Record<string, Blocklist>): ListMinutes[] {
+  const out = new Map<string, ListMinutes>();
+  for (const [app, m] of Object.entries(used ?? {})) {
+    if (!m) continue;
+    const said = lists?.[app];
+    const id = said && blocklists[said] ? said : blocklistOf(app, blocklists);
+    const key = id ?? "~other";
+    const part = out.get(key) ?? (id ? { id, name: blocklists[id].name, color: blocklists[id].color, minutes: 0 } : { id: key, name: "Other", color: "#9aa0a6", minutes: 0 });
+    part.minutes += m;
+    out.set(key, part);
+  }
+  return [...out.values()].sort((a, b) => Number(a.id === "~other") - Number(b.id === "~other") || a.name.localeCompare(b.name));
+}

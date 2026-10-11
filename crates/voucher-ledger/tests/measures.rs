@@ -364,9 +364,9 @@ fn only_the_device_the_calendars_were_chosen_on_reports_them() {
         Err(CalendarRefusal::NotReporter)
     );
     assert_eq!(ledger.report_calendar("phone", day, day, &[], now), Ok(1));
-    // Measured and empty is zero meetings, not "not measured".
+    // Measured and empty is zero events, not "not measured".
     let load = history_day(&mut ledger, day, now).calendar.unwrap();
-    assert_eq!(load.meetings, 0);
+    assert_eq!(load.events, 0);
 }
 
 #[test]
@@ -387,13 +387,13 @@ fn busy_minutes_merge_overlaps_and_split_by_hour() {
     let kept = ledger.report_calendar("phone", day, next, &events, at("2026-10-07T09:00-07:00"));
     assert_eq!(kept, Ok(2));
     let load = history_day(&mut ledger, day, now).calendar.unwrap();
-    assert_eq!(load.meetings, 4);
+    assert_eq!(load.events, 4);
     assert_eq!(load.busy_minutes, 90 + 30 + 30);
     assert_eq!(load.busy_hours[9], 60);
     assert_eq!(load.busy_hours[10], 30);
     assert_eq!(load.busy_hours[14], 30);
     assert_eq!(load.busy_hours[5], 30);
-    assert_eq!(load.meeting_hours[9], 2);
+    assert_eq!(load.event_hours[9], 2);
     assert_eq!(
         load.busy[0],
         (at("2026-10-06T09:00-07:00"), at("2026-10-06T10:30-07:00"))
@@ -401,8 +401,30 @@ fn busy_minutes_merge_overlaps_and_split_by_hour() {
     let after = history_day(&mut ledger, next, at("2026-10-07T09:00-07:00"))
         .calendar
         .unwrap();
-    assert_eq!(after.meetings, 0);
+    assert_eq!(after.events, 0);
     assert_eq!(after.busy_minutes, 30);
+}
+
+#[test]
+fn a_state_that_called_events_meetings_still_loads() {
+    let mut ledger = set_up();
+    let now = at("2026-10-06T20:00-07:00");
+    let day = date(2026, 10, 6);
+    ledger.choose_calendars("phone", vec![calendar("a@example.com", "Classes")]);
+    let events = [(at("2026-10-06T09:00-07:00"), at("2026-10-06T10:00-07:00"))];
+    assert_eq!(ledger.report_calendar("phone", day, day, &events, now), Ok(1));
+    // Saved the way the first calendar Ledger saved it.
+    let saved = ledger
+        .save()
+        .replace("\"events\":", "\"meetings\":")
+        .replace("\"event_hours\":", "\"meeting_hours\":");
+    assert!(saved.contains("\"meetings\": 1"));
+    let mut old = Ledger::load(&saved, SigningKey::from_bytes(&[7; 32])).unwrap();
+    let load = history_day(&mut old, day, now).calendar.unwrap();
+    assert_eq!(load.events, 1);
+    assert_eq!(load.event_hours[9], 1);
+    // And it saves under the new names.
+    assert!(old.save().contains("\"events\": 1"));
 }
 
 #[test]
@@ -476,7 +498,7 @@ fn the_csv_carries_sleep_calendar_and_energy() {
     let csv = ledger.days_csv(now);
     let header = csv.lines().next().unwrap();
     assert!(
-        header.contains(",bedtime,wake,asleep_minutes,sleep_source,meetings,busy_minutes,energy")
+        header.contains(",bedtime,wake,asleep_minutes,sleep_source,events,busy_minutes,energy")
     );
     let row = csv.lines().find(|l| l.starts_with("2026-10-06,")).unwrap();
     assert!(row.contains(",23:15,07:20,460,health_connect,,,4"), "{row}");

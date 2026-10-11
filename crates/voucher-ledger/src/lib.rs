@@ -2108,7 +2108,7 @@ impl Ledger {
         let tz = self.state.settings.time_zone.clone();
         let sources: Vec<String> = self.state.settings.sources.keys().cloned().collect();
         let mut out = String::from(
-            "day,goal,earned,goal_met,vouchers_torn,unlocked_minutes,distraction_minutes,reported,opens,walked_away,longest_stretch,silent_minutes,verdict,reasons,markers,bedtime,wake,asleep_minutes,sleep_source,meetings,busy_minutes,energy",
+            "day,goal,earned,goal_met,vouchers_torn,unlocked_minutes,distraction_minutes,reported,opens,walked_away,longest_stretch,silent_minutes,verdict,reasons,markers,bedtime,wake,asleep_minutes,sleep_source,events,busy_minutes,energy",
         );
         for id in &sources {
             out.push_str(&format!(",earned_{id}"));
@@ -2162,7 +2162,7 @@ impl Ledger {
                     Some(SleepSource::Estimated) => "estimated",
                     None => "",
                 },
-                d.calendar.as_ref().map_or(String::new(), |c| c.meetings.to_string()),
+                d.calendar.as_ref().map_or(String::new(), |c| c.events.to_string()),
                 d.calendar.as_ref().map_or(String::new(), |c| c.busy_minutes.to_string()),
                 d.energy.map_or(String::new(), |e| e.to_string()),
             ));

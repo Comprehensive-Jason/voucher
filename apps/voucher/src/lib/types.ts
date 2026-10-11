@@ -220,14 +220,14 @@ export interface Sleep {
 /** A Day's calendar load: timed events only (no all-day, declined, or free
  *  ones), with no titles, people, or places. */
 export interface CalendarDay {
-  /** Events starting in this Day. */
-  meetings: number;
+  /** Timed events starting in this Day (any event: a calendar can't say which are meetings). */
+  events: number;
   /** Minutes with at least one event, overlaps counted once. */
   busy_minutes: number;
   /** Busy minutes per clock hour (24, midnight first); empty past the kept log. */
   busy_hours: number[];
   /** Events starting in each clock hour (24, midnight first); empty past the kept log. */
-  meeting_hours: number[];
+  event_hours: number[];
   /** Busy stretches, overlaps merged, oldest first, as [start, end]; empty past the kept log. */
   busy: [string, string][];
 }

@@ -24,6 +24,9 @@
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
+  import Sleep from "$lib/panels/trends/Sleep.svelte";
+  import CalendarLoad from "$lib/panels/trends/CalendarLoad.svelte";
+  import Planned from "$lib/panels/trends/Planned.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import LogPanel from "$lib/panels/LogPanel.svelte";
   import CardTab from "$lib/components/CardTab.svelte";
@@ -120,7 +123,10 @@
     {:else if id === "focus"}<FocusStretches {history} />
     {:else if id === "verdicts"}<Verdicts {history} />
     {:else if id === "compare"}<Compare {history} />
-    {:else if id === "reasons"}<Reasons {history} />{/if}
+    {:else if id === "reasons"}<Reasons {history} />
+    {:else if id === "sleep"}<Sleep {history} {timeZone} {blocklists} />
+    {:else if id === "calendar"}<CalendarLoad {history} />
+    {:else if id === "planned"}<Planned {history} {timeZone} {blocklists} />{/if}
   {/if}
 {/snippet}
 

@@ -3,7 +3,7 @@
   // with one counter: Tasks, Workout, Steps, and named groups of apps whose
   // time adds up. Switching a source off or slowing it applies now; switching
   // on, speeding up, or adding waits for 06:00. Under them, Calendars: which
-  // calendars count toward each Day's meetings and busy time (for Trends,
+  // calendars count toward each Day's events and busy time (for Trends,
   // never for earning), chosen in CalendarSheet.
   import { shownByNotice } from "../health.svelte";
   import { actionFailed } from "../toast.svelte";
@@ -36,7 +36,7 @@
   /** "3 calendars, reported by SM-S928U-4f2a", or what they're for. */
   const calendarLine = $derived(calendars.calendars.length
     ? `${calendars.calendars.length} calendar${calendars.calendars.length === 1 ? "" : "s"}, reported by ${calendars.device}`
-    : "None chosen. Meetings and busy time per Day, for Trends");
+    : "None chosen. Events and busy time per Day, for Trends");
   /** The rate a source's knob is snapped to while dragging, shown greyed. */
   let ratePreview = $state<Record<string, number | null>>({});
   async function setColor(id: string, color: string | null) {

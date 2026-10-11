@@ -19,7 +19,7 @@ import java.time.ZoneId
  *
  * Calendars are chosen in the app (Rules, Sources, Calendars) and kept on the
  * Ledger as account plus display name, the same on every device that syncs
- * them. Only the device the choice was saved on reports, so a meeting never
+ * them. Only the device the choice was saved on reports, so an event never
  * counts twice. It sends the last three Days on every pass when they change,
  * and once a Day (or at once after a new choice) everything back as far as
  * the Ledger keeps hourly data.
