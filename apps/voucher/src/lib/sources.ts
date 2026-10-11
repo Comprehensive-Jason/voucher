@@ -34,7 +34,7 @@ const SERVICES: Record<string, SourceStyle> = {
  *  swatches from the palette, so the picker shows them as chosen). A group
  *  without a saved colour takes one by its id's hash, so entries keep their
  *  places: the two near gold were swapped in place for light blue and pale orange. */
-export const SPARE = ["#7dd9fb", "#c1d58a", "#f4b3ec", "#d1bfff", "#aeccfe", "#76e0d6", "#e3cbb1"];
+export const SPARE = ["#7dd9fb", "#c1d58a", "#f4b3ec", "#9890d0", "#aeccfe", "#76e0d6", "#e3cbb1"];
 
 /** Earnings name a service; they count toward the Tasks group. */
 export const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);

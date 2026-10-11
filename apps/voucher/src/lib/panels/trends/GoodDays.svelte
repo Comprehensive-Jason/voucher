@@ -73,7 +73,7 @@
     { id: "~walked", name: "Walked away", color: "var(--muted)", unit: "percent", up: true, note: "% of blocked opens", value: (d) => (d.opens ? (Math.min(d.walked ?? 0, d.opens) / d.opens) * 100 : NaN) },
     { id: "~longest", name: "Longest focus stretch", color: "var(--ink)", unit: "minutes", up: true, note: "minutes", value: longest },
     // The night that led into the Day.
-    { id: SLEEP, name: "Time asleep", color: "var(--night)", unit: "minutes", up: true, note: "minutes", value: (d) => d.sleep?.asleep ?? NaN },
+    { id: SLEEP, name: "Time asleep", color: "var(--sleep)", unit: "minutes", up: true, note: "minutes", value: (d) => d.sleep?.asleep ?? NaN },
     { id: ENERGY, name: "Energy", color: "var(--energy)", unit: "energy", up: true, note: "1 to 5", value: (d) => d.energy ?? NaN },
   ]);
   /** Stretch by stretch, after a break (an Unlock or Distraction in the hour before) or not; see lib/correlate.ts. */

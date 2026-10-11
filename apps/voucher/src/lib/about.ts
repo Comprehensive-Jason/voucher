@@ -14,9 +14,8 @@ import type { PanelId } from "./arrangement.svelte";
 /** Each hue's color on the card (`mark`, its theme token) and as 13px text on
  *  --surface (`text`, at least 4.5:1). The dark ones get a lighter tint of the
  *  same OKLCH hue for text: crimson #e85770 (5.1:1, token 2.7:1), the danger
- *  red #fe3e30 (5.0:1, token 4.49:1), and Marker #9271fe (5.1:1, token 3.0:1),
- *  turned 15 degrees toward violet, since the Marker violet-blue lightened
- *  on its own hue is Curfew's indigo. `sources` has no one color: the words
+ *  red #fe3e30 (5.0:1, token 4.49:1), and sleep #8b8ff0 (the --sleep
+ *  violet-blue lightened). `sources` has no one color: the words
  *  get a band of source colors under them instead. */
 export const HUES = {
   green: { mark: "var(--voucher)", text: "var(--voucher)" },
@@ -25,7 +24,8 @@ export const HUES = {
   salmon: { mark: "var(--spend)", text: "var(--spend)" },
   crimson: { mark: "var(--worse)", text: "#e85770" },
   red: { mark: "var(--danger)", text: "#fe3e30" },
-  marker: { mark: "var(--marker)", text: "#9271fe" },
+  marker: { mark: "var(--marker)", text: "var(--marker)" },
+  sleep: { mark: "var(--sleep)", text: "#8b8ff0" },
   night: { mark: "var(--night)", text: "var(--night)" },
   energy: { mark: "var(--energy)", text: "var(--energy)" },
   gray: { mark: "var(--muted)", text: "var(--muted)" },
@@ -37,7 +37,7 @@ export type Hue = keyof typeof HUES;
 /** How the colored words look: "text" colors the words themselves; "mark"
  *  keeps them in ink on a soft wash of the color, with a solid underline in
  *  it. One switch for every card. */
-export const HIGHLIGHT: "text" | "mark" = "text";
+export const HIGHLIGHT = "mark" as "text" | "mark";
 
 export type About = {
   /** The question the card answers, in a sentence or two. */
