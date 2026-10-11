@@ -79,15 +79,33 @@ function history(n: number): DayTotal[] {
   const end = new Date(`${TODAY}T12:00:00Z`);
   // A fixed pseudo-random pattern, so screenshots are stable.
   let seed = 7;
+  let afterWorkout = false;
   for (let back = n - 1; back >= 0; back--) {
     const d = new Date(end.getTime() - back * 86_400_000).toISOString().slice(0, 10);
     seed = (seed * 9301 + 49297) % 233280;
     const earned = back === 0 ? 11 : Math.floor((seed / 233280) * 22);
-    // A plausible split by source, for the Week and Month views.
-    const share = [["tasks", 0.45], ["obsidian", 0.15], ["reading", 0.15], ["workout", 0.1], ["chinese", 0.15]] as const;
+    // A plausible split by source, for the Week and Month views. Each source
+    // keeps its own Days (a hash of the date, so any span agrees), with a few
+    // links for What goes with a good Day to find: Chinese and Reading come
+    // more often the Day after a Workout, Obsidian mostly on busy Days, and
+    // Tasks take what's left.
+    const dn = Math.round(Date.parse(`${d}T12:00:00Z`) / 86_400_000);
+    const h = (salt: number) => {
+      let x = Math.imul(dn ^ Math.imul(salt, 0x9e3779b9), 0x85ebca6b);
+      x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
+      return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+    };
+    const want: [string, number][] = [
+      ["workout", h(1) < 0.42 ? 1 + (h(2) < 0.3 ? 1 : 0) : 0],
+      ["chinese", h(3) < (afterWorkout ? 0.85 : 0.35) ? 1 + Math.floor(h(4) * 3) : 0],
+      ["reading", h(5) < 0.6 ? 1 + Math.floor(h(6) * 2) + (afterWorkout ? 1 : 0) : 0],
+      ["obsidian", h(7) < (earned >= 9 ? 0.75 : 0.2) ? 1 + Math.floor(h(8) * 3) : 0],
+    ];
     const by_source: Record<string, number> = {};
     let left = earned;
-    share.forEach(([id, f], i) => { const n = i === share.length - 1 ? left : Math.min(left, Math.round(earned * f)); if (n) by_source[id] = n; left -= n; });
+    for (const [id, want_] of want) { const n = Math.min(left, want_); if (n) by_source[id] = n; left -= n; }
+    if (left) by_source.tasks = left;
+    afterWorkout = !!by_source.workout;
     // Distraction minutes that drift down as earning climbs, around what was unlocked.
     const unlocked = Math.floor(earned / 3) * 10;
     const spent = Math.max(0, unlocked + ((seed % 23) - 9));
@@ -179,7 +197,9 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     const d = params.get("date") ?? TODAY;
     return days[d] ?? blankDay(d);
   }
-  if (route === "/history") return history(Number(params.get("days") ?? 84));
+  // ?history=N in the page's address serves N Days whatever is asked: a short
+  // one for empty states, a long one for What goes with a good Day.
+  if (route === "/history") return history(Number(new URLSearchParams(location.search).get("history") ?? params.get("days") ?? 84));
   if (route === "/markers") return markers;
   if (route === "/marker" && method === "POST") {
     const b = body as { text: string; at?: string };
