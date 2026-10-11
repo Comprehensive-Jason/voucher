@@ -2,8 +2,8 @@
   // Does doing one thing go with another going better? For each source, the
   // Days it earned against the Days it didn't, on the same Day and the Day
   // after: did another source earn more, were more blocked opens walked away
-  // from, was the Day's longest focus stretch longer, the night after
-  // longer, or the energy answer higher? A good night, a busy calendar, and
+  // from, was the Day's longest focus stretch longer, or the night after
+  // longer? A good night, a busy calendar, and
   // late Distraction are drivers too (rules below), and a focus stretch with
   // an Unlock or Distraction in the hour before it is set against stretches
   // without. Plain averages, no guessing at causes. Unlocks and Distraction
@@ -12,19 +12,19 @@
   // be the Bank's own bookkeeping. For the same reason Distraction minutes
   // are an outcome only of what lies outside that economy (a good night and
   // a busy calendar), never of a source; late Distraction goes only with the
-  // night after and the next Day's energy. A Day without the data (no night
-  // recorded, no calendar chosen, no energy answer, no device reporting
-  // Distraction, no Distraction spans) is missing, never zero. Which
+  // night after. A Day without the data (no night recorded, no calendar
+  // chosen, no device reporting Distraction, no Distraction spans) is
+  // missing, never zero. Which
   // findings show, and how sure each is, comes from lib/correlate.ts (its
   // showing rule and confidence tiers), every pair corrected together.
   // Findings are grouped by what changed, groups by how much changed in all
   // (each change in its outcome's usual Day-to-Day spread), largest first.
   //
   // One-third slot (and the phone): group boxes in two columns that each keep
-  // their own height, scrolling, with a fade while more is below. Two-thirds:
-  // one row a finding on a shared set of gridlines, each unit (Vouchers,
-  // minutes, percent) fitted to the findings it has and labelled on its own
-  // row of ticks; a hollow dot for Days without, a filled one for Days with.
+  // their own height, scrolling, with a fade while more is below. Two-thirds
+  // and Full: one row a finding on a shared set of gridlines, with the axes
+  // AXES picks (below); a hollow dot for Days without, a filled one for Days
+  // with.
   import TrendCard from "../../components/TrendCard.svelte";
   import { styleOf } from "../../sources";
   import { fitsSlot } from "../../fit.svelte";
@@ -54,7 +54,7 @@
   const LATE_FROM = 22 * 60;
   const LATE_MINUTES = 15;
 
-  type Unit = "vouchers" | "minutes" | "percent" | "energy";
+  type Unit = "vouchers" | "minutes" | "percent";
   /** Something that changes from Day to Day: its name, color, unit, which way is better, and its value on a Day (NaN when unknown). */
   type Measure = { id: string; name: string; color: string; unit: Unit; up: boolean; note: string; value: (d: DayTotal) => number };
   /** Something that happens or doesn't, as the left label shows it: on its Day, the Day after, and (against sleep) the night after. */
@@ -65,7 +65,7 @@
   const sources = $derived([...new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))]);
   /** The Day's longest focus stretch, as Before and after's "Longest focus" takes it. */
   const longest = (d: DayTotal) => (d.stretches?.length ? Math.max(...d.stretches) : NaN);
-  const SLEEP = "~asleep", ENERGY = "~energy", DISTRACTED = "~distracted", GOOD_NIGHT = "~goodnight", BUSY = "~busy", LATE = "~late";
+  const SLEEP = "~asleep", DISTRACTED = "~distracted", GOOD_NIGHT = "~goodnight", BUSY = "~busy", LATE = "~late";
   /** The Day's Distraction minutes, every app and device together, or NaN when no device reported. */
   const distracted = (d: DayTotal) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : NaN);
   const measures = $derived<Measure[]>([
@@ -78,7 +78,6 @@
     { id: DISTRACTED, name: "Distraction", color: "var(--muted)", unit: "minutes", up: false, note: "minutes", value: distracted },
     // The night that led into the Day.
     { id: SLEEP, name: "Time asleep", color: "var(--sleep)", unit: "minutes", up: true, note: "minutes", value: (d) => d.sleep?.asleep ?? NaN },
-    { id: ENERGY, name: "Energy", color: "var(--energy)", unit: "energy", up: true, note: "1 to 5", value: (d) => d.energy ?? NaN },
   ]);
   /** Stretch by stretch, after a break (an Unlock or Distraction in the hour before) or not; see lib/correlate.ts. */
   const lengths: Measure = { id: STRETCH, name: "Focus stretch length", color: "var(--ink)", unit: "minutes", up: true, note: "minutes", value: () => NaN };
@@ -88,7 +87,7 @@
     { id: "~distraction", color: "var(--muted)", days: "After Distraction", after: "After Distraction", night: "" },
     { id: GOOD_NIGHT, color: "var(--night)", days: "After a good night", after: "", night: "" },
     { id: BUSY, color: "var(--ink)", days: "Busy Days", after: "Day after a busy Day", night: "Night after a busy Day" },
-    { id: LATE, color: "var(--muted)", days: "", after: "After late Distraction", night: "Late Distraction" },
+    { id: LATE, color: "var(--muted)", days: "", after: "", night: "Late Distraction" },
   ]);
   const measureOf = $derived(new Map([...measures, lengths].map((m) => [m.id, m])));
   const doerOf = $derived(new Map(doers.map((d) => [d.id, d])));
@@ -142,8 +141,8 @@
     if (lag === 0 && outcome === "~longest" && makesStretches(driver)) return true;
     if (outcome === SLEEP && lag === 0) return true;
     if (driver === GOOD_NIGHT) return lag === 1 || outcome === SLEEP;
-    // Late Distraction only with the night after and the next Day's energy.
-    if (driver === LATE) return !(lag === 1 && (outcome === SLEEP || outcome === ENERGY));
+    // Late Distraction only with the night after.
+    if (driver === LATE) return !(lag === 1 && outcome === SLEEP);
     return false;
   }
 
@@ -170,10 +169,12 @@
     const withN = dr.did.filter((x) => x === 1).length, withoutN = dr.did.filter((x) => x === 0).length;
     return withN + withoutN ? [{ name: dr.name, color: doerOf.get(dr.id)!.color, id: dr.id, withN, withoutN }] : [];
   }));
+  /** Those still short of MIN_N Days on a side. */
+  const short = $derived(progress.filter((p) => Math.min(p.withN, p.withoutN) < MIN_N));
 
   const key = (f: Tested) => `${f.driver}|${f.outcome}|${f.lag}`;
   const better = (f: Tested, o: Measure) => (o.up ? f.withAvg > f.withoutAvg : f.withAvg < f.withoutAvg);
-  const num = (v: number, u: Unit) => (u === "vouchers" || u === "energy" ? v.toFixed(1) : `${Math.round(v)}${u === "percent" ? "%" : ""}`);
+  const num = (v: number, u: Unit) => (u === "vouchers" ? v.toFixed(1) : `${Math.round(v)}${u === "percent" ? "%" : ""}`);
   /** The change, signed with a real minus: "+0.8", "−18 min", or "+9%". */
   const change = (f: Tested, u: Unit) => {
     const d = f.withAvg - f.withoutAvg;
@@ -188,18 +189,32 @@
   let bodyH = $state(0), bodyW = $state(0);
   const twoCols = $derived(bodyW >= 440);
   const tall = $derived(fit && twoCols && bodyH > 420);
+  /** Room left over (a Full card): the findings, then what's still short of Days. */
+  const roomy = $derived(tall && bodyH > 760);
 
-  // The two-thirds scale. Every unit spans the same number of intervals, so
-  // they share one set of gridlines, but each picks its own round step and
-  // start (not always 0: it's a dot plot) to fit only the findings shown,
-  // with a little room so no dot sits on an edge. The number of intervals
-  // (4 to 6) is whichever gives the smallest change shown the longest line.
-  // Each unit's ticks sit under its first group's heading, scrolling with it.
-  type Axis = { key: string; unit: Unit; name: string; lo: number; step: number; first: string };
-  const PAD = 0.06;
-  const NAMES: Record<Unit, string> = { vouchers: "Vouchers a Day", minutes: "Minutes", percent: "Percent", energy: "Energy, 1 to 5" };
-  /** One axis per unit, as designed. "group" gives each group its own, for far longer lines when one source (Tasks) earns many times what the rest do. */
-  const PER = "group" as "unit" | "group";
+  // The two-thirds and Full scale, in one of two designs until one is
+  // picked (then the other goes):
+  // "units": one Vouchers-a-Day axis across the top and one minutes axis
+  // across the bottom, each shared by every group in its unit and fitted to
+  // all of them. Walked away, the one percent group, gets its own row of
+  // ticks under its heading, on the same gridlines. Every unit spans the
+  // same number of intervals so they share one set of gridlines, but each
+  // picks its own round step and start (not always 0: it's a dot plot) with
+  // a little room so no dot sits on an edge. The number of intervals (4 to
+  // 6) is whichever gives the smallest change shown the longest line.
+  // "change": one axis of change from Days without, in percent, symmetric
+  // about 0, across the top and again across the bottom. Every hollow dot
+  // sits on 0 and every filled dot at its change; the real values stay
+  // printed by the dots. A change past CAP (or from nothing) is pinned at the
+  // edge with a chevron, so one rare source can't squash the rest.
+  const AXES = "units" as "units" | "change";
+  type Axis = { name: string; lo: number; step: number; pct?: boolean };
+  /** Gridlines (`n` intervals), the axes across the top and bottom, any
+   *  under a group's heading, and where a finding's two dots sit (0 to 1
+   *  across the track, past 1 or under 0 when pinned). */
+  type Scale = { n: number; top?: Axis; bottom?: Axis; inline: Map<string, Axis>; at: (g: Group, f: Tested) => [number, number] };
+  const PAD = 0.06, CAP = 200;
+  const NAMES: Record<Unit, string> = { vouchers: "Vouchers a Day", minutes: "Minutes a Day", percent: "Percent" };
   /** The smallest round step (1, 2, 2.5, or 5 times a power of ten) above `raw`. */
   function stepAbove(raw: number): number {
     const p = 10 ** Math.floor(Math.log10(raw));
@@ -207,10 +222,10 @@
   }
   /** The roundest axis of `n` intervals that holds every value with room to spare. */
   function fitAxis(values: number[], n: number): { lo: number; step: number } {
-    const min = Math.min(...values), max = Math.max(...values), pad = (max - min) * PAD;
+    const min = Math.min(...values), max = Math.max(...values), pad = Math.max((max - min) * PAD, 1e-6);
     // Start below any step that could fit and take the first that does (a
     // padded edge under zero doesn't count, since the axis stops at zero).
-    for (let step = stepAbove((max - min) / n / 2); ; step = stepAbove(step)) {
+    for (let step = stepAbove((max - min + pad) / n / 2); ; step = stepAbove(step)) {
       let lo = Math.max(0, Math.floor((min - pad) / step) * step);
       const spare = Math.floor((lo + n * step - max - pad) / step + 1e-9);
       if (spare < 0) continue;
@@ -219,30 +234,49 @@
       return { lo, step };
     }
   }
-  const scale = $derived.by(() => {
-    const keyOf = (g: Group) => (PER === "unit" ? g.outcome.unit : g.outcome.id);
-    const sets = new Map<string, Group[]>();
-    for (const g of groups) sets.set(keyOf(g), [...(sets.get(keyOf(g)) ?? []), g]);
-    let best = { n: 5, axes: [] as Axis[], low: -1, mean: -1 };
+  function byUnits(): Scale {
+    const sets = new Map<Unit, Tested[]>();
+    for (const g of groups) sets.set(g.outcome.unit, [...(sets.get(g.outcome.unit) ?? []), ...g.findings]);
+    let best = { n: 5, axes: new Map<Unit, Axis>(), low: -1, mean: -1 };
     for (const n of [5, 4, 6]) {
-      const axes = [...sets].map(([key, gs]): Axis => {
-        const fs = gs.flatMap((g) => g.findings);
-        return { key, unit: gs[0].outcome.unit, name: NAMES[gs[0].outcome.unit], first: gs[0].outcome.id, ...fitAxis(fs.flatMap((f) => [f.withAvg, f.withoutAvg]), n) };
-      });
-      // Each axis's smallest change shown, as a share of the track: the
+      const axes = new Map([...sets].map(([u, fs]): [Unit, Axis] => [u, { name: NAMES[u], ...fitAxis(fs.flatMap((f) => [f.withAvg, f.withoutAvg]), n) }]));
+      // Each unit's smallest change shown, as a share of the track: the
       // smallest of those as long as can be, then the rest on average.
-      const shares = axes.map((a) => Math.min(...sets.get(a.key)!.flatMap((g) => g.findings).map((f) => Math.abs(f.withAvg - f.withoutAvg))) / (n * a.step));
+      const shares = [...sets].map(([u, fs]) => Math.min(...fs.map((f) => Math.abs(f.withAvg - f.withoutAvg))) / (n * axes.get(u)!.step));
       const low = Math.min(...shares), mean = shares.reduce((x, y) => x + y, 0) / shares.length;
       if (low > best.low * 1.05 || (low > best.low * 0.95 && mean > best.mean)) best = { n, axes, low, mean };
     }
-    return { ...best, of: (g: Group) => best.axes.find((a) => a.key === keyOf(g))! };
-  });
+    const { n, axes } = best;
+    const top = axes.get("vouchers") ?? axes.get("minutes") ?? axes.get("percent");
+    const bottom = axes.get("minutes") ?? top;
+    const inline = new Map<string, Axis>();
+    for (const g of groups) {
+      const a = axes.get(g.outcome.unit)!;
+      if (a !== top && a !== bottom && ![...inline.values()].includes(a)) inline.set(g.outcome.id, a);
+    }
+    return { n, top, bottom, inline, at: (g, f) => {
+      const a = axes.get(g.outcome.unit)!, span = n * a.step;
+      return [(f.withoutAvg - a.lo) / span, (f.withAvg - a.lo) / span];
+    } };
+  }
+  /** A finding's change from Days without, in percent (±Infinity from nothing). */
+  const changeOf = (f: Tested) => (f.withoutAvg > 0 ? ((f.withAvg - f.withoutAvg) / f.withoutAvg) * 100 : (f.withAvg - f.withoutAvg) * Infinity);
+  function byChange(): Scale {
+    const all = groups.flatMap((g) => g.findings.map(changeOf));
+    const most = Math.min(CAP, Math.max(1, ...all.map(Math.abs).filter((v) => v <= CAP))) * (1 + PAD);
+    // 2 or 3 intervals a side, whichever wastes less of the track.
+    const [k, step] = [3, 2].map((k): [number, number] => [k, stepAbove(most / k)]).sort((a, b) => a[0] * a[1] - b[0] * b[1])[0];
+    const a: Axis = { name: "Change", lo: -k * step, step, pct: true };
+    return { n: 2 * k, top: a, bottom: a, inline: new Map(), at: (_, f) => [0.5, 0.5 + changeOf(f) / (2 * k * step)] };
+  }
+  const scale = $derived(AXES === "units" ? byUnits() : byChange());
   const ticks = (a: Axis) => {
     const places = (String(+a.step.toPrecision(3)).split(".")[1] ?? "").length;
-    return Array.from({ length: scale.n + 1 }, (_, i) => String(+(a.lo + a.step * i).toFixed(places)));
+    return Array.from({ length: scale.n + 1 }, (_, i) => {
+      const v = +(a.lo + a.step * i).toFixed(places);
+      return !a.pct ? String(v) : v === 0 ? "0" : `${v < 0 ? "−" : "+"}${Math.abs(v)}%`;
+    });
   };
-  /** The axis whose ticks sit under this group's heading, if it is that axis's first group. */
-  const startsAxis = (g: Group) => scale.axes.find((a) => a.first === g.outcome.id);
 
   // Value labels above the dots. JetBrains Mono is 0.6em a letter, so a
   // label's width is known without measuring. Labels that would touch are
@@ -260,7 +294,8 @@
     l2 = Math.min(Math.max(l2, l1 + w1 + GAP), W - w2);
     return flip ? [l2, l1] : [l1, l2];
   }
-  const xOf = (v: number, a: Axis) => ((v - a.lo) / (scale.n * a.step)) * trackW;
+  /** Pixels across the track, pinned inside it. */
+  const px = (frac: number) => Math.max(0, Math.min(1, frac)) * trackW;
 
   // The fade at the bottom shows only while more is below.
   let scroller = $state<HTMLElement>();
@@ -329,24 +364,28 @@
   </div>
 {/snippet}
 
+<!-- How far each activity still short of Days is from MIN_N each way. -->
+{#snippet meters()}
+  <div class="meters" class:fit>
+    {#each short as p (p.id)}
+      {@const without = p.withoutN < p.withN}
+      {@const n = Math.min(p.withN, p.withoutN)}
+      <div class="meter">
+        <span class="who"><i style="background: {p.color}"></i><span>{p.name}</span></span>
+        <span class="bar"><i style="width: {(n / MIN_N) * 100}%; background: {p.color}"></i></span>
+        <span class="count">{n} of {MIN_N} Days {without ? "without" : "with"}</span>
+      </div>
+    {/each}
+  </div>
+{/snippet}
+
 <TrendCard title="What goes with a good Day">
   <div class="body" class:fit bind:clientHeight={bodyH} bind:clientWidth={bodyW}>
     {#if !groups.length}
-      {@const short = progress.filter((p) => Math.min(p.withN, p.withoutN) < MIN_N)}
       {#if short.length || !progress.length}
         <p class="empty">Needs more Days. Each activity needs {MIN_N} Days with it and {MIN_N} without before this can compare them.</p>
         {#if short.length}
-          <div class="meters" class:fit>
-            {#each short as p (p.id)}
-              {@const without = p.withoutN < p.withN}
-              {@const n = Math.min(p.withN, p.withoutN)}
-              <div class="meter">
-                <span class="who"><i style="background: {p.color}"></i><span>{p.name}</span></span>
-                <span class="bar"><i style="width: {(n / MIN_N) * 100}%; background: {p.color}"></i></span>
-                <span class="count">{n} of {MIN_N} Days {without ? "without" : "with"}</span>
-              </div>
-            {/each}
-          </div>
+          {@render meters()}
         {/if}
       {:else}
         <p class="empty">Nothing stands out yet: no activity goes with a change in anything else that is both big enough and steady enough to show.</p>
@@ -370,18 +409,19 @@
         <p class="aside">Correlations, not causes.</p>
       </div>
     {:else}
+      {#if scale.top}<div class="edge">{@render axis(scale.top)}</div>{/if}
       <div class="mid">
-        <div class="grid" aria-hidden="true" bind:clientWidth={trackW}>{#each { length: scale.n + 1 } as _, i (i)}<i style="left: {(i / scale.n) * 100}%"></i>{/each}</div>
+        <div class="grid" aria-hidden="true" bind:clientWidth={trackW}>{#each { length: scale.n + 1 } as _, i (i)}<i class:zero={AXES === "change" && i * 2 === scale.n} style="left: {(i / scale.n) * 100}%"></i>{/each}</div>
         <div class="rows" class:more bind:this={scroller}>
           {#each groups as g (g.outcome.id)}
-            {@const ax = scale.of(g)}
-            {@const own = startsAxis(g)}
+            {@const own = scale.inline.get(g.outcome.id)}
             <h3 class="ghead"><span><i style="background: {g.outcome.color}"></i><b>{g.outcome.name}</b><span class="unit">{g.outcome.note}</span></span></h3>
             {#if own}<div class="inline">{@render axis(own)}</div>{/if}
             {#each g.findings as f (key(f))}
               {@const u = g.outcome.unit}
-              {@const a = xOf(f.withoutAvg, ax)}
-              {@const b = xOf(f.withAvg, ax)}
+              {@const [fa, fb] = scale.at(g, f)}
+              {@const a = px(fa)}
+              {@const b = px(fb)}
               {@const ta = num(f.withoutAvg, u)}
               {@const tb = `${num(f.withAvg, u)}${u === "minutes" ? " min" : ""}`}
               {@const at = labels(a, ta, b, tb)}
@@ -395,6 +435,7 @@
                   <span class="line" class:worse={!good} style="left: {Math.min(a, b)}px; width: {Math.abs(b - a)}px"></span>
                   <span class="dot hollow" style="left: {a}px; border-color: {color}"></span>
                   <span class="dot" style="left: {b}px; background: {color}"></span>
+                  {#if fb > 1 || fb < 0}<span class="pinned" class:low={fb < 0} style="left: {b}px; color: {color}" aria-hidden="true">{fb > 1 ? "›" : "‹"}</span>{/if}
                 </div>
                 <span class="end">{@render pill(f, g.outcome)}{@render bars(f)}</span>
               </div>
@@ -402,6 +443,7 @@
           {/each}
         </div>
       </div>
+      {#if scale.bottom}<div class="edge">{@render axis(scale.bottom)}</div>{/if}
       <div class="key">
         <span><i class="ring"></i>Days without</span>
         <span><i class="disc"></i>Days with</span>
@@ -410,7 +452,11 @@
       </div>
       {#if quiet.length}
         {@const vouchersOnly = quiet.every((m) => m.unit === "vouchers")}
-        <p class="quiet">Nothing stands out yet for {#each quiet as m, i (m.id)}{i ? (i === quiet.length - 1 ? (quiet.length > 2 ? ", or " : " or ") : ", ") : ""}<b><i style="background: {m.color}"></i>{m.name}</b>{/each}{vouchersOnly ? " Vouchers" : ""}</p>
+        <p class="quiet" class:wrap={roomy}>Nothing stands out yet for {#each quiet as m, i (m.id)}{i ? (i === quiet.length - 1 ? (quiet.length > 2 ? ", or " : " or ") : ", ") : ""}<b><i style="background: {m.color}"></i>{m.name}</b>{/each}{vouchersOnly ? " Vouchers" : ""}</p>
+      {/if}
+      {#if roomy && short.length}
+        <p class="gather">Still gathering Days</p>
+        {@render meters()}
       {/if}
     {/if}
   </div>
@@ -480,12 +526,17 @@
   .ticks span { position: absolute; top: 0; transform: translateX(-50%); font: 500 var(--axis-size)/12px var(--mono); color: var(--axis-ink); white-space: nowrap; }
   .ticks .first { transform: none; }
   .ticks .last { transform: translateX(-100%); }
-  .mid { flex: 1; min-height: 0; position: relative; border-bottom: 1px solid var(--divider); }
+  /* As tall as its rows, down to what the card has left, then they scroll:
+     a Full card with few findings keeps them, and the bottom axis, together
+     at the top. */
+  .mid { flex: 0 1 auto; min-height: 0; position: relative; display: flex; flex-direction: column; border-bottom: 1px solid var(--divider); }
   /* The gridlines, drawn once behind every row and pinned while they scroll. */
   .grid { position: absolute; inset: 0 calc(var(--end-col) + var(--col-gap)) 0 calc(var(--label-col) + var(--col-gap)); pointer-events: none; }
   .grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
   .grid i:last-child { transform: translateX(-1px); }
-  .rows { position: absolute; inset: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
+  /* "change": no change, where every hollow dot sits. */
+  .grid i.zero { background: var(--axis-ink); }
+  .rows { position: relative; flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   /* Only the rows fade; the gridlines behind stay solid. */
   .rows.more { mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); }
   .ghead { flex: none; padding: 8px 0 2px; border-top: 1px solid var(--divider); font-size: 14px; }
@@ -493,8 +544,7 @@
   /* A card-colored backing, so gridlines don't run through the letters. */
   .ghead > span { display: inline-flex; align-items: baseline; gap: 7px; min-width: 0; max-width: 100%; padding-right: 6px; background: var(--surface); }
   .ghead .unit { font-size: 10px; }
-  /* Rows share out spare height when they fit; past that they scroll. */
-  .row { flex: 1 0 auto; min-height: 44px; align-items: stretch; }
+  .row { flex: none; min-height: 44px; align-items: stretch; }
   .left { display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; }
   .left .who { font-size: 13px; color: var(--ink); }
   .track { position: relative; }
@@ -503,9 +553,14 @@
   .dot.hollow { width: 10px; height: 10px; border: 1.8px solid; background: var(--surface); }
   .line { top: calc(50% + 5px); height: 2px; background: var(--voucher); }
   .line.worse { top: calc(50% + 4.5px); height: 3px; background: var(--worse); }
+  /* A change past the axis, pinned at its edge. */
+  .pinned { top: calc(50% + 6px); transform: translate(5px, -55%); font: 700 13px/1 var(--mono); }
+  .pinned.low { transform: translate(-13px, -55%); }
   .label { bottom: calc(50% - 6px + 8px); font: 600 10px/12px var(--mono); color: var(--ink); white-space: nowrap; }
   .label.was { color: var(--muted); }
   .row .end { align-self: center; }
+  /* The axes across the top and bottom, outside the scroller. */
+  .edge { flex: none; }
   /* Ticks under a heading, backed so the gridlines don't run through them. */
   .inline { flex: none; padding-top: 2px; }
   .inline .ticks span { padding: 0 2px; background: var(--surface); }
@@ -524,6 +579,7 @@
   .both .slash { stroke: var(--ink); stroke-width: 1.2; }
 
   .quiet { flex: none; margin: 0; padding: 7px 12px; border: 1.5px dashed var(--line); border-radius: 10px; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .quiet.wrap { white-space: normal; }
   .quiet b { color: var(--ink); }
   .quiet b i { display: inline-block; width: 7px; height: 7px; margin: 0 5px 1px 2px; border-radius: 50%; vertical-align: middle; }
 
@@ -540,6 +596,7 @@
   }
 
   /* Needs more Days: how far each source is from 8 Days each way. */
+  .gather { flex: none; margin: 4px 0 0; font: 600 9px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
   .meters { display: flex; flex-direction: column; gap: 8px; }
   .meters.fit { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .meter { display: grid; grid-template-columns: minmax(0, 120px) minmax(40px, 1fr) auto; align-items: center; gap: 10px; }

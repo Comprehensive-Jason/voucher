@@ -44,19 +44,19 @@ export const PANELS: Record<PanelId, { name: string; min: number; max: number; s
   streaks: { name: "Source streaks", min: 1, max: 3, size: 1 },
   records: { name: "Personal records", min: 1, max: 1, size: 1 },
   best: { name: "Best hours by source", min: 1, max: 3, size: 1 },
-  gooddays: { name: "What goes with a good Day", min: 1, max: 2, size: 1 },
+  gooddays: { name: "What goes with a good Day", min: 1, max: 3, size: 1 },
   replay: { name: "Replay", min: 1, max: 1, size: 1 },
   focus: { name: "Focus stretches", min: 1, max: 2, size: 1 },
-  verdicts: { name: "Goal vs how the Day went", min: 1, max: 2, size: 1 },
+  verdicts: { name: "Goal vs how the Day went", min: 1, max: 1, size: 1 },
   compare: { name: "Before and after", min: 1, max: 2, size: 1 },
-  reasons: { name: "Why you unlock", min: 1, max: 2, size: 1 },
+  reasons: { name: "Why you unlock", min: 1, max: 1, size: 1 },
   sleep: { name: "Sleep", min: 1, max: 3, size: 1, options: [{
     kind: "chips", id: "columns", label: "Beside each night",
     choices: [{ id: "verdict", label: "Curfew answer" }, { id: "vouchers", label: "Vouchers" }, { id: "distraction", label: "Distraction" }],
     start: (size) => (size === 1 ? ["verdict"] : ["verdict", "vouchers", "distraction"]),
     most: (size) => (size === 1 ? 2 : 3),
   }] },
-  calendar: { name: "Calendar load", min: 1, max: 2, size: 1 },
+  calendar: { name: "Calendar load", min: 1, max: 1, size: 1 },
   planned: { name: "Planned vs actual", min: 1, max: 2, size: 1 },
 };
 
@@ -70,6 +70,19 @@ type Sizes = Partial<Record<PanelId, number>>;
 /** Each card's option values, by option id: a switch's on, or chips' picks in order. */
 type Choices = Partial<Record<PanelId, Record<string, boolean | string[]>>>;
 const clampSize = (id: PanelId, n: unknown) => Math.min(PANELS[id].max, Math.max(PANELS[id].min, Number(n) || PANELS[id].size));
+/** Saved sizes a panel still allows. One it no longer does (a card that
+ *  once grew to two-thirds and now has one size) is dropped, so the card
+ *  starts again from its default rather than at the nearest edge. */
+function sizesOf(saved: unknown): Sizes {
+  const out: Sizes = {};
+  if (!saved || typeof saved !== "object") return out;
+  for (const [id, n] of Object.entries(saved)) {
+    if (!(id in PANELS)) continue;
+    const p = PANELS[id as PanelId];
+    if (Number.isInteger(n) && n >= p.min && n <= p.max) out[id as PanelId] = n;
+  }
+  return out;
+}
 
 /** Panels in order into columns: each joins the current column if it fits,
  *  otherwise starts the next. */
@@ -106,7 +119,7 @@ function load(): { order: PanelId[]; sizes: Sizes; choices: Choices } {
         const before = DEFAULT.slice(0, DEFAULT.indexOf(id)).reverse().find((p) => order.includes(p));
         order.splice(before ? order.indexOf(before) + 1 : 0, 0, id);
       }
-      return { order, sizes: saved.sizes ?? {}, choices: saved.choices && typeof saved.choices === "object" ? saved.choices : {} };
+      return { order, sizes: sizesOf(saved.sizes), choices: saved.choices && typeof saved.choices === "object" ? saved.choices : {} };
     }
   } catch { /* the default, below */ }
   return { order: [...DEFAULT], sizes: {}, choices: {} };

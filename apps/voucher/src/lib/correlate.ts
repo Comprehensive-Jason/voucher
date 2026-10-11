@@ -87,11 +87,11 @@ export type Options = {
 export const MIN_N = 8;
 /** Fewest different Days each side's stretches come from. */
 export const MIN_STRETCH_DAYS = 5;
-/** Smallest change shown, in the outcome's own units (Vouchers, minutes, percentage points, or energy steps). */
+/** Smallest change shown, in the outcome's own units (Vouchers, minutes, or percentage points). */
 export const FLOOR = 0.5;
 /** Smallest change shown, in spreads (see Tested.spread): Low and Medium
  *  need 0.3, High 0.2. A spread suits every unit alike, Vouchers, minutes,
- *  percent, or energy. The standard deviation rather than a robust one
+ *  or percent. The standard deviation rather than a robust one
  *  (MAD × 1.4826): a source that earns on fewer than half the Days has a
  *  median of 0 and a MAD of 0, which would let any change through. */
 export const EFFECT = 0.3;
@@ -110,9 +110,10 @@ export const MORE_SHUFFLES = 20000;
 export const MORE_BELOW = 0.01;
 export const ENOUGH = 100;
 
-/** From the corrected chance q: High under 0.05, Medium under 0.2, Low under
- *  0.5, else Very low (more likely a fluke than real, so never shown). */
-export const confidenceOf = (q: number): Confidence => (q < 0.05 ? 3 : q < 0.2 ? 2 : q < 0.5 ? 1 : 0);
+/** From the corrected chance q (the share of findings at this level or
+ *  above that are expected to be flukes): High under 0.05, Medium under
+ *  0.10, Low under 0.20, else Very low (too likely a fluke, so never shown). */
+export const confidenceOf = (q: number): Confidence => (q < 0.05 ? 3 : q < 0.1 ? 2 : q < 0.2 ? 1 : 0);
 
 /** At least MIN_N on each side and a change of at least FLOOR; then Low and
  *  Medium need a change of EFFECT spreads, High EFFECT_HIGH, and Very low
