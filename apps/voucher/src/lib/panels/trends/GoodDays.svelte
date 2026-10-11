@@ -111,7 +111,7 @@
   const PAD = 0.06;
   const NAMES: Record<Unit, string> = { vouchers: "Vouchers a Day", minutes: "Minutes", percent: "Percent" };
   /** One axis per unit, as designed. "group" gives each group its own, for far longer lines when one source (Tasks) earns many times what the rest do. */
-  const PER: "unit" | "group" = "group";
+  const PER = "group" as "unit" | "group";
   /** The smallest round step (1, 2, 2.5, or 5 times a power of ten) above `raw`. */
   function stepAbove(raw: number): number {
     const p = 10 ** Math.floor(Math.log10(raw));
