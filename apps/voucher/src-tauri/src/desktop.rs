@@ -5,7 +5,8 @@
 //! - the "Steam is paused" window, opened when the guard closes a program
 //!   or a browser shows a blocked site,
 //! - Focused time read from ActivityWatch and reported to the Ledger, plus
-//!   time on sites read from the browser's address bar (`sites`),
+//!   time on sites read from the browser's address bar (`sites`), and the
+//!   focus stretches in it (`stretches`),
 //! - the `device` commands the interface also asks of the phone.
 
 use std::{sync::Mutex, thread, time::Duration};
@@ -16,7 +17,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
 
-use crate::sites;
+use crate::{sites, stretches};
 
 const GUARD: &str = "http://127.0.0.1:8790";
 const ACTIVITYWATCH: &str = "http://127.0.0.1:5600";
@@ -316,12 +317,72 @@ fn report_focus(app: &AppHandle) -> Option<()> {
             let _ = ledger_request(&connection, "POST", "/report", Some(body));
         }
     }
+    let _ = report_stretches(&connection, &status, today, &device);
     Some(())
 }
 
-/// Seconds each program (lowercased file name) was in front, while the
-/// user was not away, since the current Day began. None without ActivityWatch.
-fn activitywatch_since_day_start(status: &Value) -> Option<Vec<(String, f64)>> {
+/// The last stretches sent, so an unchanged Day isn't sent again.
+static STRETCHES_SENT: Mutex<String> = Mutex::new(String::new());
+
+/// Sends this Day's focus stretches, each with when it started and its
+/// source, as the phone does: programs from ActivityWatch and sites from the
+/// address bar, joined by the phone's rule (`stretches`). This PC measures
+/// no Distraction time for the Ledger, so the report leaves `apps` out.
+fn report_stretches(connection: &crate::connection::Connection, status: &Value, today: jiff::civil::Date, device: &str) -> Option<()> {
+    let mut programs: Vec<(String, String)> = Vec::new();
+    let mut domains: Vec<(String, String)> = Vec::new();
+    for (id, source) in status["settings"]["sources"].as_object()? {
+        if source["kind"] != "focus" || source["on"] != true {
+            continue;
+        }
+        for member in source["packages"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+            if let Some(program) = member.strip_prefix("win:") {
+                programs.push((program.to_lowercase(), id.clone()));
+            } else if let Some(domain) = sites::site_member(member) {
+                domains.push((domain, id.clone()));
+            }
+        }
+    }
+    if programs.is_empty() && domains.is_empty() {
+        return Some(());
+    }
+    let mut spans: Vec<(String, i64, i64)> = Vec::new();
+    for (app, start, seconds) in activitywatch_events_since_day_start(status).unwrap_or_default() {
+        if let Some((_, id)) = programs.iter().find(|(p, _)| *p == app) {
+            let from = start.as_millisecond();
+            spans.push((id.clone(), from, from + (seconds * 1000.0) as i64));
+        }
+    }
+    // A host goes to the source holding its longest matching domain.
+    for span in sites::spans_on(today) {
+        let best = domains.iter().filter(|(d, _)| sites::matches(&span.host, d)).max_by_key(|(d, _)| d.len());
+        if let Some((_, id)) = best {
+            spans.push((id.clone(), span.from * 1000, span.to * 1000));
+        }
+    }
+    let found = stretches::join(spans);
+    let body = json!({
+        "device": device,
+        "day": today.to_string(),
+        "stretches": found.iter().map(|f| f.minutes).collect::<Vec<_>>(),
+        "timed_stretches": found.iter().filter_map(|f| {
+            let start = jiff::Timestamp::from_millisecond(f.start).ok()?;
+            Some(json!({ "start": start, "minutes": f.minutes, "source": f.source }))
+        }).collect::<Vec<_>>(),
+    });
+    let text = body.to_string();
+    if *STRETCHES_SENT.lock().unwrap() == text {
+        return Some(());
+    }
+    ledger_request(connection, "POST", "/usage", Some(body))?;
+    *STRETCHES_SENT.lock().unwrap() = text;
+    Some(())
+}
+
+/// Runs an ActivityWatch query over the current Day so far, on window
+/// events while the user was not away (`window`), returning what `last`
+/// makes of them. None without ActivityWatch.
+fn activitywatch_query(status: &Value, last: &str) -> Option<Value> {
     let settings = &status["settings"];
     let day = status["today"]["day"].as_str()?.to_string();
     let zone = jiff::tz::TimeZone::get(settings["time_zone"].as_str()?).ok()?;
@@ -334,7 +395,7 @@ fn activitywatch_since_day_start(status: &Value) -> Option<Vec<(String, f64)>> {
             "afk = flood(query_bucket(find_bucket(\"aw-watcher-afk_\")));",
             "window = flood(query_bucket(find_bucket(\"aw-watcher-window_\")));",
             "window = filter_period_intersect(window, filter_keyvals(afk, \"status\", [\"not-afk\"]));",
-            "RETURN = merge_events_by_keys(window, [\"app\"]);"
+            last
         ]
     });
     let text = agent()
@@ -346,11 +407,35 @@ fn activitywatch_since_day_start(status: &Value) -> Option<Vec<(String, f64)>> {
         .read_to_string()
         .ok()?;
     let result: Value = serde_json::from_str(&text).ok()?;
+    Some(result[0].clone())
+}
+
+/// Seconds each program (lowercased file name) was in front, while the
+/// user was not away, since the current Day began. None without ActivityWatch.
+fn activitywatch_since_day_start(status: &Value) -> Option<Vec<(String, f64)>> {
+    let result = activitywatch_query(status, "RETURN = merge_events_by_keys(window, [\"app\"]);")?;
     Some(
-        result[0]
+        result
             .as_array()?
             .iter()
             .filter_map(|e| Some((e["data"]["app"].as_str()?.to_lowercase(), e["duration"].as_f64()?)))
+            .collect(),
+    )
+}
+
+/// Each time a program (lowercased file name) was in front while the user
+/// was not away since the current Day began: when it started and for how
+/// many seconds. None without ActivityWatch.
+fn activitywatch_events_since_day_start(status: &Value) -> Option<Vec<(String, jiff::Timestamp, f64)>> {
+    let result = activitywatch_query(status, "RETURN = sort_by_timestamp(window);")?;
+    Some(
+        result
+            .as_array()?
+            .iter()
+            .filter_map(|e| {
+                let at = e["timestamp"].as_str()?.parse::<jiff::Timestamp>().ok()?;
+                Some((e["data"]["app"].as_str()?.to_lowercase(), at, e["duration"].as_f64()?))
+            })
             .collect(),
     )
 }

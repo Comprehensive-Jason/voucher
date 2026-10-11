@@ -141,7 +141,22 @@ export interface DayTotal {
   calendar?: CalendarDay | null;
   /** The answer to "How was your energy today?", 1 to 5. */
   energy?: Energy | null;
+  /** The focus stretches whose Enforcer said when each started and in which
+   *  source, oldest first; older Enforcers send lengths only, so these can be
+   *  fewer than `stretches`. Absent from older Ledgers, empty past the log. */
+  timed_stretches?: TimedStretch[];
+  /** Unlocks that ran this Day, [from, to], oldest first, from the log.
+   *  Absent from older Ledgers, empty past the log. */
+  unlocks?: [string, string][];
+  /** When Distraction apps and sites were in use, [from, to], every device's
+   *  merged, oldest first: null unless every device that reported
+   *  Distraction minutes also sent spans (older Enforcers send minutes per
+   *  hour only). Absent from older Ledgers. */
+  distraction_spans?: [string, string][] | null;
 }
+
+/** A focus stretch with when it started and its source's id. */
+export interface TimedStretch { start: string; minutes: number; source: string }
 
 /** A Day's night of sleep, from the Ledger. It belongs to the Day its
  *  wake-up leads into: the local date of the wake time, so a 05:30 wake-up

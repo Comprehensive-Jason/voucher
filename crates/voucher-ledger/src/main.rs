@@ -317,12 +317,33 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 .ok()
                 .and_then(|_| serde_json::from_str::<UsageReport>(&body).ok());
             let parsed = parsed.map(|u| {
-                // Focus stretches and blocked opens ride along with the minutes.
+                // Focus stretches and blocked opens ride along with the
+                // minutes. A device that measures no Distraction (the
+                // Windows tray) leaves `apps` out and sends only its stretches.
                 let extras = u.stretches.is_some() || u.opens.is_some();
                 let opens = u.opens.map(|o| (o, u.walked.unwrap_or(0)));
-                let kept = ledger.report_usage_in_lists(&u.device, u.day, u.apps, u.lists, now);
-                kept && (!extras
-                    || ledger.report_focus_and_opens(&u.device, u.day, u.stretches, opens, now))
+                let kept = match u.apps {
+                    Some(apps) => {
+                        ledger.report_usage_in_lists(&u.device, u.day, apps, u.lists, now)
+                    }
+                    None => extras || u.timed_stretches.is_some(),
+                };
+                let kept = kept
+                    && (!extras
+                        || ledger.report_focus_and_opens(
+                            &u.device,
+                            u.day,
+                            u.stretches,
+                            opens,
+                            now,
+                        ));
+                let kept = kept
+                    && u.timed_stretches.is_none_or(|list| {
+                        ledger.report_timed_stretches(&u.device, u.day, list, now)
+                    });
+                kept && u.distraction_spans.is_none_or(|spans| {
+                    ledger.report_distraction_spans(&u.device, u.day, spans, now)
+                })
             });
             match parsed {
                 Some(true) => (200, json(&Message { message: "kept" })),
@@ -707,14 +728,25 @@ struct UsageReport {
     /// Which device measured this; each device's latest report stands.
     device: String,
     day: jiff::civil::Date,
-    /// Minutes per clock hour (midnight first), per app.
-    apps: std::collections::BTreeMap<String, Vec<u32>>,
+    /// Minutes per clock hour (midnight first), per app. Left out by a
+    /// device that measures no Distraction time.
+    #[serde(default)]
+    apps: Option<std::collections::BTreeMap<String, Vec<u32>>>,
     /// The blocklist id each app is on, where the device knows it.
     #[serde(default)]
     lists: std::collections::BTreeMap<String, String>,
     /// Each unbroken stretch in a focus app this Day, in minutes.
     #[serde(default)]
     stretches: Option<Vec<u32>>,
+    /// The same stretches, each with when it started and its source. Added
+    /// 2026-10-11; Enforcers send both, so an older Ledger still gets the
+    /// lengths (it ignores this field).
+    #[serde(default)]
+    timed_stretches: Option<Vec<voucher_ledger::Stretch>>,
+    /// When Distraction apps and sites were in use this Day, [from, to].
+    /// Added 2026-10-11, alongside the minutes per hour in `apps`.
+    #[serde(default)]
+    distraction_spans: Option<Vec<(jiff::Timestamp, jiff::Timestamp)>>,
     /// Opens of a blocked app this Day, and how many ended without an Unlock.
     #[serde(default)]
     opens: Option<u32>,

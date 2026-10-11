@@ -381,11 +381,19 @@ object Enforcer {
                 apps.put(domain, JSONArray(h.toList()))
                 siteBlocklistOf(status, domain)?.let { lists.put(domain, it) }
             }
-            val stretches = JSONArray(focusStretches(ctx, focus, from, to))
+            val found = focusStretches(ctx, focus, from, to)
+            val stretches = JSONArray(found.map { it.minutes })
+            // The same stretches with their starts and sources; an older Ledger ignores these and keeps the lengths.
+            val timed = JSONArray()
+            for (s in found) timed.put(JSONObject().put("start", Instant.ofEpochMilli(s.start).toString()).put("minutes", s.minutes).put("source", s.source))
+            // When Distraction apps and sites were in use, for what came before each focus stretch.
+            val spans = JSONArray()
+            for ((a, b) in distractionSpans(ctx, status, packages, from, to)) spans.put(JSONArray().put(Instant.ofEpochMilli(a).toString()).put(Instant.ofEpochMilli(b).toString()))
             val opens = Store.attempts(ctx, d).values.sum()
             val walked = Store.closedWithoutTearing(ctx, d)
             val body = JSONObject().put("device", Store.deviceId(ctx)).put("day", d).put("apps", apps).put("lists", lists)
-                .put("stretches", stretches).put("opens", opens).put("walked", walked)
+                .put("stretches", stretches).put("timed_stretches", timed).put("distraction_spans", spans).put("opens", opens).put("walked", walked)
+            // Spans and starts change only when the minutes or stretches above do (or within a minute of it), so they don't count here.
             val text = "$apps|$stretches|$opens|$walked"
             if (d == day && text == Store.usageSent(ctx, d)) continue
             if (runCatching { LedgerClient.post(c, "/usage", body) }.getOrNull() == 200) {
@@ -405,12 +413,36 @@ object Enforcer {
         return out
     }
 
+    /** One focus stretch: its source's id, when it started (epoch milliseconds), and its whole minutes. */
+    private data class FocusStretch(val source: String, val start: Long, val minutes: Int)
+
+    /**
+     * When Distraction apps (`packages`) and blocked sites were in front with
+     * the screen on between `from` and `to`, as [start, end] in epoch
+     * milliseconds, oldest first: the same spans the minutes per hour are
+     * added up from, with overlaps and gaps under a minute joined. Empty
+     * without usage access.
+     */
+    private fun distractionSpans(ctx: Context, status: JSONObject, packages: Set<String>, from: Long, to: Long): List<Pair<Long, Long>> {
+        val spans = mutableListOf<Pair<Long, Long>>()
+        if (packages.isNotEmpty()) foregroundSpans(ctx, packages, from, to) { _, a, b -> spans.add(a to b) }
+        val blocked = strings(status.optJSONObject("blocked")?.optJSONArray("sites")).filterNot { it.startsWith("list:") }
+        if (blocked.isNotEmpty()) siteSpans(ctx, from, to) { _, host, a, b -> if (Sites.match(host, blocked) != null) spans.add(a to b) }
+        val out = mutableListOf<Pair<Long, Long>>()
+        for ((a, b) in spans.sortedBy { it.first }) {
+            val last = out.lastOrNull()
+            if (last != null && a - last.second < 60_000) out[out.size - 1] = last.first to maxOf(last.second, b) else out.add(a to b)
+        }
+        return out
+    }
+
     /**
      * Unbroken stretches in focus apps and sites between `from` and `to`, in
-     * whole minutes. Switching between apps or sites of the same source, or
-     * leaving for under 2 minutes, doesn't break a stretch.
+     * whole minutes, with when each started and its source. Switching between
+     * apps or sites of the same source, or leaving for under 2 minutes,
+     * doesn't break a stretch.
      */
-    private fun focusStretches(ctx: Context, focus: Map<String, String>, from: Long, to: Long): List<Int> {
+    private fun focusStretches(ctx: Context, focus: Map<String, String>, from: Long, to: Long): List<FocusStretch> {
         if (focus.isEmpty()) return emptyList()
         val spans = mutableListOf<Triple<String, Long, Long>>()
         val apps = focus.keys.filterNot { it.startsWith(Sites.PREFIX) }.toSet()
@@ -419,17 +451,17 @@ object Enforcer {
         if (sites.isNotEmpty()) siteSpans(ctx, from, to) { _, host, start, stop ->
             Sites.match(host, sites.keys)?.let { spans.add(Triple(sites.getValue(it), start, stop)) }
         }
-        val out = mutableListOf<Int>()
+        val out = mutableListOf<FocusStretch>()
         var source: String? = null
         var start = 0L
         var stop = 0L
         for ((s, a, b) in spans.sortedBy { it.second }) {
             if (s == source && a - stop < 120_000) { stop = maxOf(stop, b); continue }
-            if (source != null) out.add(((stop - start) / 60_000).toInt())
+            source?.let { out.add(FocusStretch(it, start, ((stop - start) / 60_000).toInt())) }
             source = s; start = a; stop = b
         }
-        if (source != null) out.add(((stop - start) / 60_000).toInt())
-        return out.filter { it >= 1 }
+        source?.let { out.add(FocusStretch(it, start, ((stop - start) / 60_000).toInt())) }
+        return out.filter { it.minutes >= 1 }
     }
 
     /** The day's Distraction minutes (apps and blocked sites) and blocked opens, for Trends. */

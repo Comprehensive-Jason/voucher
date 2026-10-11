@@ -30,11 +30,44 @@ pub struct Tally {
     day: Option<Date>,
     /// Host, then browser file name, then seconds in each clock hour (midnight first).
     hosts: BTreeMap<String, BTreeMap<String, [f64; 24]>>,
+    /// The same time as unbroken spans, oldest first, for focus stretches.
+    /// Absent from a file saved before spans were kept.
+    #[serde(default)]
+    spans: Vec<SiteSpan>,
+}
+
+/// One unbroken stretch of a browser in front showing one host, in Unix seconds.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SiteSpan {
+    pub host: String,
+    pub browser: String,
+    pub from: i64,
+    pub to: i64,
 }
 
 impl Tally {
     const fn new() -> Self {
-        Tally { day: None, hosts: BTreeMap::new() }
+        Tally { day: None, hosts: BTreeMap::new(), spans: Vec::new() }
+    }
+
+    /// Notes that `host` was in front for the `seconds` ending at `end` (Unix
+    /// seconds), continuing the last span when it is the same host and
+    /// browser and follows on. Call after `add`, which starts a new Day.
+    pub fn add_span(&mut self, day: Date, host: &str, browser: &str, end: i64, seconds: f64) {
+        if self.day != Some(day) {
+            return;
+        }
+        let from = end - seconds.round() as i64;
+        match self.spans.last_mut() {
+            // A sample or two of slack, for the sampler's own timing.
+            Some(last) if last.host == host && last.browser == browser && from - last.to <= 2 => last.to = end,
+            _ => self.spans.push(SiteSpan { host: host.into(), browser: browser.into(), from, to: end }),
+        }
+    }
+
+    /// The spans kept for `day`.
+    pub fn spans_on(&self, day: Date) -> Vec<SiteSpan> {
+        if self.day == Some(day) { self.spans.clone() } else { vec![] }
     }
 
     /// Adds seconds on `host`. A new Day drops the old one's tallies.
@@ -46,6 +79,7 @@ impl Tally {
             _ => {
                 self.day = Some(day);
                 self.hosts.clear();
+                self.spans.clear();
             }
         }
         let hours = self.hosts.entry(host.into()).or_default().entry(browser.into()).or_insert([0.0; 24]);
@@ -125,6 +159,11 @@ pub fn seconds_on(day: Date, mine: &[String], all: &[String], except: &[String])
 /// Seconds on `day` per domain in `domains`, outside the `except` browsers.
 pub fn seconds_by_domain(day: Date, domains: &[String], except: &[String]) -> Vec<(String, f64)> {
     TALLY.lock().unwrap().seconds_by_domain(day, domains, except)
+}
+
+/// The unbroken spans on sites kept for `day`.
+pub fn spans_on(day: Date) -> Vec<SiteSpan> {
+    TALLY.lock().unwrap().spans_on(day)
 }
 
 /// A domain as members and blocklists store it: lowercase, no `www.`.
@@ -261,7 +300,10 @@ mod sampler {
             if let Some((browser, host)) = sample(&mut bars) {
                 let (zone, start) = day_start();
                 let (day, hour) = day_and_hour(jiff::Timestamp::now(), &zone, start);
-                TALLY.lock().unwrap().add(day, hour, &host, &browser, seconds);
+                let mut tally = TALLY.lock().unwrap();
+                tally.add(day, hour, &host, &browser, seconds);
+                tally.add_span(day, &host, &browser, jiff::Timestamp::now().as_second(), seconds);
+                drop(tally);
                 unsaved = true;
             }
             if unsaved && saved.elapsed() >= SAVE_EVERY {
@@ -514,6 +556,36 @@ mod tests {
         tally.add(day("2026-10-09"), 23, "reddit.com", "brave.exe", 60.0);
         assert_eq!(tally.day, Some(day("2026-10-10")));
         assert_eq!(tally.hosts.keys().collect::<Vec<_>>(), vec!["github.com"]);
+    }
+
+    #[test]
+    fn samples_of_one_host_join_into_spans() {
+        let mut tally = Tally::new();
+        let today = day("2026-10-10");
+        for end in [1_000, 1_005, 1_010] {
+            tally.add(today, 9, "readwise.io", "brave.exe", 5.0);
+            tally.add_span(today, "readwise.io", "brave.exe", end, 5.0);
+        }
+        tally.add(today, 9, "github.com", "brave.exe", 5.0);
+        tally.add_span(today, "github.com", "brave.exe", 1_015, 5.0);
+        // Away for a while, then back on the same host: a new span.
+        tally.add(today, 9, "github.com", "brave.exe", 5.0);
+        tally.add_span(today, "github.com", "brave.exe", 1_100, 5.0);
+        let spans: Vec<(String, i64, i64)> = tally.spans_on(today).into_iter().map(|s| (s.host, s.from, s.to)).collect();
+        let want = [("readwise.io", 995, 1_010), ("github.com", 1_010, 1_015), ("github.com", 1_095, 1_100)];
+        assert_eq!(spans, want.map(|(h, a, b)| (h.to_string(), a, b)).to_vec());
+        assert!(tally.spans_on(day("2026-10-09")).is_empty());
+        // A new Day starts with none.
+        tally.add(day("2026-10-11"), 7, "github.com", "brave.exe", 5.0);
+        assert!(tally.spans_on(day("2026-10-11")).is_empty());
+    }
+
+    #[test]
+    fn a_tally_saved_before_spans_still_loads() {
+        let old = r#"{"day":"2026-10-10","hosts":{"github.com":{"brave.exe":[0,0,0,0,0,0,0,0,0,60,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}}}"#;
+        let tally: Tally = serde_json::from_str(old).unwrap();
+        assert_eq!(tally.seconds_by_domain(day("2026-10-10"), &["github.com".into()], &[]), vec![("github.com".to_string(), 60.0)]);
+        assert!(tally.spans.is_empty());
     }
 
     #[test]

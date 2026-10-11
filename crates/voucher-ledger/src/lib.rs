@@ -716,6 +716,18 @@ pub struct DayTotal {
     pub source_hours: BTreeMap<String, Vec<u32>>,
     /// Every unbroken stretch in a focus app, in minutes, all devices together.
     pub stretches: Vec<u32>,
+    /// The stretches whose Enforcer said when each started and in which
+    /// source, oldest first. Older Enforcers send lengths only, so these can
+    /// be fewer than `stretches`; empty past the log.
+    pub timed_stretches: Vec<Stretch>,
+    /// Unlocks that ran this Day, [from, to], oldest first, from the log (an
+    /// Unlock stacked onto a running one continues it): empty past the log.
+    pub unlocks: Vec<(Timestamp, Timestamp)>,
+    /// When Distraction apps and sites were in use, [from, to], every
+    /// device's merged, oldest first. None unless every device that reported
+    /// Distraction minutes for the Day also sent its spans (older Enforcers
+    /// send minutes per hour only), and past the log.
+    pub distraction_spans: Option<Vec<(Timestamp, Timestamp)>>,
     /// Opens of a blocked app, all devices together.
     pub opens: u32,
     /// Of those, the ones that ended without an Unlock.
@@ -735,6 +747,15 @@ pub struct DayTotal {
     pub calendar: Option<CalendarDay>,
     /// The answer to "How was your energy today?", 1 to 5.
     pub energy: Option<u8>,
+}
+
+/// One unbroken stretch in a focus source, as an Enforcer measured it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Stretch {
+    pub start: Timestamp,
+    pub minutes: u32,
+    /// The focus source's id, such as `obsidian`.
+    pub source: String,
 }
 
 /// What one Day earned, and the goal it had.
@@ -763,6 +784,16 @@ struct DayScore {
     /// Unbroken stretches in focus apps, by device: their lengths in minutes.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     stretches: BTreeMap<String, Vec<u32>>,
+    // Added 2026-10-11, empty when an older state.json loads; an older
+    // Ledger reading a newer file ignores them.
+    /// The same stretches with their starts and sources, by device, from
+    /// Enforcers that send them.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    timed_stretches: BTreeMap<String, Vec<Stretch>>,
+    /// When Distraction apps and sites were in use, [from, to], by device,
+    /// merged, from Enforcers that send them.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    distraction_spans: BTreeMap<String, Vec<(Timestamp, Timestamp)>>,
     /// Blocked opens and how many ended without an Unlock, by device.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     blocked: BTreeMap<String, (u32, u32)>,
@@ -783,6 +814,8 @@ impl DayScore {
             usage: BTreeMap::new(),
             usage_lists: BTreeMap::new(),
             stretches: BTreeMap::new(),
+            timed_stretches: BTreeMap::new(),
+            distraction_spans: BTreeMap::new(),
             blocked: BTreeMap::new(),
             silent: BTreeMap::new(),
         }
@@ -1159,6 +1192,87 @@ impl Ledger {
         true
     }
 
+    /// One device's focus stretches for `day` (today or yesterday), each with
+    /// when it started and its source, replacing its last report. Their
+    /// lengths replace the device's plain lengths too, so the two always
+    /// agree. A stretch counts if it starts in the Day and runs 1 to 1440
+    /// minutes; others are dropped. False if refused.
+    pub fn report_timed_stretches(
+        &mut self,
+        device: &str,
+        day: Date,
+        list: Vec<Stretch>,
+        now: Timestamp,
+    ) -> bool {
+        self.settle(now);
+        let settings = &self.state.settings;
+        let today = day_of(settings, now);
+        if (day != today && Some(day) != today.yesterday().ok()) || list.len() > MAX_SPANS {
+            return false;
+        }
+        let mut list: Vec<Stretch> = list
+            .into_iter()
+            .filter(|s| {
+                (1..=24 * 60).contains(&s.minutes)
+                    && day_of(settings, s.start) == day
+                    && !s.source.trim().is_empty()
+                    && s.source.len() <= 64
+            })
+            .collect();
+        list.sort_by_key(|s| s.start);
+        let goal = settings.daily_goal;
+        let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
+        score
+            .stretches
+            .insert(device.to_string(), list.iter().map(|s| s.minutes).collect());
+        score.timed_stretches.insert(device.to_string(), list);
+        true
+    }
+
+    /// One device's Distraction spans for `day` (today or yesterday): when
+    /// its Distraction apps and sites were in use, [from, to], replacing its
+    /// last report. Each span must start in the Day; it is cut at the Day's
+    /// end and at `now`, and overlapping ones are merged. False if refused.
+    pub fn report_distraction_spans(
+        &mut self,
+        device: &str,
+        day: Date,
+        spans: Vec<(Timestamp, Timestamp)>,
+        now: Timestamp,
+    ) -> bool {
+        self.settle(now);
+        let settings = &self.state.settings;
+        let today = day_of(settings, now);
+        if (day != today && Some(day) != today.yesterday().ok()) || spans.len() > MAX_SPANS {
+            return false;
+        }
+        let Some(end) = day
+            .tomorrow()
+            .ok()
+            .and_then(|next| {
+                next.to_datetime(settings.curfew_end)
+                    .to_zoned(settings.time_zone.clone())
+                    .ok()
+            })
+            .map(|z| z.timestamp().min(now))
+        else {
+            return false;
+        };
+        let mut spans: Vec<(Timestamp, Timestamp)> = spans
+            .into_iter()
+            .filter(|(a, _)| day_of(settings, *a) == day)
+            .map(|(a, b)| (a, b.min(end)))
+            .filter(|(a, b)| a < b)
+            .collect();
+        spans.sort();
+        let goal = settings.daily_goal;
+        let score = self.state.days.entry(day).or_insert(DayScore::new(goal));
+        score
+            .distraction_spans
+            .insert(device.to_string(), merge_spans(spans));
+        true
+    }
+
     /// Adds `units` (tasks or minutes) to a source's progress on `day`,
     /// paying a Voucher each time it reaches the source's `every`. Each
     /// Voucher is logged under the name `entry` gives it.
@@ -1430,6 +1544,32 @@ impl Ledger {
                 _ => {}
             }
         }
+        // Unlocks from the tears: one starts when torn, or where the running
+        // one ends if it was stacked on, and runs the minutes it added.
+        let mut unlocks: BTreeMap<Date, Vec<(Timestamp, Timestamp)>> = BTreeMap::new();
+        let mut tears_in_order: Vec<(Timestamp, u32)> = self
+            .state
+            .log
+            .iter()
+            .filter_map(|e| match e {
+                Entry::Redeemed { at, minutes, .. } if *minutes > 0 => Some((*at, *minutes)),
+                _ => None,
+            })
+            .collect();
+        tears_in_order.sort();
+        let mut running_until: Option<Timestamp> = None;
+        for (at, minutes) in tears_in_order {
+            let from = running_until.filter(|end| *end > at).unwrap_or(at);
+            let Ok(to) = from.checked_add(SignedDuration::from_mins(i64::from(minutes))) else {
+                continue;
+            };
+            running_until = Some(to);
+            let list = unlocks.entry(day_of(settings, from)).or_default();
+            match list.last_mut() {
+                Some(last) if last.1 >= from => last.1 = to,
+                _ => list.push((from, to)),
+            }
+        }
         let sleeps = match days {
             0 => BTreeMap::new(),
             n => self.sleep_between(days_before(today, i64::from(n) - 1), today),
@@ -1461,6 +1601,9 @@ impl Ledger {
                     stretches: score
                         .map(|s| s.stretches.values().flatten().copied().collect())
                         .unwrap_or_default(),
+                    timed_stretches: score.map(timed_stretches_of).unwrap_or_default(),
+                    unlocks: unlocks.remove(&day).unwrap_or_default(),
+                    distraction_spans: score.and_then(distraction_spans_of),
                     opens: score.map_or(0, |s| s.blocked.values().map(|b| b.0).sum()),
                     walked: score.map_or(0, |s| s.blocked.values().map(|b| b.1.min(b.0)).sum()),
                     used: score
@@ -1551,6 +1694,8 @@ impl Ledger {
             score.usage.clear();
             score.usage_lists.clear();
             score.stretches.clear();
+            score.timed_stretches.clear();
+            score.distraction_spans.clear();
             score.silent.clear();
         }
         self.forget_old_measures(oldest);
@@ -2320,6 +2465,48 @@ const EARNING_WINDOW_DAYS: i64 = 2;
 /// so the hour chart and the Log reach as far back as anyone looks for a
 /// trend. Day scores (the history grid, Trends) are kept for good.
 const LOG_DAYS: i64 = 183;
+
+/// Most stretches or Distraction spans one device can report for a Day.
+const MAX_SPANS: usize = 2000;
+
+/// Sorted spans with overlapping and touching ones joined.
+fn merge_spans(sorted: Vec<(Timestamp, Timestamp)>) -> Vec<(Timestamp, Timestamp)> {
+    let mut out: Vec<(Timestamp, Timestamp)> = Vec::with_capacity(sorted.len());
+    for (a, b) in sorted {
+        match out.last_mut() {
+            Some(last) if a <= last.1 => last.1 = last.1.max(b),
+            _ => out.push((a, b)),
+        }
+    }
+    out
+}
+
+/// A Day's timed focus stretches, every device's, oldest first.
+fn timed_stretches_of(score: &DayScore) -> Vec<Stretch> {
+    let mut all: Vec<Stretch> = score.timed_stretches.values().flatten().cloned().collect();
+    all.sort_by_key(|s| s.start);
+    all
+}
+
+/// A Day's Distraction spans, every device's merged: None unless each device
+/// that reported Distraction minutes also sent spans.
+fn distraction_spans_of(score: &DayScore) -> Option<Vec<(Timestamp, Timestamp)>> {
+    if score.usage.is_empty()
+        || score
+            .usage
+            .keys()
+            .any(|device| !score.distraction_spans.contains_key(device))
+    {
+        return None;
+    }
+    let mut all: Vec<(Timestamp, Timestamp)> = score
+        .usage
+        .keys()
+        .flat_map(|device| score.distraction_spans[device].iter().copied())
+        .collect();
+    all.sort();
+    Some(merge_spans(all))
+}
 
 /// A Day's Distraction minutes per app and clock hour, every device's added
 /// together; two screens in the same hour still make at most 60 minutes.

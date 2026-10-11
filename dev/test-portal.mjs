@@ -92,8 +92,14 @@ async function reportUsage() {
   // Focus stretches made up once a Day; blocked opens from the counts above.
   if (u.stretchesDay !== status.today.day) { u.stretches = fakeStretches(); u.stretchesDay = status.today.day; writeUsage(u); }
   const opens = Object.values(u.opens).reduce((a, b) => a + b, 0);
-  return call("POST", "/usage", { device: "portal", day: status.today.day, apps: u.hours, lists: listsFor(Object.keys(u.hours), status.settings.blocklists),
-    stretches: u.stretches, opens, walked: Math.min(u.closedWithoutTearing, opens) });
+  // When each stretch started (from 08:00, about an hour and a quarter apart) and when the Distraction minutes were in use, as a newer phone sends them.
+  const state = { settings: status.settings }, day = status.today.day;
+  const sources = focusSources(state);
+  const timed = u.stretches.map((minutes, i) => ({ start: momentOf(state, day, 8 + Math.floor((i * 75) / 60), (i * 75) % 60), minutes, source: sources[i % sources.length] ?? "reading" }))
+    .filter((s) => Date.parse(s.start) + s.minutes * 60_000 <= Date.now());
+  return call("POST", "/usage", { device: "portal", day, apps: u.hours, lists: listsFor(Object.keys(u.hours), status.settings.blocklists),
+    stretches: timed.map((s) => s.minutes), timed_stretches: timed, distraction_spans: spansFromHours(state, day, u.hours, []).map(isoSpan),
+    opens, walked: Math.min(u.closedWithoutTearing, opens) });
 }
 /** A Day's made-up focus stretches, in minutes. */
 const fakeStretches = () => Array.from({ length: 2 + Math.floor(Math.random() * 4) }, () => 5 + Math.floor(Math.random() ** 1.5 * 70));
@@ -386,7 +392,7 @@ const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
 function pastChange(input) {
   const day = input.day;
   return (state, today) => {
-    if (input.op !== "random" && (!/^\d{4}-\d{2}-\d{2}$/.test(day ?? "") || day > today)) throw new Error("pick a Day up to today");
+    if (input.op !== "random" && input.op !== "breaks" && (!/^\d{4}-\d{2}-\d{2}$/.test(day ?? "") || day > today)) throw new Error("pick a Day up to today");
     switch (input.op) {
       case "goal": goalDay(state, day); return day + " is a goal Day";
       case "miss": missDay(state, day); return day + " missed its goal";
@@ -424,6 +430,7 @@ function pastChange(input) {
         }
         return "Focus stretches on " + n + " Days, typically about 18 min six months ago and 48 min now";
       }
+      case "breaks": return fillBreaks(state, today);
       case "opens": {
         const opens = Math.max(0, Number(input.opens) || 0), walked = Math.min(opens, Math.max(0, Number(input.walked) || 0));
         (scoreOf(state, day).blocked ??= {}).portal = [opens, walked];
@@ -475,6 +482,118 @@ function sprinkle(state, today, days) {
   return "Over " + days + " Days: " + marks + " Markers, " + answers + " Curfew answers, " + reasons + " reasons, " + silences + " silences";
 }
 
+// ---- Breaks before focus stretches ----
+// For What goes with a good Day's "Focus stretch length": when each focus
+// stretch started, and when Distraction was in use, as a newer phone sends
+// them (the Ledger works the Unlocks out from its log). Each hour's made-up
+// Distraction minutes become one span, inside that hour's Unlock when it has
+// one; on about three Days in ten some Distraction runs on after 22:00. About
+// half the stretches that aren't the Day's longest start 5 to 35 minutes
+// after an Unlock and run shorter, so the card has something to find; the
+// rest start where the hour before is clear. Lengths stay in step.
+
+const BREAK_P = 0.5, BREAK_SHORT = 0.6, LATE_P = 0.3;
+const MINUTE = 60_000;
+const isoSpan = ([a, b]) => [new Date(a).toISOString(), new Date(b).toISOString()];
+/** The switched-on Focused time sources' ids. */
+const focusSources = (state) => Object.entries(state.settings.sources).filter(([, s]) => s.kind === "focus" && s.on).map(([id]) => id);
+/** A Day's Unlocks, [from, to] in epoch milliseconds, from the log's tears: a tear stacked onto a running Unlock continues it, as the Ledger works them out. */
+function unlocksOf(state, day) {
+  const tears = state.log.filter((e) => e.kind === "redeemed" && e.minutes > 0).map((e) => [Date.parse(e.at), e.minutes]).sort((a, b) => a[0] - b[0]);
+  const out = [];
+  let until = 0;
+  for (const [at, minutes] of tears) {
+    const from = Math.max(at, until), to = from + minutes * MINUTE;
+    until = to;
+    if (dayOfMoment(state, new Date(from).toISOString()) !== day) continue;
+    const last = out.at(-1);
+    if (last && last[1] >= from) last[1] = to; else out.push([from, to]);
+  }
+  return out;
+}
+/** Each clock hour's Distraction minutes (every app's, at most 60) as one span: inside the hour's Unlock if one runs then, else at a random spot in the hour; merged. */
+function spansFromHours(state, day, apps, unlocks) {
+  const hours = Array(24).fill(0);
+  for (const h of Object.values(apps)) h.forEach((m, i) => (hours[i] = Math.min(60, hours[i] + m)));
+  const spans = [];
+  hours.forEach((m, h) => {
+    if (!m) return;
+    const hourStart = Date.parse(momentOf(state, day, h)), hourEnd = hourStart + 60 * MINUTE;
+    const u = unlocks.find(([a, b]) => a < hourEnd && b > hourStart);
+    const from = u ? Math.min(Math.max(u[0], hourStart), hourEnd - m * MINUTE) : hourStart + Math.floor(Math.random() * (61 - m)) * MINUTE;
+    spans.push([from, Math.min(from + m * MINUTE, Date.now())]);
+  });
+  spans.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const [a, b] of spans) { const last = merged.at(-1); if (last && a <= last[1]) last[1] = Math.max(last[1], b); else if (b > a) merged.push([a, b]); }
+  return merged;
+}
+/** Gives one past Day's portal stretches their starts and sources, and its portal Distraction minutes their spans. */
+function placeBreaks(state, day) {
+  const score = scoreOf(state, day);
+  const unlocks = unlocksOf(state, day);
+  const usage = score.usage?.portal;
+  let spans = [];
+  if (usage) {
+    if (Math.random() < LATE_P) {
+      const app = Object.keys(usage)[0] ?? "YouTube";
+      const h = (usage[app] ??= Array(24).fill(0));
+      h[22] = Math.min(60, h[22] + 20 + Math.floor(Math.random() * 20));
+      score.usage_lists = { ...listsFor(Object.keys(usage), state.settings.blocklists), ...score.usage_lists };
+    }
+    spans = spansFromHours(state, day, usage, unlocks);
+    (score.distraction_spans ??= {}).portal = spans.map(isoSpan);
+  }
+  const breaks = [...unlocks, ...spans];
+  const near = (t) => breaks.some(([a, b]) => Math.min(b, t) - Math.max(a, t - 60 * MINUTE) > 0);
+  const lengths = [...(score.stretches?.portal ?? fakeStretches())];
+  const top = lengths.indexOf(Math.max(...lengths));
+  const sources = focusSources(state);
+  const placed = [], timed = [];
+  const dayStart = Date.parse(momentOf(state, day, 6)), dayEnd = Date.parse(momentOf(state, shiftDay(day, 1), 6));
+  lengths.forEach((m, i) => {
+    let start = -1;
+    if (i !== top && unlocks.length && Math.random() < BREAK_P) {
+      start = unlocks[i % unlocks.length][1] + (5 + Math.floor(Math.random() * 30)) * MINUTE;
+      lengths[i] = m = Math.max(3, Math.round(m * BREAK_SHORT));
+    } else {
+      const from = Math.floor(Math.random() * 56);
+      for (let k = 0; start < 0 && k < 56; k++) {
+        const t = dayStart + (60 + ((from + k) % 56) * 15) * MINUTE;
+        if (!near(t) && !placed.some(([a, b]) => t < b && a < t + m * MINUTE)) start = t;
+      }
+    }
+    if (start < 0 || start + m * MINUTE > dayEnd) return;
+    placed.push([start, start + m * MINUTE]);
+    timed.push({ start: new Date(start).toISOString(), minutes: m, source: sources[i % sources.length] ?? "reading" });
+  });
+  timed.sort((a, b) => a.start.localeCompare(b.start));
+  (score.stretches ??= {}).portal = timed.map((s) => s.minutes);
+  (score.timed_stretches ??= {}).portal = timed;
+  return { stretches: timed.length, spans: spans.length };
+}
+/** Every past Day the log keeps that the Ledger has. */
+function fillBreaks(state, today) {
+  let days = 0, spanDays = 0;
+  for (let d = shiftDay(today, -183); d < today; d = shiftDay(d, 1)) {
+    if (!state.days[d]) continue;
+    const r = placeBreaks(state, d);
+    days++;
+    if (r.spans) spanDays++;
+  }
+  return "Stretch starts on " + days + " Days, Distraction spans on the " + spanDays + " with made-up Distraction time; about half the shorter stretches follow an Unlock";
+}
+/** The Days whose portal Distraction spans hold at least 15 minutes after 22:00. */
+function lateDays(state) {
+  const out = new Set();
+  for (const [day, score] of Object.entries(state.days)) {
+    const from = Date.parse(momentOf(state, day, 22)), to = Date.parse(momentOf(state, shiftDay(day, 1), 6));
+    const late = (score.distraction_spans?.portal ?? []).reduce((t, [a, b]) => t + Math.max(0, Math.min(Date.parse(b), to) - Math.max(Date.parse(a), from)), 0);
+    if (late >= 15 * MINUTE) out.add(day);
+  }
+  return out;
+}
+
 // ---- Sleep, calendar load, and energy ----
 // Made-up months of all three for the Trends cards. Sleep goes in through the
 // Ledger's own POST /sleep (as a phone with a watch would send it) for most
@@ -508,10 +627,10 @@ function localOf(state, iso) {
     .formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
   return { date: `${parts.year}-${parts.month}-${parts.day}`, minute: Number(parts.hour) * 60 + Number(parts.minute) };
 }
-/** One night ending on `day`'s morning: bed and wake in minutes after the evening's midnight, and whether it's estimated. */
-function planNight(day) {
+/** One night ending on `day`'s morning: bed and wake in minutes after the evening's midnight, and whether it's estimated. Late Distraction the evening before puts bed about two hours later. */
+function planNight(day, late = false) {
   const weekend = [0, 6].includes(weekdayOf(day));
-  const bed = 1440 + (weekend ? 45 : -20) + Math.round(rand(-45, 45));
+  const bed = 1440 + (weekend ? 45 : -20) + Math.round(rand(-45, 45)) + (late ? Math.round(rand(110, 150)) : 0);
   const wake = 1440 + (weekend ? 560 : 450) + Math.round(rand(-35, 35));
   return { bed, wake, estimated: Math.random() < 0.16 };
 }
@@ -521,17 +640,19 @@ const span = (today, days) => Array.from({ length: days + 1 }, (_, i) => shiftDa
 async function fillSleep(days) {
   const status = await call("GET", "/status");
   const today = status.today.day, state = { settings: status.settings };
-  const nights = span(today, days).map((day) => ({ day, ...planNight(day) }));
   const sessions = [], estimated = [];
-  for (const n of nights) {
-    const bedtime = at(state, shiftDay(n.day, -1), n.bed), wake = at(state, shiftDay(n.day, -1), n.wake);
-    if (Date.parse(wake) > Date.now()) continue;
-    if (n.estimated) { estimated.push({ bedtime, wake }); continue; }
-    const length = n.wake - n.bed;
-    sessions.push({ start: bedtime, end: wake, asleep: Math.round(length * rand(0.84, 0.95)), stages: Math.random() < 0.9, origin: "Samsung Health" });
-  }
+  let nights = [];
   // Use either side of each estimated night: a few moments before bed and after waking.
   await editState((st) => {
+    const late = lateDays(st);
+    nights = span(today, days).map((day) => ({ day, ...planNight(day, late.has(shiftDay(day, -1))) }));
+    for (const n of nights) {
+      const bedtime = at(state, shiftDay(n.day, -1), n.bed), wake = at(state, shiftDay(n.day, -1), n.wake);
+      if (Date.parse(wake) > Date.now()) continue;
+      if (n.estimated) { estimated.push({ bedtime, wake }); continue; }
+      const length = n.wake - n.bed;
+      sessions.push({ start: bedtime, end: wake, asleep: Math.round(length * rand(0.84, 0.95)), stages: Math.random() < 0.9, origin: "Samsung Health" });
+    }
     st.activity ??= {};
     for (const e of estimated) {
       for (const [iso, offsets] of [[e.bedtime, [-50, -25, 0]], [e.wake, [0, 15, 40]]]) {
@@ -570,7 +691,7 @@ async function fillCalendar(days) {
   return "Calendar on " + reply.days + " Days: " + meetings + " meetings, from a \"portal\" device that now reports calendars";
 }
 
-/** Energy answers on about four Days in five, higher after a longer night. */
+/** Energy answers on about four Days in five, higher after a longer night and lower on a busy Day. */
 function fillEnergy(days) {
   return editState((state, today) => {
     state.energy ??= {};
@@ -580,7 +701,9 @@ function fillEnergy(days) {
       if (Math.random() < 0.2) { delete state.energy[day]; continue; }
       const night = sessions.find((s) => localOf(state, s.end).date === day);
       const rested = night ? (night.asleep - 420) / 70 : rand(-0.6, 0.6);
-      state.energy[day] = Math.max(1, Math.min(5, Math.round(3 + rested + rand(-1.1, 1.1))));
+      // A busy calendar (four hours or more) wears it down.
+      const busy = (state.calendar?.[day]?.busy_minutes ?? 0) >= 240 ? 1.2 : 0;
+      state.energy[day] = Math.max(1, Math.min(5, Math.round(3 + rested - busy + rand(-1.1, 1.1))));
       n++;
     }
     return "Energy answered on " + n + " Days";
@@ -744,7 +867,8 @@ const PAGE = String.raw`<!doctype html>
     <div class="src"><span class="name">Unlock, with why</span>
       <div class="row"><select id="reason" aria-label="Reason"><option>Bored</option><option>Avoiding a task</option><option>Tired</option><option>Anxious</option><option>Urgent</option><option>Habit</option></select><input type="number" id="rhour" value="14" min="6" max="29" aria-label="Hour"><button data-past="reason">Add</button></div></div>
     <div class="src"><span class="name">Focus stretches</span>
-      <div class="row"><input id="slist" type="text" autocomplete="off" data-form-type="other" placeholder="25, 40, 90 (blank: random)" aria-label="Stretch minutes"><button data-past="stretches">Set</button><button data-past="stretches-all" title="Every Day the log keeps, longer toward today">Fill every Day</button></div></div>
+      <div class="row"><input id="slist" type="text" autocomplete="off" data-form-type="other" placeholder="25, 40, 90 (blank: random)" aria-label="Stretch minutes"><button data-past="stretches">Set</button><button data-past="stretches-all" title="Every Day the log keeps, longer toward today">Fill every Day</button></div>
+      <div class="row"><button data-past="breaks" title="Every past Day the log keeps: when each stretch started, and Distraction spans from its made-up minutes">Breaks before stretches</button><span class="detail">For Focus stretch length. Fill Distraction time first.</span></div></div>
     <div class="src"><span class="name">Blocked opens</span>
       <div class="row"><label>opens <input type="number" id="opens" value="8" min="0"></label><label>walked away <input type="number" id="walked" value="5" min="0"></label><button data-past="opens">Set</button></div></div>
     <div class="src"><span class="name">Phone silent</span>
@@ -752,7 +876,7 @@ const PAGE = String.raw`<!doctype html>
     <div class="src"><span class="name">Distraction time</span>
       <div class="buttons"><button data-past="usage">Make up this Day's</button></div></div>
     <div class="src"><span class="name">Sleep, calendar, and energy</span>
-      <span class="detail">Fills the Days back set above (calendar: at most 183). Sleep runs later at the weekend, about one night in six estimated; meetings mostly on weekdays; energy follows sleep.</span>
+      <span class="detail">Fills the Days back set above (calendar: at most 183). Sleep runs later at the weekend and after late Distraction (from Breaks before stretches), about one night in six estimated; meetings mostly on weekdays; energy follows sleep and drops on busy Days.</span>
       <div class="buttons"><button class="go" data-measures="all">Fill every Day</button><button data-measures="sleep">Sleep</button><button data-measures="calendar">Calendar</button><button data-measures="energy">Energy</button><button class="danger" data-measures="clear">Clear</button></div></div>
   </div>
   <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="usagehistory">Fill in Distraction time for past Days</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
@@ -904,7 +1028,7 @@ document.addEventListener("click", (e) => {
     const op = b.dataset.past, day = $("pday").value;
     const extra = { goal: {}, miss: {}, streak: { n: $("streakn").value }, marker: { text: $("mtext").value.trim(), hour: $("mhour").value, rule: $("mrule").checked },
       verdict: { verdict: b.dataset.v || null }, reason: { reason: $("reason").value, hour: $("rhour").value }, stretches: { list: $("slist").value },
-      opens: { opens: $("opens").value, walked: $("walked").value }, silence: { from: $("sfrom").value, hours: $("shours").value }, usage: {}, random: { days: $("rdays").value } }[op];
+      opens: { opens: $("opens").value, walked: $("walked").value }, silence: { from: $("sfrom").value, hours: $("shours").value }, usage: {}, breaks: {}, random: { days: $("rdays").value } }[op];
     if (op === "marker") $("mtext").value = "";
     act(() => api("POST", "/api/past", { op, day, ...extra }), (r) => r.message);
   }

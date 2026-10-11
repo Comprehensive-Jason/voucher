@@ -115,7 +115,7 @@
     {:else if id === "streaks"}<SourceStreaks {history} sources={today.sources} />
     {:else if id === "records"}<PersonalRecords {history} {timeZone} />
     {:else if id === "best"}<BestHours {history} />
-    {:else if id === "gooddays"}<GoodDays {history} />
+    {:else if id === "gooddays"}<GoodDays {history} {timeZone} />
     {:else if id === "replay"}<Replay {history} />
     {:else if id === "focus"}<FocusStretches {history} />
     {:else if id === "verdicts"}<Verdicts {history} />

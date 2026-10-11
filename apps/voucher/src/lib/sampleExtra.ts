@@ -3,8 +3,17 @@
 // its figures, so any span agrees and screenshots are stable. Like the
 // Ledger: nights are later and longer at the weekend, about one in seven is
 // estimated (no Health Connect session), weekdays carry most meetings, and
-// energy loosely follows the night before.
-import type { CalendarChoice, CalendarDay, CalendarId, DaySummary, DayTotal, Energy, Sleep } from "./types";
+// energy loosely follows the night before. Also each Day's Unlocks, focus
+// stretches with their starts, and Distraction spans, fitted to sample.ts's
+// tears and stretch lengths.
+//
+// Links for What goes with a good Day to find: Distraction after 22:00 on
+// about three evenings in ten pushes that night's bedtime later (so a
+// shorter night, and lower energy the Day after); a busy calendar lowers
+// that Day's energy; and about half the stretches that aren't the Day's
+// longest start soon after an Unlock (with Distraction in it) and run
+// shorter than the rest.
+import type { CalendarChoice, CalendarDay, CalendarId, DaySummary, DayTotal, Energy, Sleep, TimedStretch } from "./types";
 
 /** A number in [0, 1) from a date and a salt. */
 function hash(day: string, salt: number): number {
@@ -24,12 +33,17 @@ const local = (day: string, minutes: number) => {
 /** 0 Sunday to 6 Saturday. */
 const weekday = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay();
 
+/** Whether the sample Day had Distraction after 22:00 (on Days whose Distraction is measured). */
+const lateEvening = (day: string) => hash(day, 60) < LATE_P;
+// How strongly the sample's links show (see the top of this file).
+const LATE_P = 0.3, LATE_BED = 135, BUSY_ENERGY = 1.2, AFTER_BREAK_P = 0.5, AFTER_BREAK = 0.6;
+
 /** The night ending on `day`'s morning, or null for one with no data at all. */
 export function sampleSleep(day: string): Sleep | null {
   if (hash(day, 1) < 0.04) return null;
   // Friday and Saturday nights (waking Saturday and Sunday) run later and longer.
   const weekend = weekday(day) === 6 || weekday(day) === 0;
-  const bed = (weekend ? 50 : -15) + Math.round((hash(day, 2) - 0.5) * 90);
+  const bed = (weekend ? 50 : -15) + Math.round((hash(day, 2) - 0.5) * 90) + (lateEvening(shift(day, -1)) ? LATE_BED : 0);
   const wake = (weekend ? 9 * 60 + 20 : 7 * 60 + 25) + Math.round((hash(day, 3) - 0.5) * 70);
   const length = wake - bed;
   if (hash(day, 4) < 0.14) {
@@ -69,18 +83,74 @@ export function sampleCalendar(day: string): CalendarDay {
   };
 }
 
-/** The Day's energy answer: about four Days in five, higher after a longer night. */
-export function sampleEnergy(day: string, sleep: Sleep | null): Energy | null {
+/** The Day's energy answer: about four Days in five, higher after a longer night, lower on a busy Day. */
+export function sampleEnergy(day: string, sleep: Sleep | null, busyMinutes = 0): Energy | null {
   if (hash(day, 50) < 0.2) return null;
   const rested = sleep ? (sleep.asleep - 420) / 70 : 0;
-  return Math.max(1, Math.min(5, Math.round(3 + rested + (hash(day, 51) - 0.5) * 2.2))) as Energy;
+  const busy = busyMinutes >= 240 ? BUSY_ENERGY : 0;
+  return Math.max(1, Math.min(5, Math.round(3 + rested - busy + (hash(day, 51) - 0.5) * 2.2))) as Energy;
 }
 
-/** Sample Days with their sleep, calendar load, and energy. Today has no energy answer yet. */
+/** Minutes after the Day began (06:00) as a moment. */
+const at = (day: string, offset: number) => local(day, 360 + offset);
+/** Minutes after the Day began of a sample moment such as "2026-10-07T12:10:00-07:00". */
+const offsetOf = (iso: string) => Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16)) - 360;
+
+/** A sample Day's Unlocks, focus stretches with their starts (the same
+ *  lengths, but stretches soon after an Unlock run shorter), and Distraction
+ *  spans (most of each Unlock, now and then a few minutes outside one, and
+ *  the late evenings): what "a break before a stretch" is read from. */
+function breaksOf(d: DayTotal): Pick<DayTotal, "unlocks" | "timed_stretches" | "distraction_spans" | "stretches"> {
+  // Unlocks: the Day's tears, the first at its first tear, the rest about two hours apart, before Curfew.
+  const tears = d.tears ?? 0, unlocks: [number, number][] = [];
+  const first = d.first_tear ? offsetOf(d.first_tear) : 360;
+  for (let k = 0, from = first; k < tears; k++) {
+    const vouchers = Math.floor(d.redeemed / tears) + (k < d.redeemed % tears ? 1 : 0);
+    const to = Math.min(from + vouchers * 10, 960);
+    if (to > from) unlocks.push([from, to]);
+    from = to + 100 + Math.floor(hash(d.day, 80 + k) * 80);
+  }
+  const spans: [number, number][] = unlocks.filter(([a, b]) => b - a > 3).map(([a, b]) => [a + 1, b - 1]);
+  if (hash(d.day, 61) < 0.4) { const a = 120 + Math.floor(hash(d.day, 62) * 600); spans.push([a, a + 4]); }
+  if (lateEvening(d.day)) spans.push([965, 990 + Math.floor(hash(d.day, 63) * 25)]);
+  spans.sort((a, b) => a[0] - b[0]);
+  const breaks = [...unlocks, ...spans];
+  const near = (start: number) => breaks.some(([a, b]) => Math.min(b, start) - Math.max(a, start - 60) > 0);
+  // Stretches: the longest never follows a break; about half the others start 5 to 35 minutes after an Unlock ends, shortened.
+  const lengths = [...(d.stretches ?? [])], top = lengths.indexOf(Math.max(...lengths));
+  const focus = Object.keys(d.by_source ?? {}).filter((id) => !["tasks", "workout", "steps"].includes(id));
+  const placed: [number, number][] = [];
+  const free = (a: number, b: number) => !placed.some(([x, y]) => a < y && x < b);
+  const timed: TimedStretch[] = [];
+  let used = 0;
+  lengths.forEach((m, i) => {
+    const source = focus[i % Math.max(1, focus.length)] ?? "reading";
+    let start = -1;
+    if (i !== top && unlocks.length && hash(d.day, 70 + i) < AFTER_BREAK_P) {
+      const [, end] = unlocks[used++ % unlocks.length];
+      const s = end + 5 + Math.floor(hash(d.day, 90 + i) * 30);
+      if (s < 1380) { start = s; lengths[i] = m = Math.max(3, Math.round(m * AFTER_BREAK)); }
+    }
+    // Elsewhere: the first clear time from a hashed one, so the time of day alone doesn't give a break away.
+    const from = 60 + Math.floor(hash(d.day, 100 + i) * 56) * 15;
+    for (let k = 0; start < 0 && k < 88; k++) { const t = 60 + ((from - 60 + k * 15) % 1320); if (!near(t) && free(t, t + m)) start = t; }
+    if (start < 0) return;
+    placed.push([start, start + m]);
+    timed.push({ start: at(d.day, start), minutes: m, source });
+  });
+  timed.sort((a, b) => a.start.localeCompare(b.start));
+  const toIso = ([a, b]: [number, number]): [string, string] => [at(d.day, a), at(d.day, b)];
+  return { stretches: lengths, timed_stretches: timed, unlocks: unlocks.map(toIso), distraction_spans: d.reported ? spans.map(toIso) : null };
+}
+
+/** Sample Days with their sleep, calendar load, and energy, and (history
+ *  Days) their Unlocks, timed stretches, and Distraction spans. Today has
+ *  no energy answer yet. */
 export function withMeasures<T extends DayTotal | DaySummary>(days: T[], today: string): T[] {
   return days.map((d) => {
-    const sleep = sampleSleep(d.day);
-    return { ...d, sleep, calendar: sampleCalendar(d.day), energy: d.day === today ? null : sampleEnergy(d.day, sleep) };
+    const sleep = sampleSleep(d.day), calendar = sampleCalendar(d.day);
+    const extra = "stretches" in d ? breaksOf(d) : {};
+    return { ...d, ...extra, sleep, calendar, energy: d.day === today ? null : sampleEnergy(d.day, sleep, calendar.busy_minutes) };
   });
 }
 

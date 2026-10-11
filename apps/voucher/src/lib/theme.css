@@ -38,12 +38,13 @@
   --goal: #ffb547;             /* daily goal and streak */
   --goal-bg: #2a2116;
   --goal-line: #6b4a17;
-  --night: #7d8cff;            /* Curfew */
+  --night: #7d8cff;            /* Curfew, and sleep (the night is the night) */
   --night-ink: #c9cfff;
   --night-voucher: #2e3a78;
   --night-bg: #151935;
   --night-band: color-mix(in srgb, var(--night) 9%, transparent); /* Curfew's hours behind a chart, the same on every card */
   --night-cell: color-mix(in srgb, var(--night) 12%, var(--heat-0)); /* an empty grid square in Curfew's hours */
+  --energy: #e8e06a;           /* energy answers: lemon, clear of the goal's amber */
   --font: "Space Grotesk", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
 }

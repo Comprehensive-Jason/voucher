@@ -12,6 +12,8 @@ mod desktop;
 mod ledger;
 #[cfg(desktop)]
 mod sites;
+#[cfg(desktop)]
+mod stretches;
 
 use serde::Serialize;
 
