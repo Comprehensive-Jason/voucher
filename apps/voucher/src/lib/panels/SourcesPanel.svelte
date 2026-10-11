@@ -58,12 +58,15 @@
   const brokenServices = (s: Source) => s.kind === "tasks" ? s.packages.filter((p) => needsToken(status?.source_errors[p]) && !tokenPending(p)) : [];
   function problemOf(s: Source): string | null {
     if (s.kind !== "tasks") return null;
+    // Every broken service is named; services with the same problem share one clause.
+    const byText = new Map<string, string[]>();
     for (const p of s.packages) {
       const problem = status?.source_errors[p];
-      if (problem && needsToken(problem) && tokenPending(p)) return `${serviceOf(p).name}: token saved, checking soon`;
-      if (problem) return `${serviceOf(p).name}: ${needsToken(problem) ? `${problem}, not counting` : `${problem}, retrying`}`;
+      if (!problem) continue;
+      const text = needsToken(problem) && tokenPending(p) ? "token saved, checking soon" : needsToken(problem) ? `${problem}, not counting` : `${problem}, retrying`;
+      byText.set(text, [...(byText.get(text) ?? []), serviceOf(p).name]);
     }
-    return null;
+    return byText.size ? [...byText].map(([text, names]) => `${names.join(" and ")}: ${text}`).join("; ") : null;
   }
 
   async function load() {
@@ -107,7 +110,7 @@
       {@const waiting = pendingFor(id)}
       <RulesCard>
         <div class="line">
-          <button class="dot" style="background: {style.color}" aria-label="{style.name} color" onclick={(e) => { coloring = id; colorDot = e.currentTarget; }}></button>
+          <button class="dot pressdim" style="background: {style.color}" aria-label="{style.name} color" onclick={(e) => { coloring = id; colorDot = e.currentTarget; }}></button>
           <a class="open" href="/rules/sources/group?id={encodeURIComponent(id)}" aria-label="Edit {style.name}">
             <span class="label">
               <span class="name" class:off={!s.on}>{style.name}</span>

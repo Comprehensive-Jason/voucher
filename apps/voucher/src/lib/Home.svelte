@@ -42,6 +42,8 @@
   import VerdictSheet from "$lib/components/VerdictSheet.svelte";
   import CardTab from "$lib/components/CardTab.svelte";
   import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
+  import ScrollCue from "$lib/components/ScrollCue.svelte";
+  import { ABOUT } from "$lib/about";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
@@ -78,9 +80,12 @@
   // ---- Arranging ----
   // Hold a panel's heading (or, while arranging, any panel) and drag it: the
   // others make room as it passes, as on a phone's home screen. While
-  // arranging, panels jiggle, and each shows its size buttons and Hide.
+  // arranging, panels jiggle, and each shows what it's for and how to read
+  // it (lib/about.ts), with its size buttons and Hide along the bottom.
   let arranging = $state(false);
   let strip = $state<HTMLDivElement>();
+  /** Each arranging panel's scrolling explanation, for its ScrollCue. */
+  let abouts = $state<Partial<Record<PanelId, HTMLDivElement>>>({});
   /** Every panel's place in the grid: its column, first row, and height in thirds. */
   const placed = $derived(arrangement.columns.flatMap((column, col) => {
     let row = 0;
@@ -129,9 +134,12 @@
     if (target.closest("button, a, input")) return;
     // Upright, the cards are one column in Arrange's order; arranging happens on its side.
     if (wide.portrait) return;
-    if (arranging) { startDrag(id, e.clientX, e.clientY, e.pointerId); return; }
+    // While arranging, a press anywhere drags at once, except on the
+    // explanation: a finger there may be scrolling it, so it drags only once
+    // held, as a heading does outside arranging.
+    if (arranging && !target.closest(".about")) { startDrag(id, e.clientX, e.clientY, e.pointerId); return; }
     // Only a heading starts arranging, so a hold on a chart or a list does its own thing.
-    if (!target.closest(".cardhead, header, .tab")) return;
+    if (!arranging && !target.closest(".cardhead, header, .tab")) return;
     const press = { id, x: e.clientX, y: e.clientY, pointer: e.pointerId, timer: 0 };
     press.timer = window.setTimeout(() => {
       pressing = null;
@@ -391,15 +399,28 @@
             <span class="tab"><CardTab name={PANELS[id].name} /></span>
             {@render panel(id)}
             {#if arranging}
-              <!-- While arranging: its name, its size (if it has a choice), and Hide. Drag it anywhere. -->
+              <!-- While arranging, the card is covered by what it's for and how
+                   to read it, scrolling when it's long, over its size (if it has a
+                   choice) at the bottom left and Hide at the bottom right. The
+                   name stays on the tab. Drag it from anywhere; on the text, hold first. -->
               <div class="tools" role="group" aria-label="Arrange {PANELS[id].name}">
-                <span class="pname">{PANELS[id].name}</span>
-                {#if PANELS[id].max > PANELS[id].min}
-                  <div class="sizes">
-                    <ZoomSwitch size="large" label="Height" options={[1, 2, 3].filter((n) => n >= PANELS[id].min && n <= PANELS[id].max).map((n) => ({ id: String(n), label: n === 3 ? "Full" : `${n}/3` }))} value={String(arrangement.size(id))} onchange={(v) => rearrange(() => arrangement.resize(id, Number(v)))} />
+                <div class="aboutframe">
+                  <ScrollCue target={abouts[id]} />
+                  <div class="about" bind:this={abouts[id]}>
+                    <p class="cap label">What it's for</p>
+                    <p class="for">{ABOUT[id].for}</p>
+                    <p class="cap label">How to read it</p>
+                    {#each ABOUT[id].read as line, i (i)}<p class="point">{line}</p>{/each}
                   </div>
-                {/if}
-                <button class="btn small ghost" aria-label="Hide {PANELS[id].name}" onclick={() => hide(id)}>Hide</button>
+                </div>
+                <div class="controls">
+                  {#if PANELS[id].max > PANELS[id].min}
+                    <div class="sizes">
+                      <ZoomSwitch size="large" label="Height" options={[1, 2, 3].filter((n) => n >= PANELS[id].min && n <= PANELS[id].max).map((n) => ({ id: String(n), label: n === 3 ? "Full" : `${n}/3` }))} value={String(arrangement.size(id))} onchange={(v) => rearrange(() => arrangement.resize(id, Number(v)))} />
+                    </div>
+                  {:else}<span></span>{/if}
+                  <button class="btn small ghost" aria-label="Hide {PANELS[id].name}" onclick={() => hide(id)}>Hide</button>
+                </div>
               </div>
             {/if}
           </div>
@@ -457,15 +478,30 @@
   /* Arranging: panels sit still under their buttons, a touch on one drags it
      rather than scrolling, and they jiggle to say they can move. */
   .arranging .slot { touch-action: none; animation: jiggle 280ms ease-in-out infinite alternate; animation-delay: calc(var(--jiggle) * -70ms); }
-  .arranging .slot > :global(*:not(.tools)) { pointer-events: none; opacity: .5; }
+  /* The card under its explanation fades back; its name on the tab stays as it always reads, over the explanation's top edge. */
+  .arranging .slot > :global(*:not(.tools, .tab)) { pointer-events: none; opacity: .5; }
+  .arranging .tab { z-index: 6; }
   .slot > :global(*:not(.tools)) { transition: opacity var(--t-base); }
   @keyframes jiggle { from { rotate: -0.3deg; } to { rotate: 0.3deg; } }
   /* Where a drop would land: a dashed outline of the panel's place. */
   .dropghost { position: absolute; z-index: 4; border-radius: 18px; border: 2px dashed var(--voucher); background: rgba(61, 220, 132, .08); pointer-events: none; transition: left var(--t-quick) var(--ease-out), top var(--t-quick) var(--ease-out), height var(--t-quick) var(--ease-out); }
   .slot.lifted { z-index: 10; animation: none; filter: drop-shadow(0 14px 28px rgba(0, 0, 0, .6)); }
-  .tools { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 18px; border: 2px dashed #3a3f45; cursor: grab; animation: toolsin var(--t-base) var(--ease-out); }
+  /* While arranging: an opaque cover the card's own shape and color, under
+     the tab, so the text reads over whatever the card draws. */
+  .tools { position: absolute; inset: 20px 0 0 0; z-index: 5; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px 18px; box-sizing: border-box; border-radius: 18px; border-top-left-radius: 0; border: 1px solid var(--line); background: var(--surface); cursor: grab; user-select: none; -webkit-user-select: none; animation: toolsin var(--t-base) var(--ease-out); }
   @keyframes toolsin { from { opacity: 0; } }
-  .pname { font: 700 15px var(--font); color: var(--ink); }
+  /* The explanation takes the middle and scrolls on its own (vertical
+     swipes only), with no scrollbar; ScrollCue says what's above or below. */
+  .aboutframe { position: relative; flex: 1; min-height: 0; display: flex; }
+  .about { position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; touch-action: pan-y; display: flex; flex-direction: column; gap: 5px; }
+  .about::-webkit-scrollbar { display: none; }
+  .about p { margin: 0; }
+  .about .label:not(:first-child) { margin-top: 8px; }
+  .about .for { font-size: 14px; line-height: 1.45; color: var(--ink); }
+  .about .point { position: relative; padding-left: 13px; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .about .point::before { content: ""; position: absolute; left: 2px; top: .66em; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+  /* Size at the bottom left, Hide at the bottom right. */
+  .controls { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   /* The size picker is the shared switch at its large size. */
   .sizes { width: 200px; }
   /* A whole column wide, so the row still stops on a column's edge at its end. */
@@ -488,7 +524,7 @@
   .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), right var(--t-move) var(--ease-out) 90ms; }
   /* The edge on the side it's heading leads; the far edge follows a beat later, in one stretch and shrink. */
   .thumb.right { transition: right var(--t-move) var(--ease-out), left var(--t-move) var(--ease-out) 90ms; }
-  .pages button { position: relative; width: 40px; height: 32px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: background-color var(--t-base), color var(--t-base); }
+  .pages button { position: relative; width: 40px; height: 32px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: background-color var(--t-base), color var(--t-base), var(--press); }
   .pages button.on { color: var(--ink); }
   .col { display: flex; flex-direction: column; gap: var(--gap, 20px); min-width: 0; min-height: 0; }
   /* Everything in the Today column keeps its size; the list of sources takes

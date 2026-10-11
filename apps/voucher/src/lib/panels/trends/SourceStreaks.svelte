@@ -98,7 +98,7 @@
         {#each days as d (d.day)}<span class="date" class:month={d.day.endsWith("-01")} class:on={d.day === chosen}>{#if label(d.day)}<b>{label(d.day)}</b>{/if}</span>{/each}
         {#each rows as r (r.id)}
           {#each r.hit as on, i (days[i].day)}
-            <button class="cell" class:on={days[i].day === chosen} class:marked={marksOn.has(days[i].day)} style={on ? `background: ${r.color}` : ""} title="{shortDate(days[i].day, today)}: {r.name} {on ? 'earned' : 'did not earn'}{markLines(days[i].day)}" aria-label="{days[i].day}, {r.name}" onclick={() => pick(days[i].day)}></button>
+            <button class="cell pressdim" class:on={days[i].day === chosen} class:marked={marksOn.has(days[i].day)} style={on ? `background: ${r.color}` : ""} title="{shortDate(days[i].day, today)}: {r.name} {on ? 'earned' : 'did not earn'}{markLines(days[i].day)}" aria-label="{days[i].day}, {r.name}" onclick={() => pick(days[i].day)}></button>
           {/each}
         {/each}
       </div>

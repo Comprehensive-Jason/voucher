@@ -340,10 +340,8 @@
   .step {
     height: 34px; padding: 0; border: 0; border-radius: 10px; background: rgba(7, 23, 13, .14);
     color: var(--voucher-ink); display: flex; align-items: center; justify-content: center; cursor: pointer;
-    transition: opacity var(--t-base) var(--ease-out), background-color var(--t-quick), scale var(--t-quick) var(--ease-out);
+    transition: opacity var(--t-base) var(--ease-out), background-color var(--t-quick), var(--press);
   }
-  /* Pressed: a little smaller and darker, springing back on release. */
-  .step:not(:disabled):active { scale: .9; background: rgba(7, 23, 13, .28); }
   /* Greyed out, fading rather than snapping. */
   .step:disabled { opacity: .35; cursor: default; }
   .count { font-size: 22px; font-weight: 700; line-height: 28px; text-align: center; overflow: hidden; display: grid; }

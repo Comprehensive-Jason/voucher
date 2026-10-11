@@ -1,9 +1,11 @@
 <script lang="ts">
   // Tasks not counting: a task service (Todoist, ClickUp) turned Voucher's
   // token down, or was never connected, so finished tasks aren't earning.
-  // Among Rules' notices, after Protection; Reconnect opens the same token
-  // sheet as Sources. It asks the Ledger itself, again whenever Rules change
-  // and on Today's poll, starting from the last answer so it doesn't pop in.
+  // Among Rules' notices, after Protection. The text names every broken
+  // service, and each gets its own button side by side (just "Reconnect"
+  // when there's one), opening the same token sheet as Sources. It asks the
+  // Ledger itself, again whenever Rules change and on Today's poll, starting
+  // from the last answer so it doesn't pop in.
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import { needsToken, serviceOf } from "../sources";
@@ -38,11 +40,19 @@
 
   /** "and"-joined service names: "Todoist", "Todoist and ClickUp". */
   const names = (list: { service: string }[]) => list.map((b) => serviceOf(b.service).name).join(" and ");
-  const text = $derived(asking.length !== 1
-    ? `${names(asking)} need new tokens, so finished tasks aren't earning.`
-    : asking[0].problem === "not connected"
-      ? `${names(asking)} isn't connected, so finished tasks aren't earning.`
-      : `${names(asking)}'s token was turned down, so finished tasks aren't earning.`);
+  /** What's wrong, naming every service: "Todoist's and ClickUp's tokens were
+   *  turned down", "ClickUp isn't connected", or both kinds joined. */
+  const text = $derived.by(() => {
+    const down = asking.filter((b) => b.problem !== "not connected");
+    const unconnected = asking.filter((b) => b.problem === "not connected");
+    const parts: string[] = [];
+    if (down.length) parts.push(`${down.map((b) => `${serviceOf(b.service).name}'s`).join(" and ")} ${down.length > 1 ? "tokens were" : "token was"} turned down`);
+    if (unconnected.length) parts.push(`${names(unconnected)} ${unconnected.length > 1 ? "aren't" : "isn't"} connected`);
+    return `${parts.join(" and ")}, so finished tasks aren't earning.`;
+  });
+  /** A button's words: "Reconnect" alone, or the service's name beside the others. */
+  const label = (b: { service: string; problem: string }) =>
+    asking.length > 1 ? serviceOf(b.service).name : b.problem === "not connected" ? "Connect" : "Reconnect";
 
   async function load() {
     now = Date.now();
@@ -71,7 +81,9 @@
       <span class="cap">Tasks not counting</span>
       <span>{text}</span>
     </div>
-    <button class="btn small fix" onclick={() => (reconnecting = asking[0].service)}>{asking.length > 1 ? `Reconnect ${serviceOf(asking[0].service).name}` : "Reconnect"}</button>
+    {#each asking as b (b.service)}
+      <button class="btn small fix" aria-label="{b.problem === "not connected" ? "Connect" : "Reconnect"} {serviceOf(b.service).name}" onclick={() => (reconnecting = b.service)}>{label(b)}</button>
+    {/each}
   </div>
 {:else if waiting.length}
   <div class="notice good" transition:reveal={{ axis }}>

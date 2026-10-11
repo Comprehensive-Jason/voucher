@@ -48,8 +48,7 @@
   .inner { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 12px 40px 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
   .q { color: var(--muted); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chips button { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 600 13px var(--font); cursor: pointer; transition: background-color var(--t-base), color var(--t-base), opacity var(--t-base), scale var(--t-quick) var(--ease-out); }
-  .chips button:active { scale: .94; }
+  .chips button { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 600 13px var(--font); cursor: pointer; transition: background-color var(--t-base), color var(--t-base), opacity var(--t-base), var(--press); }
   .chips button.on { background: var(--ink); color: var(--ground); }
   .chips button:disabled:not(.on) { opacity: .35; }
   .skip { position: absolute; top: 6px; right: 6px; }

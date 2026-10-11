@@ -94,10 +94,25 @@ button { font: inherit; color: inherit; }
 /* Every bar slides to a new value (lib/motion.ts sets the timing). */
 .bar > i { display: block; height: 100%; border-radius: 3px; transition: width var(--t-move) var(--ease-out); }
 
+/* Press feedback, one for every tappable thing (buttons, links, tabs): held
+   down it shrinks a little, and on release it springs back on the quick
+   clock. Small grid squares, chart bars, and colour dots (.pressdim), and
+   rows in a divided list, brighten instead, since shrinking them reads as a
+   glitch. With reduced motion nothing shrinks; everything brightens. A
+   component that sets its own transition on a tappable thing adds
+   var(--press) to its list, or the spring back snaps. The Voucher's tear
+   (a slider) keeps its own drag physics. */
+:root { --press: scale var(--t-quick) var(--ease-out), filter var(--t-quick) var(--ease-out); --press-scale: .97; --press-glow: brightness(1.3); }
+:where(button, a[href], [role="button"], [role="tab"]) { transition: var(--press); }
+:where(button, a[href], [role="button"], [role="tab"]):active:not(:disabled, [aria-disabled="true"]) { scale: var(--press-scale); }
+.pressdim:active:not(:disabled, [aria-disabled="true"]) { scale: none; filter: var(--press-glow); }
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a[href], [role="button"], [role="tab"]):active:not(:disabled, [aria-disabled="true"]) { scale: none; filter: var(--press-glow); }
+}
+
 /* Buttons, one look per role, in two sizes. Primary is the one main action;
    ghost is quiet; danger destroys or weakens something. */
-.btn { text-decoration: none; height: 44px; padding: 0 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 700 15px var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base), scale var(--t-quick) var(--ease-out); }
-.btn:active:not(:disabled) { scale: .97; }
+.btn { text-decoration: none; height: 44px; padding: 0 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font: 700 15px var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base), var(--press); }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.primary { background: var(--voucher); border-color: transparent; color: var(--voucher-ink); }
 .btn.ghost { background: none; color: var(--muted); }
@@ -105,7 +120,7 @@ button { font: inherit; color: inherit; }
 .btn.small { height: 34px; padding: 0 12px; border-radius: 11px; font-size: 13px; }
 .btn.wide { width: 100%; }
 /* Icon-only buttons, in the same two sizes. */
-.iconbtn { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base); }
+.iconbtn { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 14px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color var(--t-quick), color var(--t-quick), opacity var(--t-base), var(--press); }
 .iconbtn.small { width: 32px; height: 32px; border-radius: 10px; }
 .iconbtn.bare { border-color: transparent; background: none; color: var(--muted); }
 .iconbtn:disabled { opacity: .35; cursor: default; }

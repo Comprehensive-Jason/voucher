@@ -154,7 +154,7 @@
             <span class="month">{week.month}</span>
             {#each week.days as c (c.day)}
               {#if c.blank}<div class="h blank"></div>
-              {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={tip(c.day)} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+              {:else}<button class="h h{c.level} pressdim" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={tip(c.day)} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
             {/each}
           {/each}
         </div>
@@ -165,7 +165,7 @@
               <span class="month">{week.month}</span>
               {#each week.days as c (c.day)}
                 {#if c.blank}<div class="h blank"></div>
-                {:else}<button class="h h{c.level}" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={tip(c.day)} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
+                {:else}<button class="h h{c.level} pressdim" class:sel={c.day === selected} class:marked={marked.has(c.day)} title={tip(c.day)} aria-label="Show {c.day} by hour" onclick={() => onpick?.(c.day)}></button>{/if}
               {/each}
             {/each}
           </div>

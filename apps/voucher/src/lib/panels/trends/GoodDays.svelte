@@ -156,7 +156,7 @@
 </script>
 
 {#snippet bars(f: Tested)}
-  <button class="conf" aria-label="{LEVEL[f.confidence]} confidence" onclick={(e) => flash(why(f), e.currentTarget)}>
+  <button class="conf pressdim" aria-label="{LEVEL[f.confidence]} confidence" onclick={(e) => flash(why(f), e.currentTarget)}>
     <i class:on={f.confidence >= 1} style="height: 5px"></i><i class:on={f.confidence >= 2} style="height: 8px"></i><i class:on={f.confidence >= 3} style="height: 11px"></i>
   </button>
 {/snippet}

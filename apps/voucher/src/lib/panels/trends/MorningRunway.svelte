@@ -135,7 +135,7 @@
               {@const cy = y + (i - 3) * 1.6}
               {#if d.day === chosen}<circle {cx} {cy} r="8" fill="none" stroke="var(--ink)" stroke-width="1.5" />{/if}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-              <g class="dot" onclick={() => pick(d.day)}>
+              <g class="dot pressdim" onclick={() => pick(d.day)}>
                 <circle {cx} {cy} r="9" fill="transparent" />
                 {#if d.t === null}<circle {cx} {cy} r="4" fill="none" stroke="var(--spend)" stroke-width="1.5"><title>{shortDate(d.day, today)}: no Unlock{markLines(d.day)}</title></circle>
                 {:else}<circle {cx} {cy} r="4" fill="var(--spend)" opacity=".8"><title>{shortDate(d.day, today)}: first Unlock {clockOfHours(d.t)}{markLines(d.day)}</title></circle>{/if}
@@ -168,7 +168,7 @@
   /* Two classes deep, to outrank TrendCard's axis-ink for chart text. */
   .times text.time { fill: var(--muted); }
   .times text.time.recent { fill: var(--goal); font-weight: 700; }
-  .dot { cursor: pointer; }
+  .dot { cursor: pointer; transition: var(--press); }
   /* HourAxis's look: 10px mono hour labels, Curfew's in the night colour. */
   .axis text.hour { font-size: calc(var(--axis-size) * var(--k, 1)); font-weight: 500; }
   .axis text.hour.night { fill: var(--night); }

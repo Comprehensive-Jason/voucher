@@ -21,7 +21,7 @@
 
 <style>
   .zoom { flex: none; display: flex; padding: 2px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line); }
-  button { height: 26px; padding: 0 9px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: 700 11px var(--font); cursor: pointer; white-space: nowrap; transition: background-color var(--t-base), color var(--t-base); }
+  button { height: 26px; padding: 0 9px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: 700 11px var(--font); cursor: pointer; white-space: nowrap; transition: background-color var(--t-base), color var(--t-base), var(--press); }
   button.on { background: var(--line); color: var(--ink); }
   button:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }
   .large { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 3px; border-radius: 14px; }

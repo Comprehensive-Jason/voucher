@@ -59,7 +59,7 @@
   {#if status}
     {#each lists as [id, list] (id)}
       <RulesCard row>
-        <button class="dot" style="background: {list.color}" aria-label="{list.name} color" onclick={(e) => { coloring = id; colorDot = e.currentTarget; }}></button>
+        <button class="dot pressdim" style="background: {list.color}" aria-label="{list.name} color" onclick={(e) => { coloring = id; colorDot = e.currentTarget; }}></button>
         <a class="open" href="/rules/distractions/edit?id={id}" aria-label="Edit {list.name} blocklist">
           <span class="text">
             <span class="title"><span class="name">{list.name}</span><Tag premade={list.premade} /></span>

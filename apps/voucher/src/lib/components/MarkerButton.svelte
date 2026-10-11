@@ -15,8 +15,7 @@
 <style>
   .marker { flex: none; height: 44px; padding: 0 14px 0 12px; border-radius: 14px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
     font: 700 14px var(--font); color: var(--marker-ink); background: var(--marker); border: 0;
-    transition: background-color var(--t-quick), scale var(--t-quick) var(--ease-out); }
-  .marker:active { scale: .97; }
+    transition: background-color var(--t-quick), var(--press); }
   .marker:focus-visible { outline: 2px solid var(--voucher); outline-offset: 2px; }
   .tall { height: auto; align-self: stretch; width: 96px; padding: 12px 8px; flex-direction: column; justify-content: center; gap: 8px; border-radius: 16px; font-size: 13px; text-align: center; }
 </style>

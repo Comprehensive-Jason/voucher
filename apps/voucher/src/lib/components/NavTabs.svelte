@@ -48,7 +48,7 @@
   .tab.grow { flex-grow: 3.2; }
   .pages { animation: pagesin var(--t-base) var(--ease-out); }
   @keyframes pagesin { from { opacity: 0; } }
-  a { flex: 1; align-self: stretch; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: none; border: 0; color: var(--muted); font: 500 12px var(--font); transition: color var(--t-quick); }
+  a { flex: 1; align-self: stretch; text-decoration: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: none; border: 0; color: var(--muted); font: 500 12px var(--font); transition: color var(--t-quick), var(--press); }
   /* The highlight fades from tab to tab, as ZoomSwitch's does. */
   a.on { color: var(--voucher); }
   .pages { width: 100%; padding: 3px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
@@ -57,6 +57,6 @@
   .thumb { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), right var(--t-move) var(--ease-out) 90ms; }
   /* The edge on the side it's heading leads; the far edge follows a beat later, in one stretch and shrink. */
   .thumb.right { transition: right var(--t-move) var(--ease-out), left var(--t-move) var(--ease-out) 90ms; }
-  .pages button { position: relative; flex: 1 1 0; min-width: 0; height: 34px; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: color var(--t-base); }
+  .pages button { position: relative; flex: 1 1 0; min-width: 0; height: 34px; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: color var(--t-base), var(--press); }
   .pages button.on { color: var(--ink); }
 </style>

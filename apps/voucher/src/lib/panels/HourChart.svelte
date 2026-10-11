@@ -544,7 +544,7 @@
           {#each cols as c, i}
             {@const quiet = minutes && silentAt(summaryOf(day), hourOfColumn(i)) >= 15}
             {@const marks = marksAt(day, hourOfColumn(i))}
-            <button class="col" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol} class:night={inCurfew(hourOfColumn(i))} class:silent={quiet}
+            <button class="col pressdim" style="--i: {i}" class:faded={here && pick !== null && pick !== i} class:picked={here && pick === i} class:goal={i === goalCol} class:night={inCurfew(hourOfColumn(i))} class:silent={quiet}
               title={[quiet ? "Voucher wasn't watching for part of this hour, so its minutes may be missing" : "", ...markTitle(marks)].filter(Boolean).join("\n") || undefined}
               aria-label="{String(hourOfColumn(i)).padStart(2, '0')}:00, {c.total} earned" aria-pressed={here && pick === i}
               onclick={() => (pick = pick === i || (!c.total && !c.unlocked) ? null : i)}>
@@ -592,7 +592,7 @@
             {#each cols as c, i (c.day)}
               {@const picked = here && periodPick === i}
               {@const counted = n <= 7 || picked || ((!here || periodPick === null) && c.total === busiest)}
-              <button class="col" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future} class:goal={c.goal}
+              <button class="col pressdim" class:faded={here && periodPick !== null && periodPick !== i} class:picked class:future={c.future} class:goal={c.goal}
                 style="--i: {i}" aria-label="{c.day}, {c.total} earned" aria-pressed={picked} disabled={c.future}
                 title={c.marks.length ? markTitle(c.marks).join("\n") : undefined}
                 onclick={() => { periodPick = periodPick === i || (!c.total && !c.unlocked) ? null : i; share(c.day, periodPick !== null); }}>
@@ -721,7 +721,7 @@
   .col {
     position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 3px;
     height: 100%; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer;
-    transition: opacity var(--t-base) ease;
+    transition: opacity var(--t-base) ease, var(--press);
   }
   .col.faded { opacity: .3; }
   .col.picked .n { color: var(--ink); font-weight: 700; }
