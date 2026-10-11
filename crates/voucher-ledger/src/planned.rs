@@ -1,7 +1,9 @@
 //! Time blocks: tasks planned for a time, with a duration, in a task manager
 //! (Todoist's due time and duration). Each block's minutes split four ways:
-//! in an earning source, in Distraction or Unlocked, in anything else, and
-//! not known (no device was reporting). Nothing here matches a task to an app.
+//! in Distraction, in an earning source, in anything else, and not known (no
+//! device was reporting). Unlocks lie over that split: how much of the block
+//! one was open for, and what those minutes went to. Nothing here matches a
+//! task to an app.
 //!
 //! Blocks are snapshotted as the poller sees them, because a task manager
 //! keeps only the present: a recurring task moves its due date forward when
@@ -57,20 +59,28 @@ pub struct Planned {
     pub service: String,
     pub split: Split,
     /// Minutes each earning source was active in the block, outside
-    /// Distraction and Unlocks. Two sources at once each count, so these can
-    /// add up to more than `split.sources`.
+    /// Distraction. Two sources at once each count, so these can add up to
+    /// more than `split.sources`.
     pub source_minutes: BTreeMap<String, u32>,
     /// Vouchers earned by finishing tasks inside the block, any task's
     /// (from the log, so none past it).
     pub task_vouchers: u32,
 }
 
-/// Where a block's minutes went. The four add up to its minutes.
+/// Where a block's minutes went. `sources`, `distraction`, `other`, and
+/// `unknown` add up to its minutes; a minute is Distraction if a device saw
+/// a Distraction app or site in use then, else in sources if a focus stretch
+/// ran, else other if some device was reporting, else unknown. The Unlock
+/// fields lie over that split rather than adding to it: `unlocked` is the
+/// minutes an Unlock was open, and the four `*_unlocked`/`unlocked_*` parts
+/// say what those minutes went to and add up to it. An Unlock left unused
+/// costs nothing: its minutes are sources, other, or unknown.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 pub struct Split {
     /// In an earning source (a timed focus stretch), outside Distraction.
     pub sources: u32,
-    /// In a Distraction app or site, or inside an Unlock.
+    /// In a Distraction app or site, from devices' Distraction spans, in an
+    /// Unlock or not (outside one, a device wasn't enforcing).
     pub distraction: u32,
     /// Anything else while a device was reporting: other apps, or away from
     /// devices. Neutral.
@@ -78,13 +88,31 @@ pub struct Split {
     /// No device was reporting: none sent anything for the Day, every one
     /// that did was silent then, or it hasn't happened yet.
     pub unknown: u32,
+    /// With an Unlock open: the four below added up.
+    pub unlocked: u32,
+    /// Of `distraction`, the minutes inside an Unlock.
+    pub distraction_unlocked: u32,
+    /// Of `sources`, the minutes inside an Unlock (one left unused).
+    pub unlocked_sources: u32,
+    /// Of `other`, the minutes inside an Unlock.
+    pub unlocked_other: u32,
+    /// Of `unknown`, the minutes inside an Unlock.
+    pub unlocked_unknown: u32,
 }
 
 /// Splits the block [from, to) by what was going on. Each list may overlap
 /// itself and run outside the block. Distraction comes first: a minute in a
 /// source and in Distraction at once counts as Distraction. Of what's left,
 /// minutes outside `covered` (when some device was reporting) are unknown.
-pub fn split(block: Span, sources: &[Span], distraction: &[Span], covered: &[Span]) -> Split {
+/// `unlocks` don't change that split; they say which of its minutes had an
+/// Unlock open.
+pub fn split(
+    block: Span,
+    sources: &[Span],
+    distraction: &[Span],
+    unlocks: &[Span],
+    covered: &[Span],
+) -> Split {
     let (from, to) = block;
     if from >= to {
         return Split::default();
@@ -93,28 +121,51 @@ pub fn split(block: Span, sources: &[Span], distraction: &[Span], covered: &[Spa
     let lost = clip(distraction, block);
     let earning = subtract(&clip(sources, block), &lost);
     let rest = subtract(&subtract(&whole, &lost), &earning);
-    let unseen = subtract(&rest, &clip(covered, block));
-    let total = minutes_of(seconds(&whole));
-    let mut parts = [
-        minutes_of(seconds(&lost)),
-        minutes_of(seconds(&earning)),
-        minutes_of(seconds(&unseen)),
-    ];
-    // Rounding each part can overshoot the whole by a minute or two: take it
-    // back from unknown first, then sources, then Distraction.
-    let mut over = parts.iter().sum::<u32>().saturating_sub(total);
-    for part in [2, 1, 0] {
-        let cut = over.min(parts[part]);
-        parts[part] -= cut;
-        over -= cut;
+    let seen = clip(covered, block);
+    let unseen = subtract(&rest, &seen);
+    let other = subtract(&rest, &unseen);
+    let open = clip(unlocks, block);
+    // Eight cells, each part in an Unlock and out of one, rounded together so
+    // they add up to the block: then every sum of them agrees with the rest.
+    let mut cells = [0; 8];
+    for (i, part) in [&lost, &earning, &other, &unseen].into_iter().enumerate() {
+        let out = seconds(&subtract(part, &open));
+        cells[i] = seconds(part) - out;
+        cells[4 + i] = out;
     }
-    let [distraction, sources, unknown] = parts;
+    let m = apportion(minutes_of(seconds(&whole)), &cells);
     Split {
-        sources,
-        distraction,
-        unknown,
-        other: total - sources - distraction - unknown,
+        distraction: m[0] + m[4],
+        sources: m[1] + m[5],
+        other: m[2] + m[6],
+        unknown: m[3] + m[7],
+        unlocked: m[0] + m[1] + m[2] + m[3],
+        distraction_unlocked: m[0],
+        unlocked_sources: m[1],
+        unlocked_other: m[2],
+        unlocked_unknown: m[3],
     }
+}
+
+/// Whole minutes for each of `seconds`, adding up to `total`: each rounded
+/// down, then the minutes left go to the largest remainders (the earlier
+/// part on a tie).
+fn apportion<const N: usize>(total: u32, seconds: &[i64; N]) -> [u32; N] {
+    let mut out = [0u32; N];
+    for (o, s) in out.iter_mut().zip(seconds) {
+        *o = u32::try_from((*s).max(0) / 60).unwrap_or(0);
+    }
+    let mut left = total.saturating_sub(out.iter().sum());
+    let mut order: Vec<usize> = (0..N).filter(|&i| seconds[i] > 0).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse(seconds[i] % 60));
+    for i in order {
+        if left == 0 {
+            break;
+        }
+        out[i] += 1;
+        left -= 1;
+    }
+    out
 }
 
 /// Merged parts of `spans` inside `block`.
@@ -178,6 +229,7 @@ fn service_of(task: &str) -> &str {
 struct DaySpans {
     sources: Vec<(Span, String)>,
     distraction: Vec<Span>,
+    unlocks: Vec<Span>,
     covered: Vec<Span>,
 }
 
@@ -369,6 +421,10 @@ impl Ledger {
                 .iter()
                 .flat_map(|s| s.distraction.iter().copied())
                 .collect();
+            let unlocked: Vec<Span> = near
+                .iter()
+                .flat_map(|s| s.unlocks.iter().copied())
+                .collect();
             let covered: Vec<Span> = near
                 .iter()
                 .flat_map(|s| s.covered.iter().copied())
@@ -398,7 +454,7 @@ impl Ledger {
                         minutes: b.minutes,
                         done_at: b.done_at,
                         service: service_of(&b.task).to_string(),
-                        split: split(block, &plain, &distraction, &covered),
+                        split: split(block, &plain, &distraction, &unlocked, &covered),
                         source_minutes,
                         task_vouchers: u32::try_from(
                             task_vouchers
@@ -415,8 +471,8 @@ impl Ledger {
         out
     }
 
-    /// One Day's focus stretches, Distraction (every device's spans, and the
-    /// Unlocks), and when some device was reporting: from the Day's open
+    /// One Day's focus stretches, Distraction (every device's spans), Unlocks,
+    /// and when some device was reporting: from the Day's open
     /// (Curfew's end) to its close or `now`, for each device that sent
     /// anything for the Day, less its Gaps and any silence still running.
     fn spans_on(
@@ -428,7 +484,7 @@ impl Ledger {
     ) -> DaySpans {
         let settings = &self.state.settings;
         let mut out = DaySpans {
-            distraction: unlocks.get(&day).cloned().unwrap_or_default(),
+            unlocks: unlocks.get(&day).cloned().unwrap_or_default(),
             ..DaySpans::default()
         };
         let Some(score) = self.state.days.get(&day) else {

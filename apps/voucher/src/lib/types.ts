@@ -91,7 +91,8 @@ export interface DaySummary {
   sleep?: Sleep | null;
   /** The reporting device's calendar load; null when none was sent. */
   calendar?: CalendarDay | null;
-  /** The answer to "How was your energy today?", 1 to 5. */
+  /** An old answer to "How was your energy today?", 1 to 5. Deprecated: the
+   *  app no longer asks, but the Ledger still sends answers it kept. */
   energy?: Energy | null;
   /** Time blocks planned in a task manager that start in this Day, oldest
    *  first, with how their minutes went. Absent from older Ledgers. */
@@ -142,7 +143,8 @@ export interface DayTotal {
   sleep?: Sleep | null;
   /** The reporting device's calendar load; null when none was sent. */
   calendar?: CalendarDay | null;
-  /** The answer to "How was your energy today?", 1 to 5. */
+  /** An old answer to "How was your energy today?", 1 to 5. Deprecated: the
+   *  app no longer asks, but the Ledger still sends answers it kept. */
   energy?: Energy | null;
   /** The focus stretches whose Enforcer said when each started and in which
    *  source, oldest first; older Enforcers send lengths only, so these can be
@@ -181,13 +183,20 @@ export interface PlannedBlock {
   task_vouchers: number;
 }
 
-/** Where a block's minutes went; the four add up to its minutes. Overlapping
- *  blocks each count the minutes they share. */
+/** Where a block's minutes went: `sources`, `distraction`, `other`, and
+ *  `unknown` add up to its minutes (Distraction first, then sources, then
+ *  other, then unknown). Overlapping blocks each count the minutes they
+ *  share. The Unlock fields lie over that split instead of adding to it:
+ *  `unlocked` is the minutes an Unlock was open, and `distraction_unlocked`
+ *  and the three `unlocked_*` say what they went to and add up to it. An
+ *  Unlock left unused costs nothing. Older Ledgers send the four parts only,
+ *  with Unlocks counted in `distraction`. */
 export interface PlannedSplit {
   /** In an earning source (a timed focus stretch), outside Distraction. */
   sources: number;
-  /** In a Distraction app or site, or inside an Unlock. On a Day whose
-   *  `distraction_spans` is null, Unlocks only. */
+  /** In a Distraction app or site, from devices' Distraction spans, in an
+   *  Unlock or not (outside one, a device wasn't enforcing). On a Day whose
+   *  `distraction_spans` is null, only what the devices that sent spans saw. */
   distraction: number;
   /** Anything else while a device was reporting: other apps, or away from
    *  devices. Neutral. */
@@ -195,6 +204,16 @@ export interface PlannedSplit {
   /** No device was reporting then (none sent anything for the Day, all were
    *  silent, or it hasn't happened yet). */
   unknown: number;
+  /** Minutes with an Unlock open. Absent from older Ledgers. */
+  unlocked?: number;
+  /** Of `distraction`, the minutes inside an Unlock. */
+  distraction_unlocked?: number;
+  /** Of `sources`, the minutes inside an Unlock. */
+  unlocked_sources?: number;
+  /** Of `other`, the minutes inside an Unlock. */
+  unlocked_other?: number;
+  /** Of `unknown`, the minutes inside an Unlock. */
+  unlocked_unknown?: number;
 }
 
 /** A focus stretch with when it started and its source's id. */
@@ -232,7 +251,7 @@ export interface CalendarDay {
   busy: [string, string][];
 }
 
-/** "How was your energy today?": 1 drained to 5 full of energy. */
+/** "How was your energy today?": 1 drained to 5 full of energy. Deprecated: no longer asked. */
 export type Energy = 1 | 2 | 3 | 4 | 5;
 
 /** One calendar, named the same on every device that syncs it. */

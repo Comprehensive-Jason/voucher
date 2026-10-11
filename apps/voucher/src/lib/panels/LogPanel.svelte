@@ -6,7 +6,9 @@
 
 <script lang="ts">
   // The Log: one Day's earnings and Unlocks, newest first, with the moment
-  // the Daily goal was met marked in place. Arrows step through past Days.
+  // the Daily goal was met marked in place, and the night that led into the
+  // Day at its wake-up (a moon in the sleep colour, hollow when estimated).
+  // Arrows step through past Days.
   // One line per entry, each naming its app ("Todoist, Weekly review"), the
   // same on the phone and the tablet. `compact` is the tablet's slot: the
   // card fills it and only the rows scroll.
@@ -17,7 +19,7 @@
   import { POLL_MS } from "../live.svelte";
   import { serviceOf, sourceOf } from "../sources";
   import Marker, { type MarkerKind } from "../components/Marker.svelte";
-  import { clock, dayLabel, shiftDay } from "../time";
+  import { clock, dayLabel, hoursAndMinutes, shiftDay } from "../time";
   import type { DaySummary } from "../types";
   import ScrollCue from "../components/ScrollCue.svelte";
   import { fade } from "svelte/transition";
@@ -39,16 +41,20 @@
 
   const day = $derived(today ? shiftDay(today, -back) : null);
 
-  type Row = { time: string; title: string; color: string; value: string; tone: "earn" | "spend" | "lost" | "goal" | "note"; marker: MarkerKind; at?: string };
+  type Row = { time: string; title: string; color: string; value: string; tone: "earn" | "spend" | "lost" | "goal" | "note" | "sleep"; marker: MarkerKind; at?: string };
   const rows = $derived.by((): Row[] => {
     if (!shown) return [];
     const out: Row[] = [];
-    // Markers sit among the entries by time, newest first like them.
-    const marks = [...(shown.markers ?? [])].reverse();
-    const markRow = (m: (typeof marks)[number]): Row => ({ time: clock(m.at, timeZone), title: m.text,
-      color: "", value: "", tone: "note", marker: m.rule ? "rule" : "note", at: m.rule ? undefined : m.at });
+    // Markers, and the night that led into the Day (at its wake-up), sit
+    // among the entries by time, newest first like them.
+    const marks: { at: string; row: Row }[] = (shown.markers ?? []).map((m) => ({ at: m.at, row: { time: clock(m.at, timeZone), title: m.text,
+      color: "", value: "", tone: "note" as const, marker: m.rule ? "rule" as const : "note" as const, at: m.rule ? undefined : m.at } }));
+    const s = shown.sleep;
+    if (s) marks.push({ at: s.wake, row: { time: clock(s.wake, timeZone), title: `Slept ${clock(s.bedtime, timeZone)} to ${clock(s.wake, timeZone)}, ${hoursAndMinutes(s.asleep)}${s.source === "estimated" ? ", estimated" : ""}`,
+      color: "var(--sleep)", value: "", tone: "sleep", marker: s.source === "estimated" ? "sleep-estimated" : "sleep" } });
+    marks.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
     for (const e of shown.log) {
-      while (marks.length && marks[0].at > e.at) out.push(markRow(marks.shift()!));
+      while (marks.length && Date.parse(marks[0].at) > Date.parse(e.at)) out.push(marks.shift()!.row);
       if (shown.goal_met_at && e.at === shown.goal_met_at && e.kind === "earned") {
         // The milestone sits just above the earning that met the goal.
         out.push({ time: clock(e.at, timeZone), title: `Daily goal met · Streak: ${shown.streak} ${shown.streak === 1 ? "Day" : "Days"}`, color: "var(--goal)", value: "", tone: "goal", marker: "goal" });
@@ -71,7 +77,7 @@
           color: "var(--spend)", value: `−${e.tickets}`, tone: "spend", marker: "redeemed" });
       }
     }
-    for (const m of marks) out.push(markRow(m));
+    for (const m of marks) out.push(m.row);
     return out;
   });
 

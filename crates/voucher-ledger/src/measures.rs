@@ -1,6 +1,7 @@
 //! What a Day was like besides its Vouchers: the night's sleep, the
-//! calendar's load, and the answer to "How was your energy today?". None of
-//! it earns or costs anything; Trends reads it beside the Day's score.
+//! calendar's load, and (deprecated) the answer to "How was your energy
+//! today?". None of it earns or costs anything; Trends reads it beside the
+//! Day's score.
 //!
 //! Which Day a sleep counts toward: the local calendar date of its wake-up.
 //! A Day runs from Curfew's end (06:00) to the next, so a wake-up at or after
@@ -432,6 +433,9 @@ impl Ledger {
     /// Answers "How was your energy today?" for `day`, 1 (drained) to 5
     /// (full of energy); None clears it. Like the Curfew question, only today
     /// and the six Days before can be answered.
+    ///
+    /// Deprecated 2026-10-11: the app no longer asks. Kept so older apps'
+    /// `POST /energy` still works and stored answers still load.
     pub fn set_energy(&mut self, day: Date, energy: Option<u8>, now: Timestamp) -> bool {
         let today = day_of(&self.state.settings, now);
         if day > today

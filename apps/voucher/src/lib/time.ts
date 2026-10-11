@@ -24,6 +24,21 @@ export function hourOf(at: string, timeZone: string): number {
   return Number(clock(at, timeZone).slice(0, 2));
 }
 
+const stamps = new Map<string, Intl.DateTimeFormat>();
+/** Minutes from 06:00 on `day` (the Day's start) to a moment, on
+ *  `timeZone`'s clock: 0 to 1440 inside the Day, negative before it, past
+ *  1440 after. */
+export function minutesIntoDay(at: string, day: string, timeZone: string, start = 6): number {
+  let format = stamps.get(timeZone);
+  if (!format) stamps.set(timeZone, (format = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone })));
+  const p = Object.fromEntries(format.formatToParts(new Date(at)).map((x) => [x.type, x.value]));
+  const days = Math.round((Date.parse(`${p.year}-${p.month}-${p.day}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86_400_000);
+  return days * 1440 + Number(p.hour) * 60 + Number(p.minute) - start * 60;
+}
+
+/** A length of time as "7h12" (hours and minutes), as the sleep charts write it. */
+export const hoursAndMinutes = (m: number) => { const r = Math.round(m); return `${Math.floor(r / 60)}h${String(r % 60).padStart(2, "0")}`; };
+
 /** A date as "09-18", with the year only when it isn't this one ("2025-09-18"): the one date format on every screen. */
 export function shortDate(day: string, today: string): string {
   return day.slice(0, 4) === today.slice(0, 4) ? day.slice(5) : day;

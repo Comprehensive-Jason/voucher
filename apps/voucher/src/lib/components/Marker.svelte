@@ -4,9 +4,9 @@
   // square, a hollow one for a Voucher lost to a full Bank, a star for the
   // Daily goal met, a dashed red ring for a time Voucher was off (a warning:
   // nothing was protected), a salmon triangle pointing right, the way a torn
-  // Voucher goes, for an Unlock, and a flag for a Marker (--marker, whether written by hand or added by a
-  // rule change).
-  export type MarkerKind = "source" | "lost" | "redeemed" | "goal" | "gap" | "note" | "rule";
+  // Voucher goes, for an Unlock, a flag for a Marker (--marker, whether written by hand or added by a
+  // rule change), and a crescent moon in the sleep colour for a night's sleep (hollow when estimated).
+  export type MarkerKind = "source" | "lost" | "redeemed" | "goal" | "gap" | "note" | "rule" | "sleep" | "sleep-estimated";
   let { kind, color = "currentColor", size = 12 }: { kind: MarkerKind; color?: string; size?: number } = $props();
 </script>
 
@@ -19,6 +19,8 @@
     <path d="M6 .6l1.6 3.4 3.7.4-2.8 2.5.8 3.7L6 8.8 2.7 10.6l.8-3.7L.7 4.4l3.7-.4z" fill="var(--goal)" />
   {:else if kind === "note" || kind === "rule"}
     <path d="M3 11V1.2M3 1.6h6.4l-1.6 2.4 1.6 2.4H3" fill="var(--marker)" stroke="var(--marker)" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round" />
+  {:else if kind === "sleep" || kind === "sleep-estimated"}
+    <path d="M10.5 6.9A4.6 4.6 0 1 1 5.1 1.5a3.6 3.6 0 0 0 5.4 5.4z" fill={kind === "sleep" ? "var(--sleep)" : "none"} stroke="var(--sleep)" stroke-width={kind === "sleep" ? 1 : 1.4} stroke-linejoin="round" />
   {:else if kind === "gap"}
     <circle cx="6" cy="6" r="4.6" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-dasharray="2.4 1.8" />
   {:else}

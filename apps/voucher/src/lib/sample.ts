@@ -199,12 +199,12 @@ let pending: [Record<string, unknown>, string][] = [[{ UnlockMinutes: 15 }, next
 export function sampleLedger(method: string, path: string, body: unknown): unknown {
   const [route, query = ""] = path.split("?");
   const params = new URLSearchParams(query);
-  // Sleep, calendar load, and energy (lib/sampleExtra.ts).
+  // Sleep and calendar load (lib/sampleExtra.ts).
   const measured = measuresRoute(method, route, body);
   if (measured !== undefined) return measured;
   if (route === "/status") {
     const expired = new URLSearchParams(location.search).get("expired");
-    return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: days[TODAY],
+    return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: withMeasures([days[TODAY]])[0],
       source_errors: expired ? { [expired]: "sign-in expired" } : {},
       setup_complete: !new URLSearchParams(location.search).get("fresh"),
       first_day: "2026-06-29", log_first_day: "2026-10-01",
@@ -213,11 +213,11 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
   }
   if (route === "/day") {
     const d = params.get("date") ?? TODAY;
-    return withMeasures([days[d] ?? blankDay(d)], TODAY)[0];
+    return withMeasures([days[d] ?? blankDay(d)])[0];
   }
   // ?history=N in the page's address serves N Days whatever is asked: a short
   // one for empty states, a long one for What goes with a good Day.
-  if (route === "/history") return withMeasures(history(Number(new URLSearchParams(location.search).get("history") ?? params.get("days") ?? 84)), TODAY);
+  if (route === "/history") return withMeasures(history(Number(new URLSearchParams(location.search).get("history") ?? params.get("days") ?? 84)));
   if (route === "/markers") return markers;
   if (route === "/marker" && method === "POST") {
     const b = body as { text: string; at?: string };

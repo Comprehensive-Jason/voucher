@@ -31,7 +31,11 @@
   --raised: #1f2226;           /* controls and boxes raised on a surface */
   --marker: #d3ccff;           /* Markers, by hand or from a rule change: pale lavender, clear of every other meaning (11.7:1 on cards) */
   --sleep: #4e52da;            /* sleep: violet-blue, Curfew's sister, since Curfew enforces sleep (3:1 on cards) */
+  --sleep-band: color-mix(in srgb, var(--sleep) 12%, transparent); /* a night asleep behind an hour chart, to the minute, under a solid --sleep top edge */
+  --sleep-hatch: repeating-linear-gradient(135deg, color-mix(in srgb, var(--sleep) 45%, transparent) 0 2px, transparent 2px 5px); /* the same, estimated */
   --calendar: #a800f9;         /* calendar events: electric violet, at least 15 ΔE2000 from every indicator and 18.6 from every source swatch (3.4:1 on cards) */
+  --sleep-text: #8b8ff0;       /* sleep as text: --sleep lightened in its own hue (5.5:1 on --raised, 6.2:1 on cards) */
+  --calendar-text: #ba5eff;    /* calendar as text: --calendar lightened in its own hue (4.7:1 on --raised, 5.2:1 on cards) */
   --marker-ink: #16181b;       /* text on a Marker fill (11.7:1) */
   --heat-0: #22262a;           /* heat grids, fewer to more: an empty square, then the main green in three steps */
   --heat-1: color-mix(in oklab, var(--voucher) 32%, var(--heat-0));
@@ -46,7 +50,6 @@
   --night-bg: #151935;
   --night-band: color-mix(in srgb, var(--night) 9%, transparent); /* Curfew's hours behind a chart, the same on every card */
   --night-cell: color-mix(in srgb, var(--night) 12%, var(--heat-0)); /* an empty grid square in Curfew's hours */
-  --energy: #e8e06a;           /* energy answers: lemon, clear of the goal's amber */
   --font: "Space Grotesk", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
 }

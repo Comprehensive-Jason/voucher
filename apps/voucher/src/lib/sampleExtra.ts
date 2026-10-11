@@ -1,19 +1,18 @@
-// Sample sleep, calendar load, and energy for the browser preview, added to
+// Sample sleep and calendar load for the browser preview, added to
 // lib/sample.ts's Days (and so to `?history=N`). A hash of each date picks
 // its figures, so any span agrees and screenshots are stable. Like the
 // Ledger: nights are later and longer at the weekend, about one in seven is
-// estimated (no Health Connect session), weekdays carry most events, and
-// energy loosely follows the night before. Also each Day's Unlocks, focus
+// estimated (no Health Connect session), and weekdays carry most events.
+// Also each Day's Unlocks, focus
 // stretches with their starts, and Distraction spans, fitted to sample.ts's
 // tears and stretch lengths.
 //
 // Links for What goes with a good Day to find: Distraction after 22:00 on
 // about three evenings in ten pushes that night's bedtime later (so a
-// shorter night, and lower energy the Day after); a busy calendar lowers
-// that Day's energy; and about half the stretches that aren't the Day's
+// shorter night); and about half the stretches that aren't the Day's
 // longest start soon after an Unlock (with Distraction in it) and run
 // shorter than the rest.
-import type { CalendarChoice, CalendarDay, CalendarId, DaySummary, DayTotal, Energy, PlannedBlock, Sleep, TimedStretch } from "./types";
+import type { CalendarChoice, CalendarDay, CalendarId, DaySummary, DayTotal, PlannedBlock, Sleep, TimedStretch } from "./types";
 
 /** A number in [0, 1) from a date and a salt. */
 function hash(day: string, salt: number): number {
@@ -36,7 +35,7 @@ const weekday = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay();
 /** Whether the sample Day had Distraction after 22:00 (on Days whose Distraction is measured). */
 const lateEvening = (day: string) => hash(day, 60) < LATE_P;
 // How strongly the sample's links show (see the top of this file).
-const LATE_P = 0.3, LATE_BED = 135, BUSY_ENERGY = 1.2, AFTER_BREAK_P = 0.5, AFTER_BREAK = 0.6;
+const LATE_P = 0.3, LATE_BED = 135, AFTER_BREAK_P = 0.5, AFTER_BREAK = 0.6;
 
 /** The night ending on `day`'s morning, or null for one with no data at all. */
 export function sampleSleep(day: string): Sleep | null {
@@ -83,14 +82,6 @@ export function sampleCalendar(day: string): CalendarDay {
   };
 }
 
-/** The Day's energy answer: about four Days in five, higher after a longer night, lower on a busy Day. */
-export function sampleEnergy(day: string, sleep: Sleep | null, busyMinutes = 0): Energy | null {
-  if (hash(day, 50) < 0.2) return null;
-  const rested = sleep ? (sleep.asleep - 420) / 70 : 0;
-  const busy = busyMinutes >= 240 ? BUSY_ENERGY : 0;
-  return Math.max(1, Math.min(5, Math.round(3 + rested - busy + (hash(day, 51) - 0.5) * 2.2))) as Energy;
-}
-
 /** Minutes after the Day began (06:00) as a moment. */
 const at = (day: string, offset: number) => local(day, 360 + offset);
 /** Minutes after the Day began of a sample moment such as "2026-10-07T12:10:00-07:00". */
@@ -98,8 +89,9 @@ const offsetOf = (iso: string) => Number(iso.slice(11, 13)) * 60 + Number(iso.sl
 
 /** A sample Day's Unlocks, focus stretches with their starts (the same
  *  lengths, but stretches soon after an Unlock run shorter), and Distraction
- *  spans (most of each Unlock, now and then a few minutes outside one, and
- *  the late evenings): what "a break before a stretch" is read from. */
+ *  spans (most or half of most Unlocks, none of some, now and then a few
+ *  minutes outside one, and the late evenings): what "a break before a
+ *  stretch" is read from. */
 function breaksOf(d: DayTotal): Pick<DayTotal, "unlocks" | "timed_stretches" | "distraction_spans" | "stretches"> {
   // Unlocks: the Day's tears, the first at its first tear, the rest about two hours apart, before Curfew.
   const tears = d.tears ?? 0, unlocks: [number, number][] = [];
@@ -110,7 +102,11 @@ function breaksOf(d: DayTotal): Pick<DayTotal, "unlocks" | "timed_stretches" | "
     if (to > from) unlocks.push([from, to]);
     from = to + 100 + Math.floor(hash(d.day, 80 + k) * 80);
   }
-  const spans: [number, number][] = unlocks.filter(([a, b]) => b - a > 3).map(([a, b]) => [a + 1, b - 1]);
+  // About three Unlocks in ten go unused, a quarter are used for half their time, the rest for most of it.
+  const spans: [number, number][] = unlocks.flatMap(([a, b], k): [number, number][] => {
+    const p = hash(d.day, 64 + k);
+    return b - a <= 3 || p < 0.3 ? [] : [[a + 1, p < 0.55 ? a + Math.ceil((b - a) / 2) : b - 1]];
+  });
   if (hash(d.day, 61) < 0.4) { const a = 120 + Math.floor(hash(d.day, 62) * 600); spans.push([a, a + 4]); }
   if (lateEvening(d.day)) spans.push([965, 990 + Math.floor(hash(d.day, 63) * 25)]);
   spans.sort((a, b) => a[0] - b[0]);
@@ -145,52 +141,55 @@ function breaksOf(d: DayTotal): Pick<DayTotal, "unlocks" | "timed_stretches" | "
 
 /** A sample weekday's time blocks (none at the weekend): 2 to 5 of 30 to
  *  120 minutes between 08:30 and 22:00, about seven in ten done, and on about
- *  two Days in five one that starts just before the Day's first Unlock. Split
- *  as the Ledger splits them: Distraction and Unlocks first, then the timed
- *  stretches, the rest other (unknown on a Day no device reported). */
+ *  half the Days one or two that start just before an Unlock. Split as the
+ *  Ledger splits them: Distraction spans first, then the timed stretches,
+ *  the rest other (unknown on a Day no device reported), with the minutes
+ *  an Unlock was open, and what they went to, over that. */
 function plannedOf(d: DayTotal, b: ReturnType<typeof breaksOf>): PlannedBlock[] {
   if (weekday(d.day) === 0 || weekday(d.day) === 6) return [];
   const off = (iso: string) => Math.round((Date.parse(iso) - Date.parse(at(d.day, 0))) / 60_000);
-  const lost = new Uint8Array(1440), bySource = new Map<string, Uint8Array>();
-  for (const [a, z] of [...(b.distraction_spans ?? []), ...(b.unlocks ?? [])]) lost.fill(1, off(a), off(z));
+  const lost = new Uint8Array(1440), open = new Uint8Array(1440), bySource = new Map<string, Uint8Array>();
+  for (const [a, z] of b.distraction_spans ?? []) lost.fill(1, off(a), off(z));
+  for (const [a, z] of b.unlocks ?? []) open.fill(1, off(a), off(z));
   for (const s of b.timed_stretches ?? []) {
     if (!bySource.has(s.source)) bySource.set(s.source, new Uint8Array(1440));
     bySource.get(s.source)!.fill(1, off(s.start), off(s.start) + s.minutes);
   }
-  const placed: [number, number][] = [], firstUnlock = b.unlocks?.[0] ? off(b.unlocks[0][0]) : -1;
+  const placed: [number, number][] = [], unlockAt = (b.unlocks ?? []).map(([a]) => off(a));
   for (let i = 0, n = 2 + Math.floor(hash(d.day, 120) * 4); i < n; i++) {
     const length = 30 + 15 * Math.floor(hash(d.day, 130 + i) * 7);
-    let start = i === 0 && firstUnlock > 150 && hash(d.day, 121) < 0.4 ? firstUnlock - 20 : 150 + 30 * Math.floor(hash(d.day, 140 + i) * 22);
+    let start = i < 2 && unlockAt[i] > 150 && hash(d.day, 121 + i) < 0.5 ? unlockAt[i] - 20 : 150 + 30 * Math.floor(hash(d.day, 140 + i) * 22);
     while (placed.some(([a, z]) => start < z && a < start + length)) start += 30;
     if (start + length <= 960) placed.push([start, start + length]);
   }
   return placed.sort((x, y) => x[0] - y[0]).map(([a, z], i) => {
-    let sources = 0, distraction = 0;
+    let sources = 0, distraction = 0, unlocked = 0, distraction_unlocked = 0, unlocked_sources = 0;
     const source_minutes: Record<string, number> = {};
     for (let m = a; m < z; m++) {
-      if (lost[m]) { distraction++; continue; }
+      if (open[m]) unlocked++;
+      if (lost[m]) { distraction++; if (open[m]) distraction_unlocked++; continue; }
       let any = false;
       for (const [id, on] of bySource) if (on[m]) { source_minutes[id] = (source_minutes[id] ?? 0) + 1; any = true; }
-      if (any) sources++;
+      if (any) { sources++; if (open[m]) unlocked_sources++; }
     }
-    const rest = z - a - sources - distraction;
+    const rest = z - a - sources - distraction, unlockedRest = unlocked - distraction_unlocked - unlocked_sources;
     const done = hash(d.day, 150 + i) < 0.7 ? a + Math.max(5, z - a + Math.round((hash(d.day, 160 + i) - 0.6) * 50)) : null;
     const hours = d.source_hours?.tasks ?? [];
     return { start: at(d.day, a), minutes: z - a, done_at: done === null ? null : at(d.day, done), service: "todoist",
-      split: { sources, distraction, other: d.reported ? rest : 0, unknown: d.reported ? 0 : rest }, source_minutes,
+      split: { sources, distraction, other: d.reported ? rest : 0, unknown: d.reported ? 0 : rest, unlocked, distraction_unlocked, unlocked_sources,
+        unlocked_other: d.reported ? unlockedRest : 0, unlocked_unknown: d.reported ? 0 : unlockedRest }, source_minutes,
       task_vouchers: hours.reduce((t, k, h) => t + ((h * 60 - 360 >= a && h * 60 - 360 < z) ? k : 0), 0) };
   });
 }
 
-/** Sample Days with their sleep, calendar load, and energy, and (history
- *  Days) their Unlocks, timed stretches, Distraction spans, and time blocks.
- *  Today has no energy answer yet. */
-export function withMeasures<T extends DayTotal | DaySummary>(days: T[], today: string): T[] {
+/** Sample Days with their sleep and calendar load, and (history Days)
+ *  their Unlocks, timed stretches, Distraction spans, and time blocks. */
+export function withMeasures<T extends DayTotal | DaySummary>(days: T[]): T[] {
   return days.map((d) => {
     const sleep = sampleSleep(d.day), calendar = sampleCalendar(d.day);
     const breaks = "stretches" in d ? breaksOf(d) : null;
     const extra = breaks ? { ...breaks, planned: plannedOf(d as DayTotal, breaks) } : {};
-    return { ...d, ...extra, sleep, calendar, energy: d.day === today ? null : sampleEnergy(d.day, sleep, calendar.busy_minutes) };
+    return { ...d, ...extra, sleep, calendar };
   });
 }
 
@@ -216,7 +215,6 @@ export const sampleCalendarChoice = () => choice;
 
 /** The sample Ledger's answers for the new routes, or undefined for any other. */
 export function measuresRoute(method: string, route: string, body: unknown): unknown {
-  if (route === "/energy" && method === "POST") return { message: "kept" };
   if (route === "/sleep" && method === "POST") return { message: "kept" };
   if (route === "/calendar" && method === "POST") return { days: 0 };
   if (route === "/calendars" && method === "GET") return choice;

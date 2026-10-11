@@ -6,6 +6,9 @@
   // column at the far right for a Day with no Unlock at all. Both in salmon,
   // Unlocks' colour everywhere. The further
   // right the dots, the longer the morning ran before the first Distraction.
+  // A tick in the sleep colour marks each Day's wake-up (hollow when the
+  // night was estimated, at 06:00 when it came before), so the stretch from
+  // tick to dot is how long you held out after waking.
   // The gold dashed line is the middle first Unlock of the last 4 weeks, its
   // time over it; a fainter one marks the 4 weeks before, with its time, when
   // the two are 10 minutes or more apart. The hours sit under the scroller
@@ -33,10 +36,13 @@
   // Finished Days the log still holds.
   const days = $derived(history.slice(0, -1).filter((d) => d.hours && d.hours.length));
   const weeks = $derived.by(() => {
-    const map = new Map<string, { day: string; t: number | null }[]>();
+    const map = new Map<string, { day: string; t: number | null; wake: { t: number; at: string; estimated: boolean } | null }[]>();
     for (const d of days) {
       const key = mondayOf(d.day);
-      map.set(key, [...(map.get(key) ?? []), { day: d.day, t: d.first_tear ? hoursAt(d.first_tear) : null }]);
+      // A wake-up before 06:00 still leads into the Day: drawn at 06:00.
+      const at = d.sleep ? clock(d.sleep.wake, timeZone) : "";
+      const wake = d.sleep ? { t: Math.max(START, Number(at.slice(0, 2)) + Number(at.slice(3)) / 60), at, estimated: d.sleep.source === "estimated" } : null;
+      map.set(key, [...(map.get(key) ?? []), { day: d.day, t: d.first_tear ? hoursAt(d.first_tear) : null, wake }]);
     }
     return [...map.entries()].map(([monday, list]) => ({ monday, list }));
   });
@@ -44,6 +50,8 @@
   const before = $derived(median(days.slice(-56, -28).flatMap((d) => (d.first_tear ? [hoursAt(d.first_tear)] : []))));
 
   /** The 4 weeks before, drawn only when they differ from lately by 10 minutes or more. */
+  /** Whether any Day drawn has a wake-up, and any an estimated one, for the keys. */
+  const wakes = $derived(weeks.flatMap((w) => w.list.flatMap((d) => (d.wake ? [d.wake] : []))));
   const showBefore = $derived(!Number.isNaN(recent) && !Number.isNaN(before) && Math.abs(recent - before) * 60 >= 10);
 
   // Markers on the Days drawn, by Day, oldest first.
@@ -133,6 +141,11 @@
             {#each w.list as d, i (d.day)}
               {@const cx = d.t === null ? x1 + 22 : xAt(d.t)}
               {@const cy = y + (i - 3) * 1.6}
+              <!-- The Day's wake-up: a tick in the sleep colour, hollow when the night was estimated. The runway is the stretch from it to the dot. -->
+              {#if d.wake}
+                {@const wx = xAt(d.wake.t)}
+                <rect class="wake" class:estimated={d.wake.estimated} x={wx - (d.wake.estimated ? 1.8 : 1.2)} y={cy - 5} width={d.wake.estimated ? 3.6 : 2.4} height="10" rx="1"><title>{shortDate(d.day, today)}: woke {d.wake.at}{d.wake.estimated ? ", estimated" : ""}</title></rect>
+              {/if}
               {#if d.day === chosen}<circle {cx} {cy} r="8" fill="none" stroke="var(--ink)" stroke-width="1.5" />{/if}
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <g class="dot pressdim" onclick={() => pick(d.day)}>
@@ -150,10 +163,15 @@
         <text class="hour" x={x1 + 22} y="13" text-anchor="middle">none</text>
       </svg>
     </div>
-    <!-- The note fits the legend's one line only beside three keys; a fourth (the 4 weeks before, or a Marker's) pushes it out. -->
+    <!-- The note fits the legend's one line only beside three keys; a fourth (the 4 weeks before, a Marker's, or the wake-ups') pushes it out;
+         beside the 4 weeks before and the wake-ups, "Usual lately" shortens to "Lately" to keep one line.
+         The hollow rings need no key: the column they sit in is headed "none". -->
     <Legend
-      items={[{ kind: "dot", color: "var(--spend)", label: "A Day's first Unlock" }, { kind: "ring", color: "var(--spend)", label: "No Unlock" }, { kind: "usual", color: "var(--goal)", label: "Usual lately" }, ...(showBefore ? [{ kind: "usual" as const, color: "var(--muted)", label: "4 weeks before" }] : []), ...markerKeys(marks)]}
-      note={showBefore || marks.length ? undefined : "further right: a longer morning"} />
+      items={[{ kind: "dot", color: "var(--spend)", label: "First Unlock" },
+        ...(wakes.length ? [{ kind: "tick" as const, color: "var(--sleep)", label: "Woke" }] : []),
+        ...(wakes.some((w) => w.estimated) ? [{ kind: "opentick" as const, color: "var(--sleep)", label: "Estimated" }] : []),
+        { kind: "usual", color: "var(--goal)", label: showBefore && wakes.length ? "Lately" : "Usual lately" }, ...(showBefore ? [{ kind: "usual" as const, color: "var(--muted)", label: "4 weeks before" }] : []), ...markerKeys(marks)]}
+      note={showBefore || marks.length || wakes.length ? undefined : "further right: a longer morning"} />
   {/if}
 </TrendCard>
 
@@ -169,6 +187,8 @@
   .times text.time { fill: var(--muted); }
   .times text.time.recent { fill: var(--goal); font-weight: 700; }
   .dot { cursor: pointer; transition: var(--press); }
+  .wake { fill: var(--sleep); }
+  .wake.estimated { fill: none; stroke: var(--sleep); stroke-width: 1.2; }
   /* HourAxis's look: 10px mono hour labels, Curfew's in the night colour. */
   .axis text.hour { font-size: calc(var(--axis-size) * var(--k, 1)); font-weight: 500; }
   .axis text.hour.night { fill: var(--night); }

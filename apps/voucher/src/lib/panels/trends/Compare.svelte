@@ -12,7 +12,7 @@
   import { dayOfMoment, notes } from "../../notes.svelte";
   import { measured } from "../../notes.svelte";
   import type { DayTotal } from "../../types";
-  import { shortDate } from "../../time";
+  import { hoursAndMinutes, shortDate } from "../../time";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();
@@ -34,7 +34,8 @@
 
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
   const middle = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
-  type Measure = { name: string; of: (w: DayTotal[]) => number | null; unit: string; better: "up" | "down"; digits?: number };
+  /** `better` says which way is good; "neither" (events) draws its arrow in ink, neither green nor crimson. */
+  type Measure = { name: string; of: (w: DayTotal[]) => number | null; unit: string; better: "up" | "down" | "neither"; digits?: number; format?: (v: number) => string };
   const MEASURES: Measure[] = [
     { name: "Vouchers a Day", of: (w) => mean(w.map((d) => d.earned)), unit: "", better: "up", digits: 1 },
     { name: "Goal Days", of: (w) => (w.length ? (w.filter((d) => d.goal_met).length / w.length) * 100 : null), unit: "%", better: "up" },
@@ -42,13 +43,16 @@
     { name: "Unlocked per Day", of: (w) => mean(w.map((d) => d.unlocked_minutes ?? 0)), unit: " min", better: "down" },
     { name: "Walked away", of: (w) => { const o = w.reduce((a, d) => a + (d.opens ?? 0), 0); return o ? (w.reduce((a, d) => a + (d.walked ?? 0), 0) / o) * 100 : null; }, unit: "%", better: "up" },
     { name: "Longest focus", of: (w) => middle(w.filter((d) => d.stretches?.length).map((d) => Math.max(...d.stretches!))), unit: " min", better: "up" },
+    // Nights with no sleep on record, and Days with no calendar sent, are left out rather than counted as none.
+    { name: "Asleep a night", of: (w) => mean(w.flatMap((d) => (d.sleep ? [d.sleep.asleep] : []))), unit: " min", better: "up", format: hoursAndMinutes },
+    { name: "Events a Day", of: (w) => mean(w.flatMap((d) => (d.calendar ? [d.calendar.events] : []))), unit: "", better: "neither", digits: 1 },
   ];
 
   const at = $derived(marker ? index.get(dayOfMoment(marker.at)) ?? null : null);
   const before = $derived(at === null ? [] : days.slice(Math.max(0, at - SPAN), at));
   const after = $derived(at === null ? [] : days.slice(at + SETTLE, at + SETTLE + SPAN));
   const rows = $derived(MEASURES.map((m) => ({ ...m, a: m.of(before), b: m.of(after) })).filter((r) => r.a !== null && r.b !== null));
-  const show = (v: number, m: Measure) => `${m.digits ? v.toFixed(m.digits).replace(/\.0$/, "") : Math.round(v)}${m.unit}`;
+  const show = (v: number, m: Measure) => m.format ? m.format(v) : `${m.digits ? v.toFixed(m.digits).replace(/\.0$/, "") : Math.round(v)}${m.unit}`;
 
   /** How often other same-length stretches differ in Vouchers a Day by as much. */
   const luck = $derived.by(() => {
@@ -91,11 +95,11 @@
       {#each rows as r (r.name)}
         {@const up = r.b! > r.a!}
         {@const same = Math.abs(r.b! - r.a!) < (r.unit === "%" ? 2 : 0.15 * Math.max(1, Math.abs(r.a!)))}
-        {@const good = same ? null : (up === (r.better === "up"))}
+        {@const good = same || r.better === "neither" ? null : (up === (r.better === "up"))}
         <span class="name">{r.name}</span>
         <b class="mono">{show(r.a!, r)}</b>
         <b class="mono">{show(r.b!, r)}</b>
-        <span class="arrow" class:good={good === true} class:bad={good === false}>{same ? "=" : up ? "▲" : "▼"}</span>
+        <span class="arrow" class:good={good === true} class:bad={good === false} class:neutral={!same && good === null}>{same ? "=" : up ? "▲" : "▼"}</span>
       {/each}
     </div>
   {/if}
@@ -114,6 +118,8 @@
   .arrow { text-align: center; font-size: 11px; color: var(--muted); }
   .arrow.good { color: var(--voucher); }
   .arrow.bad { color: var(--worse); }
+  /* A change that's neither good nor bad (events): its arrow in ink. */
+  .arrow.neutral { color: var(--ink); }
   /* The luck sentence gets a line of its own under the first. */
   .luck { display: block; margin-top: 4px; }
   /* Beats the foot's own bold colour. */

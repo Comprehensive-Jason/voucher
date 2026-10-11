@@ -5,12 +5,14 @@
   // and a tick at your usual time for reaching it. The chart says it all in
   // labels: the dot's count so far, a whisker through it with the usual range
   // at that hour, and the usual goal time on the gold tick. The Day runs from
-  // 06:00; hours after midnight count as 24 to 29.
+  // 06:00; hours after midnight count as 24 to 29. A thin lane under the
+  // baseline holds the Day's calendar events, so a flat stretch of the line
+  // has its reason.
   import TrendCard from "../../components/TrendCard.svelte";
   import ChartAxis from "../../components/ChartAxis.svelte";
   import MarkerLines from "../../components/MarkerLines.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { clock, dayLabel } from "../../time";
+  import { clock, dayLabel, minutesIntoDay } from "../../time";
   import { clockOfHours, median, quantile } from "../../trends";
   import type { DaySummary, DayTotal } from "../../types";
   import { ledger } from "../../api";
@@ -77,6 +79,11 @@
   const k = $derived(W / (pw || W));
   const top = $derived(Math.max(goal + 2, ...band.map((b) => b.hi), todayTimes.length) || 1);
   $effect(() => { notes.load(); });
+  /** The chosen Day's busy stretches from its calendar events, in hours, clipped to the Day. */
+  const busy = $derived((summary?.calendar?.busy ?? []).flatMap(([from, to]) => {
+    const a = Math.max(START, START + minutesIntoDay(from, chosen, timeZone) / 60), b = Math.min(END, START + minutesIntoDay(to, chosen, timeZone) / 60);
+    return b > a ? [{ a, b, text: `Busy ${clock(from, timeZone)} to ${clock(to, timeZone)}` }] : [];
+  }));
   /** The chosen Day's Markers, at their hour. */
   const marks = $derived(notes.on(chosen).map((m) => ({ ...m, h: hoursAt(m.at) })));
   const xAt = (h: number) => x0 + ((h - START) / (END - START)) * (x1 - x0);
@@ -182,6 +189,8 @@
       <text class="tag big" x={count.x} y={count.y} text-anchor={count.anchor} style="fill: var(--voucher)">{soFar}</text>
       <text class="tag" x={range.x} y={range.y} text-anchor={range.anchor} style="fill: var(--voucher); opacity: .8">{rangeText}</text>
       {#if goalTime}<text class="tag" x={goalTime.x} y={goalTime.y} text-anchor="middle" style="fill: var(--goal)">{goalTime.text}</text>{/if}
+      <!-- Calendar events: a thin lane just under the baseline, a bar per busy stretch, so a flat stretch of the line has its reason. -->
+      {#each busy as s (s.a)}<rect x={xAt(s.a)} y={y0 + 2 * k} width={Math.max(k, xAt(s.b) - xAt(s.a))} height={2.5 * k} rx={1.25 * k} fill="var(--calendar)"><title>{s.text}</title></rect>{/each}
       <!-- Every third hour across the whole Day, as HourAxis draws them: Curfew's in the night colour. -->
       {#each [6, 9, 12, 15, 18, 21, 24, 27] as h}<text x={xAt(h)} y={H - 6} text-anchor="middle" style={inCurfew(h % 24) ? "fill: var(--night)" : undefined}>{String(h % 24).padStart(2, "0")}</text>{/each}
     </svg>
@@ -189,6 +198,7 @@
     <Legend items={[
       { kind: "line", color: "var(--voucher)", label: dayLabel(chosen, today.day) },
       { kind: "box", color: "color-mix(in srgb, var(--voucher) 16%, transparent)", label: `Your usual Day (middle half of the last ${perDay.length})` },
+      ...(busy.length ? [{ kind: "line" as const, color: "var(--calendar)", label: "Events" }] : []),
       ...markerKeys(marks),
     ]} />
   {/if}

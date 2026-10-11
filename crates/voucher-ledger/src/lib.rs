@@ -667,7 +667,8 @@ pub struct DaySummary {
     pub sleep: Option<Sleep>,
     /// The reporting device's calendar load; None if it sent none.
     pub calendar: Option<CalendarDay>,
-    /// The answer to "How was your energy today?", 1 to 5.
+    /// The answer to "How was your energy today?", 1 to 5. Deprecated: no
+    /// longer asked, but answers already kept are still sent.
     pub energy: Option<u8>,
     /// Time blocks planned in a task manager that start in this Day, oldest
     /// first, with how their minutes went (see `planned`).
@@ -750,7 +751,8 @@ pub struct DayTotal {
     pub sleep: Option<Sleep>,
     /// The reporting device's calendar load; None if it sent none.
     pub calendar: Option<CalendarDay>,
-    /// The answer to "How was your energy today?", 1 to 5.
+    /// The answer to "How was your energy today?", 1 to 5. Deprecated: no
+    /// longer asked, but answers already kept are still sent.
     pub energy: Option<u8>,
     /// Time blocks planned in a task manager that start in this Day, oldest
     /// first, with how their minutes went (see `planned`): empty past the log.
@@ -891,6 +893,8 @@ struct State {
     // (serde's default), so an existing Ledger upgrades in place; an older
     // Ledger reading a newer file ignores them.
     /// Each Day's answer to "How was your energy today?", 1 to 5.
+    /// Deprecated 2026-10-11: no longer asked, but kept so older states
+    /// load and older apps' answers still land.
     #[serde(default)]
     energy: BTreeMap<Date, u8>,
     /// Health Connect sleep sessions, by the device that read them, oldest first.
@@ -2108,7 +2112,7 @@ impl Ledger {
         let tz = self.state.settings.time_zone.clone();
         let sources: Vec<String> = self.state.settings.sources.keys().cloned().collect();
         let mut out = String::from(
-            "day,goal,earned,goal_met,vouchers_torn,unlocked_minutes,distraction_minutes,reported,opens,walked_away,longest_stretch,silent_minutes,verdict,reasons,markers,bedtime,wake,asleep_minutes,sleep_source,events,busy_minutes,energy",
+            "day,goal,earned,goal_met,vouchers_torn,unlocked_minutes,distraction_minutes,reported,opens,walked_away,longest_stretch,silent_minutes,verdict,reasons,markers,bedtime,wake,asleep_minutes,sleep_source,events,busy_minutes",
         );
         for id in &sources {
             out.push_str(&format!(",earned_{id}"));
@@ -2152,8 +2156,9 @@ impl Ledger {
             ));
             let clock = |t: &Timestamp| t.to_zoned(tz.clone()).strftime("%H:%M").to_string();
             let sleep = d.sleep.as_ref();
+            // Energy (deprecated) is no longer exported.
             out.push_str(&format!(
-                ",{},{},{},{},{},{},{}",
+                ",{},{},{},{},{},{}",
                 sleep.map_or(String::new(), |s| clock(&s.bedtime)),
                 sleep.map_or(String::new(), |s| clock(&s.wake)),
                 sleep.map_or(String::new(), |s| s.asleep.to_string()),
@@ -2164,7 +2169,6 @@ impl Ledger {
                 },
                 d.calendar.as_ref().map_or(String::new(), |c| c.events.to_string()),
                 d.calendar.as_ref().map_or(String::new(), |c| c.busy_minutes.to_string()),
-                d.energy.map_or(String::new(), |e| e.to_string()),
             ));
             for id in &sources {
                 out.push_str(&format!(",{}", d.by_source.get(id).copied().unwrap_or(0)));

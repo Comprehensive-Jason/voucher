@@ -589,14 +589,16 @@ function fillBreaks(state, today) {
 // duration) on past weekdays, as the Ledger keeps them once seen: an opaque
 // task id, the start, the minutes, and when it was done. Days without timed
 // stretches or Distraction spans get those first (as Breaks before stretches
-// makes them), so each block's split has something to read. On about two
-// Days in five one block starts just before an Unlock or Distraction span.
+// makes them), so each block's split has something to read. The first two
+// blocks each start just before an Unlock or Distraction span half the time,
+// and about two in five Unlocks inside a block are left unused (their
+// Distraction spans cut out; the Day's minutes per hour stay as they were).
 
 const BLOCK_SLOTS = [150, 180, 210, 240, 270, 300, 420, 450, 480, 510, 540, 570, 600, 780, 810, 840, 870]; // minutes after 06:00
 /** Every past weekday the log keeps that the Ledger has: 2 to 5 blocks of 30 to 120 minutes, about 70% done. Weekends get none. */
 function fillPlanned(state, today) {
   state.planned ??= {};
-  let days = 0, blocks = 0, done = 0, filled = 0, distracted = 0;
+  let days = 0, blocks = 0, done = 0, filled = 0, distracted = 0, used = 0, unused = 0;
   for (let d = shiftDay(today, -183); d < today; d = shiftDay(d, 1)) {
     if (!state.days[d]) continue;
     if ([0, 6].includes(weekdayOf(d))) { delete state.planned[d]; continue; }
@@ -609,19 +611,32 @@ function fillPlanned(state, today) {
     }
     if (!score.timed_stretches?.portal || !score.distraction_spans?.portal) { placeBreaks(state, d); filled++; }
     const dayStart = Date.parse(momentOf(state, d, 6));
-    const breaks = [...unlocksOf(state, d), ...(score.distraction_spans?.portal ?? []).map(([a, b]) => [Date.parse(a), Date.parse(b)])]
+    const unlocks = unlocksOf(state, d);
+    const breaks = [...unlocks, ...(score.distraction_spans?.portal ?? []).map(([a, b]) => [Date.parse(a), Date.parse(b)])]
       .map(([a]) => Math.round((a - dayStart) / MINUTE)).filter((m) => m > 150 && m < 900).sort((a, b) => a - b);
     const placed = [];
     const n = 2 + Math.floor(Math.random() * 4);
     for (let i = 0; i < n * 4 && placed.length < n; i++) {
       const length = 30 + 15 * Math.floor(Math.random() * 7);
-      const beforeBreak = i === 0 && breaks.length > 0 && Math.random() < 0.4;
-      const start = beforeBreak ? breaks[0] - 10 - Math.floor(Math.random() * 15) : pickOne(BLOCK_SLOTS);
+      // The first two tries can start just before a break, so blocks hold Unlocks.
+      const beforeBreak = i < 2 && breaks.length > i && Math.random() < 0.5;
+      const start = beforeBreak ? breaks[i] - 10 - Math.floor(Math.random() * 15) : pickOne(BLOCK_SLOTS);
       if (start + length > 960 || placed.some(([a, b]) => start < b && a < start + length)) continue;
       placed.push([start, start + length]);
       if (beforeBreak) distracted++;
     }
     placed.sort((a, b) => a[0] - b[0]);
+    // About two in five Unlocks inside a block go unused: no Distraction span in them.
+    const inBlock = ([a, b]) => placed.some(([x, y]) => a < dayStart + y * MINUTE && dayStart + x * MINUTE < b);
+    const spans = (score.distraction_spans?.portal ?? []).map(([a, b]) => [Date.parse(a), Date.parse(b)]);
+    for (const u of unlocks.filter(inBlock)) {
+      if (Math.random() >= 0.4 || !spans.some(([a, b]) => a < u[1] && u[0] < b)) { used++; continue; }
+      const kept = [];
+      for (const [a, b] of spans) { if (a < u[0]) kept.push([a, Math.min(b, u[0])]); if (b > u[1]) kept.push([Math.max(a, u[1]), b]); }
+      spans.splice(0, spans.length, ...kept);
+      unused++;
+    }
+    if (score.distraction_spans?.portal) score.distraction_spans.portal = spans.map(isoSpan);
     state.planned[d] = placed.map(([a, b], i) => {
       const block = { task: "todoist:portal-" + d + "-" + i, start: new Date(dayStart + a * MINUTE).toISOString(), minutes: b - a };
       if (Math.random() < 0.7) { block.done_at = new Date(dayStart + (a + Math.max(5, b - a + Math.round(rand(-30, 20)))) * MINUTE).toISOString(); done++; }
@@ -630,7 +645,8 @@ function fillPlanned(state, today) {
     days++;
     blocks += placed.length;
   }
-  return "Time blocks on " + days + " weekdays: " + blocks + " blocks, " + done + " done, " + distracted + " starting just before an Unlock or Distraction"
+  return "Time blocks on " + days + " weekdays: " + blocks + " blocks, " + done + " done, " + distracted + " starting just before an Unlock or Distraction; "
+    + used + " Unlocks in blocks used, " + unused + " left unused"
     + (filled ? "; stretch starts and Distraction spans filled on " + filled + " Days first" : "");
 }
 
@@ -645,16 +661,14 @@ function lateDays(state) {
   return out;
 }
 
-// ---- Sleep, calendar load, and energy ----
-// Made-up months of all three for the Trends cards. Sleep goes in through the
+// ---- Sleep and calendar load ----
+// Made-up months of both for the Trends cards. Sleep goes in through the
 // Ledger's own POST /sleep (as a phone with a watch would send it) for most
 // nights; about one night in six has no session but device use either side of
 // it (activity moments edited into the saved state), so the Ledger estimates
 // it. Nights run later and longer at the weekend. Calendar events go in
 // through POST /calendars and /calendar from a "portal" device, which becomes
-// the reporting device; weekdays carry most events. Energy answers (edited
-// in, since the Ledger takes them only for the last week) loosely follow the
-// night before.
+// the reporting device; weekdays carry most events.
 
 const PORTAL_CALENDARS = [
   { account: "portal@example.com", name: "Classes", color: "#0b8043" },
@@ -742,33 +756,15 @@ async function fillCalendar(days) {
   return "Calendar on " + reply.days + " Days: " + count + " events, from a \"portal\" device that now reports calendars";
 }
 
-/** Energy answers on about four Days in five, higher after a longer night and lower on a busy Day. */
-function fillEnergy(days) {
-  return editState((state, today) => {
-    state.energy ??= {};
-    const sessions = (state.sleep?.["portal-phone"] ?? []);
-    let n = 0;
-    for (const day of span(today, days)) {
-      if (Math.random() < 0.2) { delete state.energy[day]; continue; }
-      const night = sessions.find((s) => localOf(state, s.end).date === day);
-      const rested = night ? (night.asleep - 420) / 70 : rand(-0.6, 0.6);
-      // A busy calendar (four hours or more) wears it down.
-      const busy = (state.calendar?.[day]?.busy_minutes ?? 0) >= 240 ? 1.2 : 0;
-      state.energy[day] = Math.max(1, Math.min(5, Math.round(3 + rested - busy + rand(-1.1, 1.1))));
-      n++;
-    }
-    return "Energy answered on " + n + " Days";
-  });
-}
-
 async function clearMeasures(days) {
   const status = await call("GET", "/status");
   const state = { settings: status.settings };
   await call("POST", "/sleep", { device: "portal-phone", since: at(state, shiftDay(status.today.day, -366), 12 * 60), sessions: [] });
   // An empty choice clears the calendar load the Ledger keeps.
   await call("POST", "/calendars", { device: "portal", calendars: [] }).catch(() => {});
+  // Energy is no longer asked; any answers left from before go too.
   await editState((st, today) => { st.activity = {}; for (const day of span(today, days)) delete st.energy?.[day]; });
-  return "Sleep, calendar, and energy cleared";
+  return "Sleep and calendar cleared";
 }
 
 async function measures(input) {
@@ -776,8 +772,7 @@ async function measures(input) {
   switch (input.op) {
     case "sleep": return fillSleep(days);
     case "calendar": return fillCalendar(days);
-    case "energy": return fillEnergy(days);
-    case "all": return [await fillSleep(days), await fillCalendar(days), await fillEnergy(days)].join(". ");
+    case "all": return [await fillSleep(days), await fillCalendar(days)].join(". ");
     case "clear": return clearMeasures(days);
     default: throw new Error("unknown op " + input.op);
   }
@@ -928,9 +923,9 @@ const PAGE = String.raw`<!doctype html>
       <div class="row"><label>from <input type="number" id="sfrom" value="14" min="6" max="29"></label><label>hours <input type="number" id="shours" value="2" min="1" max="12"></label><button data-past="silence">Add</button></div></div>
     <div class="src"><span class="name">Distraction time</span>
       <div class="buttons"><button data-past="usage">Make up this Day's</button></div></div>
-    <div class="src"><span class="name">Sleep, calendar, and energy</span>
-      <span class="detail">Fills the Days back set above (calendar: at most 183). Sleep runs later at the weekend and after late Distraction (from Breaks before stretches), about one night in six estimated; events mostly on weekdays; energy follows sleep and drops on busy Days.</span>
-      <div class="buttons"><button class="go" data-measures="all">Fill every Day</button><button data-measures="sleep">Sleep</button><button data-measures="calendar">Calendar</button><button data-measures="energy">Energy</button><button class="danger" data-measures="clear">Clear</button></div></div>
+    <div class="src"><span class="name">Sleep and calendar</span>
+      <span class="detail">Fills the Days back set above (calendar: at most 183). Sleep runs later at the weekend and after late Distraction (from Breaks before stretches), about one night in six estimated; events mostly on weekdays.</span>
+      <div class="buttons"><button class="go" data-measures="all">Fill every Day</button><button data-measures="sleep">Sleep</button><button data-measures="calendar">Calendar</button><button class="danger" data-measures="clear">Clear</button></div></div>
   </div>
   <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="usagehistory">Fill in Distraction time for past Days</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>

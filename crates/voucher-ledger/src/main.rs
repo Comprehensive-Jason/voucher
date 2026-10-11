@@ -507,6 +507,8 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
             ),
         },
         // "How was your energy today?": {"day": "2026-10-09", "energy": 1 to 5 | null}.
+        // Deprecated 2026-10-11: the app no longer asks, but older apps may
+        // still send answers, so it keeps taking them.
         (Method::Post, "/energy") => match read_json::<NewEnergy>(&mut request) {
             Some(e) if ledger.set_energy(e.day, e.energy, now) => {
                 (200, json(&Message { message: "kept" }))
@@ -827,6 +829,7 @@ struct NewReason {
     reason: String,
 }
 
+/// Deprecated with `POST /energy`.
 #[derive(serde::Deserialize)]
 struct NewEnergy {
     day: jiff::civil::Date,

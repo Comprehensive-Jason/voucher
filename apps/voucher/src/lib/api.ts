@@ -2,7 +2,7 @@
 // on sprout) it serves sample data instead; `?state=` picks which situation.
 import { noteFailure, noteSuccess } from "./health.svelte";
 import { invoke } from "@tauri-apps/api/core";
-import type { CalendarChoice, CalendarDay, CalendarId, DayTotal, DeviceCalendars, DeviceUsage, Energy, PlannedBlock, Protection, Sleep, SourceProgress, Status, Today } from "./types";
+import type { CalendarChoice, CalendarDay, CalendarId, DayTotal, DeviceCalendars, DeviceUsage, PlannedBlock, PlannedSplit, Protection, Sleep, SourceProgress, Status, Today } from "./types";
 import { sampleLedger } from "./sample";
 import { sampleDeviceCalendars } from "./sampleExtra";
 import { rememberSources } from "./colors.svelte";
@@ -310,21 +310,19 @@ export function missingProtection(guard: Protection | null) {
   return null;
 }
 
-// ---- Sleep, calendar load, and energy ----
-// What a Day was like besides its Vouchers. The Ledger sends all three with
-// each Day in GET /history and GET /day; these read and write them.
+// ---- Sleep and calendar load ----
+// What a Day was like besides its Vouchers. The Ledger sends both with each
+// Day in GET /history and GET /day; these read and write them. (It still
+// keeps old energy answers and takes POST /energy, but the app no longer asks.)
 
-/** One Day's sleep, calendar load, and energy answer. */
-export interface DayMeasures { day: string; sleep: Sleep | null; calendar: CalendarDay | null; energy: Energy | null }
+/** One Day's sleep and calendar load. */
+export interface DayMeasures { day: string; sleep: Sleep | null; calendar: CalendarDay | null }
 
-/** The last `days` Days' sleep, calendar load, and energy, oldest first. */
+/** The last `days` Days' sleep and calendar load, oldest first. */
 export async function dayMeasures(days: number): Promise<DayMeasures[]> {
   const history = await ledger<DayTotal[]>("GET", `/history?days=${days}`);
-  return history.map((d) => ({ day: d.day, sleep: d.sleep ?? null, calendar: d.calendar ?? null, energy: d.energy ?? null }));
+  return history.map((d) => ({ day: d.day, sleep: d.sleep ?? null, calendar: d.calendar ?? null }));
 }
-
-/** Answers "How was your energy today?" for a Day (null clears it). */
-export const setEnergy = (day: string, energy: Energy | null) => ledger("POST", "/energy", { day, energy });
 
 /** Which calendars count toward the calendar load, and the device that reports them. */
 export const calendarChoice = () => ledger<CalendarChoice>("GET", "/calendars");
@@ -356,9 +354,22 @@ export async function requestCalendarAccess(): Promise<void> {
 // sends them with each Day in GET /history and GET /day.
 
 /** One Day's planned time blocks. `spansKnown` is false when some device
- *  sent Distraction minutes without their times, so the blocks' Distraction
- *  counts Unlocks only. */
+ *  sent Distraction minutes without their times (older Enforcers), or none
+ *  sent any (Windows sends no Distraction), so the blocks' Distraction isn't
+ *  known: show it as unknown, not as none. */
 export interface DayPlanned { day: string; planned: PlannedBlock[]; spansKnown: boolean }
+
+/** A block's split with every Unlock field: as the Ledger sent them, or from
+ *  an older Ledger, which counted Unlocks inside `distraction`, its minutes
+ *  inside `unlocks` (the Day's), counted as used. */
+export function fullSplit(b: PlannedBlock, unlocks: [string, string][]): Required<PlannedSplit> {
+  const s = b.split;
+  if (s.unlocked != null) return { unlocked_sources: 0, unlocked_other: 0, unlocked_unknown: 0, distraction_unlocked: 0, ...s, unlocked: s.unlocked };
+  const from = Date.parse(b.start), to = from + b.minutes * 60_000;
+  const open = unlocks.reduce((t, [a, z]) => t + Math.max(0, Math.min(to, Date.parse(z)) - Math.max(from, Date.parse(a))), 0) / 60_000;
+  const unlocked = Math.min(s.distraction, Math.round(open));
+  return { ...s, unlocked, distraction_unlocked: unlocked, unlocked_sources: 0, unlocked_other: 0, unlocked_unknown: 0 };
+}
 
 /** The last `days` Days' time blocks, oldest first. */
 export async function plannedBlocks(days: number): Promise<DayPlanned[]> {

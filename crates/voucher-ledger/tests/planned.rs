@@ -111,13 +111,26 @@ fn phone_reports(
     assert!(ledger.report_distraction_spans("phone", day, spans, now));
 }
 
-fn split_of(sources: u32, distraction: u32, other: u32, unknown: u32) -> Split {
-    Split {
-        sources,
-        distraction,
-        other,
-        unknown,
-    }
+/// A split's four parts that add up to the block: sources, Distraction,
+/// other, unknown.
+fn split_of(sources: u32, distraction: u32, other: u32, unknown: u32) -> [u32; 4] {
+    [sources, distraction, other, unknown]
+}
+
+fn parts(s: Split) -> [u32; 4] {
+    [s.sources, s.distraction, s.other, s.unknown]
+}
+
+/// A split's Unlock overlay: unlocked, and of it Distraction, sources,
+/// other, and unknown.
+fn unlocked(s: Split) -> [u32; 5] {
+    [
+        s.unlocked,
+        s.distraction_unlocked,
+        s.unlocked_sources,
+        s.unlocked_other,
+        s.unlocked_unknown,
+    ]
 }
 
 // ---- The migration ----
@@ -150,7 +163,7 @@ fn a_state_saved_before_time_blocks_loads_and_takes_them() {
     assert_eq!(planned[0].minutes, 60);
     // The fixture's phone: the reading stretch 14:00 to 14:40 and a Gap from
     // 15:00 to 16:00, so 13:30 to 14:00 is other, 14:00 to 14:30 in sources.
-    assert_eq!(planned[0].split, split_of(30, 0, 30, 0));
+    assert_eq!(parts(planned[0].split), split_of(30, 0, 30, 0));
     assert_eq!(planned[0].source_minutes.get("reading"), Some(&30));
 }
 
@@ -392,19 +405,22 @@ fn distraction_comes_before_sources_and_the_rest_is_other_or_unknown() {
     ];
     // Devices reported until 10:50.
     let covered = [s("2026-10-05T06:00-07:00", "2026-10-05T10:50-07:00")];
-    let got = planned::split(blk, &sources, &distraction, &covered);
-    assert_eq!(got, split_of(20, 15, 15, 10));
+    let got = planned::split(blk, &sources, &distraction, &[], &covered);
+    assert_eq!(parts(got), split_of(20, 15, 15, 10));
 }
 
 #[test]
 fn nothing_reported_is_unknown_and_parts_always_add_up() {
     let blk = s("2026-10-05T10:00-07:00", "2026-10-05T10:45-07:00");
-    assert_eq!(planned::split(blk, &[], &[], &[]), split_of(0, 0, 0, 45));
+    assert_eq!(
+        parts(planned::split(blk, &[], &[], &[], &[])),
+        split_of(0, 0, 0, 45)
+    );
     // Seconds round to minutes without the parts overshooting the block.
     let sources = [s("2026-10-05T10:00:00-07:00", "2026-10-05T10:20:31-07:00")];
     let distraction = [s("2026-10-05T10:20:31-07:00", "2026-10-05T10:30:01-07:00")];
     let covered = [s("2026-10-05T10:30:01-07:00", "2026-10-05T10:45-07:00")];
-    let got = planned::split(blk, &sources, &distraction, &covered);
+    let got = planned::split(blk, &sources, &distraction, &[], &covered);
     assert_eq!(got.sources + got.distraction + got.other + got.unknown, 45);
     assert_eq!(got.unknown, 0);
 }
@@ -441,7 +457,7 @@ fn a_block_crossing_the_days_end_reads_both_days() {
     assert_eq!(planned.len(), 1);
     // 30 + 20 in sources, 10 Distraction, the rest other: both Days' phone
     // reports cover the whole block.
-    assert_eq!(planned[0].split, split_of(50, 10, 60, 0));
+    assert_eq!(parts(planned[0].split), split_of(50, 10, 60, 0));
     assert_eq!(
         planned[0].source_minutes,
         BTreeMap::from([("obsidian".to_string(), 30), ("reading".to_string(), 20)])
@@ -472,12 +488,12 @@ fn overlapping_blocks_each_count_the_same_minutes() {
         at("2026-10-05T23:00-07:00"),
     );
     let planned = planned_on(&mut ledger, day, at("2026-10-05T23:30-07:00"));
-    assert_eq!(planned[0].split, split_of(0, 10, 50, 0));
-    assert_eq!(planned[1].split, split_of(0, 10, 50, 0));
+    assert_eq!(parts(planned[0].split), split_of(0, 10, 50, 0));
+    assert_eq!(parts(planned[1].split), split_of(0, 10, 50, 0));
 }
 
 #[test]
-fn unlocks_count_as_distraction_and_gaps_and_the_future_as_unknown() {
+fn an_unused_unlock_costs_nothing_and_gaps_and_the_future_are_unknown() {
     let mut ledger = fresh();
     let day = date(2026, 10, 5);
     let seen = [block("a", "2026-10-05T14:00-07:00", 120)];
@@ -505,7 +521,83 @@ fn unlocks_count_as_distraction_and_gaps_and_the_future_as_unknown() {
     // At 15:30 the last half hour hasn't happened yet.
     let planned = ledger.day(day, at("2026-10-05T15:30-07:00")).planned;
     assert_eq!(planned.len(), 1);
-    assert_eq!(planned[0].split, split_of(0, 10, 50, 60));
+    // The Unlock's 10 minutes are other, as the phone saw them, not lost.
+    assert_eq!(parts(planned[0].split), split_of(0, 0, 60, 60));
+    assert_eq!(unlocked(planned[0].split), [10, 0, 0, 10, 0]);
+}
+
+/// A block from 14:00 to 15:00 with a 10-minute Unlock torn at 14:00, the
+/// phone reporting these Distraction spans; the block as of 23:00.
+fn unlock_block(spans: Vec<(&str, &str)>) -> Planned {
+    let mut ledger = fresh();
+    let day = date(2026, 10, 5);
+    let seen = [block("a", "2026-10-05T14:00-07:00", 60)];
+    ledger.plan(
+        "todoist",
+        &seen,
+        covers("2026-10-05"),
+        at("2026-10-05T08:00-07:00"),
+    );
+    ledger.credit(2, at("2026-10-05T09:00-07:00"));
+    ledger.redeem(at("2026-10-05T14:00-07:00")).unwrap();
+    phone_reports(
+        &mut ledger,
+        day,
+        vec![],
+        spans,
+        at("2026-10-05T23:00-07:00"),
+    );
+    let mut planned = planned_on(&mut ledger, day, at("2026-10-05T23:30-07:00"));
+    assert_eq!(planned.len(), 1);
+    planned.remove(0)
+}
+
+#[test]
+fn a_used_unlock_counts_only_the_distraction_used_in_it() {
+    // 6 of the Unlock's 10 minutes in a Distraction app.
+    let b = unlock_block(vec![("2026-10-05T14:02-07:00", "2026-10-05T14:08-07:00")]);
+    assert_eq!(parts(b.split), split_of(0, 6, 54, 0));
+    assert_eq!(unlocked(b.split), [10, 6, 0, 4, 0]);
+}
+
+#[test]
+fn distraction_outside_an_unlock_counts_without_one() {
+    // A device that wasn't enforcing: 15 minutes of Distraction after the
+    // Unlock ended, none in it.
+    let b = unlock_block(vec![("2026-10-05T14:30-07:00", "2026-10-05T14:45-07:00")]);
+    assert_eq!(parts(b.split), split_of(0, 15, 45, 0));
+    assert_eq!(unlocked(b.split), [10, 0, 0, 10, 0]);
+}
+
+#[test]
+fn the_unlock_overlay_says_what_its_minutes_went_to_and_adds_up() {
+    let blk = s("2026-10-05T10:00-07:00", "2026-10-05T11:00-07:00");
+    // An Unlock from 10:10 to 10:40, overlapping a source stretch, a
+    // Distraction span that runs past its end, and the unreported tail.
+    let unlocks = [s("2026-10-05T10:10-07:00", "2026-10-05T10:40-07:00")];
+    let sources = [s("2026-10-05T10:05-07:00", "2026-10-05T10:20-07:00")];
+    let distraction = [s("2026-10-05T10:25-07:00", "2026-10-05T10:50-07:00")];
+    let covered = [s("2026-10-05T06:00-07:00", "2026-10-05T10:35-07:00")];
+    let got = planned::split(blk, &sources, &distraction, &unlocks, &covered);
+    // Sources 10:05-10:20, Distraction 10:25-10:50, other 10:00-10:05 and
+    // 10:20-10:25, unknown 10:50-11:00.
+    assert_eq!(parts(got), split_of(15, 25, 10, 10));
+    // In the Unlock: 10 in sources, 15 Distraction, 5 other, none unknown.
+    assert_eq!(unlocked(got), [30, 15, 10, 5, 0]);
+    // Odd seconds still round so every sum agrees.
+    let unlocks = [s("2026-10-05T10:00:20-07:00", "2026-10-05T10:20:50-07:00")];
+    let distraction = [s("2026-10-05T10:10:40-07:00", "2026-10-05T10:30:10-07:00")];
+    let got = planned::split(blk, &sources, &distraction, &unlocks, &covered);
+    let [d, src, o, u] = [
+        got.distraction_unlocked,
+        got.unlocked_sources,
+        got.unlocked_other,
+        got.unlocked_unknown,
+    ];
+    assert_eq!(d + src + o + u, got.unlocked);
+    assert_eq!(got.sources + got.distraction + got.other + got.unknown, 60);
+    assert!(d <= got.distraction && src <= got.sources && o <= got.other);
+    assert_eq!(got.unlocked, 21);
 }
 
 #[test]

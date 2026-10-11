@@ -18,6 +18,10 @@
   // earlier Days, as far as the Ledger keeps logs. Past Days load as they
   // come near the screen.
   //
+  // The Day view also shades time asleep behind the bars (nightsOf) and marks
+  // the calendar's busy stretches in a thin lane under them (busyOf), each
+  // keyed in the list when there is one; Week and Month leave them out.
+  //
   // Distraction time's list also says how often a blocked open (opening a
   // blocklisted app while nothing is unlocked) ended without an Unlock:
   // "Walked away 49 of 67", over the Day, week, or month in view (or the
@@ -26,7 +30,7 @@
   import { ledger } from "../api";
   import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
   import { blocklistOf } from "../blocklists";
-  import { clock, dayLabel, hourOf, periodLabel, shiftDay, shortDate } from "../time";
+  import { clock, dayLabel, hourOf, hoursAndMinutes, minutesIntoDay, periodLabel, shiftDay, shortDate } from "../time";
   import CardHead from "../components/CardHead.svelte";
   import Marker from "../components/Marker.svelte";
   import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "../types";
@@ -139,6 +143,32 @@
   /** A bar's tooltip lines for its Markers: each one's time and text. */
   const markTitle = (marks: MarkerNote[]) => marks.map((m) => `${clockOf(m.at)} ${m.text}`);
   $effect(() => { notes.load(); });
+
+  // ---- Sleep and events, in the Day view only ----
+  /** A stretch of the Day, in minutes from its 06:00, clipped to the Day. */
+  type Span = { a: number; b: number };
+  function clip(day: string, from: string, to: string): Span | null {
+    const a = Math.max(0, minutesIntoDay(from, day, timeZone)), b = Math.min(1440, minutesIntoDay(to, day, timeZone));
+    return b > a ? { a, b } : null;
+  }
+  /** The nights asleep inside the Day's 06:00 to 06:00: the end of the one
+   *  that ended this morning (the Day's own) and the start of the one that
+   *  began that evening (the next Day's, once loaded), each clipped. */
+  function nightsOf(day: string) {
+    return [summaryOf(day)?.sleep, summaryOf(shiftDay(day, 1))?.sleep].flatMap((sleep) => {
+      const span = sleep && clip(day, sleep.bedtime, sleep.wake);
+      return span ? [{ ...span, sleep }] : [];
+    });
+  }
+  /** The Day's busy stretches from its calendar events, overlaps merged. */
+  const busyOf = (day: string) => (summaryOf(day)?.calendar?.busy ?? []).flatMap(([from, to]) => clip(day, from, to) ?? []);
+  /** Where a stretch sits over the hour columns (CSS left and width): each
+   *  hour is its column, and a stretch crossing an hour's edge spans the gap
+   *  between. --g is the columns' gap. */
+  const xOf = (m: number) => `(100% - 23 * var(--g)) / 24 * ${m / 60} + var(--g) * ${Math.min(23, Math.floor(m / 60))}`;
+  const spanStyle = (s: Span) => `left: calc(${xOf(s.a)}); width: calc(${xOf(s.b)} - (${xOf(s.a)}))`;
+  /** A night as the list and tooltips write it: "Slept 23:40 to 07:10". */
+  const sleptText = (s: { bedtime: string; wake: string; source: string }) => `Slept ${clock(s.bedtime, timeZone)} to ${clock(s.wake, timeZone)}${s.source === "estimated" ? ", estimated" : ""}`;
 
   /** Minutes Unlocked in each clock hour (midnight first): each tear runs on
    *  from the Unlock before it, if that was still going. */
@@ -539,6 +569,9 @@
               <div class:faded={here && pick !== null && pick !== i} title={marks.length ? markTitle(marks).join("\n") : undefined}>{#if marks.length}<i class="flag"></i>{/if}</div>
             {/each}
           </div>
+          <!-- The night's sleep behind the bars, to the minute, and the calendar's busy stretches in a thin lane just under the baseline. -->
+          {#each nightsOf(day) as n (n.sleep.wake)}<i class="asleep" class:estimated={n.sleep.source === "estimated"} style="{spanStyle(n)}; top: {LANE}px" title={sleptText(n.sleep)}></i>{/each}
+          <div class="events">{#each busyOf(day) as s (s.a)}<i style={spanStyle(s)}></i>{/each}</div>
           <div class="tick" style="bottom: {plot / 2}px"><span class="mono">{topOf(cols) / 2}</span></div>
           <div class="tick" style="bottom: {plot}px"><span class="mono">{topOf(cols)}</span></div>
           {#each cols as c, i}
@@ -654,6 +687,17 @@
     {#if minutes && zoom === "day" && Array.from({ length: 24 }, (_, h) => silentAt(summaryOf(days[shown]), h)).some((m) => m >= 15)}
       <div class="row"><span class="mk"><i class="silentmark"></i></span><span class="name">Not watched</span><b class="mono">{Array.from({ length: 24 }, (_, h) => silentAt(summaryOf(days[shown]), h)).reduce((a, b) => a + b, 0)} min</b></div>
     {/if}
+    <!-- The Day view's nights asleep and calendar events, keyed as they're drawn. -->
+    {#if zoom === "day"}
+      {#each nightsOf(days[shown]) as n (n.sleep.wake)}
+        <div class="row"><span class="mk"><i class="sleepmark" class:estimated={n.sleep.source === "estimated"}></i></span><span class="name">{sleptText(n.sleep)}</span><b class="mono">{hoursAndMinutes(n.sleep.asleep)}</b></div>
+      {/each}
+      {@const cal = current?.calendar}
+      {#if cal?.events}
+        {@const busy = pick === null ? cal.busy_minutes : cal.busy_hours[hourOfColumn(pick)] ?? 0}
+        <div class="row" class:zero={!busy}><span class="mk"><i class="eventmark"></i></span><span class="name">{cal.events} {cal.events === 1 ? "event" : "events"}</span><b class="mono">{busy ? `${pick === null ? hoursAndMinutes(busy) : `${busy} min`} busy` : "–"}</b></div>
+      {/if}
+    {/if}
     {#if notes.on(days[shown] ?? "").length && zoom === "day"}
       {#each notes.on(days[shown]) as m (m.at)}
         <div class="row"><span class="mk"><Marker kind={m.rule ? "rule" : "note"} /></span><span class="name">{m.text}</span><b class="mono">{clockOf(m.at)}</b></div>
@@ -735,6 +779,20 @@
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
   /* Hours Voucher wasn't watching (a device was silent): hatched, so a low bar there reads as unknown, not as none. */
   .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .09) 0 3px, transparent 3px 7px); pointer-events: none; }
+  /* The night asleep: a faint sleep-coloured band behind the bars from
+     bedtime to wake-up, to the minute, with a solid top edge (Curfew's band
+     fills whole hours and has none); hatched when the night was estimated.
+     Its key in the list matches. */
+  .chart { --g: 4px; }
+  .tall .chart { --g: 6px; }
+  .asleep, .sleepmark { background: var(--sleep-band); box-shadow: inset 0 2px 0 var(--sleep); }
+  .asleep { position: absolute; z-index: -1; bottom: 0; pointer-events: none; }
+  .asleep.estimated, .sleepmark.estimated { background: var(--sleep-hatch); }
+  .sleepmark { display: block; width: 10px; height: 10px; border-radius: 2px; }
+  /* Calendar events: a thin lane under the baseline, a bar per busy stretch. */
+  .events { position: absolute; left: 0; right: 0; top: calc(100% + 4px); height: 4px; pointer-events: none; }
+  .events i, .eventmark { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--calendar); }
+  .eventmark { position: static; display: block; width: 12px; height: 4px; }
   .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
   /* The Markers' lane across the top of the chart, in the plot's columns: the
      chart's top padding, so the bars, their counts, and the top tick sit under it. */

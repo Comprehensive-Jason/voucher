@@ -15,6 +15,8 @@
   // no device reported). A night belongs to the Day it wakes into, as in the
   // Ledger. It follows the shared Day (its row lit and scrolled into view),
   // and tapping a row shares its Day. A Day with a Marker has a flag by its date.
+  // The legend keys each column picked, named by its head (Day, Earned,
+  // Distr), so it fits one line at a one-third width.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend, { type LegendItem } from "../../components/Legend.svelte";
   import { curfew } from "../../curfew.svelte";
@@ -121,10 +123,29 @@
   });
   const pick = (day: string) => selection.set("sleep", { day: day === today ? null : day, picked: true });
 
+  /** The blocklists' colors the Distraction column draws, first three, for its key. */
+  const listColors = $derived.by(() => {
+    const seen = new Set<string>();
+    for (const n of nights) for (const p of lists(n.d)) seen.add(p.color);
+    const drawn = [...seen];
+    return (drawn.length ? drawn : Object.values(blocklists).filter((l) => l.on).map((l) => l.color)).slice(0, 3);
+  });
+  // Keys for the columns picked at the right, each named by its column's head
+  // so the legend stays on one line at a one-third width. With all three on
+  // there's no room for the Curfew answer's "Day: Yes ... No" scale, so it
+  // shrinks to a key like the others: its three colors and "Day".
+  const DAY_COLORS = [VERDICT.yes.fill, VERDICT.mostly.fill, VERDICT.no.fill];
+  const compact = $derived(cols.length === 3);
+  const colKeys = $derived<LegendItem[]>([
+    ...(compact ? [{ kind: "split" as const, colors: DAY_COLORS, label: COL_HEAD.verdict }] : []),
+    ...(cols.includes("vouchers") ? [{ kind: "goalbar" as const, label: COL_HEAD.vouchers }] : []),
+    ...(cols.includes("distraction") ? [{ kind: "split" as const, colors: listColors, label: COL_HEAD.distraction }] : []),
+  ]);
   const legend = $derived<LegendItem[]>([
+    ...colKeys,
     { kind: "box", color: "var(--sleep)", label: "Tracked" },
     { kind: "outline", color: "var(--sleep)", label: "Estimated" },
-    ...(Number.isNaN(usualBed) ? [] : [{ kind: "usual" as const, color: "var(--goal)", label: "Usual lately" }]),
+    ...(Number.isNaN(usualBed) ? [] : [{ kind: "usual" as const, color: "var(--goal)", label: "Usual" }]),
     ...markerKeys(marks),
   ]);
 </script>
@@ -215,7 +236,7 @@
         {/each}
       </svg>
     </div>
-    <Legend items={legend} scale={cols.includes("verdict") ? { from: "Day: Yes", colors: ["var(--heat-3)", "var(--mostly)", "var(--worse)"], to: "No" } : undefined} />
+    <Legend items={legend} scale={cols.includes("verdict") && !compact ? { from: "Day: Yes", colors: DAY_COLORS, to: "No" } : undefined} />
   {/if}
 </TrendCard>
 

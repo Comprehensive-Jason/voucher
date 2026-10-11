@@ -2,10 +2,14 @@
   /** One key in a chart's legend: what the mark looks like, and what it means. */
   export type LegendItem = {
     /** line: a solid stroke; dash: a dotted stroke; box: a filled square; outline: a dashed hollow square;
-     *  frame: a solid hollow square; corner: a square with a Marker's corner tick (heat grids); tick: a short upright mark (Habit strength's goal Days); dot: a filled circle; ring: a hollow circle; flag: a Marker; usual: a dashed
-     *  vertical line; hatch: unwatched time; check: a done task (in ink). */
-    kind: "line" | "dash" | "box" | "outline" | "frame" | "corner" | "tick" | "dot" | "ring" | "flag" | "usual" | "hatch" | "check";
+     *  frame: a solid hollow square; corner: a square with a Marker's corner tick (heat grids); tick: a short upright mark (Habit strength's goal Days); opentick: a hollow one (an estimate); dot: a filled circle; ring: a hollow circle; flag: a Marker; usual: a dashed
+     *  vertical line; hatch: unwatched time; check: a done task (in ink); goalbar: a green bar with the gold
+     *  Daily goal tick across it (Vouchers earned); split: a bar in a few colors side by side (`colors`,
+     *  such as Distraction by blocklist). */
+    kind: "line" | "dash" | "box" | "outline" | "frame" | "corner" | "tick" | "opentick" | "dot" | "ring" | "flag" | "usual" | "hatch" | "check" | "goalbar" | "split";
     color?: string;
+    /** A split key's colors, left to right. */
+    colors?: string[];
     label: string;
   };
 </script>
@@ -28,6 +32,8 @@
       <span><svg class="flagkey" width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M1.6 11.2V1" stroke={it.color ?? "var(--marker)"} stroke-width="1.6" stroke-linecap="round" /><path d="M1.6 1h7l-2 2.75 2 2.75h-7z" fill={it.color ?? "var(--marker)"} /></svg>{it.label}</span>
     {:else if it.kind === "check"}
       <span><svg class="flagkey" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.6 5.2l2.4 2.4 4.6-5" fill="none" stroke={it.color ?? "var(--ink)"} stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>{it.label}</span>
+    {:else if it.kind === "split"}
+      <span><i class="split">{#each it.colors ?? [] as c}<b style="background: {c}"></b>{/each}</i>{it.label}</span>
     {:else}
       <span><i class="{it.kind}" style="--c: {it.color ?? 'var(--muted)'}"></i>{it.label}</span>
     {/if}
@@ -53,7 +59,13 @@
   .ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--c); box-sizing: border-box; }
   .flagkey { flex: none; }
   .tick { width: 2px; height: 9px; border-radius: 1px; background: var(--c); margin-inline: 4px; }
+  .opentick { width: 4px; height: 10px; border-radius: 1px; border: 1.2px solid var(--c); box-sizing: border-box; margin-inline: 3px; }
   .usual { width: 2px; height: 12px; background: repeating-linear-gradient(180deg, var(--c) 0 3px, transparent 3px 5px); }
+  /* Vouchers earned: part of a bar filled green, the gold goal tick standing over it. */
+  .goalbar { width: 16px; height: 8px; border-radius: 2px; background: linear-gradient(90deg, var(--voucher) 0 70%, var(--heat-0) 70%); position: relative; }
+  .goalbar::after { content: ""; position: absolute; left: 55%; top: -2px; width: 2px; height: 12px; background: var(--goal); }
+  .split { width: 16px; height: 8px; border-radius: 2px; overflow: hidden; display: inline-flex; }
+  .split b { flex: 1; }
   .hatch { width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
   .note { margin-left: auto; font-size: 11px; color: var(--axis-ink); }
 </style>

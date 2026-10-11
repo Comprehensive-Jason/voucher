@@ -479,7 +479,7 @@ fn energy_is_one_to_five_for_the_last_week() {
 }
 
 #[test]
-fn the_csv_carries_sleep_calendar_and_energy() {
+fn the_csv_carries_sleep_and_calendar_but_not_energy() {
     let mut ledger = set_up();
     let now = at("2026-10-06T22:30-07:00");
     ledger.set_energy(date(2026, 10, 6), Some(4), now);
@@ -498,8 +498,11 @@ fn the_csv_carries_sleep_calendar_and_energy() {
     let csv = ledger.days_csv(now);
     let header = csv.lines().next().unwrap();
     assert!(
-        header.contains(",bedtime,wake,asleep_minutes,sleep_source,events,busy_minutes,energy")
+        header.contains(",bedtime,wake,asleep_minutes,sleep_source,events,busy_minutes")
     );
+    // Energy is deprecated: still kept, no longer exported.
+    assert!(!header.contains("energy"), "{header}");
     let row = csv.lines().find(|l| l.starts_with("2026-10-06,")).unwrap();
-    assert!(row.contains(",23:15,07:20,460,health_connect,,,4"), "{row}");
+    assert!(row.contains(",23:15,07:20,460,health_connect,,"), "{row}");
+    assert_eq!(row.split(',').count(), header.split(',').count(), "{row}");
 }
