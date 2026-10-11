@@ -6,7 +6,7 @@
   import { onMount } from "svelte";
   import { goto, onNavigate } from "$app/navigation";
   import { connection, device } from "$lib/api";
-  import { motionVars } from "$lib/motion";
+  import { easeIn, easeOut, motionVars, ms } from "$lib/motion";
   import Home from "$lib/Home.svelte";
   import Toast from "$lib/components/Toast.svelte";
 
@@ -50,9 +50,11 @@
   const editor = (path?: string) => !!path && /^\/rules\/(sources\/group|distractions\/(edit|new)|preview)/.test(path);
   onNavigate((nav) => {
     const from = nav.from?.url.pathname, to = nav.to?.url.pathname;
-    const overToday = wide.on && (from === "/" && to === "/rules" ? "up" : from === "/rules" && to === "/" ? "down" : null);
+    // Rules over Today slides as one layer (sheetSlide, below), not as a
+    // snapshot of the whole screen: the dashboard stays mounted under it, so
+    // only Rules moves, which the tablet animates without stalling.
     const overRules = editor(to) && !editor(from) ? "up" : editor(from) && !editor(to) ? "down" : null;
-    const direction = overToday || overRules;
+    const direction = overRules;
     if (!direction || !document.startViewTransition) return;
     document.documentElement.dataset.slide = direction;
     return new Promise((resolve) => {
@@ -67,6 +69,14 @@
   // (button or back gesture) shows it exactly as it was, same page of cards,
   // nothing redrawn or replayed. On the phone it's only there on "/".
   const atHome = $derived(page.url.pathname === "/");
+
+  /** Rules over the tablet's dashboard: up from the bottom when it opens,
+   *  back down when it closes. While it slides down, Svelte holds its
+   *  content still, so the sheet leaves showing what it showed. */
+  function sheetSlide(_node: Element, { on, leaving }: { on: boolean; leaving?: boolean }) {
+    if (!on) return { duration: 0 };
+    return { duration: ms("move"), easing: leaving ? easeIn : easeOut, css: (t: number) => `transform: translateY(${((1 - t) * 100).toFixed(2)}%)` };
+  }
   const keepHome = $derived(atHome || (wide.on && page.url.pathname.startsWith("/rules")));
 </script>
 
@@ -75,7 +85,7 @@
        Rules covers it, so nothing under it can be tapped, and switching inert
        restyles every element on it, a long pause halfway through the slide. -->
   {#if keepHome}<div class="body home" class:under={!atHome} aria-hidden={!atHome}><Home /></div>{/if}
-  {#if !atHome}<div class="body" class:over={keepHome}>{@render children()}</div>{/if}
+  {#if !atHome}<div class="body" class:over={keepHome} in:sheetSlide={{ on: keepHome }} out:sheetSlide={{ on: keepHome, leaving: true }}>{@render children()}</div>{/if}
   <!-- Short messages at the spot when an action doesn't go through (lib/toast.svelte.ts). -->
   <Toast />
   {#if !wide.on && !alone}<NavTabs {active} />{/if}
