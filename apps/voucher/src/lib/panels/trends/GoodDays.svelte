@@ -88,6 +88,7 @@
   import { clock } from "../../time";
   import { measured } from "../../notes.svelte";
   import type { DayTotal } from "../../types";
+  import { scaleFor, type Axis, type Design } from "./goodDayAxes";
 
   let { history, timeZone = "UTC" }: { history: DayTotal[]; timeZone?: string } = $props();
   const fit = fitsSlot();
@@ -267,97 +268,18 @@
   /** Room left over (a Full card): the findings, then what's still short of Days. */
   const roomy = $derived(tall && bodyH > 760);
 
-  // The two-thirds and Full scale, in one of two designs until one is
-  // picked (then the other goes):
-  // "units": one Vouchers-a-Day axis across the top and one minutes axis
-  // across the bottom, each shared by every group in its unit and fitted to
-  // all of them. Walked away, the one percent group, gets its own row of
-  // ticks under its heading, on the same gridlines. Every unit spans the
-  // same number of intervals so they share one set of gridlines, but each
-  // picks its own round step and start (not always 0: it's a dot plot) with
-  // a little room so no dot sits on an edge. The number of intervals (4 to
-  // 6) is whichever gives the smallest change shown the longest line.
-  // "change": one axis of change from Days without, in percent, symmetric
-  // about 0, across the top and again across the bottom. Every hollow dot
-  // sits on 0 and every filled dot at its change; the real values stay
-  // printed by the dots. A change past CAP (or from nothing) is pinned at the
-  // edge with a chevron, so one rare source can't squash the rest.
-  const AXES = "units" as "units" | "change";
-  type Axis = { name: string; lo: number; step: number; pct?: boolean };
-  /** Gridlines (`n` intervals), the axes across the top and bottom, any
-   *  under a group's heading, and where a finding's two dots sit (0 to 1
-   *  across the track, past 1 or under 0 when pinned). */
-  type Scale = { n: number; top?: Axis; bottom?: Axis; inline: Map<string, Axis>; at: (g: Group, f: Tested) => [number, number] };
-  const PAD = 0.06, CAP = 200;
-  const NAMES: Record<Unit, string> = { vouchers: "Vouchers a Day", minutes: "Minutes a Day", percent: "Percent" };
-  /** The smallest round step (1, 2, 2.5, or 5 times a power of ten) above `raw`. */
-  function stepAbove(raw: number): number {
-    const p = 10 ** Math.floor(Math.log10(raw));
-    return [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => s > raw * (1 + 1e-9)) ?? 10 * p;
-  }
-  /** The roundest axis of `n` intervals that holds every value with room to spare. */
-  function fitAxis(values: number[], n: number): { lo: number; step: number } {
-    const min = Math.min(...values), max = Math.max(...values), pad = Math.max((max - min) * PAD, 1e-6);
-    // Start below any step that could fit and take the first that does (a
-    // padded edge under zero doesn't count, since the axis stops at zero).
-    for (let step = stepAbove((max - min + pad) / n / 2); ; step = stepAbove(step)) {
-      let lo = Math.max(0, Math.floor((min - pad) / step) * step);
-      const spare = Math.floor((lo + n * step - max - pad) / step + 1e-9);
-      if (spare < 0) continue;
-      // Spare intervals go half below, half above, never under zero.
-      lo = Math.max(0, lo - Math.floor(spare / 2) * step);
-      return { lo, step };
-    }
-  }
-  function byUnits(): Scale {
-    const sets = new Map<Unit, Tested[]>();
-    for (const g of groups) sets.set(g.outcome.unit, [...(sets.get(g.outcome.unit) ?? []), ...g.findings]);
-    let best = { n: 5, axes: new Map<Unit, Axis>(), low: -1, mean: -1 };
-    for (const n of [5, 4, 6]) {
-      const axes = new Map([...sets].map(([u, fs]): [Unit, Axis] => [u, { name: NAMES[u], ...fitAxis(fs.flatMap((f) => [f.withAvg, f.withoutAvg]), n) }]));
-      // Each unit's smallest change shown, as a share of the track: the
-      // smallest of those as long as can be, then the rest on average.
-      const shares = [...sets].map(([u, fs]) => Math.min(...fs.map((f) => Math.abs(f.withAvg - f.withoutAvg))) / (n * axes.get(u)!.step));
-      const low = Math.min(...shares), mean = shares.reduce((x, y) => x + y, 0) / shares.length;
-      if (low > best.low * 1.05 || (low > best.low * 0.95 && mean > best.mean)) best = { n, axes, low, mean };
-    }
-    const { n, axes } = best;
-    const top = axes.get("vouchers") ?? axes.get("minutes") ?? axes.get("percent");
-    const bottom = axes.get("minutes") ?? top;
-    const inline = new Map<string, Axis>();
-    for (const g of groups) {
-      const a = axes.get(g.outcome.unit)!;
-      if (a !== top && a !== bottom && ![...inline.values()].includes(a)) inline.set(g.outcome.id, a);
-    }
-    return { n, top, bottom, inline, at: (g, f) => {
-      const a = axes.get(g.outcome.unit)!, span = n * a.step;
-      return [(f.withoutAvg - a.lo) / span, (f.withAvg - a.lo) / span];
-    } };
-  }
-  /** A finding's change from Days without, in percent (±Infinity from nothing). */
-  const changeOf = (f: Tested) => (f.withoutAvg > 0 ? ((f.withAvg - f.withoutAvg) / f.withoutAvg) * 100 : (f.withAvg - f.withoutAvg) * Infinity);
-  function byChange(): Scale {
-    const all = groups.flatMap((g) => g.findings.map(changeOf));
-    const most = Math.min(CAP, Math.max(1, ...all.map(Math.abs).filter((v) => v <= CAP))) * (1 + PAD);
-    // 2 or 3 intervals a side, whichever wastes less of the track.
-    const [k, step] = [3, 2].map((k): [number, number] => [k, stepAbove(most / k)]).sort((a, b) => a[0] * a[1] - b[0] * b[1])[0];
-    const a: Axis = { name: "Change", lo: -k * step, step, pct: true };
-    return { n: 2 * k, top: a, bottom: a, inline: new Map(), at: (_, f) => [0.5, 0.5 + changeOf(f) / (2 * k * step)] };
-  }
-  const scale = $derived(AXES === "units" ? byUnits() : byChange());
-  const ticks = (a: Axis) => {
-    const places = (String(+a.step.toPrecision(3)).split(".")[1] ?? "").length;
-    return Array.from({ length: scale.n + 1 }, (_, i) => {
-      const v = +(a.lo + a.step * i).toFixed(places);
-      return !a.pct ? String(v) : v === 0 ? "0" : `${v < 0 ? "−" : "+"}${Math.abs(v)}%`;
-    });
-  };
+  // The two-thirds and Full scale, in one of the designs in goodDayAxes.ts
+  // until one is picked (then the rest go).
+  const AXES = "units" as Design;
+  const asGroup = (g: Group) => ({ id: g.outcome.id, unit: g.outcome.unit, findings: g.findings });
+  /** The track's width, which the scale fits its tick labels (and "breaks" its cuts) to. */
+  let trackW = $state(0);
+  const scale = $derived(scaleFor(AXES, groups.map(asGroup), trackW));
 
   // Value labels above the dots. JetBrains Mono is 0.6em a letter, so a
   // label's width is known without measuring. Labels that would touch are
   // pushed apart, each away from the other; none leaves the track.
   const LABEL_PX = 10, GAP = 4;
-  let trackW = $state(0);
   const wide = (s: string) => s.length * 0.6 * LABEL_PX;
   function labels(xa: number, ta: string, xb: number, tb: string): [number, number] {
     const W = trackW, wa = wide(ta), wb = wide(tb);
@@ -431,12 +353,17 @@
   <span class="conf" aria-hidden="true"><i class="on" style="height: 5px"></i><i class="on" style="height: 8px"></i><i style="height: 11px"></i></span>
 {/snippet}
 
-<!-- One unit's row of ticks: its name in the label column, a number on each gridline. -->
+<!-- One axis's row of ticks: its name in the label column, a number on each gridline, and a break mark at each cut. -->
 {#snippet axis(a: Axis)}
   <div class="axis">
     <span class="name">{a.name}</span>
-    <span class="ticks">{#each ticks(a) as t, i (i)}<span style="left: {(i / scale.n) * 100}%" class:first={i === 0} class:last={i === scale.n}>{t}</span>{/each}</span>
+    <span class="ticks">{#each a.ticks as t, i (i)}{#if t.text}<span style="left: {t.at * 100}%" class:first={t.at < 0.02} class:last={t.at > 0.98}>{t.text}</span>{/if}{/each}{#each a.cuts ?? [] as c (c)}{@render cut(c)}{/each}</span>
   </div>
+{/snippet}
+
+<!-- Where a stretch of an axis is cut out: two slanted strokes. -->
+{#snippet cut(at: number)}
+  <svg class="cut" style="left: {at * 100}%" width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M1 11 L5 1 M5 11 L9 1" /></svg>
 {/snippet}
 
 <!-- How far each activity still short of Days is from MIN_N each way. -->
@@ -488,31 +415,35 @@
     {:else}
       {#if scale.top}<div class="edge">{@render axis(scale.top)}</div>{/if}
       <div class="mid">
-        <div class="grid" aria-hidden="true" bind:clientWidth={trackW}>{#each { length: scale.n + 1 } as _, i (i)}<i class:zero={AXES === "change" && i * 2 === scale.n} style="left: {(i / scale.n) * 100}%"></i>{/each}</div>
+        <div class="grid" aria-hidden="true" bind:clientWidth={trackW}>{#each scale.grid ?? [] as at, i (i)}<i class:zero={scale.zero !== undefined && Math.abs(at - scale.zero) < 1e-6} style="left: {at * 100}%"></i>{/each}{#if scale.zero !== undefined && !scale.grid?.some((at) => Math.abs(at - scale.zero!) < 1e-6)}<i class="zero" style="left: {scale.zero * 100}%"></i>{/if}</div>
         <div class="rows" class:more bind:this={scroller}>
           {#each groups as g (g.outcome.id)}
-            {@const own = scale.inline.get(g.outcome.id)}
+            {@const inl = scale.inline.get(g.outcome.id)}
+            {@const own = scale.own(asGroup(g))}
             <h3 class="ghead"><span><i style="background: {g.outcome.color}"></i><b>{g.outcome.name}</b><span class="unit">{g.outcome.note}</span></span></h3>
-            {#if own}<div class="inline">{@render axis(own)}</div>{/if}
+            {#if inl}<div class="inline" class:own>{@render axis(inl)}</div>{/if}
             {#each g.findings as f (key(f))}
               {@const u = g.outcome.unit}
-              {@const [fa, fb] = scale.at(g, f)}
+              {@const [fa, fb] = scale.at(asGroup(g), f)}
+              {@const note = scale.note(asGroup(g), f)}
               {@const a = px(fa)}
               {@const b = px(fb)}
               {@const ta = num(f.withoutAvg, u)}
-              {@const tb = `${num(f.withAvg, u)}${u === "minutes" ? " min" : ""}`}
+              {@const tb = `${num(f.withAvg, u)}${u === "minutes" ? " min" : ""}${note ? ` ${note}` : ""}`}
               {@const at = labels(a, ta, b, tb)}
               {@const good = better(f, g.outcome)}
               {@const color = doerOf.get(f.driver)!.color}
               <div class="row">
                 <div class="left">{@render who(f)}{@render split(f, 50)}</div>
-                <div class="track">
+                <div class="track" class:own>
+                  {#if own}{#each own.ticks as t, i (i)}<i class="gl" style="left: {t.at * 100}%"></i>{/each}{#each own.cuts ?? [] as c (c)}{@render cut(c)}{/each}{/if}
                   <span class="label was" style="left: {at[0]}px">{ta}</span>
                   <span class="label" style="left: {at[1]}px">{tb}</span>
                   <span class="line" class:worse={!good} style="left: {Math.min(a, b)}px; width: {Math.abs(b - a)}px"></span>
                   <span class="dot hollow" style="left: {a}px; border-color: {color}"></span>
                   <span class="dot" style="left: {b}px; background: {color}"></span>
                   {#if fb > 1 || fb < 0}<span class="pinned" class:low={fb < 0} style="left: {b}px; color: {color}" aria-hidden="true">{fb > 1 ? "›" : "‹"}</span>{/if}
+                  {#if fa > 1 || fa < 0}<span class="pinned" class:low={fa < 0} style="left: {a}px; color: {color}" aria-hidden="true">{fa > 1 ? "›" : "‹"}</span>{/if}
                 </div>
                 <span class="end">{@render pill(f, g.outcome)}{@render bars(f)}</span>
               </div>
@@ -611,8 +542,16 @@
   .grid { position: absolute; inset: 0 calc(var(--end-col) + var(--col-gap)) 0 calc(var(--label-col) + var(--col-gap)); pointer-events: none; }
   .grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
   .grid i:last-child { transform: translateX(-1px); }
-  /* "change": no change, where every hollow dot sits. */
+  /* The change designs: no change, where every hollow dot sits. */
   .grid i.zero { background: var(--axis-ink); }
+  /* A group whose gridlines aren't the shared ones draws its own over a
+     card-colored backing ("breaks" draws every group's this way). */
+  .track.own { background: var(--surface); }
+  .track > i.gl { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+  .track > i.gl:last-of-type { transform: translateX(-1px); }
+  .cut { position: absolute; top: 0; transform: translateX(-50%); overflow: visible; }
+  .track > .cut { top: calc(50% + 6px); transform: translate(-50%, -50%); }
+  .cut path { fill: none; stroke: var(--axis-ink); stroke-width: 1.3; stroke-linecap: round; }
   .rows { position: relative; flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   /* Only the rows fade; the gridlines behind stay solid. */
   .rows.more { mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); }
@@ -643,6 +582,7 @@
   .inline .ticks span { padding: 0 2px; background: var(--surface); }
   .inline .ticks .first { margin-left: -2px; }
   .inline .ticks .last { margin-left: 2px; }
+  .inline.own .ticks { background: var(--surface); }
 
   .key { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; color: var(--muted); }
   .key > span { display: inline-flex; align-items: center; gap: 6px; }
