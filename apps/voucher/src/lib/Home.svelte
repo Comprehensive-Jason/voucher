@@ -44,6 +44,7 @@
   import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
   import ScrollCue from "$lib/components/ScrollCue.svelte";
   import { ABOUT } from "$lib/about";
+  import AboutText from "$lib/components/AboutText.svelte";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
@@ -408,9 +409,9 @@
                   <ScrollCue target={abouts[id]} />
                   <div class="about" bind:this={abouts[id]}>
                     <p class="cap label">What it's for</p>
-                    <p class="for">{ABOUT[id].for}</p>
+                    <p class="for"><AboutText text={ABOUT[id].for} /></p>
                     <p class="cap label">How to read it</p>
-                    {#each ABOUT[id].read as line, i (i)}<p class="point">{line}</p>{/each}
+                    {#each ABOUT[id].read as line, i (i)}<p class="point"><AboutText text={line} /></p>{/each}
                   </div>
                 </div>
                 <div class="controls">
