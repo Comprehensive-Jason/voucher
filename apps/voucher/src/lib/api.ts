@@ -2,8 +2,9 @@
 // on sprout) it serves sample data instead; `?state=` picks which situation.
 import { noteFailure, noteSuccess } from "./health.svelte";
 import { invoke } from "@tauri-apps/api/core";
-import type { DeviceUsage, Protection, SourceProgress, Status, Today } from "./types";
+import type { CalendarChoice, CalendarDay, CalendarId, DayTotal, DeviceCalendars, DeviceUsage, Energy, Protection, Sleep, SourceProgress, Status, Today } from "./types";
 import { sampleLedger } from "./sample";
+import { sampleDeviceCalendars } from "./sampleExtra";
 import { rememberSources } from "./colors.svelte";
 
 /** Fired after any change to the Ledger's settings, for panels to reload. */
@@ -307,4 +308,45 @@ export function missingProtection(guard: Protection | null) {
   if (!guard.overlay && !onWindows) return { level: "partial", part: "overlay" as const, title: "Protection partly on",
     text: "The blocked-app screen is off, so paused apps show Android's plain dialog and time on sites can't be counted.", action: "Turn the blocked-app screen on" };
   return null;
+}
+
+// ---- Sleep, calendar load, and energy ----
+// What a Day was like besides its Vouchers. The Ledger sends all three with
+// each Day in GET /history and GET /day; these read and write them.
+
+/** One Day's sleep, calendar load, and energy answer. */
+export interface DayMeasures { day: string; sleep: Sleep | null; calendar: CalendarDay | null; energy: Energy | null }
+
+/** The last `days` Days' sleep, calendar load, and energy, oldest first. */
+export async function dayMeasures(days: number): Promise<DayMeasures[]> {
+  const history = await ledger<DayTotal[]>("GET", `/history?days=${days}`);
+  return history.map((d) => ({ day: d.day, sleep: d.sleep ?? null, calendar: d.calendar ?? null, energy: d.energy ?? null }));
+}
+
+/** Answers "How was your energy today?" for a Day (null clears it). */
+export const setEnergy = (day: string, energy: Energy | null) => ledger("POST", "/energy", { day, energy });
+
+/** Which calendars count toward the calendar load, and the device that reports them. */
+export const calendarChoice = () => ledger<CalendarChoice>("GET", "/calendars");
+
+/** Saves a choice of calendars made on `device`, which then reports them. */
+export const chooseCalendars = (device: string, calendars: CalendarId[]) =>
+  ledger<CalendarChoice>("POST", "/calendars", { device, calendars });
+
+/** The calendars on this device and whether Voucher may read them: Android
+ *  only, null elsewhere (calendars are chosen on Android). The browser
+ *  preview shows Android's sheet with sample calendars on `?calendars=pick`,
+ *  and before access is given on `?calendars=ask`. */
+export async function deviceCalendars(): Promise<DeviceCalendars | null> {
+  if (!inTauri) {
+    const p = new URLSearchParams(location.search).get("calendars");
+    if (p === "ask") return { granted: false, calendars: [] };
+    return p === "pick" ? { granted: true, calendars: sampleDeviceCalendars() } : null;
+  }
+  try { return await device<DeviceCalendars | null>("calendars"); } catch { return null; }
+}
+
+/** Asks Android for calendar access; the answer comes later, so check deviceCalendars again when the app is visible. */
+export async function requestCalendarAccess(): Promise<void> {
+  if (inTauri) { try { await device("requestCalendar"); } catch { /* not on this platform */ } }
 }

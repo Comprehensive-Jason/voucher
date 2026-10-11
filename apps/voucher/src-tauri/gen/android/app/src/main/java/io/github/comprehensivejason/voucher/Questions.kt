@@ -14,9 +14,11 @@ import org.json.JSONObject
  * today go the way you wanted?", and just after an Unlock from the
  * notification, tile, or widget, "Why now?". Both are skippable: ignoring
  * one records nothing, and neither earns or costs anything. An answer to the
- * Curfew question turns its notification into "Anything new today?", whose
- * "Add a Marker" opens the app on the Curfew sheet's Marker chips (a
- * notification shows at most three actions, so it can't sit beside the answers).
+ * Curfew question turns its notification into the optional "How was your
+ * energy today?" (1 drained to 5 full of energy). A notification shows at
+ * most three actions, so five levels don't fit: "Rate energy" opens the app
+ * on the Curfew sheet's energy step, and "Add a Marker" on its Marker chips
+ * (neither fits beside the answers either). Swiping it away skips both.
  */
 object Questions {
     private const val CHANNEL = "questions"
@@ -70,25 +72,31 @@ object Questions {
         ctx.getSystemService(NotificationManager::class.java).notify(VERDICT_ID, b.build())
     }
 
-    /** After an answer: anything new today? A Marker needs the app's chips, so its action opens the app on them. */
-    private fun askMarker(ctx: Context) {
-        val open = openSheet(ctx, "marker", 14)
-        val text = "A new dose, being sick, travel, an exam, or a new term: a Marker lets Trends compare before and after."
+    /**
+     * After an answer: how was your energy today? Five levels need the app's
+     * sheet, so "Rate energy" (and a tap) opens it there; "Add a Marker" opens
+     * the Marker chips that follow it.
+     */
+    private fun askEnergy(ctx: Context) {
+        val energy = openSheet(ctx, "energy", 15)
+        val marker = openSheet(ctx, "marker", 14)
+        val text = "Optional: 1, drained, to 5, full of energy. Or add a Marker for anything new today, such as a new dose or an exam."
         val b = Notification.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_voucher)
-            .setContentTitle("Kept. Anything new today?")
+            .setContentTitle("Kept. How was your energy today?")
             .setContentText(text)
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setColor(NIGHT)
-            .setContentIntent(open)
+            .setContentIntent(energy)
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setTimeoutAfter(60 * 60 * 1000L)
-            .addAction(Notification.Action.Builder(null, "Add a Marker", open).build())
+            .addAction(Notification.Action.Builder(null, "Rate energy", energy).build())
+            .addAction(Notification.Action.Builder(null, "Add a Marker", marker).build())
         ctx.getSystemService(NotificationManager::class.java).notify(VERDICT_ID, b.build())
     }
 
-    /** Opens the app on the Curfew sheet: "verdict" asks the question, "marker" goes straight to the Marker chips. */
+    /** Opens the app on the Curfew sheet: "verdict" asks the question, "energy" goes to the energy step, "marker" to the Marker chips. */
     private fun openSheet(ctx: Context, ask: String, code: Int): PendingIntent =
         PendingIntent.getActivity(ctx, code, Intent(ctx, MainActivity::class.java).putExtra("route", "/?ask=$ask"),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -117,7 +125,7 @@ object Questions {
         when (intent.action) {
             VERDICT -> {
                 runCatching { LedgerClient.post(c, "/verdict", JSONObject().put("day", intent.getStringExtra("day")).put("verdict", answer)) }
-                askMarker(ctx)
+                askEnergy(ctx)
             }
             REASON -> {
                 runCatching { LedgerClient.post(c, "/reason", JSONObject().put("reason", answer.lowercase())) }

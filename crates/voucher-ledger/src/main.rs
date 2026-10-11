@@ -485,6 +485,66 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 }),
             ),
         },
+        // "How was your energy today?": {"day": "2026-10-09", "energy": 1 to 5 | null}.
+        (Method::Post, "/energy") => match read_json::<NewEnergy>(&mut request) {
+            Some(e) if ledger.set_energy(e.day, e.energy, now) => {
+                (200, json(&Message { message: "kept" }))
+            }
+            _ => (
+                400,
+                json(&Message {
+                    message: "needs a day from the last week and 1 to 5, or null",
+                }),
+            ),
+        },
+        // A device's Health Connect sleep sessions that ended at or after
+        // `since`: {"device", "since", "sessions": [{start, end, asleep, stages, origin}]}.
+        (Method::Post, "/sleep") => match read_json::<SleepReport>(&mut request) {
+            Some(r) if ledger.report_sleep(&r.device, r.since, r.sessions.clone(), now) => {
+                (200, json(&Message { message: "kept" }))
+            }
+            Some(_) => (
+                400,
+                json(&Message {
+                    message: "a session must end after it starts, last at most a day, and not sleep longer than it lasts",
+                }),
+            ),
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not a sleep report",
+                }),
+            ),
+        },
+        // Which calendars count, and the device that reports them.
+        (Method::Get, "/calendars") => (200, json(ledger.calendars())),
+        // A choice of calendars made on a device, which then reports them:
+        // {"device", "calendars": [{account, name, color?}]}.
+        (Method::Post, "/calendars") => match read_json::<NewCalendars>(&mut request) {
+            Some(c) if ledger.choose_calendars(&c.device, c.calendars.clone()) => {
+                (200, json(ledger.calendars()))
+            }
+            _ => (
+                400,
+                json(&Message {
+                    message: "needs a device and calendars with names",
+                }),
+            ),
+        },
+        // The reporting device's timed events for some Days, times only:
+        // {"device", "from": "2026-04-11", "to": "2026-10-11", "events": [[start, end], …]}.
+        (Method::Post, "/calendar") => match read_json::<CalendarReport>(&mut request) {
+            Some(r) => match ledger.report_calendar(&r.device, r.from, r.to, &r.events, now) {
+                Ok(days) => (200, json(&serde_json::json!({ "days": days }))),
+                Err(refusal) => (409, json(&refusal)),
+            },
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not a calendar report",
+                }),
+            ),
+        },
         // Why the Unlock just now happened: {"reason": "bored"}.
         (Method::Post, "/reason") => match read_json::<NewReason>(&mut request) {
             Some(r) if ledger.add_reason(&r.reason, now) => {
@@ -691,6 +751,36 @@ struct NewReason {
     reason: String,
 }
 
+#[derive(serde::Deserialize)]
+struct NewEnergy {
+    day: jiff::civil::Date,
+    energy: Option<u8>,
+}
+
+#[derive(serde::Deserialize)]
+struct SleepReport {
+    device: String,
+    since: Timestamp,
+    #[serde(default)]
+    sessions: Vec<voucher_ledger::SleepSession>,
+}
+
+#[derive(serde::Deserialize)]
+struct NewCalendars {
+    device: String,
+    #[serde(default)]
+    calendars: Vec<voucher_ledger::CalendarId>,
+}
+
+#[derive(serde::Deserialize)]
+struct CalendarReport {
+    device: String,
+    from: jiff::civil::Date,
+    to: jiff::civil::Date,
+    #[serde(default)]
+    events: Vec<(Timestamp, Timestamp)>,
+}
+
 /// A request's body as JSON, or None if it isn't `T`.
 fn read_json<T: serde::de::DeserializeOwned>(request: &mut Request) -> Option<T> {
     let mut body = String::new();
@@ -726,6 +816,8 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         room_before_curfew: u32,
         /// While the grace period after setup runs, when it ends.
         grace_until: Option<Timestamp>,
+        /// Which calendars count, and the device that reports them.
+        calendars: voucher_ledger::CalendarChoice,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -752,6 +844,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let log_first_day = ledger.log_first_day(now);
     let room_before_curfew = ledger.room_before_curfew(now);
     let grace_until = ledger.grace_until(now);
+    let calendars = ledger.calendars().clone();
     let task_services = settings
         .sources
         .values()
@@ -776,6 +869,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         log_first_day,
         room_before_curfew,
         grace_until,
+        calendars,
     })
 }
 

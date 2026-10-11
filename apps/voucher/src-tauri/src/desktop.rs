@@ -413,6 +413,8 @@ pub fn device(app: &AppHandle, command: &str, args: &Value) -> Result<Value, Str
         }
         "lastBlock" => LAST_BLOCK.lock().unwrap().clone().unwrap_or(Value::Null),
         "refresh" | "requestHealth" | "healthGranted" => json!(false),
+        // Calendars are chosen and read on Android; the sheet shows the choice here.
+        "calendars" | "requestCalendar" => Value::Null,
         "appIcon" => Value::Null,
         other => return Err(format!("{other} isn't available on Windows")),
     })

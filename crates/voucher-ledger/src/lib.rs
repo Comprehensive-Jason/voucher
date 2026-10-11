@@ -7,6 +7,7 @@ pub mod access;
 pub mod clickup;
 pub mod faults;
 pub mod instances;
+pub mod measures;
 pub mod todoist;
 
 use std::{
@@ -22,6 +23,10 @@ use jiff::{
 };
 use serde::{Deserialize, Serialize};
 use voucher_protocol::{Unlock, sign};
+
+pub use measures::{
+    CalendarChoice, CalendarDay, CalendarId, CalendarRefusal, Sleep, SleepSession, SleepSource,
+};
 
 /// The tunable numbers and times the rules run on.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -656,6 +661,12 @@ pub struct DaySummary {
     pub markers: Vec<Marker>,
     /// Minutes in each clock hour each device was silent (not enforcing).
     pub silent: BTreeMap<String, Vec<u32>>,
+    /// The night that ended on this Day's morning (see `measures`).
+    pub sleep: Option<Sleep>,
+    /// The reporting device's calendar load; None if it sent none.
+    pub calendar: Option<CalendarDay>,
+    /// The answer to "How was your energy today?", 1 to 5.
+    pub energy: Option<u8>,
 }
 
 /// One source's standing for a Day.
@@ -718,6 +729,12 @@ pub struct DayTotal {
     pub verdict: Option<Verdict>,
     /// Why each Unlock happened, where one was given: (clock hour, reason).
     pub reasons: Vec<(u32, String)>,
+    /// The night that ended on this Day's morning (see `measures`).
+    pub sleep: Option<Sleep>,
+    /// The reporting device's calendar load; None if it sent none.
+    pub calendar: Option<CalendarDay>,
+    /// The answer to "How was your energy today?", 1 to 5.
+    pub energy: Option<u8>,
 }
 
 /// What one Day earned, and the goal it had.
@@ -829,6 +846,26 @@ struct State {
     /// Why Unlocks happened, oldest first.
     #[serde(default)]
     reasons: Vec<Reason>,
+    // Added 2026-10-11. Each starts empty when an older state.json loads
+    // (serde's default), so an existing Ledger upgrades in place; an older
+    // Ledger reading a newer file ignores them.
+    /// Each Day's answer to "How was your energy today?", 1 to 5.
+    #[serde(default)]
+    energy: BTreeMap<Date, u8>,
+    /// Health Connect sleep sessions, by the device that read them, oldest first.
+    #[serde(default)]
+    sleep: BTreeMap<String, Vec<SleepSession>>,
+    /// Which calendars count, and the device that reports them.
+    #[serde(default)]
+    calendars: CalendarChoice,
+    /// Each Day's calendar load from the reporting device.
+    #[serde(default)]
+    calendar: BTreeMap<Date, CalendarDay>,
+    /// When focus minutes arrived from a device, for estimating sleep: per
+    /// local date, minutes since local midnight, one per five minutes. Kept
+    /// as long as the log.
+    #[serde(default)]
+    activity: BTreeMap<Date, Vec<u16>>,
 }
 
 fn set_up_already() -> bool {
@@ -855,6 +892,11 @@ impl Ledger {
                 markers: Vec::new(),
                 verdicts: BTreeMap::new(),
                 reasons: Vec::new(),
+                energy: BTreeMap::new(),
+                sleep: BTreeMap::new(),
+                calendars: CalendarChoice::default(),
+                calendar: BTreeMap::new(),
+                activity: BTreeMap::new(),
             },
         }
     }
@@ -1018,6 +1060,11 @@ impl Ledger {
         if minutes <= before {
             score.reported.insert(key, before);
             return nothing;
+        }
+        // New focus minutes mean someone is using a device now: a clue for
+        // estimating sleep. Workout and steps arrive whenever a watch syncs.
+        if kind == SourceKind::Focus {
+            self.note_activity(now);
         }
         let paid = self.count(source, day, minutes - before, now, now, |n| {
             let label = match (title, kind) {
@@ -1329,6 +1376,9 @@ impl Ledger {
                 .cloned()
                 .collect(),
             silent: score.silent.clone(),
+            sleep: self.sleep_between(day, day).remove(&day),
+            calendar: self.calendar_of(day),
+            energy: self.energy_of(day),
         }
     }
 
@@ -1380,6 +1430,10 @@ impl Ledger {
                 _ => {}
             }
         }
+        let sleeps = match days {
+            0 => BTreeMap::new(),
+            n => self.sleep_between(days_before(today, i64::from(n) - 1), today),
+        };
         (0..i64::from(days))
             .rev()
             .map(|back| {
@@ -1420,6 +1474,9 @@ impl Ledger {
                     silent: score.map(|s| s.silent.clone()).unwrap_or_default(),
                     verdict: self.state.verdicts.get(&day).copied(),
                     reasons: reasons.remove(&day).unwrap_or_default(),
+                    sleep: sleeps.get(&day).cloned(),
+                    calendar: self.calendar_of(day),
+                    energy: self.energy_of(day),
                 }
             })
             .collect()
@@ -1496,6 +1553,7 @@ impl Ledger {
             score.stretches.clear();
             score.silent.clear();
         }
+        self.forget_old_measures(oldest);
     }
 
     /// Whether Curfew is in force at `now`.
@@ -1869,7 +1927,7 @@ impl Ledger {
         let tz = self.state.settings.time_zone.clone();
         let sources: Vec<String> = self.state.settings.sources.keys().cloned().collect();
         let mut out = String::from(
-            "day,goal,earned,goal_met,vouchers_torn,unlocked_minutes,distraction_minutes,reported,opens,walked_away,longest_stretch,silent_minutes,verdict,reasons,markers",
+            "day,goal,earned,goal_met,vouchers_torn,unlocked_minutes,distraction_minutes,reported,opens,walked_away,longest_stretch,silent_minutes,verdict,reasons,markers,bedtime,wake,asleep_minutes,sleep_source,meetings,busy_minutes,energy",
         );
         for id in &sources {
             out.push_str(&format!(",earned_{id}"));
@@ -1910,6 +1968,22 @@ impl Ledger {
                 verdict,
                 csv_field(&reasons.join("; ")),
                 csv_field(&markers.join(" | ")),
+            ));
+            let clock = |t: &Timestamp| t.to_zoned(tz.clone()).strftime("%H:%M").to_string();
+            let sleep = d.sleep.as_ref();
+            out.push_str(&format!(
+                ",{},{},{},{},{},{},{}",
+                sleep.map_or(String::new(), |s| clock(&s.bedtime)),
+                sleep.map_or(String::new(), |s| clock(&s.wake)),
+                sleep.map_or(String::new(), |s| s.asleep.to_string()),
+                match sleep.map(|s| s.source) {
+                    Some(SleepSource::HealthConnect) => "health_connect",
+                    Some(SleepSource::Estimated) => "estimated",
+                    None => "",
+                },
+                d.calendar.as_ref().map_or(String::new(), |c| c.meetings.to_string()),
+                d.calendar.as_ref().map_or(String::new(), |c| c.busy_minutes.to_string()),
+                d.energy.map_or(String::new(), |e| e.to_string()),
             ));
             for id in &sources {
                 out.push_str(&format!(",{}", d.by_source.get(id).copied().unwrap_or(0)));

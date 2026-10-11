@@ -2,7 +2,9 @@
   // Rules, Sources: what earns Vouchers, and how fast. Every source is a group
   // with one counter: Tasks, Workout, Steps, and named groups of apps whose
   // time adds up. Switching a source off or slowing it applies now; switching
-  // on, speeding up, or adding waits for 06:00.
+  // on, speeding up, or adding waits for 06:00. Under them, Calendars: which
+  // calendars count toward each Day's meetings and busy time (for Trends,
+  // never for earning), chosen in CalendarSheet.
   import { shownByNotice } from "../health.svelte";
   import { actionFailed } from "../toast.svelte";
   import { onMount } from "svelte";
@@ -13,6 +15,7 @@
   import RulesCard from "../components/RulesCard.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
+  import CalendarSheet from "../components/CalendarSheet.svelte";
   import { RATE_RANGE, compareSources, defaultColorOf, memberName, needsToken, rateText, serviceOf, styleOf } from "../sources";
   import { hhmm, until } from "../rules";
   import { andList, tokenAction, tokenPending, type TokenNeed } from "../tokens.svelte";
@@ -27,6 +30,13 @@
   let coloring = $state<string | null>(null);
   /** Its color dot, for a message if the Ledger turns the color down. */
   let colorDot: Element | null = null;
+  /** Whether the calendar sheet is open. */
+  let choosingCalendars = $state(false);
+  const calendars = $derived(status?.calendars ?? { device: null, calendars: [] });
+  /** "3 calendars, reported by SM-S928U-4f2a", or what they're for. */
+  const calendarLine = $derived(calendars.calendars.length
+    ? `${calendars.calendars.length} calendar${calendars.calendars.length === 1 ? "" : "s"}, reported by ${calendars.device}`
+    : "None chosen. Meetings and busy time per Day, for Trends");
   /** The rate a source's knob is snapped to while dragging, shown greyed. */
   let ratePreview = $state<Record<string, number | null>>({});
   async function setColor(id: string, color: string | null) {
@@ -161,12 +171,27 @@
     </a>
     <div class="footnote">Off or slower: now. On, faster, or new: at {hhmm(status.settings.morning_boundary)}.</div>
     {#if note}<div class="footnote">{note}</div>{/if}
+    <RulesCard>
+      <div class="line">
+        <svg class="calicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
+        <span class="label">
+          <span class="name">Calendars</span>
+          <span class="sub">{calendarLine}</span>
+        </span>
+      </div>
+      <button class="btn small calbtn" onclick={() => (choosingCalendars = true)}>Choose calendars</button>
+    </RulesCard>
   {/if}
 </RulesColumn>
 
 {#if reconnecting}
   <TokenSheet services={reconnecting} onclose={() => (reconnecting = null)}
     onsaved={(saved, done) => { note = `${saved.length > 1 ? "Tokens" : "Token"} saved. Tasks count again from the next check, within 5 minutes.`; if (done) reconnecting = null; load(); }} />
+{/if}
+
+{#if choosingCalendars}
+  <CalendarSheet choice={calendars} onclose={() => (choosingCalendars = false)}
+    onsaved={() => { choosingCalendars = false; load(); }} />
 {/if}
 
 {#if coloring && status}
@@ -197,6 +222,8 @@
   .waiting { font-size: 12px; color: var(--goal); }
   /* The shared .btn, as a link. */
   a.btn { text-decoration: none; }
+  .calicon { flex: none; }
+  .calbtn { align-self: flex-start; }
   .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
   .error { margin: 0; color: var(--danger); }
 </style>

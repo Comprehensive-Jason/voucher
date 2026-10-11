@@ -83,6 +83,10 @@ object Store {
     fun usageSent(ctx: Context, day: String): String? = prefs(ctx).getString("usage_sent_$day", null)
     fun setUsageSent(ctx: Context, day: String, sent: String) = prefs(ctx).edit().putString("usage_sent_$day", sent).apply()
 
+    /** The last of something sent to the Ledger (sleep, calendar), so unchanged data isn't sent again. */
+    fun sent(ctx: Context, what: String): String? = prefs(ctx).getString("sent_$what", null)
+    fun setSent(ctx: Context, what: String, sent: String) = prefs(ctx).edit().putString("sent_$what", sent).apply()
+
     /**
      * Each browser's host changes, oldest first, for site time (see Sites).
      * Stored as {"com.android.chrome": [[millis, "youtube.com"], [millis, ""]]},

@@ -475,6 +475,140 @@ function sprinkle(state, today, days) {
   return "Over " + days + " Days: " + marks + " Markers, " + answers + " Curfew answers, " + reasons + " reasons, " + silences + " silences";
 }
 
+// ---- Sleep, calendar load, and energy ----
+// Made-up months of all three for the Trends cards. Sleep goes in through the
+// Ledger's own POST /sleep (as a phone with a watch would send it) for most
+// nights; about one night in six has no session but device use either side of
+// it (activity moments edited into the saved state), so the Ledger estimates
+// it. Nights run later and longer at the weekend. Calendar events go in
+// through POST /calendars and /calendar from a "portal" device, which becomes
+// the reporting device; weekdays carry most meetings. Energy answers (edited
+// in, since the Ledger takes them only for the last week) loosely follow the
+// night before.
+
+const PORTAL_CALENDARS = [
+  { account: "portal@example.com", name: "Classes", color: "#0b8043" },
+  { account: "portal@example.com", name: "Work", color: "#4285f4" },
+  { account: "lab@example.edu", name: "Lab meetings", color: "#8e24aa" },
+];
+const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+/** 0 Sunday to 6 Saturday. */
+const weekdayOf = (day) => new Date(day + "T12:00:00Z").getUTCDay();
+/** The moment `minutes` after midnight starting `date`, in the Ledger's zone (may run into the next date). */
+function at(state, date, minutes) {
+  const day = minutes >= 1440 ? shiftDay(date, 1) : date;
+  const m = minutes % 1440;
+  // momentOf counts hours before 06:00 as the next date, so ask from the Day before.
+  return m < 360 ? momentOf(state, shiftDay(day, -1), Math.floor(m / 60), m % 60) : momentOf(state, day, Math.floor(m / 60), m % 60);
+}
+/** A moment's local date and minutes after midnight, in the Ledger's zone. */
+function localOf(state, iso) {
+  const tz = state.settings.time_zone;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, minute: Number(parts.hour) * 60 + Number(parts.minute) };
+}
+/** One night ending on `day`'s morning: bed and wake in minutes after the evening's midnight, and whether it's estimated. */
+function planNight(day) {
+  const weekend = [0, 6].includes(weekdayOf(day));
+  const bed = 1440 + (weekend ? 45 : -20) + Math.round(rand(-45, 45));
+  const wake = 1440 + (weekend ? 560 : 450) + Math.round(rand(-35, 35));
+  return { bed, wake, estimated: Math.random() < 0.16 };
+}
+/** The Days from `days` back to today, oldest first. */
+const span = (today, days) => Array.from({ length: days + 1 }, (_, i) => shiftDay(today, i - days));
+
+async function fillSleep(days) {
+  const status = await call("GET", "/status");
+  const today = status.today.day, state = { settings: status.settings };
+  const nights = span(today, days).map((day) => ({ day, ...planNight(day) }));
+  const sessions = [], estimated = [];
+  for (const n of nights) {
+    const bedtime = at(state, shiftDay(n.day, -1), n.bed), wake = at(state, shiftDay(n.day, -1), n.wake);
+    if (Date.parse(wake) > Date.now()) continue;
+    if (n.estimated) { estimated.push({ bedtime, wake }); continue; }
+    const length = n.wake - n.bed;
+    sessions.push({ start: bedtime, end: wake, asleep: Math.round(length * rand(0.84, 0.95)), stages: Math.random() < 0.9, origin: "Samsung Health" });
+  }
+  // Use either side of each estimated night: a few moments before bed and after waking.
+  await editState((st) => {
+    st.activity ??= {};
+    for (const e of estimated) {
+      for (const [iso, offsets] of [[e.bedtime, [-50, -25, 0]], [e.wake, [0, 15, 40]]]) {
+        for (const off of offsets) {
+          const { date, minute } = localOf(st, new Date(Date.parse(iso) + off * 60_000).toISOString());
+          const list = (st.activity[date] ??= []);
+          if (!list.includes(minute)) list.push(minute);
+          list.sort((a, b) => a - b);
+        }
+      }
+    }
+  });
+  const since = at(state, shiftDay(today, -days - 1), 12 * 60);
+  await call("POST", "/sleep", { device: "portal-phone", since, sessions });
+  return "Sleep on " + nights.length + " nights: " + sessions.length + " from Health Connect, " + estimated.length + " left to estimate from device use";
+}
+
+async function fillCalendar(days) {
+  days = Math.min(days, 183);
+  const status = await call("GET", "/status");
+  const today = status.today.day, state = { settings: status.settings };
+  await call("POST", "/calendars", { device: "portal", calendars: PORTAL_CALENDARS });
+  const events = [];
+  let meetings = 0;
+  for (const day of span(today, days)) {
+    const wd = weekdayOf(day);
+    const n = wd === 0 || wd === 6 ? (Math.random() < 0.35 ? 1 : 0) : 2 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < n; i++) {
+      const start = (wd === 0 || wd === 6 ? 11 * 60 : 9 * 60) + Math.floor(Math.random() * (wd === 0 || wd === 6 ? 8 : 17)) * 30;
+      const length = [30, 50, 60, 60, 90][Math.floor(Math.random() * 5)];
+      events.push([at(state, day, start), at(state, day, start + length)]);
+      meetings++;
+    }
+  }
+  const reply = await call("POST", "/calendar", { device: "portal", from: shiftDay(today, -days), to: today, events });
+  return "Calendar on " + reply.days + " Days: " + meetings + " meetings, from a \"portal\" device that now reports calendars";
+}
+
+/** Energy answers on about four Days in five, higher after a longer night. */
+function fillEnergy(days) {
+  return editState((state, today) => {
+    state.energy ??= {};
+    const sessions = (state.sleep?.["portal-phone"] ?? []);
+    let n = 0;
+    for (const day of span(today, days)) {
+      if (Math.random() < 0.2) { delete state.energy[day]; continue; }
+      const night = sessions.find((s) => localOf(state, s.end).date === day);
+      const rested = night ? (night.asleep - 420) / 70 : rand(-0.6, 0.6);
+      state.energy[day] = Math.max(1, Math.min(5, Math.round(3 + rested + rand(-1.1, 1.1))));
+      n++;
+    }
+    return "Energy answered on " + n + " Days";
+  });
+}
+
+async function clearMeasures(days) {
+  const status = await call("GET", "/status");
+  const state = { settings: status.settings };
+  await call("POST", "/sleep", { device: "portal-phone", since: at(state, shiftDay(status.today.day, -366), 12 * 60), sessions: [] });
+  // An empty choice clears the calendar load the Ledger keeps.
+  await call("POST", "/calendars", { device: "portal", calendars: [] }).catch(() => {});
+  await editState((st, today) => { st.activity = {}; for (const day of span(today, days)) delete st.energy?.[day]; });
+  return "Sleep, calendar, and energy cleared";
+}
+
+async function measures(input) {
+  const days = Math.max(7, Math.min(365, Number(input.days) || 120));
+  switch (input.op) {
+    case "sleep": return fillSleep(days);
+    case "calendar": return fillCalendar(days);
+    case "energy": return fillEnergy(days);
+    case "all": return [await fillSleep(days), await fillCalendar(days), await fillEnergy(days)].join(". ");
+    case "clear": return clearMeasures(days);
+    default: throw new Error("unknown op " + input.op);
+  }
+}
+
 const send = (res, status, type, body) => { res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store" }); res.end(body); };
 
 const server = createServer(async (req, res) => {
@@ -511,6 +645,7 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/grace") return send(res, 200, "application/json", JSON.stringify(await call("POST", "/test/grace")));
     if (req.method === "POST" && req.url === "/api/usage-history") return send(res, 200, "application/json", JSON.stringify({ filled: await backfillUsage() }));
     if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
+    if (req.method === "POST" && req.url === "/api/measures") return send(res, 200, "application/json", JSON.stringify({ message: await measures(input) }));
     if (req.method === "POST" && req.url === "/api/past") return send(res, 200, "application/json", JSON.stringify({ message: await editState(pastChange(input)) }));
     // The Errors section: fault switches, and stopping or starting the Ledger.
     if (req.method === "GET" && req.url === "/api/faults") return send(res, 200, "application/json", JSON.stringify({ running: ledgerRunning(), faults: await faultsOn() }));
@@ -616,6 +751,9 @@ const PAGE = String.raw`<!doctype html>
       <div class="row"><label>from <input type="number" id="sfrom" value="14" min="6" max="29"></label><label>hours <input type="number" id="shours" value="2" min="1" max="12"></label><button data-past="silence">Add</button></div></div>
     <div class="src"><span class="name">Distraction time</span>
       <div class="buttons"><button data-past="usage">Make up this Day's</button></div></div>
+    <div class="src"><span class="name">Sleep, calendar, and energy</span>
+      <span class="detail">Fills the Days back set above (calendar: at most 183). Sleep runs later at the weekend, about one night in six estimated; meetings mostly on weekdays; energy follows sleep.</span>
+      <div class="buttons"><button class="go" data-measures="all">Fill every Day</button><button data-measures="sleep">Sleep</button><button data-measures="calendar">Calendar</button><button data-measures="energy">Energy</button><button class="danger" data-measures="clear">Clear</button></div></div>
   </div>
   <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="usagehistory">Fill in Distraction time for past Days</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
@@ -770,6 +908,7 @@ document.addEventListener("click", (e) => {
     if (op === "marker") $("mtext").value = "";
     act(() => api("POST", "/api/past", { op, day, ...extra }), (r) => r.message);
   }
+  if (b.dataset.measures) act(() => api("POST", "/api/measures", { op: b.dataset.measures, days: $("rdays").value }), (r) => r.message);
   if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added 4 more weeks of made-up Days, before the oldest");
   if (b.id === "usagehistory") act(() => api("POST", "/api/usage-history"), (c) => "Distraction time made up for " + c.filled + " past Days");
   if (b.id === "grace") act(() => api("POST", "/api/grace"), () => "Grace period on: changes apply at once for 2 days");

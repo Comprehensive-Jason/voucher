@@ -111,6 +111,19 @@ class VoucherPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun healthGranted(invoke: Invoke) = background(invoke) { Health.granted(activity) }
 
+    /** This device's calendars, grouped in the app by account: {granted, calendars: [{account, name, color}]}. */
+    @Command
+    fun calendars(invoke: Invoke) = background(invoke) { Calendars.list(activity) }
+
+    /** Asks for calendar access; the answer arrives later, so the interface looks again when it is visible. */
+    @Command
+    fun requestCalendar(invoke: Invoke) {
+        if (!Calendars.granted(activity)) activity.requestPermissions(arrayOf(android.Manifest.permission.READ_CALENDAR), CALENDAR_REQUEST)
+        invoke.resolve()
+    }
+
+    private companion object { const val CALENDAR_REQUEST = 41 }
+
     /** Hands text (an export) to Android's share sheet: Obsidian, Drive, a file manager, … */
     @Command
     fun share(invoke: Invoke) {

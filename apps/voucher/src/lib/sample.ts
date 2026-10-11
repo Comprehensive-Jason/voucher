@@ -1,6 +1,7 @@
 // Sample Ledger replies for design checks in a plain browser, where there is
 // no Tauri and no Ledger. Mirrors the round 4 canvas with neutral task names.
 import type { Blocklist, DaySummary, DayTotal, Entry, Source } from "./types";
+import { measuresRoute, sampleCalendarChoice, withMeasures } from "./sampleExtra";
 
 const app = (pkg: string, label: string, note: string | null = null, added = false) =>
   ({ package: pkg, label, note, on: true, added });
@@ -198,6 +199,9 @@ let pending: [Record<string, unknown>, string][] = [[{ UnlockMinutes: 15 }, next
 export function sampleLedger(method: string, path: string, body: unknown): unknown {
   const [route, query = ""] = path.split("?");
   const params = new URLSearchParams(query);
+  // Sleep, calendar load, and energy (lib/sampleExtra.ts).
+  const measured = measuresRoute(method, route, body);
+  if (measured !== undefined) return measured;
   if (route === "/status") {
     const expired = new URLSearchParams(location.search).get("expired");
     return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: days[TODAY],
@@ -205,15 +209,15 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
       setup_complete: !new URLSearchParams(location.search).get("fresh"),
       first_day: "2026-06-29", log_first_day: "2026-10-01",
       grace_until: new URLSearchParams(location.search).get("grace") ? "2026-10-11T13:00:00Z" : null,
-      blocked: { apps: [], sites: [] } };
+      blocked: { apps: [], sites: [] }, calendars: sampleCalendarChoice() };
   }
   if (route === "/day") {
     const d = params.get("date") ?? TODAY;
-    return days[d] ?? blankDay(d);
+    return withMeasures([days[d] ?? blankDay(d)], TODAY)[0];
   }
   // ?history=N in the page's address serves N Days whatever is asked: a short
   // one for empty states, a long one for What goes with a good Day.
-  if (route === "/history") return history(Number(new URLSearchParams(location.search).get("history") ?? params.get("days") ?? 84));
+  if (route === "/history") return withMeasures(history(Number(new URLSearchParams(location.search).get("history") ?? params.get("days") ?? 84)), TODAY);
   if (route === "/markers") return markers;
   if (route === "/marker" && method === "POST") {
     const b = body as { text: string; at?: string };

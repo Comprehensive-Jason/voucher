@@ -73,6 +73,8 @@ object Enforcer {
         if (connection != null && status != null && fresh != null) {
             report(ctx, connection, status, zone, end, day)
             reportUsage(ctx, connection, status, zone, end, day)
+            reportSleep(ctx, connection, day)
+            Calendars.report(ctx, connection, status, zone, end, day)
             // Silences between check-ins show in the Log as Gaps.
             runCatching { LedgerClient.post(connection, "/check-in?device=${android.net.Uri.encode(Store.deviceId(ctx))}") }
         }
@@ -203,6 +205,32 @@ object Enforcer {
             val body = JSONObject().put("source", id).put("day", day).put("minutes", total)
                 .put("device", Store.deviceId(ctx))
             if (runCatching { LedgerClient.post(c, "/report", body) }.getOrNull() == 200) Store.setReported(ctx, id, day, total)
+        }
+    }
+
+    /**
+     * Sends Health Connect's sleep sessions: the last three days when they
+     * change, and once a Day half a year back (as far as Health Connect
+     * allows), so sessions edited or synced late still arrive.
+     */
+    private fun reportSleep(ctx: Context, c: Connection, day: String) {
+        val flag = "sleep_backfill_$day"
+        val backfill = !Store.flag(ctx, flag)
+        val since = Instant.now().minus(java.time.Duration.ofDays(if (backfill) 183 else 3))
+        val nights = Health.sleepSince(ctx, since) ?: return
+        val sessions = JSONArray()
+        for (n in nights) {
+            val s = JSONObject().put("start", n.start.toString()).put("end", n.end.toString())
+                .put("asleep", n.asleep).put("stages", n.stages)
+            n.origin?.let { s.put("origin", it) }
+            sessions.put(s)
+        }
+        val text = sessions.toString()
+        if (!backfill && text == Store.sent(ctx, "sleep")) return
+        val body = JSONObject().put("device", Store.deviceId(ctx)).put("since", since.toString()).put("sessions", sessions)
+        if (runCatching { LedgerClient.post(c, "/sleep", body) }.getOrNull() == 200) {
+            if (backfill) Store.setFlag(ctx, flag)
+            Store.setSent(ctx, "sleep", text)
         }
     }
 

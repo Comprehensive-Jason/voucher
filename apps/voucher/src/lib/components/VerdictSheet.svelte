@@ -5,44 +5,51 @@
   // answers let Trends check whether goal Days are the Days that felt good,
   // which is a check on the goal itself.
   //
-  // After the answer the sheet stays open on a second question, "Anything
+  // After the answer comes an optional "How was your energy today?", 1
+  // (drained) to 5 (full of energy), or Skip; Trends can set it beside the
+  // night's sleep. The phone's notification can't fit five buttons (Android
+  // shows at most three actions), so its "Rate energy" opens this step.
+  //
+  // Then the sheet stays open on a last question, "Anything
   // new today?": one-tap Markers for life events (a dose, being sick, an
   // exam), which Before and after compares either side of. Rule changes add
   // their own Markers; these need Jason. They come after the answer rather
   // than under it so the question itself stays one clean tap.
   //
-  // `?ask=verdict` shows the question any time; `?ask=marker` (the phone's
-  // "Add a Marker") goes straight to the Markers. Either is shown once, then
+  // `?ask=verdict` shows the question any time; `?ask=energy` (the phone's
+  // "Rate energy") goes straight to the energy step, and `?ask=marker` (its
+  // "Add a Marker") to the Markers. Either is shown once, then
   // dropped from the address so the minute check doesn't bring it back.
   import { fade } from "svelte/transition";
   import { untrack } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import { ledger } from "../api";
+  import { ledger, setEnergy } from "../api";
   import { ms } from "../motion";
   import Sheet from "./Sheet.svelte";
   import MarkerChips from "./MarkerChips.svelte";
   import { answerVerdict, dayNow } from "../notes.svelte";
   import { remember, remembered } from "../storage";
-  import type { DayTotal, Verdict } from "../types";
+  import type { DayTotal, Energy, Verdict } from "../types";
 
   let { curfewActive }: { curfewActive: boolean } = $props();
 
-  type Ask = "verdict" | "marker";
+  type Ask = "verdict" | "energy" | "marker";
   let open = $state(false);
   let day = $state("");
-  let step = $state<"question" | "markers">("question");
+  let step = $state<"question" | "energy" | "markers">("question");
   let kept = $state<Verdict | null>(null);
+  let keptEnergy = $state<Energy | null>(null);
 
   async function check(ask?: Ask) {
-    if (open) { if (ask === "marker") step = "markers"; return; }
+    if (open) { if (ask === "marker") step = "markers"; else if (ask === "energy") step = "energy"; return; }
     if (!curfewActive && !ask) return;
     const d = dayNow();
     if (!ask && remembered(`verdict-asked:${d}`)) return;
-    if (ask === "marker") { day = d; kept = null; step = "markers"; open = true; return; }
+    if (ask === "marker" || ask === "energy") { day = d; kept = null; keptEnergy = null; step = ask === "marker" ? "markers" : "energy"; open = true; return; }
     try {
       const [t] = await ledger<DayTotal[]>("GET", "/history?days=1");
-      if (t && (t.verdict == null || ask)) { day = t.day; kept = null; step = "question"; open = true; }
+      if (t && (t.verdict == null || ask)) { day = t.day; kept = null; keptEnergy = null; step = "question"; open = true; }
       else remember(`verdict-asked:${d}`, "1");
     } catch { /* asked again on the next check */ }
   }
@@ -55,7 +62,7 @@
 
   const ask = $derived(page.url.searchParams.get("ask"));
   $effect(() => {
-    if (ask !== "verdict" && ask !== "marker") return;
+    if (ask !== "verdict" && ask !== "energy" && ask !== "marker") return;
     const a: Ask = ask;
     untrack(() => {
       check(a);
@@ -71,9 +78,16 @@
   }
   function answer(v: Verdict) {
     kept = v;
-    step = "markers";
+    step = "energy";
     answerVerdict(day, v).catch(() => { /* the phone's notification can still take it */ });
   }
+  function rateEnergy(e: Energy | null) {
+    keptEnergy = e;
+    step = "markers";
+    if (e) setEnergy(day, e).catch(() => { /* optional: a lost answer only leaves a gap */ });
+  }
+
+  const LEVELS: Energy[] = [1, 2, 3, 4, 5];
 
   const LABEL: Record<Verdict, string> = { yes: "Yes", mostly: "Mostly", no: "No" };
 </script>
@@ -89,9 +103,22 @@
         <button class="btn no" onclick={() => answer("no")}>No</button>
       </div>
       <button class="btn ghost small later" onclick={close}>Not now</button>
-    {:else}
+    {:else if step === "energy"}
       <div class="step" in:fade={{ duration: ms("base") }}>
         {#if kept}<p class="cap kept">Kept: {LABEL[kept]}</p>{/if}
+        <h2 id="verdict-q">How was your energy today?</h2>
+        <p class="why">Optional. Trends can set it beside how you slept and how the Day went.</p>
+        <div class="levels" role="group" aria-label="Energy from 1, drained, to 5, full of energy">
+          {#each LEVELS as n (n)}
+            <button class="btn level" style="--level: {n}" aria-label="{n}{n === 1 ? ', drained' : n === 5 ? ', full of energy' : ''}" onclick={() => rateEnergy(n)}>{n}</button>
+          {/each}
+        </div>
+        <div class="ends" aria-hidden="true"><span>Drained</span><span>Full of energy</span></div>
+        <button class="btn ghost small later" onclick={() => rateEnergy(null)}>Skip</button>
+      </div>
+    {:else}
+      <div class="step" in:fade={{ duration: ms("base") }}>
+        {#if kept || keptEnergy}<p class="cap kept">Kept: {[kept && LABEL[kept], keptEnergy && `energy ${keptEnergy}`].filter(Boolean).join(", ")}</p>{/if}
         <h2 id="verdict-q">Anything new today?</h2>
         <p class="why">A tap adds a Marker for today. Before and after, in Trends, compares the two weeks either side of it.</p>
         <MarkerChips />
@@ -113,5 +140,11 @@
   /* The Markers step: the sheet's own gap between its parts, the chips tinted like the answers. */
   .step { display: flex; flex-direction: column; gap: 14px; --chip-bg: #1f2440; --chip-line: var(--night-voucher); }
   .kept { margin: 0 0 -8px; color: var(--night); }
+  /* Energy: five equal steps, each warming toward Curfew's indigo as it rises, the ends named under them. */
+  .levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 4px; }
+  .levels .btn { padding: 0; font-family: var(--mono); background: #1f2440; border-color: var(--night-voucher); }
+  .levels .btn:hover, .levels .btn:active { background: color-mix(in oklab, var(--night) calc(var(--level) * 9%), #1f2440); }
+  .ends { display: flex; justify-content: space-between; margin-top: -6px; font-size: 12px; color: var(--night-ink); opacity: .75; }
+  .step .later { align-self: center; }
   .done { align-self: center; min-width: 120px; margin-top: 4px; background: #1f2440; border-color: var(--night-voucher); }
 </style>

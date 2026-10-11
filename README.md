@@ -124,7 +124,7 @@ In the app, Rules, Sources, Reconnect takes a Todoist or ClickUp API token and s
 
 A Ledger set up before access codes existed keeps running without one; put a code in its `access.code` and reconnect each device to switch it on.
 
-Every request carries the code as `Authorization: Bearer <code>` except `GET /key`. Endpoints include `GET /status`, `POST /redeem?count=`, `POST /change` (a Change, such as `{"UnlockMinutes": 15}`), `GET /day?date=`, `GET /history?days=`, `POST /report`, and `POST /check-in?device=`. Tightenings apply at once; Loosenings wait for the Morning boundary.
+Every request carries the code as `Authorization: Bearer <code>` except `GET /key`. Endpoints include `GET /status`, `POST /redeem?count=`, `POST /change` (a Change, such as `{"UnlockMinutes": 15}`), `GET /day?date=`, `GET /history?days=`, `POST /report`, `POST /check-in?device=`, `POST /sleep` and `POST /calendar` (from devices), `GET`/`POST /calendars` (which calendars count, and the device that reports them), and `POST /energy`. Each Day in `/day` and `/history` carries its `sleep`, `calendar` load, and `energy`. Tightenings apply at once; Loosenings wait for the Morning boundary.
 
 ## The CLI
 

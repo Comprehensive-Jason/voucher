@@ -87,6 +87,12 @@ export interface DaySummary {
   markers?: Marker[];
   /** Minutes in each clock hour each device was silent (not enforcing). */
   silent?: Record<string, number[]>;
+  /** The night that ended on this Day's morning; absent from older Ledgers. */
+  sleep?: Sleep | null;
+  /** The reporting device's calendar load; null when none was sent. */
+  calendar?: CalendarDay | null;
+  /** The answer to "How was your energy today?", 1 to 5. */
+  energy?: Energy | null;
 }
 
 /** A dated note on the timeline, by hand or (rule) written by the Ledger when a rule changed. */
@@ -129,6 +135,71 @@ export interface DayTotal {
   verdict?: Verdict | null;
   /** Why each Unlock happened, where one was given: [clock hour, reason]. */
   reasons?: [number, string][];
+  /** The night that ended on this Day's morning; absent from older Ledgers. */
+  sleep?: Sleep | null;
+  /** The reporting device's calendar load; null when none was sent. */
+  calendar?: CalendarDay | null;
+  /** The answer to "How was your energy today?", 1 to 5. */
+  energy?: Energy | null;
+}
+
+/** A Day's night of sleep, from the Ledger. It belongs to the Day its
+ *  wake-up leads into: the local date of the wake time, so a 05:30 wake-up
+ *  (still in Curfew) counts toward the Day starting at 06:00 that morning. */
+export interface Sleep {
+  bedtime: string;
+  wake: string;
+  /** Minutes asleep: Health Connect's session less its awake stages, or an
+   *  estimate's whole stretch less brief use in the small hours. */
+  asleep: number;
+  /** "health_connect", or "estimated" from when devices were last and first used. */
+  source: "health_connect" | "estimated";
+  /** The app that recorded it (Health Connect only), such as "Samsung Health". */
+  origin?: string;
+  /** The device that read it from Health Connect. */
+  device?: string;
+}
+
+/** A Day's calendar load: timed events only (no all-day, declined, or free
+ *  ones), with no titles, people, or places. */
+export interface CalendarDay {
+  /** Events starting in this Day. */
+  meetings: number;
+  /** Minutes with at least one event, overlaps counted once. */
+  busy_minutes: number;
+  /** Busy minutes per clock hour (24, midnight first); empty past the kept log. */
+  busy_hours: number[];
+  /** Events starting in each clock hour (24, midnight first); empty past the kept log. */
+  meeting_hours: number[];
+  /** Busy stretches, overlaps merged, oldest first, as [start, end]; empty past the kept log. */
+  busy: [string, string][];
+}
+
+/** "How was your energy today?": 1 drained to 5 full of energy. */
+export type Energy = 1 | 2 | 3 | 4 | 5;
+
+/** One calendar, named the same on every device that syncs it. */
+export interface CalendarId {
+  /** Such as "you@example.com". */
+  account: string;
+  /** Its display name, such as "Classes". */
+  name: string;
+  /** "#rrggbb", for showing the choice where calendars can't be listed. */
+  color?: string;
+}
+
+/** Which calendars count toward the calendar load, and the one device that reads them. */
+export interface CalendarChoice {
+  /** The device the choice was saved on, which reports the calendars; null before any choice. */
+  device: string | null;
+  calendars: CalendarId[];
+}
+
+/** The calendars on this Android device, from the Android side. */
+export interface DeviceCalendars {
+  /** Whether Voucher may read calendars here. */
+  granted: boolean;
+  calendars: CalendarId[];
 }
 
 /** What the phone itself measured today, from the Android side. */
@@ -199,6 +270,8 @@ export interface Status {
   first_day?: string;
   /** The oldest Day whose hour-by-hour log is kept. */
   log_first_day?: string;
+  /** Which calendars count, and the device that reports them; absent from older Ledgers. */
+  calendars?: CalendarChoice;
 }
 
 export interface BlockedApp { package: string; label: string; note: string | null; on: boolean; added: boolean }
