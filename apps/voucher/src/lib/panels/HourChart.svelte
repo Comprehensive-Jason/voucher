@@ -49,9 +49,24 @@
    *  sliver on the left until scroll snapping caught up. The computed width is
    *  exact and ignores the zoom's scale transform. */
   function pageWidth(el: HTMLElement): number {
+    const known = widths.get(el);
+    if (known) return known;
     const first = el.firstElementChild;
     return (first && parseFloat(getComputedStyle(first).width)) || el.clientWidth;
   }
+  /** Each scroller's page width, kept by a ResizeObserver (below), so a
+   *  scroll event reads it without making the browser restyle the page. */
+  const widths = new WeakMap<Element, number>();
+  $effect(() => {
+    const el = zoom === "day" ? scroller : periodScroller;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      widths.delete(el);
+      widths.set(el, pageWidth(el));
+    });
+    ro.observe(el);
+    return () => { ro.disconnect(); widths.delete(el); };
+  });
 
   let { today, timeZone, tall = false, firstDay, measure = "earned", blocklists = {}, device = null }: {
     today: DaySummary; timeZone: string; tall?: boolean;
@@ -91,6 +106,18 @@
   let scroller = $state<HTMLDivElement>();
   const summaryOf = (day: string) => (day === today.day ? today : past[day]);
   const current = $derived(summaryOf(days[shown]));
+  // ---- Drawing only what's near ----
+  // Every Day back to the Ledger's first keeps its page in the row, so
+  // scrolling, snapping, and the arrows work as before, but only the page in
+  // view and NEAR pages either side hold a chart (about 150 elements each);
+  // the rest are empty pages of the same width. Drawn, a hundred Days were
+  // most of the dashboard's layout objects, paid for on every frame that
+  // touched the page. The window follows `shown` (or `page` in Week and
+  // Month), which moves as soon as a swipe passes half way, so the next page
+  // is drawn well before it comes into view, and a page passed on a long
+  // scroll is drawn as it nears.
+  const NEAR = 2;
+  const near = (index: number, at: number) => Math.abs(index - at) <= NEAR;
 
   // Segments stack in the order sources are listed everywhere
   // (compareSources), so a source sits at the same place in every bar (the
@@ -486,10 +513,10 @@
   let landing: { page: number; pick: number | null } | null = null;
   function onPeriodScroll() {
     if (!periodScroller) return;
-    const now = Math.round(periodScroller.scrollLeft / pageWidth(periodScroller));
+    const w = pageWidth(periodScroller), now = Math.round(periodScroller.scrollLeft / w);
     if (landing) {
       page = now;
-      if (now === landing.page && Math.abs(periodScroller.scrollLeft - now * pageWidth(periodScroller)) < 2) { periodPick = landing.pick; landing = null; }
+      if (now === landing.page && Math.abs(periodScroller.scrollLeft - now * w) < 2) { periodPick = landing.pick; landing = null; }
       else periodPick = null;
       return;
     }
@@ -509,10 +536,10 @@
 
   function onScroll() {
     if (!scroller) return;
-    const now = Math.round(scroller.scrollLeft / pageWidth(scroller));
+    const w = pageWidth(scroller), now = Math.round(scroller.scrollLeft / w);
     if (now !== shown) pick = null;
     shown = now;
-    if (Math.abs(scroller.scrollLeft - now * pageWidth(scroller)) < 2) onToday = now >= days.length - 1;
+    if (Math.abs(scroller.scrollLeft - now * w) < 2) onToday = now >= days.length - 1;
     load(shown - 1); load(shown); load(shown + 1);
   }
   function go(by: number) {
@@ -555,7 +582,11 @@
   <div class="viewport" class:entering in:zoomFade={{ out: zoomedOut }}>
   {#if zoom === "day"}
   <div class="days" bind:this={scroller} onscroll={onScroll} onscrollend={() => share(days[shown])}>
-    {#each days as day (day)}
+    {#each days as day, di (day)}
+      {#if !near(di, shown)}
+        <!-- Out of reach: an empty page of the same width, drawn when it nears. -->
+        <div class="day" aria-hidden="true"></div>
+      {:else}
       {@const cols = columnsOf(summaryOf(day))}
       {@const unit = unitOf(cols)}
       {@const here = days[shown] === day}
@@ -601,11 +632,15 @@
         <!-- A label every three hours, each over its own column. -->
         <div class="mono axis hours">{#each Array(HOURS) as _, i}<span class:night={inCurfew(hourOfColumn(i))}>{i % 3 === 0 ? String(hourOfColumn(i)).padStart(2, "0") : ""}</span>{/each}</div>
       </div>
+      {/if}
     {/each}
   </div>
   {:else}
     <div class="days" bind:this={periodScroller} onscroll={onPeriodScroll} onscrollend={sharePage}>
       {#each pages as first, pi (first)}
+        {#if !near(pi, page)}
+          <div class="day period" aria-hidden="true"></div>
+        {:else}
         {@const cols = colsOf(first)}
         {@const busiest = Math.max(0, ...cols.map((c) => c.total))}
         {@const top = topOf(cols)}
@@ -654,6 +689,7 @@
             {/each}
           </div>
         </div>
+        {/if}
       {/each}
     </div>
   {/if}

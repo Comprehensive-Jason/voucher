@@ -253,6 +253,27 @@ function dayBreaks(own: StretchDay, other: StretchDay) {
   return { s1, n1, s0, n0 };
 }
 
+/** A pair as `Request.skipped` names it. */
+export const pairKey = (driver: string, outcome: string, lag: 0 | 1) => `${driver}|${outcome}|${lag}`;
+
+/** `correlate`'s arguments as plain data, so they can be sent to a Web
+ *  Worker (lib/correlate.worker.ts): the `skip` rule becomes the list of
+ *  pairs it skips (see `skippedPairs`). */
+export type Request = { days: string[]; drivers: Driver[]; outcomes: Outcome[]; breaks: BreakDriver[]; skipped: string[] };
+
+/** Every Day pair `skip` leaves untested, as `pairKey`s. */
+export function skippedPairs(drivers: Driver[], outcomes: Outcome[], skip: NonNullable<Options["skip"]>): string[] {
+  const out: string[] = [];
+  for (const d of drivers) for (const lag of [0, 1] as const) for (const o of outcomes) if (skip(d.id, o.id, lag)) out.push(pairKey(d.id, o.id, lag));
+  return out;
+}
+
+/** `correlate` on a Request: the same answer, wherever it runs. */
+export function correlateRequest(r: Request): Tested[] {
+  const skipped = new Set(r.skipped);
+  return correlate(r.days, r.drivers, r.outcomes, r.breaks, { skip: (d, o, lag) => skipped.has(pairKey(d, o, lag)) });
+}
+
 /** Every driver against every outcome, the same Day and the Day after, plus
  *  each kind of break against the stretches after it. `days` are ISO dates
  *  (gaps allowed); each series has one entry per Day in that order. Returns

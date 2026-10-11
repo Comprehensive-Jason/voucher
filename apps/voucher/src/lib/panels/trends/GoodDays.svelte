@@ -1,3 +1,58 @@
+<script module lang="ts">
+  // correlate() runs in a Web Worker (lib/correlate.worker.ts), one for the
+  // whole app, started when this card first asks. It takes 10 to 40 ms on
+  // the tablet, which on the main thread lengthened every redraw that new
+  // history brings (the one after closing Rules, especially). If the worker
+  // can't start (no module workers, the script won't load, or it never
+  // answers its first question), the same function runs here instead, so the
+  // card works either way and the answer is the same: correlate's shuffles
+  // are seeded from the Days.
+  import { correlateRequest, type Request, type Tested as Found } from "../../correlate";
+  /** undefined: not started yet; null: unavailable, so the main thread does it. */
+  let worker: Worker | null | undefined;
+  /** Whether the worker has answered once: after that it's trusted however long it takes. */
+  let proven = false;
+  let sent = 0;
+  const waiting = new Map<number, { request: Request; resolve: (t: Found[]) => void }>();
+  /** How long a first answer may take before the worker is given up on. */
+  const FIRST_ANSWER_MS = 8000;
+  function giveUp() {
+    if (worker) console.warn("What goes with a good Day: the worker didn't start, so it compares on the main thread");
+    worker?.terminate();
+    worker = null;
+    for (const [id, w] of waiting) { waiting.delete(id); w.resolve(correlateRequest(w.request)); }
+  }
+  function startWorker(): Worker | null {
+    if (worker !== undefined) return worker;
+    try {
+      worker = new Worker(new URL("../../correlate.worker.ts", import.meta.url), { type: "module" });
+    } catch {
+      return (worker = null);
+    }
+    worker.onmessage = (e: MessageEvent<{ id: number; tested: Found[] }>) => {
+      proven = true;
+      const w = waiting.get(e.data.id);
+      if (!w) return;
+      waiting.delete(e.data.id);
+      w.resolve(e.data.tested);
+    };
+    worker.onerror = (e) => { e.preventDefault(); giveUp(); };
+    worker.onmessageerror = giveUp;
+    return worker;
+  }
+  /** correlate() off the main thread, or on it when the worker can't be had. */
+  function correlateOff(request: Request): Promise<Found[]> {
+    const w = startWorker();
+    if (!w) return Promise.resolve(correlateRequest(request));
+    return new Promise((resolve) => {
+      const id = ++sent;
+      waiting.set(id, { request, resolve });
+      if (!proven) setTimeout(() => { if (!proven && worker === w) giveUp(); }, FIRST_ANSWER_MS);
+      try { w.postMessage({ id, request }); } catch { giveUp(); }
+    });
+  }
+</script>
+
 <script lang="ts">
   // Does doing one thing go with another going better? For each source, the
   // Days it earned against the Days it didn't, on the same Day and the Day
@@ -28,7 +83,7 @@
   import TrendCard from "../../components/TrendCard.svelte";
   import { styleOf } from "../../sources";
   import { fitsSlot } from "../../fit.svelte";
-  import { correlate, MIN_N, STRETCH, type BreakDriver, type StretchDay, type Tested } from "../../correlate";
+  import { MIN_N, skippedPairs, STRETCH, type BreakDriver, type StretchDay, type Tested } from "../../correlate";
   import { curfew } from "../../curfew.svelte";
   import { clock } from "../../time";
   import { measured } from "../../notes.svelte";
@@ -36,8 +91,20 @@
 
   let { history, timeZone = "UTC" }: { history: DayTotal[]; timeZone?: string } = $props();
   const fit = fitsSlot();
-  // Finished Days the log still holds.
-  const days = $derived(history.slice(0, -1).filter((d) => d.hours && d.hours.length));
+  // Finished Days the log still holds. A new history usually changes only
+  // today, which this card leaves out, so when the finished Days read the
+  // same as last time the same list is kept and nothing below is worked out
+  // or sent to the worker again.
+  /** The fields of a Day this card reads, as text. */
+  const readOf = (d: DayTotal) => JSON.stringify([d.day, d.by_source, d.opens, d.walked, d.stretches, d.used, d.reported, d.sleep?.asleep, d.calendar?.busy_minutes, d.distraction_spans, d.timed_stretches, d.unlocks]);
+  let lastRead: string[] = [], lastDays: DayTotal[] = [];
+  const days = $derived.by(() => {
+    const next = history.slice(0, -1).filter((d) => d.hours && d.hours.length);
+    const read = next.map(readOf);
+    if (read.length === lastRead.length && read.every((r, i) => r === lastRead[i])) return lastDays;
+    lastRead = read; lastDays = next;
+    return next;
+  });
 
   // The rules for the drivers that aren't sources, each against the
   // person's own Days in the range shown, never a fixed norm.
@@ -146,13 +213,21 @@
     return false;
   }
 
-  const tested = $derived(correlate(
-    days.map((d) => d.day),
-    dayDrivers.map(({ id, did }) => ({ id, did })),
-    measures.map((m) => ({ id: m.id, values: days.map(m.value) })),
-    breaks,
-    { skip },
-  ));
+  // Worked out in the worker (above); until it answers, the card keeps its
+  // last findings, or on the first load shows that it's comparing.
+  const request = $derived.by((): Request => {
+    const drivers = dayDrivers.map(({ id, did }) => ({ id, did }));
+    const outcomes = measures.map((m) => ({ id: m.id, values: days.map(m.value) }));
+    return { days: days.map((d) => d.day), drivers, outcomes, breaks, skipped: skippedPairs(drivers, outcomes, skip) };
+  });
+  let found = $state.raw<Tested[] | null>(null);
+  $effect(() => {
+    const r = request;
+    let wanted = true;
+    correlateOff(r).then((t) => { if (wanted) found = t; });
+    return () => { wanted = false; };
+  });
+  const tested = $derived(found ?? []);
   type Group = { outcome: Measure; findings: Tested[] };
   const groups = $derived.by((): Group[] => {
     const by = new Map<string, Tested[]>();
@@ -381,7 +456,9 @@
 
 <TrendCard title="What goes with a good Day">
   <div class="body" class:fit bind:clientHeight={bodyH} bind:clientWidth={bodyW}>
-    {#if !groups.length}
+    {#if !found}
+      <p class="empty">Comparing your Days…</p>
+    {:else if !groups.length}
       {#if short.length || !progress.length}
         <p class="empty">Needs more Days. Each activity needs {MIN_N} Days with it and {MIN_N} without before this can compare them.</p>
         {#if short.length}

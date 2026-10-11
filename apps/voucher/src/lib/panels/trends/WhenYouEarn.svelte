@@ -42,7 +42,7 @@
   });
   $effect(() => {
     const key = chosenKey;
-    rows.length;
+    rowCount;
     by;
     // Only the rows scroll (scrollIntoView would move the tablet's strip of cards too).
     untrack(() => {
@@ -68,7 +68,29 @@
     for (const m of notes.markers) { const d = dayOfMoment(m.at); out.set(d, [...(out.get(d) ?? []), m]); }
     return out;
   });
-  const rows = $derived.by(() => {
+  type Row = { key: string; label: string; cells: number[]; marks: Marker[] };
+  /** Each row as last drawn, with what it shows as text. A new history
+   *  usually changes only today's numbers: a row that reads the same keeps
+   *  its object, so only the rows that changed are drawn again, and when none
+   *  did, the list itself stays and nothing after it is worked out again. */
+  let drawn = new Map<string, { text: string; row: Row }>(), lastRows: Row[] = [];
+  function keep(list: Row[]): Row[] {
+    const next = new Map<string, { text: string; row: Row }>();
+    const out = list.map((r) => {
+      const text = `${r.label}|${r.cells.join(",")}|${r.marks.map((m) => `${m.at} ${m.text}`).join("|")}`;
+      const old = drawn.get(r.key);
+      const row = old && old.text === text ? old.row : r;
+      next.set(r.key, { text, row });
+      return row;
+    });
+    drawn = next;
+    if (out.length === lastRows.length && out.every((r, i) => r === lastRows[i])) return lastRows;
+    return (lastRows = out);
+  }
+  const rows = $derived(keep(rowsOf()));
+  /** How many rows there are: the scroll to the shared Day's row (above) follows their number, not each new history. */
+  const rowCount = $derived(rows.length);
+  function rowsOf(): Row[] {
     if (by === "day") return kept.map((d) => ({ key: d.day, label: shortDate(d.day, lastDay), cells: cols(d.hours!), marks: marksOn.get(d.day) ?? [] }));
     const groups = new Map<string, DayTotal[]>();
     for (const d of kept) {
@@ -83,7 +105,7 @@
         marks: list.flatMap((d) => marksOn.get(d.day) ?? []),
       };
     });
-  });
+  }
   const marks = $derived(rows.flatMap((r) => r.marks));
   /** A row's flag tooltip: its Markers' texts, each after its Day's date in a week or month. */
   const flagTip = (ms: Marker[]) => ms.map((m) => (by === "day" ? m.text : `${shortDate(dayOfMoment(m.at), lastDay)}: ${m.text}`)).join("\n");

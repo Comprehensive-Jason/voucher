@@ -24,7 +24,7 @@
   import { median } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
   import { arrangement } from "../../arrangement.svelte";
-  import { minutesByList } from "../../blocklists";
+  import { minutesByList, type ListMinutes } from "../../blocklists";
   import type { Blocklist, DayTotal, Marker, Verdict } from "../../types";
   import { dayOfMoment, markerKeys, measured, notes } from "../../notes.svelte";
   import { selection } from "../../selection.svelte";
@@ -46,11 +46,31 @@
   // Every Day from the first night on record, oldest first.
   const today = $derived(history.at(-1)?.day ?? "");
   const first = $derived(history.findIndex((d) => d.sleep));
-  const nights = $derived(first < 0 ? [] : history.slice(first).map((d) => ({
-    d,
-    bed: d.sleep ? minutesOf(d.sleep.bedtime, true) : null,
-    wake: d.sleep ? minutesOf(d.sleep.wake, false) : null,
-  })));
+  type Night = { d: DayTotal; bed: number | null; wake: number | null; parts: ListMinutes[] };
+  /** Each row as last drawn, with what it reads of its Day as text. A new
+   *  history usually changes only today's numbers: a row that reads the same
+   *  keeps its object (and its Day's), so only rows that changed are drawn
+   *  again and their times turned into minutes again. */
+  let seenNights = new Map<string, { text: string; night: Night }>();
+  const nights = $derived.by((): Night[] => {
+    if (first < 0) return [];
+    const setting = `${timeZone}|${JSON.stringify(blocklists)}`;
+    const next = new Map<string, { text: string; night: Night }>();
+    const out = history.slice(first).map((d) => {
+      const text = `${setting}|${JSON.stringify([d.day, d.sleep, d.verdict, d.earned, d.goal, d.goal_met, d.used, d.used_lists, d.reported])}`;
+      const old = seenNights.get(d.day);
+      const night = old && old.text === text ? old.night : {
+        d,
+        bed: d.sleep ? minutesOf(d.sleep.bedtime, true) : null,
+        wake: d.sleep ? minutesOf(d.sleep.wake, false) : null,
+        parts: lists(d),
+      };
+      next.set(d.day, { text, night });
+      return night;
+    });
+    seenNights = next;
+    return out;
+  });
   const recent = $derived(nights.slice(-28).filter((n) => n.bed !== null));
   const usualBed = $derived(median(recent.map((n) => n.bed!)));
   const usualWake = $derived(median(recent.map((n) => n.wake!)));
@@ -61,7 +81,7 @@
   const cols = $derived(COLS.filter((c) => picked.includes(c)));
   const lists = (d: DayTotal) => minutesByList(d.used, d.used_lists, blocklists);
   const vMax = $derived(Math.max(1, ...nights.map((n) => Math.max(n.d.earned, n.d.goal ?? 0))));
-  const dMax = $derived(Math.max(1, ...nights.map((n) => lists(n.d).reduce((a, p) => a + p.minutes, 0))));
+  const dMax = $derived(Math.max(1, ...nights.map((n) => n.parts.reduce((a, p) => a + p.minutes, 0))));
 
   // Markers by Day, oldest first.
   $effect(() => { notes.load(); });
@@ -126,7 +146,7 @@
   /** The blocklists' colors the Distraction column draws, first three, for its key. */
   const listColors = $derived.by(() => {
     const seen = new Set<string>();
-    for (const n of nights) for (const p of lists(n.d)) seen.add(p.color);
+    for (const n of nights) for (const p of n.parts) seen.add(p.color);
     const drawn = [...seen];
     return (drawn.length ? drawn : Object.values(blocklists).filter((l) => l.on).map((l) => l.color)).slice(0, 3);
   });
@@ -217,7 +237,7 @@
               {/if}
               {#if cols.includes("distraction")}
                 {@const w = COL_W.distraction * k}
-                {@const parts = lists(n.d)}
+                {@const parts = n.parts}
                 <rect x={colX.distraction} y={y - bh / 2} width={w} height={bh} rx={2 * k} style="fill: {measured(n.d) ? 'var(--heat-0)' : `url(#${uid}-hatch)`}"><title>{shortDate(n.d.day, today)}: {measured(n.d) ? `${parts.reduce((a, p) => a + p.minutes, 0)} min in Distractions` : "Distraction not measured"}</title></rect>
                 {#each parts as p, i (p.id)}
                   {@const before = parts.slice(0, i).reduce((a, q) => a + q.minutes, 0)}

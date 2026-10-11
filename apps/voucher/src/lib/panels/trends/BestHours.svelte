@@ -26,7 +26,23 @@
   const FIRST = 6, COLS = 24;
   const hourOf = (c: number) => (FIRST + c) % 24;
   const days = $derived((span === "all" ? history : history.slice(-Number(span))).filter((d) => d.source_hours));
+  // A new history usually changes only today's numbers: a source's row that
+  // reads the same keeps its object, so only rows that changed are drawn again.
+  type Row = ReturnType<typeof styleOf> & { id: string; cells: number[]; total: number; peak: number };
+  let drawn = new Map<string, { text: string; row: Row }>();
   const rows = $derived.by(() => {
+    const next = new Map<string, { text: string; row: Row }>();
+    const out = rowsOf().map((r) => {
+      const text = `${r.name}|${r.color}|${r.cells.join(",")}`;
+      const old = drawn.get(r.id);
+      const row = old && old.text === text ? old.row : r;
+      next.set(r.id, { text, row });
+      return row;
+    });
+    drawn = next;
+    return out;
+  });
+  function rowsOf(): Row[] {
     const sums = new Map<string, number[]>();
     for (const d of days) for (const [id, hours] of Object.entries(d.source_hours ?? {})) {
       const row = sums.get(id) ?? Array<number>(COLS).fill(0);
@@ -37,7 +53,7 @@
       .map(([id, cells]) => ({ id, ...styleOf(id), cells, total: cells.reduce((a, b) => a + b, 0), peak: cells.indexOf(Math.max(...cells)) }))
       .filter((r) => r.total > 0)
       .sort((a, b) => compareSources(a, b));
-  });
+  }
   const hh = (c: number) => String((FIRST + c) % 24).padStart(2, "0") + ":00";
 </script>
 

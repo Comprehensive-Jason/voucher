@@ -35,19 +35,47 @@
 
   // Finished Days the log still holds.
   const days = $derived(history.slice(0, -1).filter((d) => d.hours && d.hours.length));
-  const weeks = $derived.by(() => {
-    const map = new Map<string, { day: string; t: number | null; wake: { t: number; at: string; estimated: boolean } | null }[]>();
-    for (const d of days) {
-      const key = mondayOf(d.day);
-      // A wake-up before 06:00 still leads into the Day: drawn at 06:00.
-      const at = d.sleep ? clock(d.sleep.wake, timeZone) : "";
-      const wake = d.sleep ? { t: Math.max(START, Number(at.slice(0, 2)) + Number(at.slice(3)) / 60), at, estimated: d.sleep.source === "estimated" } : null;
-      map.set(key, [...(map.get(key) ?? []), { day: d.day, t: d.first_tear ? hoursAt(d.first_tear) : null, wake }]);
-    }
-    return [...map.entries()].map(([monday, list]) => ({ monday, list }));
+  type Item = { day: string; t: number | null; wake: { t: number; at: string; estimated: boolean } | null };
+  type Week = { monday: string; list: Item[] };
+  // A new history usually changes only today, which this card leaves out:
+  // each Day's dot and tick, and each week's row, keep their objects while
+  // what they're drawn from reads the same, so the clock isn't asked for
+  // every time again and only rows that changed are drawn again.
+  let seenDays = new Map<string, { text: string; item: Item }>(), seenWeeks = new Map<string, Week>(), lastWeeks: Week[] = [];
+  const items = $derived.by(() => {
+    const next = new Map<string, { text: string; item: Item }>();
+    const out = days.map((d) => {
+      const text = `${timeZone}|${d.first_tear}|${d.sleep?.wake}|${d.sleep?.source}`;
+      const old = seenDays.get(d.day);
+      let item = old && old.text === text ? old.item : null;
+      if (!item) {
+        // A wake-up before 06:00 still leads into the Day: drawn at 06:00.
+        const at = d.sleep ? clock(d.sleep.wake, timeZone) : "";
+        const wake = d.sleep ? { t: Math.max(START, Number(at.slice(0, 2)) + Number(at.slice(3)) / 60), at, estimated: d.sleep.source === "estimated" } : null;
+        item = { day: d.day, t: d.first_tear ? hoursAt(d.first_tear) : null, wake };
+      }
+      next.set(d.day, { text, item });
+      return item;
+    });
+    seenDays = next;
+    return out;
   });
-  const recent = $derived(median(days.slice(-28).flatMap((d) => (d.first_tear ? [hoursAt(d.first_tear)] : []))));
-  const before = $derived(median(days.slice(-56, -28).flatMap((d) => (d.first_tear ? [hoursAt(d.first_tear)] : []))));
+  const weeks = $derived.by(() => {
+    const map = new Map<string, Item[]>();
+    for (const item of items) { const key = mondayOf(item.day); map.set(key, [...(map.get(key) ?? []), item]); }
+    const next = new Map<string, Week>();
+    const out = [...map.entries()].map(([monday, list]) => {
+      const old = seenWeeks.get(monday);
+      const week = old && old.list.length === list.length && old.list.every((x, i) => x === list[i]) ? old : { monday, list };
+      next.set(monday, week);
+      return week;
+    });
+    seenWeeks = next;
+    if (out.length === lastWeeks.length && out.every((w, i) => w === lastWeeks[i])) return lastWeeks;
+    return (lastWeeks = out);
+  });
+  const recent = $derived(median(items.slice(-28).flatMap((d) => (d.t === null ? [] : [d.t]))));
+  const before = $derived(median(items.slice(-56, -28).flatMap((d) => (d.t === null ? [] : [d.t]))));
 
   /** The 4 weeks before, drawn only when they differ from lately by 10 minutes or more. */
   /** Whether any Day drawn has a wake-up, and any an estimated one, for the keys. */

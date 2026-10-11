@@ -60,8 +60,8 @@
   const live = new Live();
   // The strip's panels fill their slots (thirds of a column).
   fillSlots();
-  let status = $state<Status | null>(kept.status);
-  let history = $state<DayTotal[]>(kept.history);
+  let status = $state.raw<Status | null>(kept.status);
+  let history = $state.raw<DayTotal[]>(kept.history);
   let usage = $state<DeviceUsage | null>(kept.usage);
 
   // The tablet's other columns refresh less often than the Voucher stack.

@@ -33,20 +33,39 @@
   const chosen = $derived(selection.day ?? today);
   // The switched-on sources, or, without that list, whichever sources earned in these Days.
   const ids = $derived(sources.length ? sources.filter((s) => s.on).map((s) => s.id) : [...new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))]);
-  const rows = $derived(ids
-    .map((id) => ({ ...styleOf(id), id }))
-    .sort((a, b) => compareSources(a, b))
-    .map((s) => {
-      const hit = days.map((d) => (d.by_source?.[s.id] ?? 0) > 0);
-      // Days in a row up to now; today doesn't break it while it's still open.
-      let run = 0;
-      for (let i = hit.length - 1; i >= 0; i--) { if (hit[i]) run++; else if (i < hit.length - 1) break; }
-      return { ...s, hit, run };
-    }));
+  // A new history usually changes only today: the Days' dates, and each
+  // source's row, keep their objects while they read the same, so only a
+  // row that changed is drawn again (a cell per Day, a hundred a row).
+  let lastDates: string[] = [];
+  const dates = $derived.by(() => {
+    const next = days.map((d) => d.day);
+    return next.length === lastDates.length && next.every((d, i) => d === lastDates[i]) ? lastDates : (lastDates = next);
+  });
+  type Row = ReturnType<typeof styleOf> & { id: string; hit: boolean[]; run: number };
+  let drawn = new Map<string, { text: string; row: Row }>(), lastRows: Row[] = [];
+  const rows = $derived.by(() => {
+    const next = new Map<string, { text: string; row: Row }>();
+    const out = ids
+      .map((id) => ({ ...styleOf(id), id }))
+      .sort((a, b) => compareSources(a, b))
+      .map((s): Row => {
+        const hit = days.map((d) => (d.by_source?.[s.id] ?? 0) > 0);
+        // Days in a row up to now; today doesn't break it while it's still open.
+        let run = 0;
+        for (let i = hit.length - 1; i >= 0; i--) { if (hit[i]) run++; else if (i < hit.length - 1) break; }
+        const text = `${s.name}|${s.color}|${run}|${dates.length}|${hit.map(Number).join("")}`;
+        const old = drawn.get(s.id);
+        const row = old && old.text === text && old.row.hit.length === hit.length ? old.row : { ...s, hit, run };
+        next.set(s.id, { text, row });
+        return row;
+      });
+    drawn = next;
+    return out.length === lastRows.length && out.every((r, i) => r === lastRows[i]) ? lastRows : (lastRows = out);
+  });
   // Markers on the Days drawn, by Day, oldest first.
   $effect(() => { notes.load(); });
   const marksOn = $derived.by(() => {
-    const have = new Set(days.map((d) => d.day));
+    const have = new Set(dates);
     const out = new Map<string, Marker[]>();
     for (const m of notes.markers) { const d = dayOfMoment(m.at); if (have.has(d)) out.set(d, [...(out.get(d) ?? []), m]); }
     return out;
@@ -74,11 +93,11 @@
   /** Scrolls a Day's column to the middle (or the end, for today). */
   function reveal(day: string, smooth: boolean) {
     if (!scroller) return;
-    const i = days.findIndex((d) => d.day === day);
+    const i = dates.indexOf(day);
     const left = i < 0 || day === today ? scroller.scrollWidth : i * (CELL + GAP) - scroller.clientWidth / 2;
     scroller.scrollTo({ left: Math.max(0, left), behavior: smooth ? "smooth" : "instant" });
   }
-  $effect(() => { days.length; if (scroller) untrack(() => reveal(chosen, false)); });
+  $effect(() => { dates.length; if (scroller) untrack(() => reveal(chosen, false)); });
   $effect(() => {
     selection.seq;
     const day = chosen;
@@ -87,18 +106,18 @@
   const pick = (day: string) => selection.set("sourcestreaks", { day: day === today ? null : day, picked: true });
 </script>
 
-<TrendCard title="Source streaks" date={{ day: selection.day ?? today, today, oldest: days[0]?.day, onpick: (d) => selection.set("sourcestreaks-step", { day: d === today ? null : d, picked: false }) }}>
+<TrendCard title="Source streaks" date={{ day: selection.day ?? today, today, oldest: dates[0], onpick: (d) => selection.set("sourcestreaks-step", { day: d === today ? null : d, picked: false }) }}>
   <div class="grid" class:fit style="--cell: {CELL}px; --gap: {GAP}px">
     <div class="side">
       <span class="dates"></span>
       {#each rows as r (r.id)}<span class="name" class:best={longest > 0 && r.run === longest}>{r.name}</span>{/each}
     </div>
     <div class="scroll" bind:this={scroller}>
-      <div class="track" style="grid-template-columns: repeat({days.length}, var(--cell))">
-        {#each days as d (d.day)}<span class="date" class:month={d.day.endsWith("-01")} class:on={d.day === chosen}>{#if label(d.day)}<b>{label(d.day)}</b>{/if}</span>{/each}
+      <div class="track" style="grid-template-columns: repeat({dates.length}, var(--cell))">
+        {#each dates as day (day)}<span class="date" class:month={day.endsWith("-01")} class:on={day === chosen}>{#if label(day)}<b>{label(day)}</b>{/if}</span>{/each}
         {#each rows as r (r.id)}
-          {#each r.hit as on, i (days[i].day)}
-            <button class="cell pressdim" class:on={days[i].day === chosen} class:marked={marksOn.has(days[i].day)} style={on ? `background: ${r.color}` : ""} title="{shortDate(days[i].day, today)}: {r.name} {on ? 'earned' : 'did not earn'}{markLines(days[i].day)}" aria-label="{days[i].day}, {r.name}" onclick={() => pick(days[i].day)}></button>
+          {#each r.hit as on, i (dates[i])}
+            <button class="cell pressdim" class:on={dates[i] === chosen} class:marked={marksOn.has(dates[i])} style={on ? `background: ${r.color}` : ""} title="{shortDate(dates[i], today)}: {r.name} {on ? 'earned' : 'did not earn'}{markLines(dates[i])}" aria-label="{dates[i]}, {r.name}" onclick={() => pick(dates[i])}></button>
           {/each}
         {/each}
       </div>
