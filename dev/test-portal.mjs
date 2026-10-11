@@ -139,10 +139,19 @@ function startLedger() {
 }
 
 async function stopLedger() {
-  if (!ledger || ledger.exitCode !== null) return;
+  if (!ledgerRunning()) return;
   const gone = new Promise((done) => ledger.once("exit", done));
   ledger.kill("SIGTERM");
   await gone;
+}
+
+/** Whether the test Ledger process is running (not stopped from the Errors section). */
+const ledgerRunning = () => !!ledger && ledger.exitCode === null && ledger.signalCode === null;
+
+/** The test Ledger's fault switches that are on, or null if it can't say. */
+async function faultsOn() {
+  if (!ledgerRunning()) return null;
+  try { return await call("GET", "/test/fault"); } catch { return null; }
 }
 
 const accessCode = () => (existsSync(path.join(DATA, "access.code")) ? readFileSync(path.join(DATA, "access.code"), "utf8").trim() : "");
@@ -503,6 +512,17 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/usage-history") return send(res, 200, "application/json", JSON.stringify({ filled: await backfillUsage() }));
     if (req.method === "POST" && req.url === "/api/history") { await seedHistory(Number(input.days) || 28); return send(res, 200, "application/json", "{}"); }
     if (req.method === "POST" && req.url === "/api/past") return send(res, 200, "application/json", JSON.stringify({ message: await editState(pastChange(input)) }));
+    // The Errors section: fault switches, and stopping or starting the Ledger.
+    if (req.method === "GET" && req.url === "/api/faults") return send(res, 200, "application/json", JSON.stringify({ running: ledgerRunning(), faults: await faultsOn() }));
+    if (req.method === "POST" && req.url === "/api/fault") {
+      await call("POST", "/test/fault?mode=" + encodeURIComponent(input.mode) + "&on=" + (input.on ? 1 : 0));
+      return send(res, 200, "application/json", JSON.stringify({ running: ledgerRunning(), faults: await faultsOn() }));
+    }
+    if (req.method === "POST" && req.url === "/api/ledger") {
+      if (input.run && !ledgerRunning()) { startLedger(); await untilUp(); }
+      if (!input.run) await stopLedger();
+      return send(res, 200, "application/json", JSON.stringify({ running: ledgerRunning(), faults: await faultsOn() }));
+    }
     if (req.method === "POST" && req.url === "/api/reset") { await reset(); return send(res, 200, "application/json", "{}"); }
     send(res, 404, "text/plain", "not found");
   } catch (e) {
@@ -555,6 +575,8 @@ const PAGE = String.raw`<!doctype html>
   .past select { min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); padding: 0 10px; font: 14px var(--font); }
   .pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .pick input[type=date] { flex: 0 0 auto; }
+  .on-now { color: var(--gold); }
+  button[aria-pressed=true] { background: var(--gold); border-color: var(--gold); color: #1d1300; }
 </style></head>
 <body><div class="wrap">
   <header>
@@ -568,6 +590,9 @@ const PAGE = String.raw`<!doctype html>
   <h2>Distraction time on this device (made up)</h2>
   <span class="note">What a dev build shows under "In Distractions today" and on the blocked-app screen, instead of what Android measures.</span>
   <div class="grid" id="usage"></div>
+  <h2>Errors</h2>
+  <span class="note">Makes the test Ledger misbehave so each error notice in the app shows up. Faults reset whenever the test Ledger restarts (Stop and Start, Past Days edits, a fresh Ledger).</span>
+  <div class="grid" id="errors"></div>
   <h2>Past Days</h2>
   <span class="note">For the Trends cards: pick a Day, then add to it. Each change restarts the test Ledger for a moment.</span>
   <div class="pick"><input type="date" id="pday" aria-label="Day"><button data-pshift="-1">‹ Day before</button><button data-pshift="1">Day after ›</button>
@@ -661,6 +686,43 @@ function render(s) {
   if (focused && $(focused)) $(focused).focus();
 }
 
+// Each fault the test Ledger can switch on: what the app shows, and how.
+const FAULTS = [
+  ["unauthorized", "Access code needed notice", "Every request answers 401"],
+  ["garbled", "Ledger out of step notice", "/status and /day answer with a body that isn't JSON"],
+  ["refuse-changes", "A Rules change refused", "Rules changes answer 400"],
+  ["refuse-tear", "A tear refused", "Tearing a Voucher answers 409"],
+  ["fail-marker", "A Marker that didn't save", "Adding a Marker answers 500"],
+  ["fail-export", "Export failed", "Both exports answer 500"],
+  ["token", "Tasks not counting notice", "Todoist and ClickUp report \"sign-in expired\""],
+];
+let ERRORS = { running: true, faults: [] };
+
+function renderErrors(e) {
+  ERRORS = e;
+  const on = e.faults || [];
+  const cards = FAULTS.map(([mode, shows, how]) => {
+    const isOn = on.includes(mode);
+    return '<div class="src' + (e.running ? '' : ' off') + '"><div class="top"><span class="name">' + shows + '</span><span class="detail' + (isOn ? ' on-now' : '') + '">' + (isOn ? 'on' : 'off') + '</span></div>'
+      + '<span class="detail">' + how + '</span>'
+      + '<div class="buttons"><button data-fault="' + mode + '" aria-pressed="' + isOn + '"' + (e.running ? '' : ' disabled') + '>' + (isOn ? 'Turn off' : 'Turn on') + '</button></div></div>';
+  });
+  cards.push('<div class="src"><div class="top"><span class="name">Ledger unreachable notice</span><span class="detail' + (e.running ? '' : ' on-now') + '">' + (e.running ? 'running' : 'stopped') + '</span></div>'
+    + '<span class="detail">Stops the test Ledger process; Start brings it back with every fault off</span>'
+    + '<div class="buttons"><button class="danger" data-ledger="stop"' + (e.running ? '' : ' disabled') + '>Stop Ledger</button><button class="go" data-ledger="start"' + (e.running ? ' disabled' : '') + '>Start Ledger</button></div></div>');
+  $("errors").innerHTML = cards.join("");
+}
+
+/** Why the portal can't read the Ledger's status, when the Errors section caused it. */
+function blockedBy(e) {
+  if (!e.running) return "stopped";
+  const on = e.faults || [];
+  if (on.includes("unauthorized")) return "answering 401";
+  if (on.includes("garbled")) return "answering garbled";
+  return null;
+}
+const faultsText = (e) => (e.faults && e.faults.length ? "Faults on: " + e.faults.join(", ") : "No faults on");
+
 function renderUsage(u) {
   const minutes = Object.fromEntries(u.apps.map((a) => [a.label, a.minutes]));
   const opens = Object.fromEntries(u.attempts.map((a) => [a.label, a.count]));
@@ -673,7 +735,14 @@ function renderUsage(u) {
 
 async function refresh() {
   if (busy) return;
-  try { render(await api("GET", "/api/status")); renderUsage(await api("GET", "/api/usage")); } catch (e) { toast("Can't reach the test Ledger: " + (e.message || e), true); }
+  try { renderErrors(await api("GET", "/api/faults")); } catch (e) { toast("Can't reach the portal: " + (e.message || e), true); return; }
+  try { render(await api("GET", "/api/status")); renderUsage(await api("GET", "/api/usage")); }
+  catch (e) {
+    // A fault or a stopped Ledger blocks the portal's reads too; say so in place of the figures.
+    const why = blockedBy(ERRORS);
+    if (why) { $("facts").innerHTML = fact("Test Ledger", why); renderUsage(await api("GET", "/api/usage").catch(() => ({ apps: [], attempts: [], blockedOpens: 0, closedWithoutTearing: 0 }))); }
+    else toast("Can't reach the test Ledger: " + (e.message || e), true);
+  }
 }
 
 document.addEventListener("click", (e) => {
@@ -704,6 +773,11 @@ document.addEventListener("click", (e) => {
   if (b.id === "history") act(() => api("POST", "/api/history", { days: 28 }), () => "Added 4 more weeks of made-up Days, before the oldest");
   if (b.id === "usagehistory") act(() => api("POST", "/api/usage-history"), (c) => "Distraction time made up for " + c.filled + " past Days");
   if (b.id === "grace") act(() => api("POST", "/api/grace"), () => "Grace period on: changes apply at once for 2 days");
+  if (b.dataset.fault) {
+    const mode = b.dataset.fault, on = b.getAttribute("aria-pressed") !== "true";
+    act(() => api("POST", "/api/fault", { mode, on }), (e) => FAULTS.find((f) => f[0] === mode)[1] + (on ? ": fault on. " : ": fault off. ") + faultsText(e));
+  }
+  if (b.dataset.ledger) act(() => api("POST", "/api/ledger", { run: b.dataset.ledger === "start" }), (e) => e.running ? "Test Ledger started, every fault off" : "Test Ledger stopped: the app should say it can't reach it");
   if (b.id === "reset") act(() => api("POST", "/api/reset"), () => "Fresh test Ledger: Bank and Day emptied");
 });
 $("pday").value = new Date(Date.now() - 86400_000).toLocaleDateString("en-CA");

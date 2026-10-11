@@ -5,6 +5,7 @@
 
 pub mod access;
 pub mod clickup;
+pub mod faults;
 pub mod instances;
 pub mod todoist;
 

@@ -23,8 +23,10 @@ use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
 use voucher_ledger::{
-    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, clickup, default_blocklists,
-    default_sources, todoist,
+    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, SourceKind, clickup,
+    default_blocklists, default_sources,
+    faults::{Fault, Faults},
+    todoist,
 };
 
 struct Config {
@@ -159,6 +161,10 @@ fn refresh_lists_forever() {
 /// poll succeeds. Shown in the app as "sign-in expired" and the like.
 static SOURCE_ERRORS: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
 
+/// Test-only fault switches (`/test/fault`), off until a test Ledger turns
+/// one on; they reset when the Ledger restarts.
+static FAULTS: Mutex<Faults> = Mutex::new(Faults::new());
+
 fn note_poll(source: &str, result: &Result<(), String>) {
     let mut errors = SOURCE_ERRORS.lock().unwrap();
     match result {
@@ -227,9 +233,20 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
         let _ = request.respond(reply);
         return;
     }
-    let mut ledger = ledger.lock().unwrap();
     let url = request.url().to_string();
     let (path, query) = url.split_once('?').unwrap_or((&url, ""));
+    let forced = FAULTS
+        .lock()
+        .unwrap()
+        .reply(request.method().as_str(), path);
+    if let Some((status, body)) = forced {
+        let reply = Response::from_string(body)
+            .with_status_code(status)
+            .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
+        let _ = request.respond(reply);
+        return;
+    }
+    let mut ledger = ledger.lock().unwrap();
     let mut content_type = "application/json";
     let (status, body) = match (request.method(), path) {
         (Method::Get, "/status") => (200, status_json(&mut ledger, now)),
@@ -517,6 +534,32 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
             ledger.start_grace(now);
             (200, status_json(&mut ledger, now))
         }
+        // Test-only: turns one fault on or off, `?mode=garbled&on=1`, so the
+        // app's error notices can be checked on demand. GET lists those on.
+        (Method::Post, "/test/fault") if config.test_tasks => {
+            let fault = param(query, "mode").and_then(Fault::parse);
+            let on = match param(query, "on") {
+                Some("1") => Some(true),
+                Some("0") => Some(false),
+                _ => None,
+            };
+            match (fault, on) {
+                (Some(fault), Some(on)) => {
+                    let mut faults = FAULTS.lock().unwrap();
+                    faults.set(fault, on);
+                    (200, json(&faults.names()))
+                }
+                _ => (
+                    400,
+                    json(&Message {
+                        message: "needs mode=<fault> and on=1 or on=0",
+                    }),
+                ),
+            }
+        }
+        (Method::Get, "/test/fault") if config.test_tasks => {
+            (200, json(&FAULTS.lock().unwrap().names()))
+        }
         (Method::Post, "/test/credit") if config.test_tasks => {
             let count = query
                 .split('&')
@@ -709,6 +752,15 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let log_first_day = ledger.log_first_day(now);
     let room_before_curfew = ledger.room_before_curfew(now);
     let grace_until = ledger.grace_until(now);
+    let task_services = settings
+        .sources
+        .values()
+        .filter(|s| s.kind == SourceKind::Tasks)
+        .flat_map(|s| s.packages.iter().cloned());
+    let source_errors = FAULTS
+        .lock()
+        .unwrap()
+        .source_errors(SOURCE_ERRORS.lock().unwrap().clone(), task_services);
     json(&Status {
         bank,
         curfew_active,
@@ -716,7 +768,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         settings,
         pending: ledger.pending(now),
         today,
-        source_errors: SOURCE_ERRORS.lock().unwrap().clone(),
+        source_errors,
         blocked,
         setup_complete,
         last_seen,
