@@ -74,12 +74,17 @@ function blankDay(day: string): DaySummary {
     streak: 4, by_source: {}, log: [], sources: [] };
 }
 
+// How strongly the sample's good-Day links show (see history).
+const LIFT_MIN = 12, LIFT_SHARE = 0.12, LIFT_MID = 2, LONG_P = 0.3, LONG_MIN = 75;
+
 function history(n: number): DayTotal[] {
   const out: DayTotal[] = [];
   const end = new Date(`${TODAY}T12:00:00Z`);
   // A fixed pseudo-random pattern, so screenshots are stable.
   let seed = 7;
   let afterWorkout = false;
+  /** Yesterday's Vouchers by source, and whether it was busy (9 or more earned). */
+  let yesterday: Record<string, number> = {}, afterBusy = false;
   for (let back = n - 1; back >= 0; back--) {
     const d = new Date(end.getTime() - back * 86_400_000).toISOString().slice(0, 10);
     seed = (seed * 9301 + 49297) % 233280;
@@ -125,10 +130,19 @@ function history(n: number): DayTotal[] {
       for (let i = 0; i < n; i++) h[home[id]?.[(i + seed) % home[id].length] ?? 12]++;
       source_hours[id] = h;
     }
-    // Focus stretches that lengthen over the half year, and blocked opens most often walked away from.
+    // Focus stretches that lengthen over the half year, and blocked opens most
+    // often walked away from. For What goes with a good Day: a Workout Day,
+    // the Day after one, a busy Day, and the Day after a busy one each go with
+    // a slightly longer longest stretch and a few more opens walked away
+    // from; the Day after Reading now and then brings a long one.
     const grow = 1 - back / n;
+    const lift = (by_source.workout ? 1 : 0) + (yesterday.workout ? 1 : 0) + (earned >= 9 ? 1 : 0) + (afterBusy ? 1 : 0);
     const stretches = Array.from({ length: 2 + (seed % 4) }, (_, i) => Math.round(8 + grow * 25 + ((seed >> (i + 2)) % 30)));
-    const opens = 3 + (seed % 9), walked = Math.round(opens * (0.5 + grow * 0.35));
+    const top = stretches.indexOf(Math.max(...stretches));
+    stretches[top] = Math.max(5, stretches[top] + LIFT_MIN * (lift - LIFT_MID) + (yesterday.reading && h(11) < LONG_P ? LONG_MIN : 0));
+    const opens = 3 + (seed % 9), walked = Math.min(opens, Math.round(opens * (0.5 + grow * 0.35 + LIFT_SHARE * (lift - LIFT_MID))));
+    yesterday = by_source;
+    afterBusy = earned >= 9;
     // Answers to the Curfew question on most Days, a few reasons, and a silent afternoon now and then.
     const verdict = seed % 5 === 0 ? null : earned >= 16 ? (seed % 7 === 0 ? "mostly" : "yes") : earned >= 10 ? (seed % 3 ? "mostly" : "yes") : "no";
     const reasons: [number, string][] = redeemed ? [[tearAt, ["bored", "avoiding a task", "tired", "anxious", "habit"][seed % 5]]] : [];
