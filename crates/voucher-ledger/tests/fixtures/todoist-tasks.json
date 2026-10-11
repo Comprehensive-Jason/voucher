@@ -1,0 +1,77 @@
+{
+  "results": [
+    {
+      "id": "6XGgmFloating01",
+      "project_id": "6ExampleProject0",
+      "content": "Example floating task",
+      "checked": false,
+      "is_deleted": false,
+      "due": { "date": "2026-10-06T09:00:00", "timezone": null, "string": "tomorrow at 9", "lang": "en", "is_recurring": false },
+      "duration": { "amount": 90, "unit": "minute" }
+    },
+    {
+      "id": "6XGgmFixedZone1",
+      "project_id": "6ExampleProject0",
+      "content": "Example fixed-zone task",
+      "checked": false,
+      "is_deleted": false,
+      "due": { "date": "2026-10-06T21:00:00.000000Z", "timezone": "America/Chicago", "string": "every day at 4pm", "lang": "en", "is_recurring": true },
+      "duration": { "amount": 45, "unit": "minute" }
+    },
+    {
+      "id": "6XGgmDatetime01",
+      "project_id": "6ExampleProject0",
+      "content": "Example task from the older API",
+      "checked": false,
+      "is_deleted": false,
+      "due": { "date": "2026-10-06", "datetime": "2026-10-06T14:00:00", "string": "tomorrow at 2pm", "lang": "en", "is_recurring": false },
+      "duration": { "amount": 30, "unit": "minute" }
+    },
+    {
+      "id": "6XGgmFullDay001",
+      "project_id": "6ExampleProject0",
+      "content": "A full Day, no time",
+      "checked": false,
+      "is_deleted": false,
+      "due": { "date": "2026-10-06", "timezone": null, "string": "tomorrow", "lang": "en", "is_recurring": false },
+      "duration": { "amount": 60, "unit": "minute" }
+    },
+    {
+      "id": "6XGgmNoDuration",
+      "project_id": "6ExampleProject0",
+      "content": "A time but no duration",
+      "checked": false,
+      "is_deleted": false,
+      "due": { "date": "2026-10-06T11:00:00", "timezone": null, "string": "tomorrow at 11", "lang": "en", "is_recurring": false },
+      "duration": null
+    },
+    {
+      "id": "6XGgmDaysLong01",
+      "project_id": "6ExampleProject0",
+      "content": "A duration in days",
+      "checked": false,
+      "is_deleted": false,
+      "due": { "date": "2026-10-06T12:00:00", "timezone": null, "string": "tomorrow at 12", "lang": "en", "is_recurring": false },
+      "duration": { "amount": 2, "unit": "day" }
+    },
+    {
+      "id": "6XGgmLeisure001",
+      "project_id": "LEISURE-PROJECT",
+      "content": "A leisure block",
+      "checked": false,
+      "is_deleted": false,
+      "due": { "date": "2026-10-06T20:00:00", "timezone": null, "string": "tomorrow at 8pm", "lang": "en", "is_recurring": false },
+      "duration": { "amount": 60, "unit": "minute" }
+    },
+    {
+      "id": "6XGgmNoDue00001",
+      "project_id": "6ExampleProject0",
+      "content": "No due date",
+      "checked": false,
+      "is_deleted": false,
+      "due": null,
+      "duration": { "amount": 25, "unit": "minute" }
+    }
+  ],
+  "next_cursor": null
+}

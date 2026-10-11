@@ -1,6 +1,16 @@
 //! Reads ClickUp's filtered team tasks (`GET /api/v2/team/{team_id}/task` with
 //! `include_closed=true`). Only tasks that are done and assigned to the user
 //! count, so a co-founder finishing their own work earns nothing here.
+//!
+//! Time blocks (see `planned`) are not read from ClickUp yet. A task has a
+//! `start_date` and a `time_estimate` (both milliseconds), but the filtered
+//! team tasks endpoint can't filter by start date (only due, created,
+//! updated, and done dates), its reference doesn't list `start_date_time`
+//! (whether the start has a time of day), and `time_estimate` arrives as a
+//! number or a string. To add them: write a `scheduled(page, user_id)` here
+//! returning `Scheduled` blocks prefixed `clickup:`, and have `poll_clickup`
+//! in main.rs return them as `Found::blocks` with the span its request
+//! covers; `Ledger::plan` does the rest.
 
 use jiff::Timestamp;
 use serde::Deserialize;

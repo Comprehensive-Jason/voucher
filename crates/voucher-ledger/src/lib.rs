@@ -8,6 +8,7 @@ pub mod clickup;
 pub mod faults;
 pub mod instances;
 pub mod measures;
+pub mod planned;
 pub mod todoist;
 
 use std::{
@@ -27,6 +28,7 @@ use voucher_protocol::{Unlock, sign};
 pub use measures::{
     CalendarChoice, CalendarDay, CalendarId, CalendarRefusal, Sleep, SleepSession, SleepSource,
 };
+pub use planned::{Planned, PlannedBlock, Scheduled, Split};
 
 /// The tunable numbers and times the rules run on.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -667,6 +669,9 @@ pub struct DaySummary {
     pub calendar: Option<CalendarDay>,
     /// The answer to "How was your energy today?", 1 to 5.
     pub energy: Option<u8>,
+    /// Time blocks planned in a task manager that start in this Day, oldest
+    /// first, with how their minutes went (see `planned`).
+    pub planned: Vec<Planned>,
 }
 
 /// One source's standing for a Day.
@@ -747,6 +752,9 @@ pub struct DayTotal {
     pub calendar: Option<CalendarDay>,
     /// The answer to "How was your energy today?", 1 to 5.
     pub energy: Option<u8>,
+    /// Time blocks planned in a task manager that start in this Day, oldest
+    /// first, with how their minutes went (see `planned`): empty past the log.
+    pub planned: Vec<Planned>,
 }
 
 /// One unbroken stretch in a focus source, as an Enforcer measured it.
@@ -899,6 +907,12 @@ struct State {
     /// as long as the log.
     #[serde(default)]
     activity: BTreeMap<Date, Vec<u16>>,
+    // Added 2026-10-11, empty when an older state.json loads; an older
+    // Ledger reading a newer file ignores it.
+    /// Time blocks from task managers, by the Day they start in, as they
+    /// were planned (see `planned`). Kept as long as the log.
+    #[serde(default)]
+    planned: BTreeMap<Date, Vec<PlannedBlock>>,
 }
 
 fn set_up_already() -> bool {
@@ -930,6 +944,7 @@ impl Ledger {
                 calendars: CalendarChoice::default(),
                 calendar: BTreeMap::new(),
                 activity: BTreeMap::new(),
+                planned: BTreeMap::new(),
             },
         }
     }
@@ -1037,6 +1052,7 @@ impl Ledger {
             credited.kept += paid.kept;
             credited.forfeited += paid.forfeited;
         }
+        self.mark_done(completions);
         self.forget_old_entries(today);
         credited
     }
@@ -1493,7 +1509,47 @@ impl Ledger {
             sleep: self.sleep_between(day, day).remove(&day),
             calendar: self.calendar_of(day),
             energy: self.energy_of(day),
+            planned: if self.state.planned.contains_key(&day) {
+                self.planned_on(&[day], &self.unlocks_by_day(), now)
+                    .remove(&day)
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            },
         }
+    }
+
+    /// Unlocks from the log's tears, by the Day each starts in, [from, to],
+    /// oldest first. One starts when torn, or where the running one ends if
+    /// it was stacked on, and runs the minutes it added; one stacked onto a
+    /// running one continues it.
+    fn unlocks_by_day(&self) -> BTreeMap<Date, Vec<(Timestamp, Timestamp)>> {
+        let settings = &self.state.settings;
+        let mut unlocks: BTreeMap<Date, Vec<(Timestamp, Timestamp)>> = BTreeMap::new();
+        let mut tears_in_order: Vec<(Timestamp, u32)> = self
+            .state
+            .log
+            .iter()
+            .filter_map(|e| match e {
+                Entry::Redeemed { at, minutes, .. } if *minutes > 0 => Some((*at, *minutes)),
+                _ => None,
+            })
+            .collect();
+        tears_in_order.sort();
+        let mut running_until: Option<Timestamp> = None;
+        for (at, minutes) in tears_in_order {
+            let from = running_until.filter(|end| *end > at).unwrap_or(at);
+            let Ok(to) = from.checked_add(SignedDuration::from_mins(i64::from(minutes))) else {
+                continue;
+            };
+            running_until = Some(to);
+            let list = unlocks.entry(day_of(settings, from)).or_default();
+            match list.last_mut() {
+                Some(last) if last.1 >= from => last.1 = to,
+                _ => list.push((from, to)),
+            }
+        }
+        unlocks
     }
 
     /// The last `days` Days, oldest first, today included.
@@ -1544,32 +1600,11 @@ impl Ledger {
                 _ => {}
             }
         }
-        // Unlocks from the tears: one starts when torn, or where the running
-        // one ends if it was stacked on, and runs the minutes it added.
-        let mut unlocks: BTreeMap<Date, Vec<(Timestamp, Timestamp)>> = BTreeMap::new();
-        let mut tears_in_order: Vec<(Timestamp, u32)> = self
-            .state
-            .log
-            .iter()
-            .filter_map(|e| match e {
-                Entry::Redeemed { at, minutes, .. } if *minutes > 0 => Some((*at, *minutes)),
-                _ => None,
-            })
+        let unlocks = self.unlocks_by_day();
+        let all_days: Vec<Date> = (0..i64::from(days))
+            .map(|back| days_before(today, back))
             .collect();
-        tears_in_order.sort();
-        let mut running_until: Option<Timestamp> = None;
-        for (at, minutes) in tears_in_order {
-            let from = running_until.filter(|end| *end > at).unwrap_or(at);
-            let Ok(to) = from.checked_add(SignedDuration::from_mins(i64::from(minutes))) else {
-                continue;
-            };
-            running_until = Some(to);
-            let list = unlocks.entry(day_of(settings, from)).or_default();
-            match list.last_mut() {
-                Some(last) if last.1 >= from => last.1 = to,
-                _ => list.push((from, to)),
-            }
-        }
+        let mut planned = self.planned_on(&all_days, &unlocks, now);
         let sleeps = match days {
             0 => BTreeMap::new(),
             n => self.sleep_between(days_before(today, i64::from(n) - 1), today),
@@ -1602,7 +1637,7 @@ impl Ledger {
                         .map(|s| s.stretches.values().flatten().copied().collect())
                         .unwrap_or_default(),
                     timed_stretches: score.map(timed_stretches_of).unwrap_or_default(),
-                    unlocks: unlocks.remove(&day).unwrap_or_default(),
+                    unlocks: unlocks.get(&day).cloned().unwrap_or_default(),
                     distraction_spans: score.and_then(distraction_spans_of),
                     opens: score.map_or(0, |s| s.blocked.values().map(|b| b.0).sum()),
                     walked: score.map_or(0, |s| s.blocked.values().map(|b| b.1.min(b.0)).sum()),
@@ -1620,6 +1655,7 @@ impl Ledger {
                     sleep: sleeps.get(&day).cloned(),
                     calendar: self.calendar_of(day),
                     energy: self.energy_of(day),
+                    planned: planned.remove(&day).unwrap_or_default(),
                 }
             })
             .collect()

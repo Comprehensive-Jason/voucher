@@ -93,6 +93,9 @@ export interface DaySummary {
   calendar?: CalendarDay | null;
   /** The answer to "How was your energy today?", 1 to 5. */
   energy?: Energy | null;
+  /** Time blocks planned in a task manager that start in this Day, oldest
+   *  first, with how their minutes went. Absent from older Ledgers. */
+  planned?: PlannedBlock[];
 }
 
 /** A dated note on the timeline, by hand or (rule) written by the Ledger when a rule changed. */
@@ -153,6 +156,45 @@ export interface DayTotal {
    *  Distraction minutes also sent spans (older Enforcers send minutes per
    *  hour only). Absent from older Ledgers. */
   distraction_spans?: [string, string][] | null;
+  /** Time blocks planned in a task manager that start in this Day, oldest
+   *  first, with how their minutes went. Absent from older Ledgers, empty
+   *  past the log. */
+  planned?: PlannedBlock[];
+}
+
+/** One time block planned in a task manager (a task with a due time and a
+ *  duration), as the Ledger snapshotted it: no title, and never matched to
+ *  an app. A block edited after it started keeps the plan it had then. */
+export interface PlannedBlock {
+  start: string;
+  minutes: number;
+  /** When its task was completed; null if it wasn't. */
+  done_at: string | null;
+  /** The task manager it came from, such as "todoist". */
+  service: string;
+  split: PlannedSplit;
+  /** Minutes each earning source was active in the block, outside
+   *  Distraction; two at once each count, so these can add up to more than
+   *  `split.sources`. */
+  source_minutes: Record<string, number>;
+  /** Vouchers earned by finishing tasks inside the block, any task's. */
+  task_vouchers: number;
+}
+
+/** Where a block's minutes went; the four add up to its minutes. Overlapping
+ *  blocks each count the minutes they share. */
+export interface PlannedSplit {
+  /** In an earning source (a timed focus stretch), outside Distraction. */
+  sources: number;
+  /** In a Distraction app or site, or inside an Unlock. On a Day whose
+   *  `distraction_spans` is null, Unlocks only. */
+  distraction: number;
+  /** Anything else while a device was reporting: other apps, or away from
+   *  devices. Neutral. */
+  other: number;
+  /** No device was reporting then (none sent anything for the Day, all were
+   *  silent, or it hasn't happened yet). */
+  unknown: number;
 }
 
 /** A focus stretch with when it started and its source's id. */

@@ -23,7 +23,7 @@ use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
 use voucher_ledger::{
-    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Settings, SourceKind, clickup,
+    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Scheduled, Settings, SourceKind, clickup,
     default_blocklists, default_sources,
     faults::{Fault, Faults},
     todoist,
@@ -649,6 +649,31 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 .unwrap_or(1);
             (200, json(&ledger.credit(count, now)))
         }
+        // Test-only: what a task manager shows of its time blocks now, as
+        // its poller would pass them on: {"source", "blocks": [{task, start,
+        // minutes}]}, every block from `from` to `until` (default: now to a
+        // day on).
+        (Method::Post, "/test/plan") if config.test_tasks => {
+            match read_json::<TestPlan>(&mut request) {
+                Some(p) => {
+                    let covers = (
+                        p.from.unwrap_or(now),
+                        p.until.unwrap_or_else(|| {
+                            now.saturating_add(jiff::SignedDuration::from_hours(24))
+                                .unwrap_or(now)
+                        }),
+                    );
+                    let changed = ledger.plan(&p.source, &p.blocks, covers, now);
+                    (200, json(&serde_json::json!({ "changed": changed })))
+                }
+                None => (
+                    400,
+                    json(&Message {
+                        message: "body is not a test plan",
+                    }),
+                ),
+            }
+        }
         (Method::Post, "/test/complete") if config.test_tasks => {
             let mut body = String::new();
             let parsed = request
@@ -659,7 +684,13 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
             match parsed {
                 Some(t) => {
                     let task = voucher_ledger::Completion {
-                        task: format!("{}:test-{}", t.source, now.as_nanosecond()),
+                        // A given id finishes that test task (and marks its
+                        // time block done); none makes a new one each time.
+                        task: format!(
+                            "{}:{}",
+                            t.source,
+                            t.id.unwrap_or_else(|| format!("test-{}", now.as_nanosecond()))
+                        ),
                         title: t.title,
                         at: now,
                     };
@@ -721,6 +752,19 @@ struct TestTask {
     /// "todoist" or "clickup".
     source: String,
     title: String,
+    /// The task's id within its service; a new one each time if left out.
+    #[serde(default)]
+    id: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct TestPlan {
+    /// "todoist" or "clickup".
+    source: String,
+    #[serde(default)]
+    blocks: Vec<Scheduled>,
+    from: Option<Timestamp>,
+    until: Option<Timestamp>,
 }
 
 #[derive(serde::Deserialize)]
@@ -949,14 +993,17 @@ fn restrict_to_owner(_path: &Path) {}
 fn poll_forever(config: &Config, ledger: &Mutex<Ledger>, state_path: &Path) {
     loop {
         let now = Timestamp::now();
+        let zone = ledger.lock().unwrap().settings(now).time_zone.clone();
         let mut completions = Vec::new();
+        let mut blocks = Vec::new();
         for (source, polled) in [
-            ("todoist", poll_todoist(config, now)),
+            ("todoist", poll_todoist(config, &zone, now)),
             ("clickup", poll_clickup(config, now)),
         ] {
             let outcome = match polled {
                 Ok(found) => {
-                    completions.extend(found);
+                    completions.extend(found.completions);
+                    blocks.extend(found.blocks.map(|b| (source, b)));
                     Ok(())
                 }
                 Err(error) => {
@@ -966,8 +1013,11 @@ fn poll_forever(config: &Config, ledger: &Mutex<Ledger>, state_path: &Path) {
             };
             note_poll(source, &outcome);
         }
+        let mut ledger = ledger.lock().unwrap();
+        let mut changed = false;
+        // Completions first, so a block whose task was just done is marked
+        // done before its task drops out of the planned ones.
         if !completions.is_empty() {
-            let mut ledger = ledger.lock().unwrap();
             let credited = ledger.record(&completions, now);
             if credited.kept + credited.forfeited > 0 {
                 eprintln!(
@@ -975,8 +1025,15 @@ fn poll_forever(config: &Config, ledger: &Mutex<Ledger>, state_path: &Path) {
                     credited.kept, credited.forfeited
                 );
             }
+            changed = true;
+        }
+        for (source, (seen, covers)) in blocks {
+            changed |= ledger.plan(source, &seen, covers, now);
+        }
+        if changed {
             save(&ledger, state_path);
         }
+        drop(ledger);
         thread::sleep(Duration::from_secs(config.poll_minutes * 60));
     }
 }
@@ -984,7 +1041,19 @@ fn poll_forever(config: &Config, ledger: &Mutex<Ledger>, state_path: &Path) {
 /// How far back each check looks. Matches the Ledger's two-day earning window.
 const LOOK_BACK: Duration = Duration::from_secs(3 * 24 * 60 * 60);
 
-type Polled = Result<Vec<voucher_ledger::Completion>, Box<dyn std::error::Error>>;
+/// What one check of a task manager found.
+struct Found {
+    completions: Vec<voucher_ledger::Completion>,
+    /// Its time blocks, and the span they are all of the blocks for (see
+    /// `Ledger::plan`). None from a service that doesn't read them yet
+    /// (ClickUp), or when reading them failed this time.
+    blocks: Option<Blocks>,
+}
+
+/// A service's time blocks, and the span they are all of its blocks for.
+type Blocks = (Vec<Scheduled>, (Timestamp, Timestamp));
+
+type Polled = Result<Found, Box<dyn std::error::Error>>;
 
 /// A source with no token saved yet.
 #[derive(Debug)]
@@ -1014,7 +1083,7 @@ fn clickup_get(token: &str, path: &str) -> Result<serde_json::Value, Box<dyn std
     Ok(serde_json::from_str(&body)?)
 }
 
-fn poll_todoist(config: &Config, now: Timestamp) -> Polled {
+fn poll_todoist(config: &Config, zone: &TimeZone, now: Timestamp) -> Polled {
     let token = read_token(&config.todoist_token_file)?;
     let since = now.checked_sub(LOOK_BACK)?.to_string();
     let excluded: Vec<&str> = config
@@ -1022,6 +1091,16 @@ fn poll_todoist(config: &Config, now: Timestamp) -> Polled {
         .iter()
         .map(String::as_str)
         .collect();
+    // Time blocks before completions: a recurring task done between the two
+    // requests then shows its finished block first, and its next one only
+    // on the next check, after the completion has marked the first done.
+    let blocks = match todoist_blocks(&token, &excluded, zone, now) {
+        Ok(found) => Some(found),
+        Err(error) => {
+            eprintln!("todoist time blocks: {error}");
+            None
+        }
+    };
     let mut completions = Vec::new();
     let mut cursor: Option<String> = None;
     loop {
@@ -1040,7 +1119,45 @@ fn poll_todoist(config: &Config, now: Timestamp) -> Polled {
             .as_str()
             .map(String::from);
         if cursor.is_none() {
-            return Ok(completions);
+            return Ok(Found {
+                completions,
+                blocks,
+            });
+        }
+    }
+}
+
+/// Todoist's time blocks today and tomorrow (its own "today | tomorrow"
+/// filter, by calendar date), and the span that covers: local midnight today
+/// to midnight after tomorrow.
+fn todoist_blocks(
+    token: &str,
+    excluded: &[&str],
+    zone: &TimeZone,
+    now: Timestamp,
+) -> Result<Blocks, Box<dyn std::error::Error>> {
+    let midnight = now.to_zoned(zone.clone()).start_of_day()?;
+    let covers = (
+        midnight.timestamp(),
+        midnight.checked_add(jiff::Span::new().days(2))?.timestamp(),
+    );
+    let mut blocks = Vec::new();
+    let mut cursor: Option<String> = None;
+    loop {
+        let mut request = ureq::get("https://api.todoist.com/api/v1/tasks/filter")
+            .header("Authorization", format!("Bearer {token}"))
+            .query("query", "today | tomorrow")
+            .query("limit", "200");
+        if let Some(cursor) = &cursor {
+            request = request.query("cursor", cursor);
+        }
+        let page = request.call()?.body_mut().read_to_string()?;
+        blocks.extend(todoist::scheduled(&page, excluded, zone)?);
+        cursor = serde_json::from_str::<serde_json::Value>(&page)?["next_cursor"]
+            .as_str()
+            .map(String::from);
+        if cursor.is_none() {
+            return Ok((blocks, covers));
         }
     }
 }
@@ -1085,5 +1202,9 @@ fn poll_clickup(config: &Config, now: Timestamp) -> Polled {
             break;
         }
     }
-    Ok(completions)
+    // No time blocks from ClickUp yet: see clickup.rs.
+    Ok(Found {
+        completions,
+        blocks: None,
+    })
 }

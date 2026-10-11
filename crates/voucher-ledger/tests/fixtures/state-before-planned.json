@@ -1,0 +1,508 @@
+{
+  "settings": {
+    "time_zone": "America/Los_Angeles",
+    "bank_limit": 12,
+    "unlock_minutes": 10,
+    "curfew_start": "22:00:00",
+    "curfew_end": "06:00:00",
+    "morning_boundary": "06:00:00",
+    "daily_goal": 16,
+    "sources": {
+      "anki": {
+        "name": "Anki",
+        "kind": "focus",
+        "on": true,
+        "every": 30,
+        "packages": [
+          "com.ichi2.anki",
+          "win:anki.exe"
+        ],
+        "labels": {
+          "com.ichi2.anki": "AnkiDroid",
+          "win:anki.exe": "Anki for Windows"
+        }
+      },
+      "obsidian": {
+        "name": "Obsidian",
+        "kind": "focus",
+        "on": true,
+        "every": 30,
+        "packages": [
+          "md.obsidian",
+          "win:Obsidian.exe"
+        ],
+        "labels": {
+          "md.obsidian": "Obsidian",
+          "win:Obsidian.exe": "Obsidian for Windows"
+        }
+      },
+      "reading": {
+        "name": "Reading",
+        "kind": "focus",
+        "on": true,
+        "every": 30,
+        "packages": [
+          "com.readermobile",
+          "com.flyersoft.moonreaderp",
+          "com.flyersoft.moonreader"
+        ],
+        "labels": {
+          "com.flyersoft.moonreader": "Moon+ Reader",
+          "com.flyersoft.moonreaderp": "Moon+ Reader Pro",
+          "com.readermobile": "Readwise Reader"
+        }
+      },
+      "steps": {
+        "name": "Steps",
+        "kind": "steps",
+        "on": false,
+        "every": 2000,
+        "packages": []
+      },
+      "tasks": {
+        "name": "Tasks",
+        "kind": "tasks",
+        "on": true,
+        "every": 1,
+        "packages": [
+          "todoist",
+          "clickup"
+        ],
+        "labels": {
+          "clickup": "ClickUp",
+          "todoist": "Todoist"
+        }
+      },
+      "workout": {
+        "name": "Workout",
+        "kind": "workout",
+        "on": true,
+        "every": 15,
+        "packages": []
+      }
+    },
+    "blocklists": {
+      "browsers": {
+        "name": "Other browsers",
+        "color": "#5bc8ff",
+        "premade": true,
+        "on": true,
+        "apps": [
+          {
+            "package": "com.sec.android.app.sbrowser",
+            "label": "Samsung Internet",
+            "note": "Ignores the site blocklist",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "org.mozilla.firefox",
+            "label": "Firefox",
+            "note": "Ignores the site blocklist",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "org.mozilla.focus",
+            "label": "Firefox Focus",
+            "note": "Ignores the site blocklist",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "com.duckduckgo.mobile.android",
+            "label": "DuckDuckGo",
+            "note": "Ignores the site blocklist",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "com.opera.browser",
+            "label": "Opera",
+            "note": "Ignores the site blocklist",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "com.microsoft.emmx",
+            "label": "Edge",
+            "note": "Ignores the site blocklist",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:opera.exe",
+            "label": "Opera",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:vivaldi.exe",
+            "label": "Vivaldi",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:waterfox.exe",
+            "label": "Waterfox",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:librewolf.exe",
+            "label": "LibreWolf",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          }
+        ],
+        "sites": []
+      },
+      "games": {
+        "name": "Games",
+        "color": "#7d8cff",
+        "premade": true,
+        "on": true,
+        "apps": [
+          {
+            "package": "category:game",
+            "label": "Every game",
+            "note": "Apps marked as games",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:steam.exe",
+            "label": "Steam",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:EpicGamesLauncher.exe",
+            "label": "Epic Games Launcher",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:GalaxyClient.exe",
+            "label": "GOG Galaxy",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:Battle.net.exe",
+            "label": "Battle.net",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "win:EADesktop.exe",
+            "label": "EA app",
+            "note": "Windows",
+            "on": true,
+            "added": false
+          }
+        ],
+        "sites": []
+      },
+      "instagram": {
+        "name": "Instagram",
+        "color": "#e5609b",
+        "premade": true,
+        "on": true,
+        "apps": [
+          {
+            "package": "com.instagram.android",
+            "label": "Instagram",
+            "note": null,
+            "on": true,
+            "added": false
+          }
+        ],
+        "sites": [
+          {
+            "site": "instagram.com",
+            "note": "All subdomains",
+            "on": true,
+            "added": false
+          }
+        ]
+      },
+      "reddit": {
+        "name": "Reddit",
+        "color": "#e2781f",
+        "premade": true,
+        "on": true,
+        "apps": [
+          {
+            "package": "com.reddit.frontpage",
+            "label": "Reddit",
+            "note": null,
+            "on": true,
+            "added": false
+          }
+        ],
+        "sites": [
+          {
+            "site": "reddit.com",
+            "note": "All subdomains",
+            "on": true,
+            "added": false
+          }
+        ]
+      },
+      "youtube": {
+        "name": "YouTube",
+        "color": "#874c69",
+        "premade": true,
+        "on": true,
+        "apps": [
+          {
+            "package": "com.google.android.youtube",
+            "label": "YouTube",
+            "note": null,
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "org.schabi.newpipe",
+            "label": "NewPipe",
+            "note": "Alternative viewer",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "com.github.libretube",
+            "label": "LibreTube",
+            "note": "Alternative viewer",
+            "on": true,
+            "added": false
+          },
+          {
+            "package": "com.futo.platformplayer",
+            "label": "Grayjay",
+            "note": "Alternative viewer",
+            "on": true,
+            "added": false
+          }
+        ],
+        "sites": [
+          {
+            "site": "youtube.com",
+            "note": "All subdomains",
+            "on": true,
+            "added": false
+          },
+          {
+            "site": "youtu.be",
+            "note": null,
+            "on": true,
+            "added": false
+          },
+          {
+            "site": "list:invidious",
+            "note": "Known public instances, kept up to date",
+            "on": true,
+            "added": false
+          },
+          {
+            "site": "list:piped",
+            "note": "Known public instances, kept up to date",
+            "on": true,
+            "added": false
+          }
+        ]
+      }
+    },
+    "released_devices": []
+  },
+  "started_at": "2026-10-11T06:57:40.123257231Z",
+  "bank": 2,
+  "unlock": null,
+  "pending": [],
+  "earned": [
+    [
+      "todoist:test-1791701860158421647",
+      "2026-10-10"
+    ]
+  ],
+  "days": {
+    "2026-10-10": {
+      "earned": 2,
+      "goal": 16,
+      "redeemed": 2,
+      "unlocked_minutes": 20,
+      "progress": {
+        "obsidian": 5,
+        "tasks": 0
+      },
+      "reported": {
+        "obsidian@phone": 35
+      },
+      "usage": {
+        "phone": {
+          "Instagram": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "stretches": {
+        "phone": [
+          12,
+          40
+        ]
+      },
+      "timed_stretches": {
+        "phone": [
+          {
+            "start": "2026-10-10T16:00:00Z",
+            "minutes": 12,
+            "source": "obsidian"
+          },
+          {
+            "start": "2026-10-10T21:00:00Z",
+            "minutes": 40,
+            "source": "reading"
+          }
+        ]
+      },
+      "distraction_spans": {
+        "phone": [
+          [
+            "2026-10-10T19:01:00Z",
+            "2026-10-10T19:06:00Z"
+          ]
+        ]
+      },
+      "blocked": {
+        "phone": [
+          4,
+          3
+        ]
+      },
+      "silent": {
+        "phone": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          60,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  },
+  "log": [
+    {
+      "kind": "redeemed",
+      "at": "2026-10-10T19:00:00Z",
+      "tickets": 1,
+      "minutes": 10
+    },
+    {
+      "kind": "redeemed",
+      "at": "2026-10-10T19:04:00Z",
+      "tickets": 1,
+      "minutes": 10
+    },
+    {
+      "kind": "earned",
+      "at": "2026-10-11T06:57:40.158421647Z",
+      "task": "todoist:test-1791701860158421647",
+      "title": "Problem set",
+      "kept": true
+    },
+    {
+      "kind": "earned",
+      "at": "2026-10-11T06:57:40.162880694Z",
+      "task": "obsidian:2026-10-10#1791701860",
+      "title": "30 min focused",
+      "kept": true
+    },
+    {
+      "kind": "gap",
+      "at": "2026-10-10T22:00:00Z",
+      "device": "phone",
+      "until": "2026-10-10T23:00:00Z"
+    }
+  ],
+  "setup_complete": true,
+  "last_seen": {
+    "phone": "2026-10-10T23:00:00Z"
+  },
+  "grace_until": "2026-10-13T13:00:00Z",
+  "markers": [
+    {
+      "at": "2026-10-11T06:57:40.181349002Z",
+      "text": "New term",
+      "rule": false
+    }
+  ],
+  "verdicts": {
+    "2026-10-10": "mostly"
+  },
+  "reasons": [
+    {
+      "at": "2026-10-11T06:57:40.187313789Z",
+      "reason": "bored"
+    }
+  ],
+  "energy": {
+    "2026-10-10": 3
+  },
+  "sleep": {},
+  "calendars": {
+    "device": null,
+    "calendars": []
+  },
+  "calendar": {},
+  "activity": {}
+}

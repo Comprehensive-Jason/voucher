@@ -392,7 +392,7 @@ const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
 function pastChange(input) {
   const day = input.day;
   return (state, today) => {
-    if (input.op !== "random" && input.op !== "breaks" && (!/^\d{4}-\d{2}-\d{2}$/.test(day ?? "") || day > today)) throw new Error("pick a Day up to today");
+    if (!["random", "breaks", "planned"].includes(input.op) && (!/^\d{4}-\d{2}-\d{2}$/.test(day ?? "") || day > today)) throw new Error("pick a Day up to today");
     switch (input.op) {
       case "goal": goalDay(state, day); return day + " is a goal Day";
       case "miss": missDay(state, day); return day + " missed its goal";
@@ -431,6 +431,7 @@ function pastChange(input) {
         return "Focus stretches on " + n + " Days, typically about 18 min six months ago and 48 min now";
       }
       case "breaks": return fillBreaks(state, today);
+      case "planned": return fillPlanned(state, today);
       case "opens": {
         const opens = Math.max(0, Number(input.opens) || 0), walked = Math.min(opens, Math.max(0, Number(input.walked) || 0));
         (scoreOf(state, day).blocked ??= {}).portal = [opens, walked];
@@ -583,6 +584,56 @@ function fillBreaks(state, today) {
   }
   return "Stretch starts on " + days + " Days, Distraction spans on the " + spanDays + " with made-up Distraction time; about half the shorter stretches follow an Unlock";
 }
+// ---- Time blocks ----
+// For Planned vs actual: Todoist time blocks (a task with a due time and a
+// duration) on past weekdays, as the Ledger keeps them once seen: an opaque
+// task id, the start, the minutes, and when it was done. Days without timed
+// stretches or Distraction spans get those first (as Breaks before stretches
+// makes them), so each block's split has something to read. On about two
+// Days in five one block starts just before an Unlock or Distraction span.
+
+const BLOCK_SLOTS = [150, 180, 210, 240, 270, 300, 420, 450, 480, 510, 540, 570, 600, 780, 810, 840, 870]; // minutes after 06:00
+/** Every past weekday the log keeps that the Ledger has: 2 to 5 blocks of 30 to 120 minutes, about 70% done. Weekends get none. */
+function fillPlanned(state, today) {
+  state.planned ??= {};
+  let days = 0, blocks = 0, done = 0, filled = 0, distracted = 0;
+  for (let d = shiftDay(today, -183); d < today; d = shiftDay(d, 1)) {
+    if (!state.days[d]) continue;
+    if ([0, 6].includes(weekdayOf(d))) { delete state.planned[d]; continue; }
+    const score = scoreOf(state, d);
+    if (!score.usage?.portal) {
+      const tearHours = state.log.filter((e) => e.kind === "redeemed" && dayOfMoment(state, e.at) === d)
+        .map((e) => Number(new Intl.DateTimeFormat("en-US", { timeZone: state.settings.time_zone, hour: "numeric", hourCycle: "h23" }).format(new Date(e.at))));
+      score.usage = { ...score.usage, portal: fakeDayUsage(tearHours, state.settings.unlock_minutes) };
+      score.usage_lists = { ...listsFor(Object.keys(score.usage.portal), state.settings.blocklists), ...score.usage_lists };
+    }
+    if (!score.timed_stretches?.portal || !score.distraction_spans?.portal) { placeBreaks(state, d); filled++; }
+    const dayStart = Date.parse(momentOf(state, d, 6));
+    const breaks = [...unlocksOf(state, d), ...(score.distraction_spans?.portal ?? []).map(([a, b]) => [Date.parse(a), Date.parse(b)])]
+      .map(([a]) => Math.round((a - dayStart) / MINUTE)).filter((m) => m > 150 && m < 900).sort((a, b) => a - b);
+    const placed = [];
+    const n = 2 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n * 4 && placed.length < n; i++) {
+      const length = 30 + 15 * Math.floor(Math.random() * 7);
+      const beforeBreak = i === 0 && breaks.length > 0 && Math.random() < 0.4;
+      const start = beforeBreak ? breaks[0] - 10 - Math.floor(Math.random() * 15) : pickOne(BLOCK_SLOTS);
+      if (start + length > 960 || placed.some(([a, b]) => start < b && a < start + length)) continue;
+      placed.push([start, start + length]);
+      if (beforeBreak) distracted++;
+    }
+    placed.sort((a, b) => a[0] - b[0]);
+    state.planned[d] = placed.map(([a, b], i) => {
+      const block = { task: "todoist:portal-" + d + "-" + i, start: new Date(dayStart + a * MINUTE).toISOString(), minutes: b - a };
+      if (Math.random() < 0.7) { block.done_at = new Date(dayStart + (a + Math.max(5, b - a + Math.round(rand(-30, 20)))) * MINUTE).toISOString(); done++; }
+      return block;
+    });
+    days++;
+    blocks += placed.length;
+  }
+  return "Time blocks on " + days + " weekdays: " + blocks + " blocks, " + done + " done, " + distracted + " starting just before an Unlock or Distraction"
+    + (filled ? "; stretch starts and Distraction spans filled on " + filled + " Days first" : "");
+}
+
 /** The Days whose portal Distraction spans hold at least 15 minutes after 22:00. */
 function lateDays(state) {
   const out = new Set();
@@ -869,6 +920,8 @@ const PAGE = String.raw`<!doctype html>
     <div class="src"><span class="name">Focus stretches</span>
       <div class="row"><input id="slist" type="text" autocomplete="off" data-form-type="other" placeholder="25, 40, 90 (blank: random)" aria-label="Stretch minutes"><button data-past="stretches">Set</button><button data-past="stretches-all" title="Every Day the log keeps, longer toward today">Fill every Day</button></div>
       <div class="row"><button data-past="breaks" title="Every past Day the log keeps: when each stretch started, and Distraction spans from its made-up minutes">Breaks before stretches</button><span class="detail">For Focus stretch length. Fill Distraction time first.</span></div></div>
+    <div class="src"><span class="name">Time blocks</span>
+      <div class="row"><button data-past="planned" title="Every past weekday the log keeps: 2 to 5 Todoist blocks, about 70% done">Fill past weekdays</button><span class="detail">For Planned vs actual. Fills stretch starts and Distraction spans first where a Day has none.</span></div></div>
     <div class="src"><span class="name">Blocked opens</span>
       <div class="row"><label>opens <input type="number" id="opens" value="8" min="0"></label><label>walked away <input type="number" id="walked" value="5" min="0"></label><button data-past="opens">Set</button></div></div>
     <div class="src"><span class="name">Phone silent</span>
@@ -1028,7 +1081,7 @@ document.addEventListener("click", (e) => {
     const op = b.dataset.past, day = $("pday").value;
     const extra = { goal: {}, miss: {}, streak: { n: $("streakn").value }, marker: { text: $("mtext").value.trim(), hour: $("mhour").value, rule: $("mrule").checked },
       verdict: { verdict: b.dataset.v || null }, reason: { reason: $("reason").value, hour: $("rhour").value }, stretches: { list: $("slist").value },
-      opens: { opens: $("opens").value, walked: $("walked").value }, silence: { from: $("sfrom").value, hours: $("shours").value }, usage: {}, breaks: {}, random: { days: $("rdays").value } }[op];
+      opens: { opens: $("opens").value, walked: $("walked").value }, silence: { from: $("sfrom").value, hours: $("shours").value }, usage: {}, breaks: {}, planned: {}, random: { days: $("rdays").value } }[op];
     if (op === "marker") $("mtext").value = "";
     act(() => api("POST", "/api/past", { op, day, ...extra }), (r) => r.message);
   }

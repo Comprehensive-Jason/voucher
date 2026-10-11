@@ -2,7 +2,7 @@
 // on sprout) it serves sample data instead; `?state=` picks which situation.
 import { noteFailure, noteSuccess } from "./health.svelte";
 import { invoke } from "@tauri-apps/api/core";
-import type { CalendarChoice, CalendarDay, CalendarId, DayTotal, DeviceCalendars, DeviceUsage, Energy, Protection, Sleep, SourceProgress, Status, Today } from "./types";
+import type { CalendarChoice, CalendarDay, CalendarId, DayTotal, DeviceCalendars, DeviceUsage, Energy, PlannedBlock, Protection, Sleep, SourceProgress, Status, Today } from "./types";
 import { sampleLedger } from "./sample";
 import { sampleDeviceCalendars } from "./sampleExtra";
 import { rememberSources } from "./colors.svelte";
@@ -350,3 +350,21 @@ export async function deviceCalendars(): Promise<DeviceCalendars | null> {
 export async function requestCalendarAccess(): Promise<void> {
   if (inTauri) { try { await device("requestCalendar"); } catch { /* not on this platform */ } }
 }
+
+// ---- Planned vs actual ----
+// Time blocks from Todoist, with how each one's minutes went. The Ledger
+// sends them with each Day in GET /history and GET /day.
+
+/** One Day's planned time blocks. `spansKnown` is false when some device
+ *  sent Distraction minutes without their times, so the blocks' Distraction
+ *  counts Unlocks only. */
+export interface DayPlanned { day: string; planned: PlannedBlock[]; spansKnown: boolean }
+
+/** The last `days` Days' time blocks, oldest first. */
+export async function plannedBlocks(days: number): Promise<DayPlanned[]> {
+  const history = await ledger<DayTotal[]>("GET", `/history?days=${days}`);
+  return history.map((d) => ({ day: d.day, planned: d.planned ?? [], spansKnown: d.distraction_spans != null }));
+}
+
+/** How many time blocks the Ledger has for today, from the last status any screen fetched (0 from older Ledgers). */
+export const plannedToday = (status: Status | null) => status?.today.planned?.length ?? 0;

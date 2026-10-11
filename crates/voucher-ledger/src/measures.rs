@@ -457,7 +457,8 @@ impl Ledger {
     }
 
     /// Drops what goes with the log once a Day is older than it: activity
-    /// moments, and each calendar Day's hours and stretches (its totals stay).
+    /// moments, each calendar Day's hours and stretches (its totals stay),
+    /// and planned time blocks.
     pub(crate) fn forget_old_measures(&mut self, oldest: Date) {
         if let Ok(before) = oldest.yesterday() {
             self.state.activity.retain(|date, _| *date >= before);
@@ -467,11 +468,12 @@ impl Ledger {
             load.meeting_hours.clear();
             load.busy.clear();
         }
+        self.state.planned.retain(|day, _| *day >= oldest);
     }
 }
 
 /// The moment the local clock reads `time` on `date`.
-fn moment(tz: &TimeZone, date: Date, time: Time) -> Option<Timestamp> {
+pub(crate) fn moment(tz: &TimeZone, date: Date, time: Time) -> Option<Timestamp> {
     date.to_datetime(time)
         .to_zoned(tz.clone())
         .ok()

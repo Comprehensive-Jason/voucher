@@ -13,7 +13,7 @@
 // that Day's energy; and about half the stretches that aren't the Day's
 // longest start soon after an Unlock (with Distraction in it) and run
 // shorter than the rest.
-import type { CalendarChoice, CalendarDay, CalendarId, DaySummary, DayTotal, Energy, Sleep, TimedStretch } from "./types";
+import type { CalendarChoice, CalendarDay, CalendarId, DaySummary, DayTotal, Energy, PlannedBlock, Sleep, TimedStretch } from "./types";
 
 /** A number in [0, 1) from a date and a salt. */
 function hash(day: string, salt: number): number {
@@ -143,13 +143,53 @@ function breaksOf(d: DayTotal): Pick<DayTotal, "unlocks" | "timed_stretches" | "
   return { stretches: lengths, timed_stretches: timed, unlocks: unlocks.map(toIso), distraction_spans: d.reported ? spans.map(toIso) : null };
 }
 
+/** A sample weekday's time blocks (none at the weekend): 2 to 5 of 30 to
+ *  120 minutes between 08:30 and 22:00, about seven in ten done, and on about
+ *  two Days in five one that starts just before the Day's first Unlock. Split
+ *  as the Ledger splits them: Distraction and Unlocks first, then the timed
+ *  stretches, the rest other (unknown on a Day no device reported). */
+function plannedOf(d: DayTotal, b: ReturnType<typeof breaksOf>): PlannedBlock[] {
+  if (weekday(d.day) === 0 || weekday(d.day) === 6) return [];
+  const off = (iso: string) => Math.round((Date.parse(iso) - Date.parse(at(d.day, 0))) / 60_000);
+  const lost = new Uint8Array(1440), bySource = new Map<string, Uint8Array>();
+  for (const [a, z] of [...(b.distraction_spans ?? []), ...(b.unlocks ?? [])]) lost.fill(1, off(a), off(z));
+  for (const s of b.timed_stretches ?? []) {
+    if (!bySource.has(s.source)) bySource.set(s.source, new Uint8Array(1440));
+    bySource.get(s.source)!.fill(1, off(s.start), off(s.start) + s.minutes);
+  }
+  const placed: [number, number][] = [], firstUnlock = b.unlocks?.[0] ? off(b.unlocks[0][0]) : -1;
+  for (let i = 0, n = 2 + Math.floor(hash(d.day, 120) * 4); i < n; i++) {
+    const length = 30 + 15 * Math.floor(hash(d.day, 130 + i) * 7);
+    let start = i === 0 && firstUnlock > 150 && hash(d.day, 121) < 0.4 ? firstUnlock - 20 : 150 + 30 * Math.floor(hash(d.day, 140 + i) * 22);
+    while (placed.some(([a, z]) => start < z && a < start + length)) start += 30;
+    if (start + length <= 960) placed.push([start, start + length]);
+  }
+  return placed.sort((x, y) => x[0] - y[0]).map(([a, z], i) => {
+    let sources = 0, distraction = 0;
+    const source_minutes: Record<string, number> = {};
+    for (let m = a; m < z; m++) {
+      if (lost[m]) { distraction++; continue; }
+      let any = false;
+      for (const [id, on] of bySource) if (on[m]) { source_minutes[id] = (source_minutes[id] ?? 0) + 1; any = true; }
+      if (any) sources++;
+    }
+    const rest = z - a - sources - distraction;
+    const done = hash(d.day, 150 + i) < 0.7 ? a + Math.max(5, z - a + Math.round((hash(d.day, 160 + i) - 0.6) * 50)) : null;
+    const hours = d.source_hours?.tasks ?? [];
+    return { start: at(d.day, a), minutes: z - a, done_at: done === null ? null : at(d.day, done), service: "todoist",
+      split: { sources, distraction, other: d.reported ? rest : 0, unknown: d.reported ? 0 : rest }, source_minutes,
+      task_vouchers: hours.reduce((t, k, h) => t + ((h * 60 - 360 >= a && h * 60 - 360 < z) ? k : 0), 0) };
+  });
+}
+
 /** Sample Days with their sleep, calendar load, and energy, and (history
- *  Days) their Unlocks, timed stretches, and Distraction spans. Today has
- *  no energy answer yet. */
+ *  Days) their Unlocks, timed stretches, Distraction spans, and time blocks.
+ *  Today has no energy answer yet. */
 export function withMeasures<T extends DayTotal | DaySummary>(days: T[], today: string): T[] {
   return days.map((d) => {
     const sleep = sampleSleep(d.day), calendar = sampleCalendar(d.day);
-    const extra = "stretches" in d ? breaksOf(d) : {};
+    const breaks = "stretches" in d ? breaksOf(d) : null;
+    const extra = breaks ? { ...breaks, planned: plannedOf(d as DayTotal, breaks) } : {};
     return { ...d, ...extra, sleep, calendar, energy: d.day === today ? null : sampleEnergy(d.day, sleep, calendar.busy_minutes) };
   });
 }

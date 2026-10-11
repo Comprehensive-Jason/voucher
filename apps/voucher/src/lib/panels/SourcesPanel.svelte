@@ -8,7 +8,7 @@
   import { shownByNotice } from "../health.svelte";
   import { actionFailed } from "../toast.svelte";
   import { onMount } from "svelte";
-  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
+  import { ledger, plannedToday, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import RuleSlider from "../components/RuleSlider.svelte";
   import Switch from "../components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
@@ -58,7 +58,10 @@
     if (s.kind === "steps") return "Health Connect";
     const names = [...new Set(s.packages.map((p) => memberName(p, s.labels)))];
     if (!names.length) return "Nothing yet";
-    return names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ");
+    const list = names.length > 3 ? `${names.slice(0, 3).join(", ")} +${names.length - 3}` : names.join(", ");
+    // Tasks also reads Todoist's time blocks (a due time and a duration), for Trends.
+    const blocks = s.kind === "tasks" ? plannedToday(status) : 0;
+    return blocks ? `${list} · ${blocks} time block${blocks === 1 ? "" : "s"} today` : list;
   }
   const rate = rateText;
   function pendingFor(id: string): { on: boolean; every: number; at: string } | null {
