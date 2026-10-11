@@ -139,7 +139,7 @@
   .date.on b { color: var(--ink); }
   .cell { position: relative; display: block; width: var(--cell); height: var(--cell); padding: 0; border: 0; border-radius: 4px; background: var(--heat-0); cursor: pointer; }
   /* A Day with a Marker: Activity's corner, in the Marker colour. */
-  .cell.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
+  .cell.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 8px solid var(--marker); border-left: 8px solid transparent; border-top-right-radius: 3px; }
   /* The shared Day, outlined as Activity outlines it. */
   .cell.on { outline: 2px solid var(--ink); outline-offset: 1px; }
 </style>

@@ -27,8 +27,8 @@ class VoucherWidget : AppWidgetProvider() {
         /** Default colours for the sources Voucher ships with; the Ledger sends
          *  each source's name, and its colour once one is chosen. */
         private val DEFAULT_COLORS = mapOf(
-            "obsidian" to 0xFFB08CFF, "workout" to 0xFFE2781F, "reading" to 0xFFC1D58A,
-            "anki" to 0xFFFF6FA8, "steps" to 0xFF05AFA5,
+            "tasks" to 0xFF289FFB, "obsidian" to 0xFFB57AE2, "workout" to 0xFFE2781F,
+            "reading" to 0xFFC1D58A, "anki" to 0xFFF4B3EC, "steps" to 0xFF05AFA5,
         )
 
         private fun nameOf(s: JSONObject) = s.optString("name").ifEmpty { s.optString("id") }

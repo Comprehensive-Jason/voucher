@@ -31,10 +31,10 @@
   --raised: #1f2226;           /* controls and boxes raised on a surface */
   --marker: #4e52da;           /* Markers, by hand or from a rule change: violet-blue, clear of every other meaning (3:1 on cards) */
   --marker-ink: #ffffff;       /* text on a Marker fill (5.9:1) */
-  --heat-0: #22262a;           /* heat grids, fewer to more */
-  --heat-1: #1d4d33;
-  --heat-2: #24804f;
-  --heat-3: #2fb36b;
+  --heat-0: #22262a;           /* heat grids, fewer to more: an empty square, then the main green in three steps */
+  --heat-1: color-mix(in oklab, var(--voucher) 32%, var(--heat-0));
+  --heat-2: color-mix(in oklab, var(--voucher) 64%, var(--heat-0));
+  --heat-3: var(--voucher);
   --goal: #ffb547;             /* daily goal and streak */
   --goal-bg: #2a2116;
   --goal-line: #6b4a17;

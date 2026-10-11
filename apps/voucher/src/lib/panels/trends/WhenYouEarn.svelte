@@ -91,10 +91,11 @@
    *  and for a Marker's flag after a long one. */
   const lead = $derived(rows.some((r) => r.label.length > 6) ? (marks.length ? 70 : 58) : 44);
   const max = $derived(Math.max(1e-9, ...rows.flatMap((r) => r.cells)));
-  const SHADES = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)", "var(--voucher)"];
+  // The heat scale every grid uses: an empty square, then three steps up to the main green.
+  const SHADES = ["var(--heat-0)", "var(--heat-1)", "var(--heat-2)", "var(--heat-3)"];
   /** An empty hour during Curfew: the empty square, tinted as every chart tints Curfew. */
   const NIGHT = "var(--night-cell)";
-  const shade = (v: number) => (v <= 0 ? SHADES[0] : SHADES[Math.min(4, 1 + Math.floor((v / max) * 3.999))]);
+  const shade = (v: number) => (v <= 0 ? SHADES[0] : SHADES[Math.min(3, 1 + Math.floor((v / max) * 2.999))]);
 
   // Opens on the row holding the shared Day (today's, at first), and goes back to it after a switch.
   let scroller = $state<HTMLDivElement>();

@@ -215,7 +215,7 @@
   .h { aspect-ratio: 1; border-radius: 4px; background: var(--heat-0); padding: 0; border: 0; display: block; width: 100%; }
   button.h { cursor: pointer; position: relative; }
   /* A Day with a Marker: a corner in the Marker colour. */
-  .h.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
+  .h.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 8px solid var(--marker); border-left: 8px solid transparent; border-top-right-radius: 3px; }
   .yheat .h.marked::after { border-top-width: 4px; border-left-width: 4px; }
   /* The Day the hour chart is showing. */
   .h.sel { outline: 2px solid var(--ink); outline-offset: 1px; }

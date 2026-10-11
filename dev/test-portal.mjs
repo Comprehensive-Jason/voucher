@@ -621,7 +621,7 @@ const PAGE = String.raw`<!doctype html>
 </div>
 <script>
 // Defaults for sources with no colour chosen; names come from the Ledger.
-const COLORS = { tasks: "#5b9cff", obsidian: "#b08cff", workout: "#e2781f", reading: "#c1d58a", anki: "#f4b3ec", steps: "#05afa5" };
+const COLORS = { tasks: "#289ffb", obsidian: "#b57ae2", workout: "#e2781f", reading: "#c1d58a", anki: "#f4b3ec", steps: "#05afa5" };
 const SERVICES = { todoist: "Todoist", clickup: "ClickUp" };
 let NAMES = {};
 const USAGE_APPS = ${JSON.stringify(USAGE_APPS)};

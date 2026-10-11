@@ -5,15 +5,17 @@
 // the danger red, and the Marker violet. The amber column, gold's own hue,
 // is gone; light rose and orange are pale and low-chroma, since full ones
 // land on salmon; deep rose leans mauve, away from crimson; deep blue is a
-// darker navy and deep violet leans plum, away from the Marker violet.
-// Every swatch is at least 0.105 from salmon and from crimson, 0.109 from
-// gold, 0.139 from the danger red in OKLab, and 15 ΔE2000 from the Marker
-// violet; the closest two differ by 0.051.
+// darker navy and deep violet leans plum, away from the Marker violet; blue
+// leans azure and violet purple, away from Curfew's indigo, which isn't
+// reserved but means night on every hourly chart. Every swatch is at least
+// 0.105 from salmon and from crimson, 0.109 from gold, 0.139 from the
+// danger red in OKLab, and 15 ΔE2000 from the Marker violet and from
+// Curfew's indigo; the closest two differ by 0.051.
 export interface Swatch { color: string; name: string }
 
 export const PALETTE: Swatch[][] = [
   [{ color: "#76e0d6", name: "Light teal" }, { color: "#7dd9fb", name: "Light cyan" }, { color: "#aeccfe", name: "Light blue" }, { color: "#d1bfff", name: "Light violet" }, { color: "#f4b3ec", name: "Light purple" }, { color: "#f1c5e0", name: "Pale rose" }, { color: "#e3cbb1", name: "Pale orange" }, { color: "#c1d58a", name: "Light olive" }, { color: "#c8cbce", name: "Light grey" }],
-  [{ color: "#05afa5", name: "Teal" }, { color: "#0ca8d1", name: "Cyan" }, { color: "#5c96fa", name: "Blue" }, { color: "#a480ee", name: "Violet" }, { color: "#d26ec1", name: "Purple" }, { color: "#e6688d", name: "Rose" }, { color: "#e2781f", name: "Orange" }, { color: "#8ba60c", name: "Olive" }, { color: "#95999c", name: "Grey" }],
+  [{ color: "#05afa5", name: "Teal" }, { color: "#0ca8d1", name: "Cyan" }, { color: "#289ffb", name: "Blue" }, { color: "#b57ae2", name: "Violet" }, { color: "#d26ec1", name: "Purple" }, { color: "#e6688d", name: "Rose" }, { color: "#e2781f", name: "Orange" }, { color: "#8ba60c", name: "Olive" }, { color: "#95999c", name: "Grey" }],
   [{ color: "#05736c", name: "Deep teal" }, { color: "#086e8a", name: "Deep cyan" }, { color: "#015189", name: "Deep blue" }, { color: "#7a5589", name: "Deep violet" }, { color: "#8e4381", name: "Deep purple" }, { color: "#874c69", name: "Deep rose" }, { color: "#984b00", name: "Deep orange" }, { color: "#5a6c04", name: "Deep olive" }, { color: "#616467", name: "Deep grey" }],
 ];
 

@@ -10,8 +10,8 @@ export interface SourceStyle { name: string; short: string; color: string; sub?:
  *  groups (`readwise`, `moonreader`) that older log entries still name. None
  *  may sit near salmon (Unlocks) or gold (the Daily goal); see palette.ts. */
 export const SOURCES: Record<string, SourceStyle> = {
-  tasks: { name: "Tasks", short: "Tasks", color: "#5b9cff" },
-  obsidian: { name: "Obsidian", short: "Obsidian", color: "#b08cff" },
+  tasks: { name: "Tasks", short: "Tasks", color: "#289ffb" },
+  obsidian: { name: "Obsidian", short: "Obsidian", color: "#b57ae2" },
   workout: { name: "Workout", short: "Workout", color: "#e2781f" },
   reading: { name: "Reading", short: "Reading", color: "#c1d58a" },
   readwise: { name: "Readwise Reader", short: "Reader", color: "#c1d58a" },
@@ -22,8 +22,8 @@ export const SOURCES: Record<string, SourceStyle> = {
 
 /** The task services, members of the Tasks group. */
 const SERVICES: Record<string, SourceStyle> = {
-  todoist: { name: "Todoist", short: "Todoist", color: "#5b9cff", sub: "your completed tasks" },
-  clickup: { name: "ClickUp", short: "ClickUp", color: "#7aa7ff", sub: "assigned to you" },
+  todoist: { name: "Todoist", short: "Todoist", color: "#289ffb", sub: "your completed tasks" },
+  clickup: { name: "ClickUp", short: "ClickUp", color: "#aeccfe", sub: "assigned to you" },
 };
 
 /** Colours for groups the user makes, in the order new ones take them (light
