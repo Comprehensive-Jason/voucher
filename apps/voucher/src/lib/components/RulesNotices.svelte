@@ -9,6 +9,7 @@
   import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "../api";
   import GraceBanner from "./GraceBanner.svelte";
   import WaitingChanges from "./WaitingChanges.svelte";
+  import LedgerNotice from "./LedgerNotice.svelte";
   import type { Protection } from "../types";
   import { reveal } from "../motion";
   import { POLL_MS } from "../live.svelte";
@@ -30,9 +31,11 @@
   });
 </script>
 
-<!-- Most serious first: Protection off, then the grace period (everything
-     applies at once), then Loosenings waiting for the morning. -->
+<!-- Most serious first: the Ledger can't be reached, Protection off, then the
+     grace period (everything applies at once), then Loosenings waiting for
+     the morning. -->
 <div class="notices" class:row>
+  <LedgerNotice {axis} />
   {#if missing}
     <div class="notice {missing.level === 'off' ? 'danger' : 'goal'}" transition:reveal={{ axis }}>
       <div class="ntext">

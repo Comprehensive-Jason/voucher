@@ -1,6 +1,7 @@
 <script lang="ts">
   // Protection on this device: each part's state and how to turn it on, plus
   // releasing the device, which waits for 06:00 like any Loosening.
+  import { shownByNotice } from "$lib/health.svelte";
   import { onMount } from "svelte";
   import { deviceId, fixProtection, ledger, onWindows, protection, protectionParts } from "$lib/api";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
@@ -38,7 +39,7 @@
 
 <main>
   <PageHeader title="Protection" back="/rules" backLabel="Back to Rules" />
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 
   <div class="list">
     {#each PARTS as p (p.part)}

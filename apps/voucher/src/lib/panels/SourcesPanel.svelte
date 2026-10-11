@@ -3,6 +3,7 @@
   // with one counter: Tasks, Workout, Steps, and named groups of apps whose
   // time adds up. Switching a source off or slowing it applies now; switching
   // on, speeding up, or adding waits for 06:00.
+  import { shownByNotice } from "../health.svelte";
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import RuleSlider from "../components/RuleSlider.svelte";
@@ -91,7 +92,7 @@
 </script>
 
 <RulesColumn title="Sources" count={status ? `${groups.filter(([, s]) => s.on).length} on` : undefined} column={heading}>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 
   {#if status}
     {#each groups as [id, s] (id)}

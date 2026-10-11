@@ -1,6 +1,7 @@
 <script lang="ts">
   // Rules, Limits: the four numbers that set how strict Voucher is. Every
   // Loosening shows as a pending banner, with a ghost knob, until 06:00.
+  import { shownByNotice } from "../health.svelte";
   import { onMount } from "svelte";
   import { ledger, missingProtection, onWindows, protection, protectionNow, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import RulesNotices from "../components/RulesNotices.svelte";
@@ -62,7 +63,7 @@
 
 <RulesColumn title="Limits" column={heading}>
 
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 
   {#if !NOTICES_IN_HEADER}<RulesNotices />{/if}
 

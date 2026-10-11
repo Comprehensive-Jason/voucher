@@ -5,6 +5,7 @@
   // group, its Sites, and the installed apps sit side by side, so adding one
   // is a single tap. Taking an app or site out, renaming, or deleting applies
   // now; a new group, or a new app or site in one, waits for 06:00.
+  import { shownByNotice } from "$lib/health.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -145,7 +146,7 @@
 
 <main class:split class:solo={wide.on && !split}>
   <PageHeader title={id ? "Edit source" : "New source"} back={back} backLabel="Back to Sources" />
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 
   {#if !id || group}
     <div class="panes">

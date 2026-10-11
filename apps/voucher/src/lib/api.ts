@@ -1,5 +1,6 @@
 // Talks to the app's Rust side inside Tauri. In a plain browser (design checks
 // on sprout) it serves sample data instead; `?state=` picks which situation.
+import { noteFailure, noteSuccess } from "./health.svelte";
 import { invoke } from "@tauri-apps/api/core";
 import type { DeviceUsage, Protection, SourceProgress, Status, Today } from "./types";
 import { sampleLedger } from "./sample";
@@ -15,15 +16,28 @@ export function device<T>(command: string, args?: Record<string, unknown>): Prom
   return invoke<T>("device", { command, args: args ?? null });
 }
 
+/** The browser preview pretends the Ledger is down with `?ledger=down`, to see the app as a device does then. */
+const previewDown = !inTauri && typeof location !== "undefined" && new URLSearchParams(location.search).get("ledger") === "down";
+
+/** Runs a Ledger call, telling lib/health.svelte.ts whether it got through. */
+async function watched<T>(call: () => Promise<T> | T): Promise<T> {
+  try {
+    if (previewDown) throw new Error("Can't reach the Ledger: io: Connection refused (os error 111)");
+    const reply = await call();
+    noteSuccess();
+    return reply;
+  } catch (e) { noteFailure(e); throw e; }
+}
+
 export async function today(): Promise<Today> {
-  const t = inTauri ? await invoke<Today>("today") : sampleToday();
+  const t = await watched(() => (inTauri ? invoke<Today>("today") : sampleToday()));
   // Today names each source and carries its colour; older desktop builds send only colours.
   rememberSources(t.sources?.some((s) => s.name) ? t.sources : t.sourceColors ?? {});
   return t;
 }
 
 export function tear(count: number): Promise<Today> {
-  if (inTauri) return invoke<Today>("tear", { count });
+  if (inTauri) return watched(() => invoke<Today>("tear", { count }));
   const t = sampleToday();
   const now = Math.floor(Date.now() / 1000);
   const from = t.unlockEndsAt && t.unlockEndsAt > now ? t.unlockEndsAt : now;
@@ -103,9 +117,9 @@ export const sameAnswer = (a: unknown, b: unknown) => JSON.stringify(a) === JSON
 /** Any other Ledger request, passed through the app's Rust side. */
 export async function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
   if (previewLatency) await new Promise((r) => setTimeout(r, previewLatency));
-  const reply = inTauri
-    ? await invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
-    : (sampleLedger(method, path, body) as T);
+  const reply = await watched(() => (inTauri
+    ? invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
+    : (sampleLedger(method, path, body) as T)));
   if (path === "/status" || (method === "POST" && path.startsWith("/cancel"))) lastStatus = reply as Status;
   // A settings change tells every panel showing settings to look again, so
   // e.g. a loosening made under Sources shows at once among Limits' changes.

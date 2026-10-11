@@ -1,6 +1,7 @@
 <script lang="ts">
   // Rules, Distractions: the blocklists. Switching one on applies now;
   // switching one off waits for 06:00.
+  import { shownByNotice } from "../health.svelte";
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import Switch from "../components/Switch.svelte";
@@ -51,7 +52,7 @@
 </script>
 
 <RulesColumn title="Distractions" label="Blocklists" count={status ? `${lists.filter(([, l]) => l.on).length} on` : undefined} column={heading}>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
   {#if status}
     {#each lists as [id, list] (id)}
       <RulesCard row>

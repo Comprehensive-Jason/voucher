@@ -11,6 +11,7 @@
   // same on the phone and the tablet. `compact` is the tablet's slot: the
   // card fills it and only the rows scroll.
   import { onMount, untrack } from "svelte";
+  import { shownByNotice } from "../health.svelte";
   import { selection } from "../selection.svelte";
   import { ledger } from "../api";
   import { POLL_MS } from "../live.svelte";
@@ -130,7 +131,7 @@
     nav={{ label: day && today ? dayLabel(day, today) : "", back: back < OLDEST, forward: back > 0, onback: () => step(1), onforward: () => step(-1) }}
     today={{ show: back > 0, onclick: () => { back = 0; load(); share(); } }} />
 
-  {#if error}
+  {#if error && !shownByNotice(error)}
     <p class="error">{error}</p>
   {:else if shown}
     <div class="frame">

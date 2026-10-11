@@ -2,6 +2,7 @@
   // Things beside the rules rather than rules: the wallpaper and watch preview,
   // and the Days export. Rules' fourth column on the tablet, its fourth tab on
   // the phone.
+  import { shownByNotice } from "../health.svelte";
   import { exportDays } from "$lib/api";
   import RulesColumn from "$lib/components/RulesColumn.svelte";
   import RulesCard from "$lib/components/RulesCard.svelte";
@@ -18,7 +19,7 @@
 </script>
 
 <RulesColumn title="Extras" column={heading}>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
   <RulesCard row href="/rules/preview">
     <span class="text">
       <span class="name">Wallpaper and watch preview</span>

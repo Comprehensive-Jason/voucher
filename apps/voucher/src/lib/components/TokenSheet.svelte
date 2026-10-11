@@ -1,6 +1,7 @@
 <script lang="ts">
   // Paste an API token for Todoist or ClickUp. It goes to the Ledger, which
   // uses it from its next check.
+  import { shownByNotice } from "../health.svelte";
   import { ledger } from "../api";
   import { serviceOf } from "../sources";
   import Sheet from "./Sheet.svelte";
@@ -25,7 +26,7 @@
     It goes straight to your Ledger and is never shown again.
   </p>
   <input class="mono" type="password" autocomplete="off" placeholder="API token" bind:value={token} />
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
   <button class="primary" disabled={!token.trim()} onclick={save}>Save token</button>
 </Sheet>
 

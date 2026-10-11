@@ -4,6 +4,7 @@
   // Rules shows it among its notices; the tablet's Today column shows it at
   // its foot, so a waiting change is in view every time the tablet is. It
   // asks the Ledger itself, again whenever Rules change and on Today's poll.
+  import { shownByNotice } from "../health.svelte";
   import { onMount } from "svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
   import Sheet from "./Sheet.svelte";
@@ -59,7 +60,7 @@
   });
 </script>
 
-{#if error}<p class="error">{error}</p>{/if}
+{#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 {#if status}
   {@const s = status.settings}
   {#if status.pending.length}

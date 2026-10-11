@@ -2,6 +2,7 @@
   // Edit one blocklist. Every switch, add, or remove is sent to the Ledger at
   // once: adding blocks now; switching off or removing waits for 06:00. On a
   // wide screen, Apps, Sites, and the installed apps sit side by side.
+  import { shownByNotice } from "$lib/health.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { ledger } from "$lib/api";
@@ -75,7 +76,7 @@
   <PageHeader title="Edit blocklist" back="/rules/distractions" backLabel="Back to Distractions">
     {#if list}<Tag premade={list.premade} />{/if}
   </PageHeader>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 
   {#if list}
     <div class="panes">

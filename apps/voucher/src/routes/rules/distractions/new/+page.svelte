@@ -2,6 +2,7 @@
   // A new blocklist, built up here and sent to the Ledger on Save. A new
   // blocklist only adds blocking, so it applies at once. On a wide screen,
   // Apps, Sites, and the installed apps sit side by side.
+  import { shownByNotice } from "$lib/health.svelte";
   import { goto } from "$app/navigation";
   import { ledger } from "$lib/api";
   import Tag from "$lib/components/Tag.svelte";
@@ -64,7 +65,7 @@
   <PageHeader title="New blocklist" back="/rules/distractions" backLabel="Back to Distractions">
     <Tag premade={false} />
   </PageHeader>
-  {#if error}<p class="error">{error}</p>{/if}
+  {#if error && !shownByNotice(error)}<p class="error">{error}</p>{/if}
 
   <div class="panes">
     <div class="pane">
