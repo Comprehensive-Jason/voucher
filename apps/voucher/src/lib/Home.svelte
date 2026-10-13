@@ -13,7 +13,7 @@
   import { tick } from "svelte";
   import { page } from "$app/state";
   import { fade } from "svelte/transition";
-  import { ROWS } from "$lib/arrangement.svelte";
+  import { ROWS } from "$core/arrangement.svelte";
   import { arrangement, PANELS, type PanelId } from "$lib/cards";
   import { fillSlots } from "$core/fit.svelte";
   import { EASE, ms } from "$core/motion";
@@ -46,14 +46,14 @@
   import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import ScrollCue from "$core/components/ScrollCue.svelte";
   import { ABOUT } from "$lib/about";
-  import AboutText from "$lib/components/AboutText.svelte";
+  import AboutText from "$core/components/AboutText.svelte";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
   import Sleep from "$lib/panels/trends/Sleep.svelte";
   import CalendarLoad from "$lib/panels/trends/CalendarLoad.svelte";
   import Planned from "$lib/panels/trends/Planned.svelte";
-  import PanelOptions from "$lib/components/PanelOptions.svelte";
+  import PanelOptions from "$core/components/PanelOptions.svelte";
   import type { DayTotal, DeviceUsage, Status } from "$core/types";
 
   /** The space between cards, both ways, in px (the CSS --gap). */

@@ -17,7 +17,7 @@
 // root layout hands it down with setArrangementContext, so shared code
 // (the dashboard, PanelOptions, a card's options) reads it with useArrangement.
 import { getContext, setContext } from "svelte";
-import { storage } from "$core/storage";
+import { storage } from "./storage";
 
 /** A choice a card offers in Arrange mode, kept with the arrangement. */
 export type PanelOption =

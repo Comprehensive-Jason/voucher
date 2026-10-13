@@ -30,7 +30,7 @@
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import LogPanel from "$lib/panels/LogPanel.svelte";
   import CardTab from "$core/components/CardTab.svelte";
-  import { ROWS } from "$lib/arrangement.svelte";
+  import { ROWS } from "$core/arrangement.svelte";
   import { arrangement, PANELS, type PanelId } from "$lib/cards";
   import { fillSlots } from "$core/fit.svelte";
   import { phonePages } from "$core/phonepages.svelte";

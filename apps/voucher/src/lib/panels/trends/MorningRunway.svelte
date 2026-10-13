@@ -35,7 +35,7 @@
   import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
   import { selection } from "$core/selection.svelte";
   import { untrack } from "svelte";
-  import { useArrangement } from "../../arrangement.svelte";
+  import { useArrangement } from "$core/arrangement.svelte";
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
   const arrangement = useArrangement();

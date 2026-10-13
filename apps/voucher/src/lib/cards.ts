@@ -1,8 +1,8 @@
 // Voucher's cards: every panel the tablet's dashboard and the phone's Trends
 // pages can show, with its size range and options, the default order, and
-// the one arrangement of them this device keeps (lib/arrangement.svelte.ts).
+// the one arrangement of them this device keeps ($core/arrangement.svelte.ts).
 // What each card is for and how to read it is in lib/about.ts.
-import { createArrangement, type Panel } from "./arrangement.svelte";
+import { createArrangement, type Panel } from "$core/arrangement.svelte";
 
 export type PanelId = "earned" | "heat" | "distraction" | "log"
   | "trend" | "when" | "pace" | "runway" | "strength" | "streaks" | "records"

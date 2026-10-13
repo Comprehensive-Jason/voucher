@@ -10,7 +10,7 @@
   import Home from "$lib/Home.svelte";
   import Toast from "$core/components/Toast.svelte";
   import { sheet } from "$core/sheet.svelte";
-  import { setArrangementContext } from "$lib/arrangement.svelte";
+  import { setArrangementContext } from "$core/arrangement.svelte";
   import { arrangement } from "$lib/cards";
 
   // Every animation's timing comes from $core/motion.ts, as CSS variables on the
