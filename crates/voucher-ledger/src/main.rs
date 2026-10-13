@@ -606,6 +606,87 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 ),
             }
         }
+        // Insights: the findings dismissed from the card, and every Experiment.
+        (Method::Get, "/insights") => (
+            200,
+            json(&serde_json::json!({
+                "dismissed": ledger.dismissed(),
+                "experiments": ledger.experiments(),
+            })),
+        ),
+        // Hides a finding until it changes a lot: {"id", "kind", "value"}.
+        (Method::Post, "/insights/dismiss") => match read_json::<NewDismissal>(&mut request) {
+            Some(d) if ledger.dismiss(&d.id, &d.kind, d.value, now) => {
+                (200, json(ledger.dismissed()))
+            }
+            _ => (
+                400,
+                json(&Message {
+                    message: "a dismissal needs an id, a kind, and a finite value",
+                }),
+            ),
+        },
+        // Shows a dismissed finding again: {"id"}.
+        (Method::Post, "/insights/undismiss") => match read_json::<FindingId>(&mut request) {
+            Some(d) if ledger.undismiss(&d.id) => (200, json(ledger.dismissed())),
+            _ => (
+                404,
+                json(&Message {
+                    message: "no finding dismissed by that id",
+                }),
+            ),
+        },
+        // Starts an Experiment: {"change", "text", "measure", "finding"}. The
+        // change applies as any rule change does, and its Marker carries the text.
+        (Method::Post, "/experiment") => match read_json::<NewExperiment>(&mut request) {
+            Some(e) => {
+                match ledger.start_experiment(e.change, &e.text, &e.measure, &e.finding, now) {
+                    Ok(experiment) => (200, json(&experiment)),
+                    Err(refusal) => (409, json(&Refused { refused: refusal })),
+                }
+            }
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not an Experiment",
+                }),
+            ),
+        },
+        // An Experiment's verdict, from an app, once its verdict Day has come:
+        // {"id", "title", "text", "outcome", "back"}.
+        (Method::Post, "/experiment/verdict") => {
+            match read_json::<ExperimentJudged>(&mut request) {
+                Some(v) => match ledger
+                    .judge_experiment(v.id, &v.title, &v.text, &v.outcome, &v.back, now)
+                {
+                    Ok(experiment) => (200, json(&experiment)),
+                    Err(refusal) => (409, json(&Refused { refused: refusal })),
+                },
+                None => (
+                    400,
+                    json(&Message {
+                        message: "body is not a verdict",
+                    }),
+                ),
+            }
+        }
+        // Keep it, Go back, or end early: {"id", "keep"}. Undoing is a rule
+        // change like any other, so undoing a Tightening waits for the morning.
+        (Method::Post, "/experiment/end") => match read_json::<EndExperiment>(&mut request) {
+            Some(e) => match ledger.end_experiment(e.id, e.keep, now) {
+                Ok((experiment, effect)) => (
+                    200,
+                    json(&serde_json::json!({ "experiment": experiment, "effect": effect })),
+                ),
+                Err(refusal) => (409, json(&Refused { refused: refusal })),
+            },
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not an Experiment's end",
+                }),
+            ),
+        },
         // Off unless VOUCHER_TEST_TASKS=1: lets a test Ledger earn task
         // Vouchers without Todoist or ClickUp. It grants nothing `/report`
         // can't already, to anyone holding the access code.
@@ -819,6 +900,50 @@ struct NewMarker {
 }
 
 #[derive(serde::Deserialize)]
+struct NewDismissal {
+    id: String,
+    kind: String,
+    value: f64,
+}
+
+#[derive(serde::Deserialize)]
+struct FindingId {
+    id: String,
+}
+
+#[derive(serde::Deserialize)]
+struct NewExperiment {
+    change: Change,
+    text: String,
+    measure: String,
+    #[serde(default)]
+    finding: String,
+}
+
+#[derive(serde::Deserialize)]
+struct ExperimentJudged {
+    id: u32,
+    title: String,
+    #[serde(default)]
+    text: String,
+    outcome: String,
+    #[serde(default)]
+    back: String,
+}
+
+#[derive(serde::Deserialize)]
+struct EndExperiment {
+    id: u32,
+    keep: bool,
+}
+
+/// An Experiment request the Ledger turned down, and why.
+#[derive(Serialize)]
+struct Refused {
+    refused: voucher_ledger::ExperimentRefusal,
+}
+
+#[derive(serde::Deserialize)]
 struct NewVerdict {
     day: jiff::civil::Date,
     verdict: Option<voucher_ledger::Verdict>,
@@ -897,6 +1022,9 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         grace_until: Option<Timestamp>,
         /// Which calendars count, and the device that reports them.
         calendars: voucher_ledger::CalendarChoice,
+        /// Experiments running or waiting for Keep it or Go back: the phone
+        /// raises one notification for each verdict that's in.
+        experiments: Vec<voucher_ledger::Experiment>,
     }
     let settings = ledger.settings(now).clone();
     let unlock = ledger.current_unlock(now).cloned();
@@ -924,6 +1052,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let room_before_curfew = ledger.room_before_curfew(now);
     let grace_until = ledger.grace_until(now);
     let calendars = ledger.calendars().clone();
+    let experiments = ledger.open_experiments();
     let task_services = settings
         .sources
         .values()
@@ -949,6 +1078,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         room_before_curfew,
         grace_until,
         calendars,
+        experiments,
     })
 }
 

@@ -6,6 +6,7 @@
 pub mod access;
 pub mod clickup;
 pub mod faults;
+pub mod insights;
 pub mod instances;
 pub mod measures;
 pub mod planned;
@@ -25,6 +26,7 @@ use jiff::{
 use serde::{Deserialize, Serialize};
 use voucher_protocol::{Unlock, sign};
 
+pub use insights::{Dismissal, Experiment, ExperimentRefusal, ExperimentStatus, ExperimentVerdict};
 pub use measures::{
     CalendarChoice, CalendarDay, CalendarId, CalendarRefusal, Sleep, SleepSession, SleepSource,
 };
@@ -917,6 +919,14 @@ struct State {
     /// were planned (see `planned`). Kept as long as the log.
     #[serde(default)]
     planned: BTreeMap<Date, Vec<PlannedBlock>>,
+    // Added 2026-10-12 for Insights, empty when an older state.json loads;
+    // an older Ledger reading a newer file ignores them.
+    /// Findings dismissed from the Insights card, by finding id.
+    #[serde(default)]
+    dismissed: BTreeMap<String, Dismissal>,
+    /// Every Experiment, oldest first. Kept for good, like Markers.
+    #[serde(default)]
+    experiments: Vec<Experiment>,
 }
 
 fn set_up_already() -> bool {
@@ -950,6 +960,8 @@ impl Ledger {
                 calendar: BTreeMap::new(),
                 activity: BTreeMap::new(),
                 planned: BTreeMap::new(),
+                dismissed: BTreeMap::new(),
+                experiments: Vec::new(),
             },
         }
     }
@@ -1877,13 +1889,22 @@ impl Ledger {
     /// Applies a change, leaving a rule Marker for any that changes what is
     /// blocked or earned (cosmetic ones leave none). Changes a minute or so
     /// apart, such as several apps added in one sitting, share one Marker.
+    ///
+    /// The change an Experiment is waiting for leaves its Marker in the
+    /// Experiment's words instead ("Trying Curfew at 21:30"), so the
+    /// Experiment has one Marker, shared like any other.
     fn apply(&mut self, change: Change, at: Timestamp) {
+        let experiment = self.experiment_marker(&change);
         let text = describe(&self.state.settings, &change);
         apply_to(&mut self.state.settings, change);
-        let Some(text) = text.filter(|_| self.state.setup_complete) else {
+        let text = match experiment {
+            Some((_, ref words)) => Some(words.clone()),
+            None => text.filter(|_| self.state.setup_complete),
+        };
+        let Some(text) = text else {
             return;
         };
-        match self.state.markers.last_mut() {
+        let marked = match self.state.markers.last_mut() {
             Some(last)
                 if last.rule
                     && last.at.duration_until(at) < SignedDuration::from_mins(10)
@@ -1892,12 +1913,19 @@ impl Ledger {
                 if !last.text.split("; ").any(|t| t == text) {
                     last.text = format!("{}; {text}", last.text);
                 }
+                last.at
             }
-            _ => self.state.markers.push(Marker {
-                at,
-                text,
-                rule: true,
-            }),
+            _ => {
+                self.state.markers.push(Marker {
+                    at,
+                    text,
+                    rule: true,
+                });
+                at
+            }
+        };
+        if let Some((id, _)) = experiment {
+            self.mark_experiment(id, marked);
         }
     }
 
