@@ -51,6 +51,7 @@
   });
 </script>
 
-<InsightsCard {history} {timeZone} {settings} {pending} {blocklists} {actions} />
+<!-- A Ledger from before Insights can't keep dismissals or run Experiments: then it shows findings only. -->
+<InsightsCard {history} {timeZone} {settings} {pending} {blocklists} actions={insights.kept ? actions : undefined} />
 {#if trying?.suggestion}<TrySheet f={trying} s={trying.suggestion} {today} onclose={() => (trying = null)} />{/if}
 {#if running}<ExperimentSheet e={running} {today} onclose={() => (running = null)} />{/if}

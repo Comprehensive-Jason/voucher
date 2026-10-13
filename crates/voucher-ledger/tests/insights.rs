@@ -129,7 +129,7 @@ fn one_experiment_at_a_time_and_only_rules_it_can_undo() {
                 id: "steps".into(),
                 color: None
             },
-            "a new colour",
+            "a new color",
             "earned",
             "",
             now
