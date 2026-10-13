@@ -1,3 +1,5 @@
+import type { Experiment } from "./insights/types";
+
 // What the Today screen receives from the app's Rust side (see src-tauri/src/lib.rs).
 export interface Today {
   bank: number;
@@ -348,6 +350,8 @@ export interface Status {
   log_first_day?: string;
   /** Which calendars count, and the device that reports them; absent from older Ledgers. */
   calendars?: CalendarChoice;
+  /** Experiments running, or judged and waiting for Keep it or Go back; absent from older Ledgers. */
+  experiments?: Experiment[];
 }
 
 export interface BlockedApp { package: string; label: string; note: string | null; on: boolean; added: boolean }

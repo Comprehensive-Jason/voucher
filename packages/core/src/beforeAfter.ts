@@ -9,7 +9,7 @@
 // Insights judges Experiments and recent Markers with the same numbers. Pure,
 // so it can be checked outside the app.
 import { measured } from "./notes.svelte";
-import { hoursAndMinutes } from "./time";
+import { hoursAndMinutes, minutesIntoDay } from "./time";
 import type { DayTotal } from "./types";
 
 /** Days compared on each side, and Days left out after the Marker. */
@@ -19,10 +19,10 @@ export const SETTLE = 3;
 export const MIN_AFTER = 5;
 export const MIN_STRETCHES = 10;
 
-/** What a measure needs besides the Days. `lateFrom` is minutes after the
- *  Day began (06:00) where late Distraction starts; `listed` says whether
- *  an app or site is on a blocklist. */
-export type Context = { lateFrom?: number; listed?: (app: string, day: DayTotal) => boolean; dayStart?: (day: string) => number };
+/** What a measure needs besides the Days: the Ledger's clock and the hour
+ *  its Day starts (Curfew's end), where late Distraction starts in minutes
+ *  after the Day began, and whether an app or site is on a blocklist. */
+export type Context = { timeZone?: string; startHour?: number; lateFrom?: number; listed?: (app: string, day: DayTotal) => boolean };
 
 export type MeasureId = "earned" | "goal" | "distraction" | "unlocked" | "walked" | "longest" | "asleep" | "events"
   | "unlocks" | "late" | "went_well" | "per_unlock" | "other";
@@ -48,12 +48,13 @@ const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.l
 const middle = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
 /** A Day's Distraction minutes, every app together. */
 export const distractionOf = (d: DayTotal) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0);
-/** Minutes of a Day's Distraction spans from `from` minutes after the Day began to its end. */
-export function lateMinutes(d: DayTotal, from: number, dayStart: number): number | null {
+/** Minutes of a Day's Distraction spans from `from` minutes after the Day
+ *  began to its end, or null when its spans aren't known. */
+export function lateMinutes(d: DayTotal, from: number, timeZone: string, startHour: number): number | null {
   if (!d.distraction_spans) return null;
   let t = 0;
   for (const [a, b] of d.distraction_spans) {
-    const x = (Date.parse(a) - dayStart) / 60_000, y = (Date.parse(b) - dayStart) / 60_000;
+    const x = minutesIntoDay(a, d.day, timeZone, startHour), y = minutesIntoDay(b, d.day, timeZone, startHour);
     t += Math.max(0, Math.min(y, 1440) - Math.max(x, from));
   }
   return t;
@@ -71,7 +72,7 @@ export const MEASURES: Measure[] = [
   { id: "events", name: "Events a Day", of: (w) => mean(w.flatMap((d) => (d.calendar ? [d.calendar.events] : []))), unit: "", better: "neither", digits: 1, table: true },
   // Judged by Experiments and Insights, not in the card's table.
   { id: "unlocks", name: "Unlocks a Day", of: (w) => mean(w.map((d) => d.tears ?? 0)), unit: "", better: "down", digits: 1, table: false },
-  { id: "late", name: "Late Distraction a Day", of: (w, c) => mean(w.flatMap((d) => { const m = c.dayStart && c.lateFrom != null ? lateMinutes(d, c.lateFrom, c.dayStart(d.day)) : null; return m === null ? [] : [m]; })), unit: " min", better: "down", table: false },
+  { id: "late", name: "Late Distraction a Day", of: (w, c) => mean(w.flatMap((d) => { const m = c.timeZone && c.lateFrom != null ? lateMinutes(d, c.lateFrom, c.timeZone, c.startHour ?? 6) : null; return m === null ? [] : [m]; })), unit: " min", better: "down", table: false },
   { id: "went_well", name: "Days that went well", of: (w) => { const a = w.filter((d) => d.verdict); return a.length >= 3 ? (a.filter((d) => d.verdict !== "no").length / a.length) * 100 : null; }, unit: "%", better: "up", table: false },
   { id: "per_unlock", name: "Distraction per Unlock", of: (w) => { const m = w.filter((d) => measured(d) && (d.tears ?? 0) > 0); const t = m.reduce((a, d) => a + (d.tears ?? 0), 0); return t ? m.reduce((a, d) => a + distractionOf(d), 0) / t : null; }, unit: " min", better: "down", table: false },
   { id: "other", name: "Distraction on no blocklist", of: (w, c) => mean(w.filter(measured).map((d) => Object.entries(d.used ?? {}).reduce((a, [app, m]) => a + (c.listed?.(app, d) ? 0 : m), 0))), unit: " min", better: "down", table: false },

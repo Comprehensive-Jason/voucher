@@ -109,7 +109,7 @@ export async function ledger<T>(method: "GET" | "POST", path: string, body?: unk
   if (path === "/status" || (method === "POST" && path.startsWith("/cancel"))) lastStatus = reply as Status;
   // A settings change tells every panel showing settings to look again, so
   // e.g. a loosening made under Sources shows at once among Limits' changes.
-  if (method === "POST" && ["/change", "/cancel", "/setup"].some((p) => path.startsWith(p)) && typeof window !== "undefined") {
+  if (method === "POST" && ["/change", "/cancel", "/setup", "/experiment"].some((p) => path.startsWith(p)) && typeof window !== "undefined") {
     window.dispatchEvent(new Event(RULES_CHANGED));
   }
   // Any fresh look at the settings also refreshes how sources are named and drawn.
