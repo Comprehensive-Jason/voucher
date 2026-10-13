@@ -10,7 +10,8 @@
   import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "$core/api";
   import GraceBanner from "./GraceBanner.svelte";
   import WaitingChanges from "./WaitingChanges.svelte";
-  import LedgerNotice from "./LedgerNotice.svelte";
+  import LedgerNotice from "$core/components/LedgerNotice.svelte";
+  import { LEDGER_NOTICE } from "../notices";
   import TasksNotice from "./TasksNotice.svelte";
   import type { Protection } from "$core/types";
   import { reveal } from "$core/motion";
@@ -38,7 +39,7 @@
      not counting, then the grace period (everything applies at once), then
      Loosenings waiting for the morning. -->
 <div class="notices" class:row>
-  <LedgerNotice {axis} />
+  <LedgerNotice {...LEDGER_NOTICE} {axis} />
   {#if missing}
     <div class="notice {missing.level === 'off' ? 'danger' : 'goal'}" transition:reveal={{ axis }}>
       <div class="ntext">

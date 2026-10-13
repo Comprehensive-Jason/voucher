@@ -5,7 +5,8 @@
   // time; the tab bar's Trends tab turns into the page selector meanwhile
   // (phonepages.svelte.ts). Each card fills its slot and redraws to its
   // shape, as on the tablet, with its name on a folder tab above it.
-  import LedgerNotice from "$lib/components/LedgerNotice.svelte";
+  import LedgerNotice from "$core/components/LedgerNotice.svelte";
+  import { LEDGER_NOTICE } from "$lib/notices";
   import { shownByNotice } from "$core/health.svelte";
   import { onMount, tick } from "svelte";
   import { deviceUsage, ledger } from "$core/api";
@@ -89,7 +90,7 @@
 <main>
   {#if error}
     <!-- The Ledger's notice says what's wrong in words; any other failure shows as it is. -->
-    {#if shownByNotice(error)}<LedgerNotice />{:else}<p class="error">{error}</p>{/if}
+    {#if shownByNotice(error)}<LedgerNotice {...LEDGER_NOTICE} />{:else}<p class="error">{error}</p>{/if}
   {:else}
     <div class="strip" role="group" aria-label="Charts" bind:this={strip} onscroll={onScroll} style="--rows: {ROWS}">
       {#each columns as column, i (column.join())}

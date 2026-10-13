@@ -1,24 +1,33 @@
 <script lang="ts">
-  // The Ledger notice: shown when Voucher can't talk to the Ledger, first
+  // The Ledger notice: shown when the app can't talk to the Ledger, first
   // among every notice (above Protection off), in the shared .notice card.
   // It names what's wrong in plain words, since when, and what to do; the
   // raw error is in its tooltip. It goes as soon as any request gets through.
-  import { goto } from "$app/navigation";
-  import { ledger, RULES_CHANGED } from "$core/api";
-  import { health } from "$core/health.svelte";
-  import { reveal } from "$core/motion";
+  // The app names itself, says what being cut off costs, and goes to its
+  // setup to reconnect.
+  import { ledger, RULES_CHANGED } from "../api";
+  import { health } from "../health.svelte";
+  import { reveal } from "../motion";
 
-  let { axis = "y" }: { axis?: "x" | "y" } = $props();
+  let { axis = "y", app, unreachable = "Numbers here may be out of date.", reconnect }: {
+    axis?: "x" | "y";
+    /** The app's name, as the notice says it. */
+    app: string;
+    /** What being cut off from the Ledger means, before "<app> keeps trying." */
+    unreachable?: string;
+    /** Goes to where the access code is entered again. */
+    reconnect: () => void;
+  } = $props();
 
   const since = $derived(health.problem ? new Date(health.problem.since).toTimeString().slice(0, 5) : "");
-  const TEXT = {
-    unreachable: { title: "Ledger unreachable", body: "You can't Unlock until it's back, and numbers here may be out of date. Voucher keeps trying.", action: "Retry" },
+  const TEXT = $derived({
+    unreachable: { title: "Ledger unreachable", body: `${unreachable} ${app} keeps trying.`, action: "Retry" },
     access: { title: "Access code needed", body: "The Ledger answered but wants its access code again.", action: "Reconnect" },
-    version: { title: "Ledger out of step", body: "The Ledger's answers don't fit this version of Voucher: update whichever is older.", action: "Retry" },
-  };
+    version: { title: "Ledger out of step", body: `The Ledger's answers don't fit this version of ${app}: update whichever is older.`, action: "Retry" },
+  });
   let trying = $state(false);
   async function act() {
-    if (health.problem?.kind === "access") { goto("/setup"); return; }
+    if (health.problem?.kind === "access") { reconnect(); return; }
     trying = true;
     try { await ledger("GET", "/status"); window.dispatchEvent(new Event(RULES_CHANGED)); } catch { /* the notice stays */ }
     trying = false;

@@ -9,7 +9,8 @@
   import StatusCard from "../components/StatusCard.svelte";
   import NextVoucher from "../components/NextVoucher.svelte";
   import MarkerButton from "$core/components/MarkerButton.svelte";
-  import LedgerNotice from "../components/LedgerNotice.svelte";
+  import LedgerNotice from "$core/components/LedgerNotice.svelte";
+  import { LEDGER_NOTICE } from "../notices";
   import { shownByNotice } from "$core/health.svelte";
   import MomentSheet from "../components/MomentSheet.svelte";
   import ReasonChips from "../components/ReasonChips.svelte";
@@ -24,7 +25,7 @@
 </script>
 
 <!-- The phone's Today has no Rules notices, so the Ledger's own notice opens it. -->
-{#if !wide}<LedgerNotice />{/if}
+{#if !wide}<LedgerNotice {...LEDGER_NOTICE} />{/if}
 {#if live.data}
   {@const data = live.data}
   {#if !wide}<Header night={live.mode === "curfew"} />{/if}
