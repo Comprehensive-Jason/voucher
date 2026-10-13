@@ -21,7 +21,7 @@
   import RulesNotices from "$lib/components/RulesNotices.svelte";
   import MarkerSheet from "$core/components/MarkerSheet.svelte";
   import VerdictSheet from "$lib/components/VerdictSheet.svelte";
-  import Dashboard from "$lib/Dashboard.svelte";
+  import Dashboard from "$core/Dashboard.svelte";
   import Card from "$lib/Card.svelte";
   import { ABOUT } from "$lib/about";
   import type { PanelId } from "$lib/cards";

@@ -9,16 +9,16 @@
   // arrangement comes from the app's root layout (useArrangement).
   import { tick, type Snippet } from "svelte";
   import { fade } from "svelte/transition";
-  import { ROWS, useArrangement } from "$core/arrangement.svelte";
-  import { fillSlots } from "$core/fit.svelte";
-  import { EASE, ms } from "$core/motion";
-  import { wide } from "$core/wide.svelte";
-  import CardTab from "$core/components/CardTab.svelte";
-  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
-  import ScrollCue from "$core/components/ScrollCue.svelte";
-  import AboutText from "$core/components/AboutText.svelte";
-  import PanelOptions from "$core/components/PanelOptions.svelte";
-  import type { About } from "$core/about";
+  import { ROWS, useArrangement } from "./arrangement.svelte";
+  import { fillSlots } from "./fit.svelte";
+  import { EASE, ms } from "./motion";
+  import { wide } from "./wide.svelte";
+  import CardTab from "./components/CardTab.svelte";
+  import ZoomSwitch from "./components/ZoomSwitch.svelte";
+  import ScrollCue from "./components/ScrollCue.svelte";
+  import AboutText from "./components/AboutText.svelte";
+  import PanelOptions from "./components/PanelOptions.svelte";
+  import type { About } from "./about";
 
   let { first, footLeft, card, about }: {
     /** The first column's contents, above its foot. */
