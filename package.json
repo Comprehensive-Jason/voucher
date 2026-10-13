@@ -1,0 +1,14 @@
+{
+  "name": "voucher-workspace",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "workspaces": [
+    "apps/voucher"
+  ],
+  "scripts": {
+    "dev:voucher": "npm run dev -w apps/voucher",
+    "check": "npm run check --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "portal": "node dev/test-portal.mjs"
+  }
+}

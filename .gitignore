@@ -1,5 +1,8 @@
 /target
 
+# npm workspaces install every package's dependencies at the root.
+node_modules/
+
 # The Ledger's signing key must never be committed.
 *.key
 *.pem
