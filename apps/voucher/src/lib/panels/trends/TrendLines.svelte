@@ -11,11 +11,11 @@
   import MarkerLines from "../../components/MarkerLines.svelte";
   import Legend from "../../components/Legend.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
-  import { monthOf, rolling } from "../../trends";
-  import { zoomFade } from "../../motion";
-  import type { DayTotal } from "../../types";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { drawHeight, fitsSlot } from "../../fit.svelte";
+  import { monthOf, rolling } from "$core/trends";
+  import { zoomFade } from "$core/motion";
+  import type { DayTotal } from "$core/types";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { drawHeight, fitsSlot } from "$core/fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
 

@@ -2,8 +2,8 @@
   // Things beside the rules rather than rules: the wallpaper and watch preview,
   // and the Days export. Rules' fourth column on the tablet, its fourth tab on
   // the phone.
-  import { actionFailed } from "../toast.svelte";
-  import { exportDays } from "$lib/api";
+  import { actionFailed } from "$core/toast.svelte";
+  import { exportDays } from "$core/api";
   import RulesColumn from "$lib/components/RulesColumn.svelte";
   import RulesCard from "$lib/components/RulesCard.svelte";
 

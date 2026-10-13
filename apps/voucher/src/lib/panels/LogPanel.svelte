@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { DaySummary as KeptDay } from "../types";
+  import type { DaySummary as KeptDay } from "$core/types";
   /** The Log's last look at today, so it reopens filled (back from Rules, say) while it asks again. */
   const kept: { today: string | null; timeZone: string; shown: KeptDay | null } = { today: null, timeZone: "UTC", shown: null };
 </script>
@@ -13,19 +13,19 @@
   // same on the phone and the tablet. `compact` is the tablet's slot: the
   // card fills it and only the rows scroll.
   import { onMount, untrack } from "svelte";
-  import { shownByNotice } from "../health.svelte";
-  import { selection } from "../selection.svelte";
-  import { ledger } from "../api";
+  import { shownByNotice } from "$core/health.svelte";
+  import { selection } from "$core/selection.svelte";
+  import { ledger } from "$core/api";
   import { POLL_MS } from "../live.svelte";
-  import { serviceOf, sourceOf } from "../sources";
+  import { serviceOf, sourceOf } from "$core/sources";
   import Marker, { type MarkerKind } from "../components/Marker.svelte";
-  import { clock, dayLabel, hoursAndMinutes, shiftDay } from "../time";
-  import type { DaySummary } from "../types";
+  import { clock, dayLabel, hoursAndMinutes, shiftDay } from "$core/time";
+  import type { DaySummary } from "$core/types";
   import ScrollCue from "../components/ScrollCue.svelte";
   import { fade } from "svelte/transition";
-  import { ms } from "../motion";
+  import { ms } from "$core/motion";
   import CardHead from "../components/CardHead.svelte";
-  import { notes } from "../notes.svelte";
+  import { notes } from "$core/notes.svelte";
   let list = $state<HTMLDivElement>();
 
   let { compact = false }: { compact?: boolean } = $props();

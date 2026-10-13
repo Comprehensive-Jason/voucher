@@ -1,6 +1,6 @@
 // Plain-language descriptions of the Ledger's settings changes.
-import type { Pending, Settings } from "./types";
-import { isSite, memberName, styleOf } from "./sources";
+import type { Pending, Settings } from "$core/types";
+import { isSite, memberName, styleOf } from "$core/sources";
 
 /** "22:00:00" → minutes after midnight. */
 export const minutesOf = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));

@@ -26,15 +26,15 @@
   // findings (lib/panels/trends/goodDayAxes.ts); a hollow dot for Days
   // without, always at ×1, and a filled one for Days with.
   import TrendCard from "../../components/TrendCard.svelte";
-  import { styleOf } from "../../sources";
-  import { fitsSlot } from "../../fit.svelte";
-  import { MIN_N, skippedPairs, STRETCH, type BreakDriver, type Request, type StretchDay, type Tested } from "../../correlate";
-  import { correlateOff } from "../../correlateOff";
-  import { curfew } from "../../curfew.svelte";
-  import { clock } from "../../time";
-  import { measured } from "../../notes.svelte";
-  import type { DayTotal } from "../../types";
-  import { scaleFor, type Axis } from "./goodDayAxes";
+  import { styleOf } from "$core/sources";
+  import { fitsSlot } from "$core/fit.svelte";
+  import { MIN_N, skippedPairs, STRETCH, type BreakDriver, type Request, type StretchDay, type Tested } from "$core/correlate";
+  import { correlateOff } from "$core/correlateOff";
+  import { curfew } from "$core/curfew.svelte";
+  import { clock } from "$core/time";
+  import { measured } from "$core/notes.svelte";
+  import type { DayTotal } from "$core/types";
+  import { scaleFor, type Axis } from "$core/panels/trends/goodDayAxes";
 
   let { history, timeZone = "UTC" }: { history: DayTotal[]; timeZone?: string } = $props();
   const fit = fitsSlot();

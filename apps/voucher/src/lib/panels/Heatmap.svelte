@@ -6,16 +6,16 @@
   // Days to come stay blank. Zoomed out to Year, the last 53 weeks squeeze
   // into the same width; the rows never change height, so zooming only
   // squishes the grid sideways. Under either, four numbers for what's in view.
-  import { heat } from "../heat.svelte";
-  import type { DayTotal } from "../types";
+  import { heat } from "$core/heat.svelte";
+  import type { DayTotal } from "$core/types";
   import { untrack } from "svelte";
   import TodayButton from "../components/TodayButton.svelte";
   import Legend from "../components/Legend.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
-  import { shiftDay, shortDate } from "../time";
-  import { easeOut, ms } from "../motion";
-  import { fitsSlot } from "../fit.svelte";
-  import { markerKeys, dayOfMoment, notes } from "../notes.svelte";
+  import { shiftDay, shortDate } from "$core/time";
+  import { easeOut, ms } from "$core/motion";
+  import { fitsSlot } from "$core/fit.svelte";
+  import { markerKeys, dayOfMoment, notes } from "$core/notes.svelte";
   /** In a tablet slot, the squares also fit the slot's height. */
   const inSlot = fitsSlot();
   let graphHeight = $state(0);

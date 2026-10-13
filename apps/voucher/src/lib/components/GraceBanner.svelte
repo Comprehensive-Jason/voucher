@@ -2,14 +2,14 @@
   // The first two Days after setup, every change applies at once. This says
   // until when, and lets the user end it early (a second tap confirms).
   import { onMount } from "svelte";
-  import { sheet } from "$lib/sheet.svelte";
-  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
+  import { sheet } from "$core/sheet.svelte";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
   import { POLL_MS } from "../live.svelte";
   import { hhmm } from "../rules";
-  import { clock, dayLabel } from "../time";
-  import type { Status } from "../types";
-  import { reveal } from "../motion";
-  import { actionFailed } from "../toast.svelte";
+  import { clock, dayLabel } from "$core/time";
+  import type { Status } from "$core/types";
+  import { reveal } from "$core/motion";
+  import { actionFailed } from "$core/toast.svelte";
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();
 

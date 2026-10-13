@@ -4,7 +4,7 @@
   // salmon meant Unlock, or near gold (the Daily goal), still shows as the
   // current one, but is no longer offered.
   import Sheet from "./Sheet.svelte";
-  import { PALETTE, current as latest, nearGoal, nearSpend } from "../palette";
+  import { PALETTE, current as latest, nearGoal, nearSpend } from "$core/palette";
 
   let { title, current, fallback = null, onpick, onclose }: {
     title: string;

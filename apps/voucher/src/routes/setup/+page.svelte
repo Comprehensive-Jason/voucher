@@ -6,14 +6,14 @@
   // its changes follow the usual waits.
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { connect, connection, device, fixProtection, ledger, onWindows, protection, protectionParts, requestHealth } from "$lib/api";
+  import { connect, connection, device, fixProtection, ledger, onWindows, protection, protectionParts, requestHealth } from "$core/api";
   import Switch from "$lib/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
-  import { compareSources, memberName, needsToken, serviceOf, styleOf } from "$lib/sources";
+  import { compareSources, memberName, needsToken, serviceOf, styleOf } from "$core/sources";
   import { hhmm, minutesOf, timeOf } from "$lib/rules";
-  import { summary } from "$lib/blocklists";
-  import type { Protection, Status } from "$lib/types";
+  import { summary } from "$core/blocklists";
+  import type { Protection, Status } from "$core/types";
 
   const STEPS = 5;
   let step = $state(1);

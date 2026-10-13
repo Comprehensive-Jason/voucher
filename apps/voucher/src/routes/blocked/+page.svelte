@@ -4,12 +4,12 @@
   // here opens the app straight away.
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { appIcon, device, deviceUsage, ledger, tear, today } from "$lib/api";
-  import { blocklistColorOf, blocklistOf } from "$lib/blocklists";
+  import { appIcon, device, deviceUsage, ledger, tear, today } from "$core/api";
+  import { blocklistColorOf, blocklistOf } from "$core/blocklists";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
-  import { tileTint } from "$lib/palette";
-  import { styleOf } from "$lib/sources";
-  import { modeOf, type Blocklist, type DeviceUsage, type Status, type Today } from "$lib/types";
+  import { tileTint } from "$core/palette";
+  import { styleOf } from "$core/sources";
+  import { modeOf, type Blocklist, type DeviceUsage, type Status, type Today } from "$core/types";
 
   const pkg = page.url.searchParams.get("pkg");
   // Known when the app was opened from its icon; otherwise it is "This app".

@@ -19,15 +19,15 @@
   // Distr), so it fits one line at a one-third width.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend, { type LegendItem } from "../../components/Legend.svelte";
-  import { curfew } from "../../curfew.svelte";
-  import { clock, shortDate } from "../../time";
-  import { median } from "../../trends";
-  import { fitsSlot } from "../../fit.svelte";
+  import { curfew } from "$core/curfew.svelte";
+  import { clock, shortDate } from "$core/time";
+  import { median } from "$core/trends";
+  import { fitsSlot } from "$core/fit.svelte";
   import { arrangement } from "../../arrangement.svelte";
-  import { minutesByList, type ListMinutes } from "../../blocklists";
-  import type { Blocklist, DayTotal, Marker, Verdict } from "../../types";
-  import { dayOfMoment, markerKeys, measured, notes } from "../../notes.svelte";
-  import { selection } from "../../selection.svelte";
+  import { minutesByList, type ListMinutes } from "$core/blocklists";
+  import type { Blocklist, DayTotal, Marker, Verdict } from "$core/types";
+  import { dayOfMoment, markerKeys, measured, notes } from "$core/notes.svelte";
+  import { selection } from "$core/selection.svelte";
   import { untrack } from "svelte";
 
   let { history, timeZone, blocklists = {} }: { history: DayTotal[]; timeZone: string; blocklists?: Record<string, Blocklist> } = $props();

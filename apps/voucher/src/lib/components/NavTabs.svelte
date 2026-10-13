@@ -4,7 +4,7 @@
   // tablet page bar's sliding highlight: its leading edge goes first and the
   // trailing edge follows, and a tap jumps straight to the page. Swiping the
   // pages moves it too (phonepages.svelte.ts).
-  import { phonePages } from "../phonepages.svelte";
+  import { phonePages } from "$core/phonepages.svelte";
   // "log" is still accepted from the layout, though the Log is now a card among Trends' pages.
   let { active }: { active: "today" | "trends" | "log" | "rules" } = $props();
   const tabs = [

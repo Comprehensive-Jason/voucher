@@ -1,14 +1,14 @@
 <script lang="ts">
   // Protection on this device: each part's state and how to turn it on, plus
   // releasing the device, which waits for 06:00 like any Loosening.
-  import { shownByNotice } from "$lib/health.svelte";
-  import { actionFailed } from "$lib/toast.svelte";
+  import { shownByNotice } from "$core/health.svelte";
+  import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
-  import { deviceId, fixProtection, ledger, onWindows, protection, protectionParts } from "$lib/api";
+  import { deviceId, fixProtection, ledger, onWindows, protection, protectionParts } from "$core/api";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { hhmm, until } from "$lib/rules";
-  import type { Protection, Status } from "$lib/types";
+  import type { Protection, Status } from "$core/types";
 
   let guard = $state<Protection | null>(null);
   let status = $state<Status | null>(null);

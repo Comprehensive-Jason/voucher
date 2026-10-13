@@ -7,13 +7,13 @@
   // Ledger itself, again whenever Rules change and on Today's poll, starting
   // from the last answer so it doesn't pop in.
   import { onMount } from "svelte";
-  import { sheet } from "$lib/sheet.svelte";
-  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
-  import { needsToken, serviceOf } from "../sources";
+  import { sheet } from "$core/sheet.svelte";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
+  import { needsToken, serviceOf } from "$core/sources";
   import { andList, tokenAction, tokenPending, type TokenNeed } from "../tokens.svelte";
   import { POLL_MS } from "../live.svelte";
-  import { reveal } from "../motion";
-  import type { Status } from "../types";
+  import { reveal } from "$core/motion";
+  import type { Status } from "$core/types";
   import TokenSheet from "./TokenSheet.svelte";
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();

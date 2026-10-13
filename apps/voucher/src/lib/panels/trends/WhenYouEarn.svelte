@@ -10,15 +10,15 @@
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import HourAxis from "../../components/HourAxis.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { monthOf, mondayOf } from "../../trends";
-  import { zoomFade } from "../../motion";
-  import { inCurfew } from "../../curfew.svelte";
-  import { selection } from "../../selection.svelte";
+  import { monthOf, mondayOf } from "$core/trends";
+  import { zoomFade } from "$core/motion";
+  import { inCurfew } from "$core/curfew.svelte";
+  import { selection } from "$core/selection.svelte";
   import { untrack } from "svelte";
-  import type { DayTotal, Marker } from "../../types";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { fitsSlot } from "../../fit.svelte";
-  import { shortDate } from "../../time";
+  import type { DayTotal, Marker } from "$core/types";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { fitsSlot } from "$core/fit.svelte";
+  import { shortDate } from "$core/time";
   const fit = fitsSlot();
 
   let { history }: { history: DayTotal[] } = $props();

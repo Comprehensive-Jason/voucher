@@ -12,12 +12,12 @@
   import ChartAxis from "../../components/ChartAxis.svelte";
   import MarkerLines from "../../components/MarkerLines.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { drawHeight, fitsSlot } from "../../fit.svelte";
-  import { mondayOf } from "../../trends";
-  import { shiftDay, shortDate } from "../../time";
-  import type { DayTotal } from "../../types";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { selection } from "../../selection.svelte";
+  import { drawHeight, fitsSlot } from "$core/fit.svelte";
+  import { mondayOf } from "$core/trends";
+  import { shiftDay, shortDate } from "$core/time";
+  import type { DayTotal } from "$core/types";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { selection } from "$core/selection.svelte";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();

@@ -3,7 +3,7 @@
   // allows it while no accounts are signed in and no other users or profiles
   // exist, so accounts are frozen for a minute rather than removed (removing a
   // Samsung account would delete Samsung Wallet cards).
-  import { DEVICE_OWNER_COMMAND } from "../api";
+  import { DEVICE_OWNER_COMMAND } from "$core/api";
   import Sheet from "./Sheet.svelte";
 
   let { onclose }: { onclose: () => void } = $props();

@@ -3,7 +3,7 @@
   // program, or "youtube.com is paused" over a browser's blocked page.
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { device } from "$lib/api";
+  import { device } from "$core/api";
   import { Live } from "$lib/live.svelte";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
 

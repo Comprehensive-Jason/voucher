@@ -7,6 +7,8 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [sveltekit()],
+  // One Svelte for the app and packages/core alike.
+  resolve: { dedupe: ["svelte"] },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -24,6 +26,8 @@ export default defineConfig(() => ({
           port: 1421,
         }
       : undefined,
+    // packages/core sits outside the app, so the dev server may serve it too.
+    fs: { allow: ["../../packages/core"] },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],

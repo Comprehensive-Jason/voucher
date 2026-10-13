@@ -2,10 +2,10 @@
   // The Windows tray pop-up: the Bank, a Voucher to tear, where things stand,
   // and the sources closest to their next Voucher.
   import { onMount } from "svelte";
-  import { device } from "$lib/api";
+  import { device } from "$core/api";
   import { Live } from "$lib/live.svelte";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
-  import { styleOf } from "$lib/sources";
+  import { styleOf } from "$core/sources";
   import StreakPill from "$lib/components/StreakPill.svelte";
 
   const live = new Live();

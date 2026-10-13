@@ -2,9 +2,9 @@
   // The Bank as a stack of Vouchers. Drag the right-hand part of the top Voucher
   // to the right to tear off `count` Vouchers; the stub's + and − set `count`.
   import { untrack } from "svelte";
-  import { MOTION, easeOut, ms } from "../motion";
+  import { MOTION, easeOut, ms } from "$core/motion";
   import { fly } from "svelte/transition";
-  import type { Mode } from "../types";
+  import type { Mode } from "$core/types";
 
   let { mode, bank, unlockMinutes, room = null, curfewStart = "22:00", ontear }: {
     mode: Mode;

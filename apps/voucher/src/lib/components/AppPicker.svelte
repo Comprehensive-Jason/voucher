@@ -3,7 +3,7 @@
   // add it. Apps already in the list show a check; apps another source counts
   // are greyed with that source's name.
   import { onMount } from "svelte";
-  import { launchableApps } from "../api";
+  import { launchableApps } from "$core/api";
   import AppIcon from "./AppIcon.svelte";
 
   type App = { package: string; label: string; note?: string };

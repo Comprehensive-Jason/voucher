@@ -5,9 +5,9 @@
   // which uses each from its next check; empty fields are left alone, and a
   // token the Ledger turns down shows its error under its own field. Opened
   // with one service, it's the same sheet with one field.
-  import { shownByNotice } from "../health.svelte";
-  import { ledger } from "../api";
-  import { serviceOf } from "../sources";
+  import { shownByNotice } from "$core/health.svelte";
+  import { ledger } from "$core/api";
+  import { serviceOf } from "$core/sources";
   import { andList, noteTokenSaved, tokenAction, type TokenNeed } from "../tokens.svelte";
   import Sheet from "./Sheet.svelte";
 

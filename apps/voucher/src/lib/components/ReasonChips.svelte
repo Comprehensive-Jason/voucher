@@ -4,8 +4,8 @@
   // ignored, and a tap shows "Kept" before it goes. Unlocks from the phone's
   // notification, tile, or widget ask the same in a notification instead.
   import { slide, fade } from "svelte/transition";
-  import { easeOut, ms } from "../motion";
-  import { REASONS, giveReason } from "../notes.svelte";
+  import { easeOut, ms } from "$core/motion";
+  import { REASONS, giveReason } from "$core/notes.svelte";
 
   let { tornAt }: { tornAt: number } = $props();
   let open = $state(false);

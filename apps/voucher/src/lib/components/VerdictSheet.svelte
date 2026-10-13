@@ -18,13 +18,13 @@
   import { untrack } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import { ledger } from "../api";
-  import { ms } from "../motion";
+  import { ledger } from "$core/api";
+  import { ms } from "$core/motion";
   import Sheet from "./Sheet.svelte";
   import MarkerChips from "./MarkerChips.svelte";
-  import { answerVerdict, dayNow } from "../notes.svelte";
-  import { remember, remembered } from "../storage";
-  import type { DayTotal, Verdict } from "../types";
+  import { answerVerdict, dayNow } from "$core/notes.svelte";
+  import { remember, remembered } from "$core/storage";
+  import type { DayTotal, Verdict } from "$core/types";
 
   let { curfewActive }: { curfewActive: boolean } = $props();
 

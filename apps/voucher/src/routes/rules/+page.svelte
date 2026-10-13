@@ -11,7 +11,7 @@
   import SourcesPanel from "$lib/panels/SourcesPanel.svelte";
   import DistractionsPanel from "$lib/panels/DistractionsPanel.svelte";
   import ExtrasPanel from "$lib/panels/ExtrasPanel.svelte";
-  import { wide } from "$lib/wide.svelte";
+  import { wide } from "$core/wide.svelte";
 </script>
 
 {#if wide.on}

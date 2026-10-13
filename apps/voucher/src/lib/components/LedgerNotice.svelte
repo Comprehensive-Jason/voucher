@@ -4,9 +4,9 @@
   // It names what's wrong in plain words, since when, and what to do; the
   // raw error is in its tooltip. It goes as soon as any request gets through.
   import { goto } from "$app/navigation";
-  import { ledger, RULES_CHANGED } from "../api";
-  import { health } from "../health.svelte";
-  import { reveal } from "../motion";
+  import { ledger, RULES_CHANGED } from "$core/api";
+  import { health } from "$core/health.svelte";
+  import { reveal } from "$core/motion";
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();
 

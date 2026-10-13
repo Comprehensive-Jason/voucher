@@ -13,10 +13,10 @@
   // colour), the texts in its tooltip.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { fitsSlot } from "../../fit.svelte";
-  import type { DayTotal, Marker, Verdict } from "../../types";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { shortDate } from "../../time";
+  import { fitsSlot } from "$core/fit.svelte";
+  import type { DayTotal, Marker, Verdict } from "$core/types";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { shortDate } from "$core/time";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();

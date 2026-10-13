@@ -27,13 +27,13 @@
   // since neither has one place on that axis.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { inCurfew } from "../../curfew.svelte";
-  import { clock, hoursAndMinutes, shortDate } from "../../time";
-  import { clockOfHours, median, mondayOf } from "../../trends";
-  import { fitsSlot } from "../../fit.svelte";
-  import type { DayTotal, Marker } from "../../types";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { selection } from "../../selection.svelte";
+  import { inCurfew } from "$core/curfew.svelte";
+  import { clock, hoursAndMinutes, shortDate } from "$core/time";
+  import { clockOfHours, median, mondayOf } from "$core/trends";
+  import { fitsSlot } from "$core/fit.svelte";
+  import type { DayTotal, Marker } from "$core/types";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { selection } from "$core/selection.svelte";
   import { untrack } from "svelte";
   import { arrangement } from "../../arrangement.svelte";
 

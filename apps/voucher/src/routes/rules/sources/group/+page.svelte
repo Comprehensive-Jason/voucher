@@ -5,12 +5,12 @@
   // group, its Sites, and the installed apps sit side by side, so adding one
   // is a single tap. Taking an app or site out, renaming, or deleting applies
   // now; a new group, or a new app or site in one, waits for 06:00.
-  import { shownByNotice } from "$lib/health.svelte";
-  import { actionFailed } from "$lib/toast.svelte";
+  import { shownByNotice } from "$core/health.svelte";
+  import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
-  import { ledger } from "$lib/api";
+  import { ledger } from "$core/api";
   import EntryList from "$lib/components/EntryList.svelte";
   import AddEntrySheets from "$lib/components/AddEntrySheets.svelte";
   import AppPicker from "$lib/components/AppPicker.svelte";
@@ -19,10 +19,10 @@
   import ColorSheet from "$lib/components/ColorSheet.svelte";
   import RuleSlider from "$lib/components/RuleSlider.svelte";
   import SiteField from "$lib/components/SiteField.svelte";
-  import { RATE_RANGE, SPARE, defaultColorOf, isSite, memberName, rateText, styleOf } from "$lib/sources";
-  import { wide } from "$lib/wide.svelte";
+  import { RATE_RANGE, SPARE, defaultColorOf, isSite, memberName, rateText, styleOf } from "$core/sources";
+  import { wide } from "$core/wide.svelte";
   import { hhmm, until } from "$lib/rules";
-  import type { Source, Status } from "$lib/types";
+  import type { Source, Status } from "$core/types";
 
   const id = page.url.searchParams.get("id");
   let status = $state<Status | null>(null);

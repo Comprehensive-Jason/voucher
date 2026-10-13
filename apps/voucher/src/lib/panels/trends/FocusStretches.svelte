@@ -12,12 +12,12 @@
   import ChartAxis from "../../components/ChartAxis.svelte";
   import Legend from "../../components/Legend.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
-  import { median, mondayOf, monthOf, quantile } from "../../trends";
-  import { shortDate } from "../../time";
-  import { drawHeight, fitsSlot } from "../../fit.svelte";
-  import { zoomFade } from "../../motion";
-  import type { DayTotal, Marker } from "../../types";
-  import { clock, dayOfMoment, markerKeys, notes } from "../../notes.svelte";
+  import { median, mondayOf, monthOf, quantile } from "$core/trends";
+  import { shortDate } from "$core/time";
+  import { drawHeight, fitsSlot } from "$core/fit.svelte";
+  import { zoomFade } from "$core/motion";
+  import type { DayTotal, Marker } from "$core/types";
+  import { clock, dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();

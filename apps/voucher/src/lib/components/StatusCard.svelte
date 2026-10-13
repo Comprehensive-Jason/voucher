@@ -1,8 +1,8 @@
 <script lang="ts">
   // The fixed-height card under the Voucher stack. Its height never changes between
   // states, so nothing below it moves (Jason's muscle-memory rule).
-  import { styleOf } from "../sources";
-  import type { Mode, Today } from "../types";
+  import { styleOf } from "$core/sources";
+  import type { Mode, Today } from "$core/types";
 
   let { mode, now, data }: { mode: Mode; now: number; data: Today } = $props();
 

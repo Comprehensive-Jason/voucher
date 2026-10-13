@@ -10,9 +10,9 @@
   // `?calendars=ask` its request for access.)
   import { onMount } from "svelte";
   import Sheet from "./Sheet.svelte";
-  import { chooseCalendars, deviceCalendars, deviceId, requestCalendarAccess } from "../api";
-  import { actionFailed } from "../toast.svelte";
-  import type { CalendarChoice, CalendarId, DeviceCalendars } from "../types";
+  import { chooseCalendars, deviceCalendars, deviceId, requestCalendarAccess } from "$core/api";
+  import { actionFailed } from "$core/toast.svelte";
+  import type { CalendarChoice, CalendarId, DeviceCalendars } from "$core/types";
 
   let { choice, onclose, onsaved }: {
     choice: CalendarChoice;

@@ -1,0 +1,22 @@
+{
+  // Core has no SvelteKit of its own: these mirror the options Kit generates
+  // for the apps, so a file checks the same here as through an app.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "lib": ["esnext", "DOM", "DOM.Iterable"],
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "target": "esnext",
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*.js", "src/**/*.ts", "src/**/*.svelte"]
+}

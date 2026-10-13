@@ -8,11 +8,11 @@
   // place steps through the Markers; the lines under the table say what was
   // compared and how likely luck is.
   import TrendCard from "../../components/TrendCard.svelte";
-  import { fitsSlot } from "../../fit.svelte";
-  import { dayOfMoment, notes } from "../../notes.svelte";
-  import { measured } from "../../notes.svelte";
-  import type { DayTotal } from "../../types";
-  import { hoursAndMinutes, shortDate } from "../../time";
+  import { fitsSlot } from "$core/fit.svelte";
+  import { dayOfMoment, notes } from "$core/notes.svelte";
+  import { measured } from "$core/notes.svelte";
+  import type { DayTotal } from "$core/types";
+  import { hoursAndMinutes, shortDate } from "$core/time";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();

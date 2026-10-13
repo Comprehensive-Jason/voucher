@@ -19,10 +19,10 @@
   import ChartAxis from "../../components/ChartAxis.svelte";
   import Legend from "../../components/Legend.svelte";
   import MarkerLines from "../../components/MarkerLines.svelte";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { monthOf } from "../../trends";
-  import type { DayTotal } from "../../types";
-  import { drawHeight, fitsSlot } from "../../fit.svelte";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { monthOf } from "$core/trends";
+  import type { DayTotal } from "$core/types";
+  import { drawHeight, fitsSlot } from "$core/fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
 

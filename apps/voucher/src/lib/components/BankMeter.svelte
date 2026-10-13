@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Mode } from "../types";
+  import type { Mode } from "$core/types";
   import { wins } from "../celebrate.svelte";
   import { untrack } from "svelte";
-  import { MOTION } from "../motion";
+  import { MOTION } from "$core/motion";
   import StreakPill from "./StreakPill.svelte";
   import Brand from "./Brand.svelte";
   // The Bank, then today's progress toward the Daily goal with the Streak it

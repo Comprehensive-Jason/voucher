@@ -1,19 +1,19 @@
 <script lang="ts">
   // Rules, Distractions: the blocklists. Switching one on applies now;
   // switching one off waits for 06:00.
-  import { shownByNotice } from "../health.svelte";
-  import { actionFailed } from "../toast.svelte";
+  import { shownByNotice } from "$core/health.svelte";
+  import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
-  import { sheet } from "$lib/sheet.svelte";
-  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
+  import { sheet } from "$core/sheet.svelte";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
   import Switch from "../components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
   import RulesCard from "../components/RulesCard.svelte";
   import Tag from "../components/Tag.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
-  import { summary } from "../blocklists";
+  import { summary } from "$core/blocklists";
   import { hhmm } from "../rules";
-  import type { Status } from "../types";
+  import type { Status } from "$core/types";
 
   let status = $state<Status | null>(statusNow());
   let error = $state<string | null>(null);

@@ -12,14 +12,14 @@
   import ChartAxis from "../../components/ChartAxis.svelte";
   import MarkerLines from "../../components/MarkerLines.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { clock, dayLabel, minutesIntoDay } from "../../time";
-  import { clockOfHours, median, quantile } from "../../trends";
-  import type { DaySummary, DayTotal } from "../../types";
-  import { ledger } from "../../api";
-  import { inCurfew } from "../../curfew.svelte";
-  import { selection } from "../../selection.svelte";
-  import { markerKeys, notes } from "../../notes.svelte";
-  import { drawHeight, fitsSlot } from "../../fit.svelte";
+  import { clock, dayLabel, minutesIntoDay } from "$core/time";
+  import { clockOfHours, median, quantile } from "$core/trends";
+  import type { DaySummary, DayTotal } from "$core/types";
+  import { ledger } from "$core/api";
+  import { inCurfew } from "$core/curfew.svelte";
+  import { selection } from "$core/selection.svelte";
+  import { markerKeys, notes } from "$core/notes.svelte";
+  import { drawHeight, fitsSlot } from "$core/fit.svelte";
   const fit = fitsSlot();
   let pw = $state(0), ph = $state(0);
 

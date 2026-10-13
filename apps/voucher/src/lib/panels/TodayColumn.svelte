@@ -10,7 +10,7 @@
   import NextVoucher from "../components/NextVoucher.svelte";
   import MarkerButton from "../components/MarkerButton.svelte";
   import LedgerNotice from "../components/LedgerNotice.svelte";
-  import { shownByNotice } from "../health.svelte";
+  import { shownByNotice } from "$core/health.svelte";
   import MomentSheet from "../components/MomentSheet.svelte";
   import ReasonChips from "../components/ReasonChips.svelte";
   import type { Live } from "../live.svelte";

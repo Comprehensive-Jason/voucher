@@ -2,7 +2,7 @@
   // Adds a site to a blocklist or source group without a sheet, for the wide
   // editors. Its heading lines the field up with the Name field in the pane
   // beside it. A site another source group counts can't be added to a group.
-  import { domainOf, isDomain } from "../blocklists";
+  import { domainOf, isDomain } from "$core/blocklists";
   let { onadd, taken = {} }: {
     onadd: (site: string) => void;
     /** Sites (`site:<domain>`) that can't be added, with the name of what already has them. */

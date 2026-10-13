@@ -4,16 +4,16 @@
   // Rules shows it among its notices; the tablet's Today column shows it at
   // its foot, so a waiting change is in view every time the tablet is. It
   // asks the Ledger itself, again whenever Rules change and on Today's poll.
-  import { shownByNotice } from "../health.svelte";
+  import { shownByNotice } from "$core/health.svelte";
   import { onMount } from "svelte";
-  import { sheet } from "$lib/sheet.svelte";
-  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "../api";
+  import { sheet } from "$core/sheet.svelte";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
   import Sheet from "./Sheet.svelte";
   import { describe, hhmm, until } from "../rules";
   import { POLL_MS } from "../live.svelte";
-  import type { Status } from "../types";
-  import { reveal } from "../motion";
-  import { actionFailed } from "../toast.svelte";
+  import type { Status } from "$core/types";
+  import { reveal } from "$core/motion";
+  import { actionFailed } from "$core/toast.svelte";
 
   let { axis = "y" }: { axis?: "x" | "y" } = $props();
 

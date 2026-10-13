@@ -9,8 +9,8 @@
   // dimmer. The heading line over the rows gives the span and how many of
   // its Unlocks had a reason, so the card needs no line under it.
   import TrendCard from "../../components/TrendCard.svelte";
-  import { fitsSlot } from "../../fit.svelte";
-  import type { DayTotal } from "../../types";
+  import { fitsSlot } from "$core/fit.svelte";
+  import type { DayTotal } from "$core/types";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();

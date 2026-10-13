@@ -6,14 +6,14 @@
   // otherwise they stack, as on the phone's Rules and at the foot of the
   // tablet's Today column. All are the shared .notice card (theme.css).
   import { onMount } from "svelte";
-  import { sheet } from "$lib/sheet.svelte";
-  import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "../api";
+  import { sheet } from "$core/sheet.svelte";
+  import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "$core/api";
   import GraceBanner from "./GraceBanner.svelte";
   import WaitingChanges from "./WaitingChanges.svelte";
   import LedgerNotice from "./LedgerNotice.svelte";
   import TasksNotice from "./TasksNotice.svelte";
-  import type { Protection } from "../types";
-  import { reveal } from "../motion";
+  import type { Protection } from "$core/types";
+  import { reveal } from "$core/motion";
   import { POLL_MS } from "../live.svelte";
 
   let { row = false }: { row?: boolean } = $props();

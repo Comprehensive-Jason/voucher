@@ -8,11 +8,11 @@
   import TrendCard from "../../components/TrendCard.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
   import HourAxis from "../../components/HourAxis.svelte";
-  import { compareSources, styleOf } from "../../sources";
-  import { zoomFade } from "../../motion";
-  import { inCurfew } from "../../curfew.svelte";
-  import { fitsSlot } from "../../fit.svelte";
-  import type { DayTotal } from "../../types";
+  import { compareSources, styleOf } from "$core/sources";
+  import { zoomFade } from "$core/motion";
+  import { inCurfew } from "$core/curfew.svelte";
+  import { fitsSlot } from "$core/fit.svelte";
+  import type { DayTotal } from "$core/types";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();

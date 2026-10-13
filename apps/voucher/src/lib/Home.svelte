@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { DayTotal as Kept, DeviceUsage as KeptUsage, Status as KeptStatus } from "$lib/types";
+  import type { DayTotal as Kept, DeviceUsage as KeptUsage, Status as KeptStatus } from "$core/types";
   /** What the tablet's columns last showed, so coming back from Rules shows
    *  it at once (then refreshes) instead of blank tiles for a few seconds. */
   const kept: { status: KeptStatus | null; history: Kept[]; usage: KeptUsage | null } = { status: null, history: [], usage: null };
@@ -14,20 +14,20 @@
   import { page } from "$app/state";
   import { fade } from "svelte/transition";
   import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
-  import { fillSlots } from "$lib/fit.svelte";
-  import { EASE, ms } from "$lib/motion";
-  import { deviceUsage, ledger } from "$lib/api";
+  import { fillSlots } from "$core/fit.svelte";
+  import { EASE, ms } from "$core/motion";
+  import { deviceUsage, ledger } from "$core/api";
   import { Live, POLL_MS } from "$lib/live.svelte";
-  import { wide } from "$lib/wide.svelte";
-  import { sheet, whenIdle } from "$lib/sheet.svelte";
-  import { historyDays } from "$lib/time";
+  import { wide } from "$core/wide.svelte";
+  import { sheet, whenIdle } from "$core/sheet.svelte";
+  import { historyDays } from "$core/time";
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
   import RulesNotices from "$lib/components/RulesNotices.svelte";
   import MarkerSheet from "$lib/components/MarkerSheet.svelte";
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
-  import { selection } from "$lib/selection.svelte";
-  import { setCurfew } from "$lib/curfew.svelte";
+  import { selection } from "$core/selection.svelte";
+  import { setCurfew } from "$core/curfew.svelte";
   import LogPanel from "$lib/panels/LogPanel.svelte";
   import TrendLines from "$lib/panels/trends/TrendLines.svelte";
   import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
@@ -53,7 +53,7 @@
   import CalendarLoad from "$lib/panels/trends/CalendarLoad.svelte";
   import Planned from "$lib/panels/trends/Planned.svelte";
   import PanelOptions from "$lib/components/PanelOptions.svelte";
-  import type { DayTotal, DeviceUsage, Status } from "$lib/types";
+  import type { DayTotal, DeviceUsage, Status } from "$core/types";
 
   /** The space between cards, both ways, in px (the CSS --gap). */
   const GAP = 20;

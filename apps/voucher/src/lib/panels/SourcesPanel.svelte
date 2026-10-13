@@ -5,11 +5,11 @@
   // on, speeding up, or adding waits for 06:00. Under them, Calendars: which
   // calendars count toward each Day's events and busy time (for Trends,
   // never for earning), chosen in CalendarSheet.
-  import { shownByNotice } from "../health.svelte";
-  import { actionFailed } from "../toast.svelte";
+  import { shownByNotice } from "$core/health.svelte";
+  import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
-  import { sheet } from "$lib/sheet.svelte";
-  import { ledger, plannedToday, RULES_CHANGED, sameAnswer, statusNow } from "../api";
+  import { sheet } from "$core/sheet.svelte";
+  import { ledger, plannedToday, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
   import RuleSlider from "../components/RuleSlider.svelte";
   import Switch from "../components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
@@ -17,10 +17,10 @@
   import TokenSheet from "../components/TokenSheet.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
   import CalendarSheet from "../components/CalendarSheet.svelte";
-  import { RATE_RANGE, compareSources, defaultColorOf, memberName, needsToken, rateText, serviceOf, styleOf } from "../sources";
+  import { RATE_RANGE, compareSources, defaultColorOf, memberName, needsToken, rateText, serviceOf, styleOf } from "$core/sources";
   import { hhmm, until } from "../rules";
   import { andList, tokenAction, tokenPending, type TokenNeed } from "../tokens.svelte";
-  import type { Source, SourceKind, Status } from "../types";
+  import type { Source, SourceKind, Status } from "$core/types";
 
   let status = $state<Status | null>(statusNow());
   let error = $state<string | null>(null);

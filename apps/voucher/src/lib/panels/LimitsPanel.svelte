@@ -1,11 +1,11 @@
 <script lang="ts">
   // Rules, Limits: the four numbers that set how strict Voucher is. Every
   // Loosening shows as a pending banner, with a ghost knob, until 06:00.
-  import { shownByNotice } from "../health.svelte";
-  import { actionFailed } from "../toast.svelte";
+  import { shownByNotice } from "$core/health.svelte";
+  import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
-  import { sheet } from "$lib/sheet.svelte";
-  import { ledger, missingProtection, onWindows, protection, protectionNow, RULES_CHANGED, sameAnswer, statusNow } from "../api";
+  import { sheet } from "$core/sheet.svelte";
+  import { ledger, missingProtection, onWindows, protection, protectionNow, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
   import RulesNotices from "../components/RulesNotices.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
   import RulesCard from "../components/RulesCard.svelte";
@@ -13,7 +13,7 @@
   import RuleSlider from "../components/RuleSlider.svelte";
   import CurfewSlider from "../components/CurfewSlider.svelte";
   import { hhmm, minutesOf, pendingValue, timeOf } from "../rules";
-  import type { Protection, Status } from "../types";
+  import type { Protection, Status } from "$core/types";
 
   let status = $state<Status | null>(statusNow());
   let guard = $state<Protection | null>(protectionNow());

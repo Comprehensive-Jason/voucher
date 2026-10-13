@@ -25,7 +25,7 @@
 // A source or blocklist is matched by id, then by an alias, then by name. A
 // source matched through an alias takes the seed's name. `todo` entries are
 // placeholders and are never applied. New blocklists take the next colour the
-// app would give them (LIST_COLORS in apps/voucher/src/lib/blocklists.ts);
+// app would give them (LIST_COLORS in packages/core/src/blocklists.ts);
 // new sources get no colour, so the app's default applies.
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -103,7 +103,7 @@ function match(existing, entry) {
 
 /** The colours new blocklists take in turn, as the app's New blocklist page picks them. */
 function listColors() {
-  const file = path.join(import.meta.dirname, "..", "apps", "voucher", "src", "lib", "blocklists.ts");
+  const file = path.join(import.meta.dirname, "..", "packages", "core", "src", "blocklists.ts");
   const found = readFileSync(file, "utf8").match(/LIST_COLORS\s*=\s*\[([^\]]*)\]/);
   // LIST_COLORS names palette swatches (swatch("Rose")); palette.ts maps each name to its hex.
   const palette = readFileSync(path.join(path.dirname(file), "palette.ts"), "utf8");

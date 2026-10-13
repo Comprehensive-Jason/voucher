@@ -1,7 +1,7 @@
 <script lang="ts">
   // An app's own icon, or a lettered tile until (or unless) the device has one.
   import { icons, wantIcon } from "../icons.svelte";
-  import { tileTint } from "../palette";
+  import { tileTint } from "$core/palette";
   let { pkg, label, size = 32 }: { pkg: string; label: string; size?: number } = $props();
   $effect(() => wantIcon(pkg));
   const src = $derived(icons[pkg]);

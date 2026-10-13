@@ -10,7 +10,7 @@
 // fails type-check. Neutral outlines and rings aren't marked unless the
 // text names their color ("gray", "ink").
 import type { PanelId } from "./arrangement.svelte";
-import { swatch } from "./palette";
+import { swatch } from "$core/palette";
 
 /** Each hue's color on the card (`mark`, its theme token) and as 13px text on
  *  --surface (`text`, at least 4.5:1). The dark ones use their -text token,

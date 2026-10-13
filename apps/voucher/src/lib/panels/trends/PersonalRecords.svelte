@@ -2,12 +2,12 @@
   // What are my bests, to try to beat? Records only go up; one set today is
   // marked New.
   import TrendCard from "../../components/TrendCard.svelte";
-  import { clock, shortDate } from "../../time";
-  import { goalRuns, mondayOf } from "../../trends";
-  import { styleOf } from "../../sources";
-  import { fitsSlot } from "../../fit.svelte";
+  import { clock, shortDate } from "$core/time";
+  import { goalRuns, mondayOf } from "$core/trends";
+  import { styleOf } from "$core/sources";
+  import { fitsSlot } from "$core/fit.svelte";
   const fit = fitsSlot();
-  import type { DayTotal } from "../../types";
+  import type { DayTotal } from "$core/types";
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
   const today = $derived(history.at(-1)?.day ?? "");

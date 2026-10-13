@@ -11,7 +11,7 @@
 // Arrange mode beside its size. They're kept with the arrangement, per card,
 // and the card reads them wherever it's drawn (arrangement.switchOn,
 // arrangement.picked).
-import { remember, remembered } from "./storage";
+import { remember, remembered } from "$core/storage";
 
 export type PanelId = "earned" | "heat" | "distraction" | "log"
   | "trend" | "when" | "pace" | "runway" | "strength" | "streaks" | "records"

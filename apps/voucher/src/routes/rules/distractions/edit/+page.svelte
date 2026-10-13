@@ -2,11 +2,11 @@
   // Edit one blocklist. Every switch, add, or remove is sent to the Ledger at
   // once: adding blocks now; switching off or removing waits for 06:00. On a
   // wide screen, Apps, Sites, and the installed apps sit side by side.
-  import { shownByNotice } from "$lib/health.svelte";
-  import { actionFailed } from "$lib/toast.svelte";
+  import { shownByNotice } from "$core/health.svelte";
+  import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { ledger } from "$lib/api";
+  import { ledger } from "$core/api";
   import Tag from "$lib/components/Tag.svelte";
   import EntryList from "$lib/components/EntryList.svelte";
   import AddEntrySheets from "$lib/components/AddEntrySheets.svelte";
@@ -15,10 +15,10 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import ColorSheet from "$lib/components/ColorSheet.svelte";
   import SiteField from "$lib/components/SiteField.svelte";
-  import { wide } from "$lib/wide.svelte";
-  import { siteName } from "$lib/blocklists";
+  import { wide } from "$core/wide.svelte";
+  import { siteName } from "$core/blocklists";
   import { hhmm } from "$lib/rules";
-  import type { Status } from "$lib/types";
+  import type { Status } from "$core/types";
 
   const id = page.url.searchParams.get("id") ?? "";
   let status = $state<Status | null>(null);

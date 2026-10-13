@@ -1,6 +1,6 @@
 // App icons from the device, fetched once each (a few at a time) and shared
 // by every list that shows them. Null means the device has no icon for it.
-import { appIcon } from "./api";
+import { appIcon } from "$core/api";
 
 export const icons = $state<Record<string, string | null>>({});
 

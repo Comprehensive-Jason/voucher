@@ -8,7 +8,7 @@
   import { page } from "$app/state";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import RulesTabs, { tabOf } from "$lib/components/RulesTabs.svelte";
-  import { wide } from "$lib/wide.svelte";
+  import { wide } from "$core/wide.svelte";
 
   let { children }: { children: Snippet } = $props();
   const tab = $derived(wide.on ? null : tabOf(page.url.pathname));

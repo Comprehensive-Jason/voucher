@@ -7,11 +7,11 @@
   // Opened from Rules' Extras, so it lives under /rules and Back returns there.
   import { onMount } from "svelte";
   import { Live } from "$lib/live.svelte";
-  import { styleOf } from "$lib/sources";
+  import { styleOf } from "$core/sources";
   import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
-  import { wide } from "$lib/wide.svelte";
-  import type { Today } from "$lib/types";
+  import { wide } from "$core/wide.svelte";
+  import type { Today } from "$core/types";
 
   const live = new Live();
   onMount(() => live.start());

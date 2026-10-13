@@ -1,12 +1,12 @@
 <script lang="ts">
   // The once-a-Day moments, shown on the next open: the Daily goal met, or a
   // Streak that ended yesterday. Each shows once per Day on this device.
-  import { ledger } from "../api";
+  import { ledger } from "$core/api";
   import Flame from "./Flame.svelte";
   import Sheet from "./Sheet.svelte";
-  import { remember, remembered } from "../storage";
-  import { shiftDay } from "../time";
-  import type { DaySummary, Today } from "../types";
+  import { remember, remembered } from "$core/storage";
+  import { shiftDay } from "$core/time";
+  import type { DaySummary, Today } from "$core/types";
 
   let { data }: { data: Today } = $props();
 

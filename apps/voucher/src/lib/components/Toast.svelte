@@ -4,8 +4,8 @@
   // room above. With nothing to point at it sits at the bottom centre, just
   // above the tab bar. It fades after HOLD_MS; a tap takes it down sooner.
   // Mounted once, in the layout, after the screens and before the tab bar.
-  import { dismiss, toast } from "../toast.svelte";
-  import { HOLD_MS, reveal } from "../motion";
+  import { dismiss, toast } from "$core/toast.svelte";
+  import { HOLD_MS, reveal } from "$core/motion";
 
   /** The gap between the bubble and what it points at, and its least margin from the screen's edges. */
   const GAP = 8;

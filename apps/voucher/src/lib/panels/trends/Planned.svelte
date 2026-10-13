@@ -33,16 +33,16 @@
   import ChartAxis from "../../components/ChartAxis.svelte";
   import MarkerLines from "../../components/MarkerLines.svelte";
   import Legend, { type LegendItem } from "../../components/Legend.svelte";
-  import { drawHeight, fitsSlot } from "../../fit.svelte";
-  import { zoomFade } from "../../motion";
-  import { curfew } from "../../curfew.svelte";
-  import { selection, type Span } from "../../selection.svelte";
-  import { minutesByList } from "../../blocklists";
-  import { mondayOf } from "../../trends";
-  import { clock, shiftDay, shortDate } from "../../time";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { fullSplit } from "../../api";
-  import type { Blocklist, DayTotal, PlannedBlock } from "../../types";
+  import { drawHeight, fitsSlot } from "$core/fit.svelte";
+  import { zoomFade } from "$core/motion";
+  import { curfew } from "$core/curfew.svelte";
+  import { selection, type Span } from "$core/selection.svelte";
+  import { minutesByList } from "$core/blocklists";
+  import { mondayOf } from "$core/trends";
+  import { clock, shiftDay, shortDate } from "$core/time";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { fullSplit } from "$core/api";
+  import type { Blocklist, DayTotal, PlannedBlock } from "$core/types";
 
   let { history, timeZone, blocklists = {} }: { history: DayTotal[]; timeZone: string; blocklists?: Record<string, Blocklist> } = $props();
   const fit = fitsSlot();

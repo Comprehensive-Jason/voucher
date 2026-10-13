@@ -13,14 +13,14 @@
   import { untrack } from "svelte";
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
-  import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
-  import { compareSources, styleOf } from "../../sources";
-  import { MONTHS } from "../../trends";
-  import { shortDate } from "../../time";
-  import { selection } from "../../selection.svelte";
-  import { fitsSlot } from "../../fit.svelte";
-  import { heat } from "../../heat.svelte";
-  import type { DayTotal, Marker, SourceProgress } from "../../types";
+  import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
+  import { compareSources, styleOf } from "$core/sources";
+  import { MONTHS } from "$core/trends";
+  import { shortDate } from "$core/time";
+  import { selection } from "$core/selection.svelte";
+  import { fitsSlot } from "$core/fit.svelte";
+  import { heat } from "$core/heat.svelte";
+  import type { DayTotal, Marker, SourceProgress } from "$core/types";
   const fit = fitsSlot();
 
   let { history, sources }: { history: DayTotal[]; sources: SourceProgress[] } = $props();

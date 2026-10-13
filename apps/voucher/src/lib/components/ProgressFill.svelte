@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { EASE, MOTION } from "../motion";
+  import { EASE, MOTION } from "$core/motion";
   // A bar's fill that slides to new values. When the source has just earned
   // (`laps` went up), the full bar fades away where it stands while the new
   // progress grows in from the left underneath, instead of the bar snapping

@@ -2,9 +2,9 @@
   // A new blocklist, built up here and sent to the Ledger on Save. A new
   // blocklist only adds blocking, so it applies at once. On a wide screen,
   // Apps, Sites, and the installed apps sit side by side.
-  import { actionFailed } from "$lib/toast.svelte";
+  import { actionFailed } from "$core/toast.svelte";
   import { goto } from "$app/navigation";
-  import { ledger } from "$lib/api";
+  import { ledger } from "$core/api";
   import Tag from "$lib/components/Tag.svelte";
   import EntryList from "$lib/components/EntryList.svelte";
   import AddEntrySheets from "$lib/components/AddEntrySheets.svelte";
@@ -13,11 +13,11 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import ColorSheet from "$lib/components/ColorSheet.svelte";
   import SiteField from "$lib/components/SiteField.svelte";
-  import { wide } from "$lib/wide.svelte";
+  import { wide } from "$core/wide.svelte";
   import { onMount } from "svelte";
-  import { LIST_COLORS } from "$lib/blocklists";
+  import { LIST_COLORS } from "$core/blocklists";
   import { hhmm } from "$lib/rules";
-  import type { BlockedApp, BlockedSite, Status } from "$lib/types";
+  import type { BlockedApp, BlockedSite, Status } from "$core/types";
 
   let name = $state("");
   let apps = $state<BlockedApp[]>([]);

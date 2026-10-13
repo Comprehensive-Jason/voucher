@@ -27,20 +27,20 @@
   // "Walked away 49 of 67", over the Day, week, or month in view (or the
   // picked Day), whichever hour is picked, since opens aren't kept by hour.
   import { tick, untrack } from "svelte";
-  import { ledger } from "../api";
-  import { compareSources, groupOf, sourceOf, styleOf } from "../sources";
-  import { blocklistOf } from "../blocklists";
-  import { clock, dayLabel, hourOf, hoursAndMinutes, minutesIntoDay, periodLabel, shiftDay, shortDate } from "../time";
+  import { ledger } from "$core/api";
+  import { compareSources, groupOf, sourceOf, styleOf } from "$core/sources";
+  import { blocklistOf } from "$core/blocklists";
+  import { clock, dayLabel, hourOf, hoursAndMinutes, minutesIntoDay, periodLabel, shiftDay, shortDate } from "$core/time";
   import CardHead from "../components/CardHead.svelte";
   import Marker from "../components/Marker.svelte";
-  import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "../types";
+  import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "$core/types";
   import ScrollCue from "../components/ScrollCue.svelte";
   import ZoomSwitch from "../components/ZoomSwitch.svelte";
-  import { ms, zoomFade } from "../motion";
-  import { selection } from "../selection.svelte";
-  import { inCurfew } from "../curfew.svelte";
-  import { clock as clockOf, dayOfMoment, hourOfMoment, notes } from "../notes.svelte";
-  import type { Marker as MarkerNote } from "../types";
+  import { ms, zoomFade } from "$core/motion";
+  import { selection } from "$core/selection.svelte";
+  import { inCurfew } from "$core/curfew.svelte";
+  import { clock as clockOf, dayOfMoment, hourOfMoment, notes } from "$core/notes.svelte";
+  import type { Marker as MarkerNote } from "$core/types";
 
   let listEl = $state<HTMLDivElement>();
   /** One page's exact width. Pages fill the scroller, which can be a fraction

@@ -12,13 +12,13 @@
   // the bar empties to what's left over and the row slides to its new place.
   import { onDestroy, tick, untrack } from "svelte";
   import { flip } from "svelte/animate";
-  import { styleOf } from "../sources";
+  import { styleOf } from "$core/sources";
   import { WIN_HOLD_MS, wins } from "../celebrate.svelte";
-  import { MOTION, easeOut } from "../motion";
+  import { MOTION, easeOut } from "$core/motion";
   import Marker from "./Marker.svelte";
   import ProgressFill from "./ProgressFill.svelte";
   import ScrollCue from "./ScrollCue.svelte";
-  import type { SourceProgress } from "../types";
+  import type { SourceProgress } from "$core/types";
 
   /** `bank` tells a kept Voucher from one a full Bank lost. */
   let { sources, bank = 0 }: { sources: SourceProgress[]; bank?: number } = $props();

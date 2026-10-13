@@ -12,14 +12,14 @@
   // it's still going.
   import { untrack } from "svelte";
   import TrendCard from "../../components/TrendCard.svelte";
-  import { measured } from "../../notes.svelte";
+  import { measured } from "$core/notes.svelte";
   import ZoomSwitch from "../../components/ZoomSwitch.svelte";
-  import { styleOf } from "../../sources";
-  import { mondayOf } from "../../trends";
-  import { zoomFade } from "../../motion";
-  import { selection } from "../../selection.svelte";
-  import { fitsSlot } from "../../fit.svelte";
-  import type { DayTotal } from "../../types";
+  import { styleOf } from "$core/sources";
+  import { mondayOf } from "$core/trends";
+  import { zoomFade } from "$core/motion";
+  import { selection } from "$core/selection.svelte";
+  import { fitsSlot } from "$core/fit.svelte";
+  import type { DayTotal } from "$core/types";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();

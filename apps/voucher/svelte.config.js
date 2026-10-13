@@ -12,6 +12,10 @@ const config = {
     adapter: adapter({
       fallback: "index.html",
     }),
+    // What the apps share, compiled here as source (packages/core).
+    alias: {
+      $core: "../../packages/core/src",
+    },
   },
 };
 

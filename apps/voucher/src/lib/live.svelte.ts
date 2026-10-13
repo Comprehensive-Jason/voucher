@@ -1,9 +1,9 @@
 // The Today screen's live state, shared by the phone screen and the tablet's
 // first column: the Ledger's latest answer, a one-second clock for the Unlock
 // countdown, and a poll every 30 seconds.
-import { today, tear } from "./api";
-import { modeOf, type Today } from "./types";
-import { actionFailed } from "./toast.svelte";
+import { today, tear } from "$core/api";
+import { modeOf, type Today } from "$core/types";
+import { actionFailed } from "$core/toast.svelte";
 
 /** How often to ask the Ledger again. A dev build asks every few seconds, so
  *  changes made while testing show up almost at once. */

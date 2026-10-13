@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Checks the color system's rules (apps/voucher/src/lib/theme.css and
+// Checks the color system's rules (packages/core/src/theme.css and
 // palette.ts), since the repo has no JS test runner:
 //   - every swatch reads at 3:1 on --raised, and sits in its row's OKLCH
 //     lightness band;
@@ -64,7 +64,7 @@ const lum = (hex) => { const [r, g, b] = rgb(hex).map(lin); return 0.2126 * r + 
 const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
 // ---- What the app declares ----
-const theme = read("apps/voucher/src/lib/theme.css");
+const theme = read("packages/core/src/theme.css");
 const T = {};
 for (const [, name, hex] of theme.matchAll(/^\s*--([a-z0-9-]+):\s*(#[0-9a-f]{6});/gim)) T[name] = hex.toLowerCase();
 const need = (name) => { if (!T[name]) throw new Error(`theme.css has no hex for --${name}`); return T[name]; };
@@ -72,7 +72,7 @@ const ground = need("ground"), surface = need("surface"), raised = need("raised"
 const voucher = need("voucher");
 const wash = (hex) => mixOklab(hex, ground, 0.15);
 
-const paletteTs = read("apps/voucher/src/lib/palette.ts");
+const paletteTs = read("packages/core/src/palette.ts");
 const rows = [...paletteTs.slice(paletteTs.indexOf("export const PALETTE"), paletteTs.indexOf("export const COLORS")).matchAll(/^\s*\[(.*)\],?$/gm)]
   .map(([, row]) => [...row.matchAll(/color: "(#[0-9a-f]{6})", name: "([^"]+)"/gi)].map(([, color, name]) => ({ color: color.toLowerCase(), name })));
 const legacyOf = (text, re) => Object.fromEntries([...text.matchAll(re)].map(([, a, b]) => [a.toLowerCase(), b.toLowerCase()]));

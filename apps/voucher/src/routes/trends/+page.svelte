@@ -6,9 +6,9 @@
   // (phonepages.svelte.ts). Each card fills its slot and redraws to its
   // shape, as on the tablet, with its name on a folder tab above it.
   import LedgerNotice from "$lib/components/LedgerNotice.svelte";
-  import { shownByNotice } from "$lib/health.svelte";
+  import { shownByNotice } from "$core/health.svelte";
   import { onMount, tick } from "svelte";
-  import { deviceUsage, ledger } from "$lib/api";
+  import { deviceUsage, ledger } from "$core/api";
   import HourChart from "$lib/panels/HourChart.svelte";
   import TrendLines from "$lib/panels/trends/TrendLines.svelte";
   import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
@@ -31,12 +31,12 @@
   import LogPanel from "$lib/panels/LogPanel.svelte";
   import CardTab from "$lib/components/CardTab.svelte";
   import { arrangement, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
-  import { fillSlots } from "$lib/fit.svelte";
-  import { phonePages } from "$lib/phonepages.svelte";
-  import { selection } from "$lib/selection.svelte";
-  import { setCurfew } from "$lib/curfew.svelte";
-  import { historyDays } from "$lib/time";
-  import type { DaySummary, DayTotal, DeviceUsage, Status } from "$lib/types";
+  import { fillSlots } from "$core/fit.svelte";
+  import { phonePages } from "$core/phonepages.svelte";
+  import { selection } from "$core/selection.svelte";
+  import { setCurfew } from "$core/curfew.svelte";
+  import { historyDays } from "$core/time";
+  import type { DaySummary, DayTotal, DeviceUsage, Status } from "$core/types";
 
   // Cards fill their slots (thirds of a page), as on the tablet.
   fillSlots();
