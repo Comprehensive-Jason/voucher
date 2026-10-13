@@ -5,7 +5,7 @@
   import { wide } from "$core/wide.svelte";
   import { onMount } from "svelte";
   import { goto, onNavigate } from "$app/navigation";
-  import { connection, device } from "$core/api";
+  import { connection, device } from "$lib/device";
   import { easeIn, easeOut, motionVars, ms } from "$core/motion";
   import Home from "$lib/Home.svelte";
   import Toast from "$core/components/Toast.svelte";

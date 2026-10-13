@@ -7,7 +7,8 @@
   // tablet's Today column. All are the shared .notice card (theme.css).
   import { onMount } from "svelte";
   import { sheet } from "$core/sheet.svelte";
-  import { fixProtection, missingProtection, protection, protectionNow, sameAnswer } from "$core/api";
+  import { sameAnswer } from "$core/api";
+  import { fixProtection, missingProtection, protection, protectionNow } from "$lib/device";
   import GraceBanner from "./GraceBanner.svelte";
   import WaitingChanges from "./WaitingChanges.svelte";
   import LedgerNotice from "$core/components/LedgerNotice.svelte";

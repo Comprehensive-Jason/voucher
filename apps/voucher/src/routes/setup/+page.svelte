@@ -6,7 +6,8 @@
   // its changes follow the usual waits.
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
-  import { connect, connection, device, fixProtection, ledger, onWindows, protection, protectionParts, requestHealth } from "$core/api";
+  import { ledger } from "$core/api";
+  import { connect, connection, device, fixProtection, onWindows, protection, protectionParts, requestHealth } from "$lib/device";
   import Switch from "$core/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";

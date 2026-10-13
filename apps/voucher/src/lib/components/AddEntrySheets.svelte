@@ -2,7 +2,7 @@
   // The two "Add" sheets for a blocklist or source group: pick an installed
   // app, or type a site. Source groups (`counting`) leave out "Every game",
   // and show apps and sites another group already counts as not pickable.
-  import { launchableApps } from "$core/api";
+  import { launchableApps } from "$lib/device";
   import Sheet from "$core/components/Sheet.svelte";
   import { domainOf, isDomain } from "$core/blocklists";
 

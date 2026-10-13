@@ -5,7 +5,8 @@
   import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
   import { sheet } from "$core/sheet.svelte";
-  import { ledger, missingProtection, onWindows, protection, protectionNow, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
+  import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
+  import { missingProtection, onWindows, protection, protectionNow } from "$lib/device";
   import RulesNotices from "../components/RulesNotices.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
   import RulesCard from "../components/RulesCard.svelte";

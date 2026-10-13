@@ -4,7 +4,8 @@
   // here opens the app straight away.
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { appIcon, device, deviceUsage, ledger, tear, today } from "$core/api";
+  import { ledger } from "$core/api";
+  import { appIcon, device, deviceUsage, tear, today } from "$lib/device";
   import { blocklistColorOf, blocklistOf } from "$core/blocklists";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
   import { tileTint } from "$core/palette";

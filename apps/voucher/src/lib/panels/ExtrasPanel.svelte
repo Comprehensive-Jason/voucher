@@ -3,7 +3,7 @@
   // and the Days export. Rules' fourth column on the tablet, its fourth tab on
   // the phone.
   import { actionFailed } from "$core/toast.svelte";
-  import { exportDays } from "$core/api";
+  import { exportDays } from "$lib/device";
   import RulesColumn from "$lib/components/RulesColumn.svelte";
   import RulesCard from "$lib/components/RulesCard.svelte";
 

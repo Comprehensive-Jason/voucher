@@ -4,7 +4,8 @@
   import { shownByNotice } from "$core/health.svelte";
   import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
-  import { deviceId, fixProtection, ledger, onWindows, protection, protectionParts } from "$core/api";
+  import { ledger } from "$core/api";
+  import { deviceId, fixProtection, onWindows, protection, protectionParts } from "$lib/device";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { hhmm, until } from "$lib/rules";

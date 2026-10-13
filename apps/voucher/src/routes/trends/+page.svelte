@@ -9,7 +9,8 @@
   import { LEDGER_NOTICE } from "$lib/notices";
   import { shownByNotice } from "$core/health.svelte";
   import { onMount, tick } from "svelte";
-  import { deviceUsage, ledger } from "$core/api";
+  import { ledger } from "$core/api";
+  import { deviceUsage } from "$lib/device";
   import Card from "$lib/Card.svelte";
   import CardTab from "$core/components/CardTab.svelte";
   import { ROWS } from "$core/arrangement.svelte";

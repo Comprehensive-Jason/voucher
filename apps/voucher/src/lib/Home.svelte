@@ -10,7 +10,8 @@
   // the dashboard (Dashboard.svelte), with the Today column first, Rules at
   // its foot, and Voucher's cards (Card.svelte) in the strip beside it.
   import { page } from "$app/state";
-  import { deviceUsage, ledger } from "$core/api";
+  import { ledger } from "$core/api";
+  import { deviceUsage } from "$lib/device";
   import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$core/wide.svelte";
   import { sheet, whenIdle } from "$core/sheet.svelte";
