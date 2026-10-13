@@ -1,20 +1,8 @@
 <script lang="ts">
   // Does doing one thing go with another going better? For each source, the
   // Days it earned against the Days it didn't, on the same Day and the Day
-  // after: did another source earn more, did fewer blocked opens end in an
-  // Unlock, was the Day's longest focus stretch longer, or the night after
-  // longer? A good night, a busy calendar, and
-  // late Distraction are drivers too (rules below), and a focus stretch with
-  // an Unlock or Distraction in the hour before it is set against stretches
-  // without. Plain averages, no guessing at causes. Unlocks and Distraction
-  // are never Day drivers of Voucher outcomes, and Unlocked minutes never an
-  // outcome: earning is what pays for Unlocks, so those pairs would partly
-  // be the Bank's own bookkeeping. For the same reason Distraction minutes
-  // are an outcome only of what lies outside that economy (a good night and
-  // a busy calendar), never of a source; late Distraction goes only with the
-  // night after. A Day without the data (no night recorded, no calendar
-  // chosen, no device reporting Distraction, no Distraction spans) is
-  // missing, never zero. Which
+  // after, and a good night, a busy calendar, and late Distraction besides:
+  // the drivers, outcomes, and their rules are in $core/goodDays.ts. Which
   // findings show, and how sure each is, comes from $core/correlate.ts (its
   // showing rule and confidence tiers), every pair corrected together.
   // Findings are grouped by what changed, groups by how much changed in all
@@ -26,13 +14,11 @@
   // findings ($core/panels/trends/goodDayAxes.ts); a hollow dot for Days
   // without, always at ×1, and a filled one for Days with.
   import TrendCard from "$core/components/TrendCard.svelte";
-  import { styleOf } from "$core/sources";
   import { fitsSlot } from "$core/fit.svelte";
-  import { MIN_N, skippedPairs, STRETCH, type BreakDriver, type Request, type StretchDay, type Tested } from "$core/correlate";
+  import { MIN_N, type Tested } from "$core/correlate";
   import { correlateOff } from "$core/correlateOff";
   import { curfew } from "$core/curfew.svelte";
-  import { clock } from "$core/time";
-  import { measured } from "$core/notes.svelte";
+  import { better, change, comparedDays, driverWords, findingKey as key, goodDaySetup, num, readOf, type Measure } from "$core/goodDays";
   import type { DayTotal } from "$core/types";
   import { scaleFor, type Axis } from "$core/panels/trends/goodDayAxes";
 
@@ -42,136 +28,27 @@
   // today, which this card leaves out, so when the finished Days read the
   // same as last time the same list is kept and nothing below is worked out
   // or sent to the worker again.
-  /** The fields of a Day this card reads, as text. */
-  const readOf = (d: DayTotal) => JSON.stringify([d.day, d.by_source, d.opens, d.walked, d.stretches, d.used, d.reported, d.sleep?.asleep, d.calendar?.busy_minutes, d.distraction_spans, d.timed_stretches, d.unlocks]);
   let lastRead: string[] = [], lastDays: DayTotal[] = [];
   const days = $derived.by(() => {
-    const next = history.slice(0, -1).filter((d) => d.hours && d.hours.length);
+    const next = comparedDays(history);
     const read = next.map(readOf);
     if (read.length === lastRead.length && read.every((r, i) => r === lastRead[i])) return lastDays;
     lastRead = read; lastDays = next;
     return next;
   });
 
-  // The rules for the drivers that aren't sources, each against the
-  // person's own Days in the range shown, never a fixed norm.
-  /** A good night: asleep at least as long as half the nights recorded (the
-   *  median), so the two sides fill up equally fast and "good" is measured
-   *  against your own nights, not a textbook eight hours. */
-  const GOOD_NIGHT_SHARE = 1 / 2;
-  /** A busy Day: calendar busy minutes among the top third of the Days with
-   *  calendar data, out of the ordinary while still common enough to reach
-   *  MIN_N within a few weeks. A Day with no busy minutes is never busy. */
-  const BUSY_SHARE = 1 / 3;
-  /** Late Distraction: at least LATE_MINUTES of Distraction from LATE_FROM
-   *  (22:00 on the clock) until the Day ends. */
-  const LATE_FROM = 22 * 60;
-  const LATE_MINUTES = 15;
+  // The drivers, outcomes, and request ($core/goodDays.ts), with the Day
+  // starting at Curfew's end on the Ledger's clock.
+  const setup = $derived(goodDaySetup(days, timeZone, Math.round(curfew.end * 60)));
+  const measures = $derived(setup.measures);
+  const measureOf = $derived(setup.measureOf);
+  const doerOf = $derived(setup.doerOf);
 
-  type Unit = "vouchers" | "minutes" | "percent";
-  /** Something that changes from Day to Day: its name, color, unit, which way is better, and its value on a Day (NaN when unknown). */
-  type Measure = { id: string; name: string; color: string; unit: Unit; up: boolean; note: string; value: (d: DayTotal) => number };
-  /** Something that happens or doesn't, as the left label shows it: on its Day, the Day after, and (against sleep) the night after. */
-  type Doer = { id: string; color: string; days: string; after: string; night: string };
-  /** A Day driver: 1 on Days it happened, 0 on Days it didn't, -1 when unknown. */
-  type DayDriver = { id: string; name: string; did: number[] };
-
-  const sources = $derived([...new Set(days.flatMap((d) => Object.keys(d.by_source ?? {})))]);
-  /** The Day's longest focus stretch, as Before and after's "Longest focus" takes it. */
-  const longest = (d: DayTotal) => (d.stretches?.length ? Math.max(...d.stretches) : NaN);
-  const SLEEP = "~asleep", DISTRACTED = "~distracted", GOOD_NIGHT = "~goodnight", BUSY = "~busy", LATE = "~late";
-  /** The Day's Distraction minutes, every app and device together, or NaN when no device reported. */
-  const distracted = (d: DayTotal) => (measured(d) ? Object.values(d.used ?? {}).reduce((a, b) => a + b, 0) : NaN);
-  const measures = $derived<Measure[]>([
-    ...sources.map((id): Measure => {
-      const s = styleOf(id);
-      return { id, name: s.name, color: s.color, unit: "vouchers", up: true, note: "Vouchers", value: (d) => d.by_source?.[id] ?? 0 };
-    }),
-    // Blocked opens that ended in an Unlock, rather than the ones walked away
-    // from: the smaller share, so its ratio moves more for the same change.
-    { id: "~gavein", name: "Gave in", color: "var(--muted)", unit: "percent", up: false, note: "% of blocked opens", value: (d) => (d.opens ? ((d.opens - Math.min(d.walked ?? 0, d.opens)) / d.opens) * 100 : NaN) },
-    { id: "~longest", name: "Longest focus stretch", color: "var(--ink)", unit: "minutes", up: true, note: "minutes", value: longest },
-    { id: DISTRACTED, name: "Distraction", color: "var(--muted)", unit: "minutes", up: false, note: "minutes", value: distracted },
-    // The night that led into the Day.
-    { id: SLEEP, name: "Time asleep", color: "var(--sleep)", unit: "minutes", up: true, note: "minutes", value: (d) => d.sleep?.asleep ?? NaN },
-  ]);
-  /** Stretch by stretch, after a break (an Unlock or Distraction in the hour before) or not; see $core/correlate.ts. */
-  const lengths: Measure = { id: STRETCH, name: "Focus stretch length", color: "var(--ink)", unit: "minutes", up: true, note: "minutes", value: () => NaN };
-  const doers = $derived<Doer[]>([
-    ...sources.map((id): Doer => { const s = styleOf(id); return { id, color: s.color, days: `${s.short} Days`, after: `Day after ${s.short}`, night: `Night after ${s.short}` }; }),
-    { id: "~unlock", color: "var(--spend)", days: "After an Unlock", after: "After an Unlock", night: "" },
-    { id: "~distraction", color: "var(--muted)", days: "After Distraction", after: "After Distraction", night: "" },
-    { id: GOOD_NIGHT, color: "var(--night)", days: "After a good night", after: "", night: "" },
-    { id: BUSY, color: "var(--ink)", days: "Busy Days", after: "Day after a busy Day", night: "Night after a busy Day" },
-    { id: LATE, color: "var(--muted)", days: "", after: "", night: "Late Distraction" },
-  ]);
-  const measureOf = $derived(new Map([...measures, lengths].map((m) => [m.id, m])));
-  const doerOf = $derived(new Map(doers.map((d) => [d.id, d])));
-  /** Sources that are time in an app: a session there is itself a focus stretch. Tasks, Workout, and Steps aren't. */
-  const makesStretches = (id: string) => !["tasks", "workout", "steps"].includes(id);
-
-  // Moments as minutes after the Day began (Curfew's end), on the Ledger's clock.
-  const dayStart = $derived(Math.round(curfew.end * 60));
-  const sinceStart = (at: string) => { const [h, m] = clock(at, timeZone).split(":").map(Number); return (h * 60 + m - dayStart + 1440) % 1440; };
-  const span = ([a, b]: [string, string]): [number, number] => { const from = sinceStart(a); return [from, from + (Date.parse(b) - Date.parse(a)) / 60_000]; };
-  /** The value that `share` of `values` are at or above. */
-  const topShare = (values: number[], share: number) => [...values].sort((a, b) => a - b)[values.length - Math.ceil(values.length * share)];
-  /** Minutes of Distraction from LATE_FROM to the Day's end, or NaN without spans. */
-  const lateMinutes = (d: DayTotal) => {
-    if (!d.distraction_spans) return NaN;
-    const from = (LATE_FROM - dayStart + 1440) % 1440;
-    return d.distraction_spans.map(span).reduce((t, [a, b]) => t + Math.max(0, Math.min(b, 1440) - Math.max(a, from)), 0);
-  };
-  const dayDrivers = $derived.by((): DayDriver[] => {
-    const nights = days.flatMap((d) => (d.sleep ? [d.sleep.asleep] : []));
-    const good = nights.length ? topShare(nights, GOOD_NIGHT_SHARE) : Infinity;
-    const loads = days.flatMap((d) => (d.calendar ? [d.calendar.busy_minutes] : []));
-    const busy = loads.length ? topShare(loads, BUSY_SHARE) : Infinity;
-    return [
-      ...sources.map((id) => ({ id, name: styleOf(id).name, did: days.map((d) => ((d.by_source?.[id] ?? 0) > 0 ? 1 : 0)) })),
-      { id: GOOD_NIGHT, name: "Good nights", did: days.map((d) => (d.sleep ? (d.sleep.asleep >= good ? 1 : 0) : -1)) },
-      { id: BUSY, name: "Busy Days", did: days.map((d) => (d.calendar ? (d.calendar.busy_minutes > 0 && d.calendar.busy_minutes >= busy ? 1 : 0) : -1)) },
-      { id: LATE, name: "Late Distraction", did: days.map((d) => { const m = lateMinutes(d); return m === m ? (m >= LATE_MINUTES ? 1 : 0) : -1; }) },
-    ];
-  });
-  /** Each Day's timed stretches against its Unlocks, and against its Distraction where every device sent spans. */
-  const breaks = $derived.by((): BreakDriver[] => {
-    const unlock: StretchDay[] = [], distraction: StretchDay[] = [];
-    for (const d of days) {
-      const stretches = (d.timed_stretches ?? []).map((s) => ({ start: sinceStart(s.start), minutes: s.minutes }));
-      if (!stretches.length) continue;
-      if (d.unlocks) unlock.push({ day: d.day, stretches, breaks: d.unlocks.map(span) });
-      if (d.distraction_spans) distraction.push({ day: d.day, stretches, breaks: d.distraction_spans.map(span) });
-    }
-    return [{ id: "~unlock", days: unlock }, { id: "~distraction", days: distraction }];
-  });
-
-  /** Pairs left untested. A night belongs to the Day it leads into, so it
-   *  is an outcome only of the Day before (lag 1, "Night after") and a
-   *  driver only of its own Day (lag 0): each night meets each Day once. */
-  function skip(driver: string, outcome: string, lag: 0 | 1): boolean {
-    // Distraction minutes are what Unlocks are spent on and what earning
-    // pays for, so only drivers outside that economy go with them.
-    if (outcome === DISTRACTED) return !(driver === BUSY || (driver === GOOD_NIGHT && lag === 0));
-    // An Anki session both makes an Anki Day and is a focus stretch, so the same Day's pair says nothing.
-    if (lag === 0 && outcome === "~longest" && makesStretches(driver)) return true;
-    if (outcome === SLEEP && lag === 0) return true;
-    if (driver === GOOD_NIGHT) return lag === 1 || outcome === SLEEP;
-    // Late Distraction only with the night after.
-    if (driver === LATE) return !(lag === 1 && outcome === SLEEP);
-    return false;
-  }
-
-  // Worked out in the worker (above); until it answers, the card keeps its
-  // last findings, or on the first load shows that it's comparing.
-  const request = $derived.by((): Request => {
-    const drivers = dayDrivers.map(({ id, did }) => ({ id, did }));
-    const outcomes = measures.map((m) => ({ id: m.id, values: days.map(m.value) }));
-    return { days: days.map((d) => d.day), drivers, outcomes, breaks, skipped: skippedPairs(drivers, outcomes, skip) };
-  });
+  // Worked out in the worker; until it answers, the card keeps its last
+  // findings, or on the first load shows that it's comparing.
   let found = $state.raw<Tested[] | null>(null);
   $effect(() => {
-    const r = request;
+    const r = setup.request;
     let wanted = true;
     correlateOff(r).then((t) => { if (wanted) found = t; });
     return () => { wanted = false; };
@@ -189,21 +66,13 @@
   /** Outcomes with something to compare but no finding yet. */
   const quiet = $derived(measures.filter((m) => !groups.some((g) => g.outcome.id === m.id) && days.some((d) => !Number.isNaN(m.value(d)))));
   /** Each Day driver's Days with and without (those with data), for the empty state's meters. */
-  const progress = $derived(dayDrivers.flatMap((dr) => {
+  const progress = $derived(setup.dayDrivers.flatMap((dr) => {
     const withN = dr.did.filter((x) => x === 1).length, withoutN = dr.did.filter((x) => x === 0).length;
     return withN + withoutN ? [{ name: dr.name, color: doerOf.get(dr.id)!.color, id: dr.id, withN, withoutN }] : [];
   }));
   /** Those still short of MIN_N Days on a side. */
   const short = $derived(progress.filter((p) => Math.min(p.withN, p.withoutN) < MIN_N));
 
-  const key = (f: Tested) => `${f.driver}|${f.outcome}|${f.lag}`;
-  const better = (f: Tested, o: Measure) => (o.up ? f.withAvg > f.withoutAvg : f.withAvg < f.withoutAvg);
-  const num = (v: number, u: Unit) => (u === "vouchers" ? v.toFixed(1) : `${Math.round(v)}${u === "percent" ? "%" : ""}`);
-  /** The change, signed with a real minus: "+0.8", "−18 min", or "+9%". */
-  const change = (f: Tested, u: Unit) => {
-    const d = f.withAvg - f.withoutAvg;
-    return `${d < 0 ? "−" : "+"}${num(Math.abs(d), u)}${u === "minutes" ? " min" : ""}`;
-  };
   const LEVEL = ["Very low", "Low", "Medium", "High"];
   const noun = (f: Tested) => (f.per === "stretch" ? "stretches" : "Days");
 
@@ -282,7 +151,7 @@
 
 {#snippet who(f: Tested)}
   {@const d = doerOf.get(f.driver)!}
-  <span class="who"><i style="background: {d.color}"></i><span>{!f.lag ? d.days : f.outcome === SLEEP ? d.night : d.after}</span></span>
+  <span class="who"><i style="background: {d.color}"></i><span>{driverWords(f, d)}</span></span>
 {/snippet}
 
 <!-- The key's two-colored marks: crimson for worse, green for better, a thin slash where they meet. -->
