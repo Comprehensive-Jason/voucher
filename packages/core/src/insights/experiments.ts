@@ -7,7 +7,6 @@
 import { better, compareAt, confidenceOfShare, measureOf, MEASURES, same, SETTLE, SPAN, show, type Compared, type Measure } from "../beforeAfter";
 import { dayOfMoment } from "../notes.svelte";
 import { shiftDay, shortDate } from "../time";
-import type { DayTotal } from "../types";
 import { clamp, measureContext, signed, type Context } from "./context";
 import { verdict as sayVerdict, verdictWords, type Outcome } from "./text";
 import type { Experiment, Finding } from "./types";
@@ -137,5 +136,3 @@ export function markerFindings(ctx: Context): Finding[] {
   return out;
 }
 
-/** The Days a verdict reads, for tests and the proof sheet. */
-export const verdictDays = (days: DayTotal[], start: string) => days.filter((d) => d.day >= shiftDay(start, -SPAN) && d.day < shiftDay(start, SETTLE + SPAN));
