@@ -30,6 +30,8 @@
   let history = $state<DayTotal[]>([]);
   let usage = $state<DeviceUsage | null>(null);
   let blocklists = $state<Status["settings"]["blocklists"]>({});
+  let settings = $state<Status["settings"] | null>(null);
+  let pending = $state<Status["pending"]>([]);
   let error = $state<string | null>(null);
 
   // ---- Pages ----
@@ -70,6 +72,8 @@
       const status = await ledger<Status>("GET", "/status");
       setCurfew(status.settings.curfew_start, status.settings.curfew_end);
       blocklists = status.settings.blocklists;
+      settings = status.settings;
+      pending = status.pending;
       today = status.today;
       timeZone = status.settings.time_zone;
       firstDay = status.first_day;
@@ -100,7 +104,7 @@
             <div class="slot" role="group" aria-label={PANELS[id].name} style="grid-row: span {arrangement.size(id)}">
               <!-- The card's name, on a tab growing out of its top edge, so naming it costs the card no height. -->
               <span class="tab"><CardTab name={PANELS[id].name} /></span>
-              <Card {id} {today} {timeZone} {firstDay} {blocklists} {history} {usage} />
+              <Card {id} {today} {timeZone} {firstDay} {blocklists} {history} {usage} {settings} {pending} />
             </div>
           {/each}
         </div>

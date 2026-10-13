@@ -4,13 +4,14 @@
 // What each card is for and how to read it is in lib/about.ts.
 import { createArrangement, type Panel } from "$core/arrangement.svelte";
 
-export type PanelId = "earned" | "heat" | "distraction" | "log"
+export type PanelId = "insights" | "earned" | "heat" | "distraction" | "log"
   | "trend" | "when" | "pace" | "runway" | "strength" | "streaks" | "records"
-  | "best" | "gooddays" | "replay" | "focus"
+  | "best" | "replay" | "focus"
   | "verdicts" | "compare" | "reasons"
   | "planned";
 
 export const PANELS: Record<PanelId, Panel> = {
+  insights: { name: "Insights", min: 1, max: 3, size: 1 },
   earned: { name: "Vouchers earned", min: 2, max: 3, size: 2 },
   heat: { name: "Activity", min: 1, max: 1, size: 1 },
   distraction: { name: "Distraction time", min: 2, max: 3, size: 2 },
@@ -23,7 +24,6 @@ export const PANELS: Record<PanelId, Panel> = {
   streaks: { name: "Source streaks", min: 1, max: 3, size: 1 },
   records: { name: "Personal records", min: 1, max: 1, size: 1 },
   best: { name: "Best hours by source", min: 1, max: 3, size: 1 },
-  gooddays: { name: "What goes with a good Day", min: 1, max: 3, size: 1 },
   replay: { name: "Replay", min: 1, max: 1, size: 1 },
   focus: { name: "Focus stretches", min: 1, max: 2, size: 1 },
   verdicts: { name: "Goal vs how the Day went", min: 1, max: 1, size: 1 },
@@ -32,7 +32,8 @@ export const PANELS: Record<PanelId, Panel> = {
   planned: { name: "Planned vs actual", min: 1, max: 2, size: 1 },
 };
 
-const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "records", "streaks", "replay", "planned", "best", "gooddays", "focus", "verdicts", "compare", "reasons"];
+// Insights first: a saved arrangement from before it gets it at the front too.
+const DEFAULT: PanelId[] = ["insights", "earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "records", "streaks", "replay", "planned", "best", "focus", "verdicts", "compare", "reasons"];
 
 /** Kept as "voucher:tablet-arrangement", the name it has always had. */
 export const arrangement = createArrangement<PanelId>({

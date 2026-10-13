@@ -103,7 +103,8 @@
       </a>
     {/snippet}
     {#snippet card(id: string)}
-      <Card id={id as PanelId} today={status?.today ?? null} timeZone={status?.settings.time_zone ?? "UTC"} firstDay={status?.first_day} blocklists={status?.settings.blocklists ?? {}} {history} {usage} keyBelow={false} />
+      <Card id={id as PanelId} today={status?.today ?? null} timeZone={status?.settings.time_zone ?? "UTC"} firstDay={status?.first_day} blocklists={status?.settings.blocklists ?? {}} {history} {usage}
+        settings={status?.settings ?? null} pending={status?.pending ?? []} keyBelow={false} />
     {/snippet}
   </Dashboard>
 {:else}

@@ -14,18 +14,18 @@
   import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
   import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
   import BestHours from "$lib/panels/trends/BestHours.svelte";
-  import GoodDays from "$lib/panels/trends/GoodDays.svelte";
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
   import Planned from "$lib/panels/trends/Planned.svelte";
+  import Insights from "$lib/panels/trends/Insights.svelte";
   import { selection } from "$core/selection.svelte";
-  import type { DaySummary, DayTotal, DeviceUsage, Status } from "$core/types";
+  import type { DaySummary, DayTotal, DeviceUsage, Pending, Settings, Status } from "$core/types";
   import type { PanelId } from "./cards";
 
-  let { id, today, timeZone, firstDay, blocklists, history, usage, keyBelow = true }: {
+  let { id, today, timeZone, firstDay, blocklists, history, usage, settings = null, pending = [], keyBelow = true }: {
     id: PanelId;
     /** Today, from the status; null until it has come. */
     today: DaySummary | null;
@@ -34,6 +34,9 @@
     blocklists: Status["settings"]["blocklists"];
     history: DayTotal[];
     usage: DeviceUsage | null;
+    /** The rules now and the changes waiting, for Insights' suggestions. */
+    settings?: Settings | null;
+    pending?: Pending[];
     /** Activity's key under its grid (the phone), or beside it (the tablet). */
     keyBelow?: boolean;
   } = $props();
@@ -41,7 +44,8 @@
 
 {#if id === "log"}<div class="logcard tile"><LogPanel compact /></div>
 {:else if today}
-  {#if id === "earned"}<HourChart {today} {timeZone} {firstDay} tall />
+  {#if id === "insights"}<Insights {history} {timeZone} {settings} {pending} {blocklists} />
+  {:else if id === "earned"}<HourChart {today} {timeZone} {firstDay} tall />
   {:else if id === "heat"}<Heatmap {history} goal={today.goal} {firstDay} selected={selection.day ?? today.day} onpick={(day) => selection.set("heat", { day, picked: true })} {keyBelow} />
   {:else if id === "distraction"}<HourChart measure="distraction" {today} {timeZone} {firstDay} {blocklists} device={usage} tall />
   {:else if id === "trend"}<TrendLines {history} goal={today.goal} />
@@ -52,7 +56,6 @@
   {:else if id === "streaks"}<SourceStreaks {history} sources={today.sources} />
   {:else if id === "records"}<PersonalRecords {history} {timeZone} />
   {:else if id === "best"}<BestHours {history} />
-  {:else if id === "gooddays"}<GoodDays {history} {timeZone} />
   {:else if id === "replay"}<Replay {history} />
   {:else if id === "focus"}<FocusStretches {history} />
   {:else if id === "verdicts"}<Verdicts {history} />
