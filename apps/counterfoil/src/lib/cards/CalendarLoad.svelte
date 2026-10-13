@@ -72,8 +72,8 @@
 <TrendCard title="Calendar load" date={anyCalendar ? { day: chosen, today, oldest, unit: "week", onpick: (d) => selection.set("calendar", { day: d === today ? null : d, picked: false }) } : undefined}>
   {#if !anyCalendar}
     <div class="empty box">
-      <p class="empty">Choose calendars in Sources to see busy Days against Vouchers. Only when events start and end is read.</p>
-      <a class="btn small" href="/rules/sources">Open Sources</a>
+      <!-- Calendars are chosen in Voucher, on the device that reads them. -->
+      <p class="empty">Choose calendars in Voucher, under Rules, Sources, to see busy Days against Vouchers. Only when events start and end is read.</p>
     </div>
   {:else}
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>

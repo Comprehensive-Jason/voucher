@@ -23,7 +23,7 @@ export const ABOUT = defineAbout<PanelId>()({
       "Any timed event counts: a calendar can't say which events are meetings. All-day, declined, and free ones don't.",
       "The {gold:dashed gold line} is the Daily goal, stepping where it changed. {marker:Thin lines} mark Markers.",
       "The arrows step a week at a time. Tap a column to pick its Day for the other cards, and its column is lit.",
-      "With no calendar chosen, the card says where to choose one, in Sources.",
+      "Calendars are chosen in Voucher, under Rules, Sources; until one is, the card says so.",
     ],
   },
 });
