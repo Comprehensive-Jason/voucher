@@ -3,7 +3,7 @@ import { sveltekit } from "@sveltejs/kit/vite";
 // @ts-expect-error type error without @types/node package
 import process from "node:process";
 import { ledgerProxy } from "../../packages/core/ledgerProxy.js";
-import { mayCall } from "./src/lib/allowed";
+import { mayCall } from "./src/lib/allowed.js";
 // The address a tablet on the network loads the dev build from, as for
 // Voucher (TAURI_DEV_HOST=192.168.1.16 npm run dev:counterfoil).
 const host = process.env.TAURI_DEV_HOST;
