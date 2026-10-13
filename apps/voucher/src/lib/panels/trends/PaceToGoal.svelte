@@ -197,7 +197,7 @@
     </div>
     <Legend items={[
       { kind: "line", color: "var(--voucher)", label: dayLabel(chosen, today.day) },
-      { kind: "box", color: "color-mix(in srgb, var(--voucher) 16%, transparent)", label: `Your usual Day (middle half of the last ${perDay.length})` },
+      { kind: "box", color: "color-mix(in srgb, var(--voucher) 16%, transparent)", label: `Usual Day (middle half, last ${perDay.length})` },
       ...(busy.length ? [{ kind: "line" as const, color: "var(--calendar)", label: "Events" }] : []),
       ...markerKeys(marks),
     ]} />

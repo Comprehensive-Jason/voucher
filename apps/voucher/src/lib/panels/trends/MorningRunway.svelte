@@ -17,16 +17,25 @@
   // into view, and tapping a dot shares its Day. A week holding a Marker has
   // a small notched flag beside its date,
   // the Markers' Days and texts in its tooltip and in their Days' dots'.
+  //
+  // With From wake on (an Arrange-mode switch, PANELS' options), each dot
+  // sits at the hours from that Day's wake-up to its first Unlock, on an
+  // axis of hours after waking fitted to the Days drawn, and the usual lines
+  // are the middle of those. Only Days with a tracked (Health Connect)
+  // wake-up are drawn: an estimated one comes from the first device use,
+  // which may be the Unlock itself. Curfew's shading and the wake ticks go,
+  // since neither has one place on that axis.
   import TrendCard from "../../components/TrendCard.svelte";
   import Legend from "../../components/Legend.svelte";
   import { inCurfew } from "../../curfew.svelte";
-  import { clock, shortDate } from "../../time";
+  import { clock, hoursAndMinutes, shortDate } from "../../time";
   import { clockOfHours, median, mondayOf } from "../../trends";
   import { fitsSlot } from "../../fit.svelte";
   import type { DayTotal, Marker } from "../../types";
   import { dayOfMoment, markerKeys, notes } from "../../notes.svelte";
   import { selection } from "../../selection.svelte";
   import { untrack } from "svelte";
+  import { arrangement } from "../../arrangement.svelte";
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
   const fit = fitsSlot();
@@ -35,7 +44,9 @@
 
   // Finished Days the log still holds.
   const days = $derived(history.slice(0, -1).filter((d) => d.hours && d.hours.length));
-  type Item = { day: string; t: number | null; wake: { t: number; at: string; estimated: boolean } | null };
+  /** A Day's first Unlock (`t`, hours on the 06:00 clock), its wake-up (`t`
+   *  drawn no earlier than 06:00, `raw` as it was), and the hours between. */
+  type Item = { day: string; t: number | null; wake: { t: number; raw: number; at: string; estimated: boolean } | null; since: number | null };
   type Week = { monday: string; list: Item[] };
   // A new history usually changes only today, which this card leaves out:
   // each Day's dot and tick, and each week's row, keep their objects while
@@ -51,8 +62,11 @@
       if (!item) {
         // A wake-up before 06:00 still leads into the Day: drawn at 06:00.
         const at = d.sleep ? clock(d.sleep.wake, timeZone) : "";
-        const wake = d.sleep ? { t: Math.max(START, Number(at.slice(0, 2)) + Number(at.slice(3)) / 60), at, estimated: d.sleep.source === "estimated" } : null;
-        item = { day: d.day, t: d.first_tear ? hoursAt(d.first_tear) : null, wake };
+        const raw = Number(at.slice(0, 2)) + Number(at.slice(3)) / 60;
+        const wake = d.sleep ? { t: Math.max(START, raw), raw, at, estimated: d.sleep.source === "estimated" } : null;
+        const t = d.first_tear ? hoursAt(d.first_tear) : null;
+        // An Unlock logged before the wake-up counts as none held out.
+        item = { day: d.day, t, wake, since: t !== null && wake ? Math.max(0, t - raw) : null };
       }
       next.set(d.day, { text, item });
       return item;
@@ -60,9 +74,15 @@
     seenDays = next;
     return out;
   });
+  const fromWake = $derived(arrangement.switchOn("runway", "fromwake"));
+  /** A Day with a tracked wake-up, the only kind From wake draws. */
+  const tracked = (d: Item) => !!d.wake && !d.wake.estimated;
+  /** Where a Day's dot sits, in hours along the axis drawn, or null for the "none" column. */
+  const valueOf = (d: Item) => (fromWake ? d.since : d.t);
+  const shown = $derived(fromWake ? items.filter(tracked) : items);
   const weeks = $derived.by(() => {
     const map = new Map<string, Item[]>();
-    for (const item of items) { const key = mondayOf(item.day); map.set(key, [...(map.get(key) ?? []), item]); }
+    for (const item of shown) { const key = mondayOf(item.day); map.set(key, [...(map.get(key) ?? []), item]); }
     const next = new Map<string, Week>();
     const out = [...map.entries()].map(([monday, list]) => {
       const old = seenWeeks.get(monday);
@@ -74,18 +94,22 @@
     if (out.length === lastWeeks.length && out.every((w, i) => w === lastWeeks[i])) return lastWeeks;
     return (lastWeeks = out);
   });
-  const recent = $derived(median(items.slice(-28).flatMap((d) => (d.t === null ? [] : [d.t]))));
-  const before = $derived(median(items.slice(-56, -28).flatMap((d) => (d.t === null ? [] : [d.t]))));
+  // The last 4 weeks of Days and the 4 before, of those drawn.
+  const usualOf = (list: Item[]) => median(list.filter((d) => !fromWake || tracked(d)).flatMap((d) => { const v = valueOf(d); return v === null ? [] : [v]; }));
+  const recent = $derived(usualOf(items.slice(-28)));
+  const before = $derived(usualOf(items.slice(-56, -28)));
+  /** A usual line's label: a clock time, or hours after waking. */
+  const usualText = (h: number) => (fromWake ? hoursAndMinutes(h * 60) : clockOfHours(h));
 
   /** The 4 weeks before, drawn only when they differ from lately by 10 minutes or more. */
-  /** Whether any Day drawn has a wake-up, and any an estimated one, for the keys. */
-  const wakes = $derived(weeks.flatMap((w) => w.list.flatMap((d) => (d.wake ? [d.wake] : []))));
+  /** Whether any Day drawn has a wake-up, and any an estimated one, for the keys (From wake draws none). */
+  const wakes = $derived(fromWake ? [] : weeks.flatMap((w) => w.list.flatMap((d) => (d.wake ? [d.wake] : []))));
   const showBefore = $derived(!Number.isNaN(recent) && !Number.isNaN(before) && Math.abs(recent - before) * 60 >= 10);
 
   // Markers on the Days drawn, by Day, oldest first.
   $effect(() => { notes.load(); });
   const marksOn = $derived.by(() => {
-    const have = new Set(days.map((d) => d.day));
+    const have = new Set(shown.map((d) => d.day));
     const out = new Map<string, Marker[]>();
     for (const m of notes.markers) { const d = dayOfMoment(m.at); if (have.has(d)) out.set(d, [...(out.get(d) ?? []), m]); }
     return out;
@@ -105,10 +129,21 @@
   /** Room between the dates and the hours for a week's Marker flag, when any week has one. */
   const flagRoom = $derived(marks.length ? Math.round(12 * k) : 0);
   const x0 = $derived(Math.max(52, Math.round((10 + 5.6 * Math.max(5, ...weeks.map((w) => shortDate(w.monday, today).length))) * k)) + flagRoom);
-  const xAt = (h: number) => x0 + ((Math.min(h, END) - START) / (END - START)) * (x1 - x0);
-  /** The Day's hours, 6 to 29 (29 is 05:00), and which fall in Curfew. */
+  /** From wake's axis: whole hours after waking, labeled every `step`, out
+   *  past the longest morning drawn (at least 6, at most 24). */
+  const wakeAxis = $derived.by(() => {
+    const most = Math.max(0, ...shown.flatMap((d) => (d.since === null ? [] : [d.since])));
+    const step = most <= 7 ? 1 : most <= 11 ? 2 : 3;
+    const span = Math.min(24, Math.max(6, Math.ceil((most * 1.05 + 0.25) / step) * step));
+    // Not at the far end, where it would run into "none".
+    return { span, ticks: Array.from({ length: Math.ceil(span / step) }, (_, i) => i * step) };
+  });
+  const xAt = (h: number) => fromWake
+    ? x0 + (Math.min(h, wakeAxis.span) / wakeAxis.span) * (x1 - x0)
+    : x0 + ((Math.min(h, END) - START) / (END - START)) * (x1 - x0);
+  /** The Day's hours, 6 to 29 (29 is 05:00), and which fall in Curfew (shaded only on the clock). */
   const HOURS = Array.from({ length: END - START }, (_, i) => START + i);
-  const night = $derived(HOURS.filter((h) => inCurfew(h % 24)));
+  const night = $derived(fromWake ? [] : HOURS.filter((h) => inCurfew(h % 24)));
 
   // Open at the newest weeks; follow the shared Day to its week.
   let scroller = $state<HTMLDivElement>();
@@ -132,7 +167,7 @@
 
 <TrendCard title="Morning runway" date={{ day: selection.day ?? today, today, oldest: days[0]?.day, onpick: (d) => selection.set("runway-step", { day: d === today ? null : d, picked: false }) }}>
   {#if !weeks.length}
-    <p class="empty">First Unlocks show here as the log fills.</p>
+    <p class="empty">{fromWake && items.length ? "From wake needs Days with a tracked wake-up. Turn it off in Arrange mode to see every Day." : "First Unlocks show here as the log fills."}</p>
   {:else}
     <div class="wrap" class:fit bind:clientWidth={width}>
       <!-- The usual times, over their lines and outside the scroller, so they stay in view.
@@ -140,12 +175,12 @@
       {#if !Number.isNaN(recent)}
         {@const late = !showBefore || recent >= before}
         <svg class="chart times" viewBox="0 0 {W} {14 * k}" style="--k: {k}" aria-hidden="true">
-          <text class="time recent" x={xAt(recent) + (showBefore ? (late ? 4 : -4) * k : 0)} y={10 * k} text-anchor={showBefore ? (late ? "start" : "end") : "middle"}>{clockOfHours(recent)}</text>
-          {#if showBefore}<text class="time" x={xAt(before) + (late ? -4 : 4) * k} y={10 * k} text-anchor={late ? "end" : "start"}>{clockOfHours(before)}</text>{/if}
+          <text class="time recent" x={xAt(recent) + (showBefore ? (late ? 4 : -4) * k : 0)} y={10 * k} text-anchor={showBefore ? (late ? "start" : "end") : "middle"}>{usualText(recent)}</text>
+          {#if showBefore}<text class="time" x={xAt(before) + (late ? -4 : 4) * k} y={10 * k} text-anchor={late ? "end" : "start"}>{usualText(before)}</text>{/if}
         </svg>
       {/if}
       <div class="rows" bind:this={scroller}>
-        <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Each Day's first Unlock, by week">
+        <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label={fromWake ? "Hours from waking to each Day's first Unlock, by week" : "Each Day's first Unlock, by week"}>
           <!-- Curfew's hours, in the night colour behind the rows. -->
           {#each night as h (h)}<rect x={xAt(h)} y="0" width={xAt(h + 1) - xAt(h)} height={H} style="fill: var(--night-band)" />{/each}
           {#if showBefore}<line x1={xAt(before)} x2={xAt(before)} y1="0" y2={H} stroke="var(--muted)" stroke-opacity=".5" stroke-width={k} stroke-dasharray="{2 * k} {4 * k}" />{/if}
@@ -167,10 +202,11 @@
             {/if}
             <line x1={x0} x2={x1} y1={y} y2={y} stroke="var(--divider)" />
             {#each w.list as d, i (d.day)}
-              {@const cx = d.t === null ? x1 + 22 : xAt(d.t)}
+              {@const v = valueOf(d)}
+              {@const cx = v === null ? x1 + 22 : xAt(v)}
               {@const cy = y + (i - 3) * 1.6}
               <!-- The Day's wake-up: a tick in the sleep colour, hollow when the night was estimated. The runway is the stretch from it to the dot. -->
-              {#if d.wake}
+              {#if d.wake && !fromWake}
                 {@const wx = xAt(d.wake.t)}
                 <rect class="wake" class:estimated={d.wake.estimated} x={wx - (d.wake.estimated ? 1.8 : 1.2)} y={cy - 5} width={d.wake.estimated ? 3.6 : 2.4} height="10" rx="1"><title>{shortDate(d.day, today)}: woke {d.wake.at}{d.wake.estimated ? ", estimated" : ""}</title></rect>
               {/if}
@@ -179,15 +215,19 @@
               <g class="dot pressdim" onclick={() => pick(d.day)}>
                 <circle {cx} {cy} r="9" fill="transparent" />
                 {#if d.t === null}<circle {cx} {cy} r="4" fill="none" stroke="var(--spend)" stroke-width="1.5"><title>{shortDate(d.day, today)}: no Unlock{markLines(d.day)}</title></circle>
-                {:else}<circle {cx} {cy} r="4" fill="var(--spend)" opacity=".8"><title>{shortDate(d.day, today)}: first Unlock {clockOfHours(d.t)}{markLines(d.day)}</title></circle>{/if}
+                {:else}<circle {cx} {cy} r="4" fill="var(--spend)" opacity=".8"><title>{shortDate(d.day, today)}: first Unlock {clockOfHours(d.t)}{fromWake && d.since !== null ? `, ${hoursAndMinutes(d.since * 60)} after waking at ${d.wake?.at}` : ""}{markLines(d.day)}</title></circle>{/if}
               </g>
             {/each}
           {/each}
         </svg>
       </div>
-      <!-- As HourAxis draws them: every third hour from each hour's start, Curfew's in the night colour. -->
+      <!-- As HourAxis draws them: every third hour from each hour's start, Curfew's in the night colour; From wake, hours after waking. -->
       <svg class="chart axis" viewBox="0 0 {W} 18" style="--k: {k}" aria-hidden="true">
-        {#each HOURS.filter((h) => (h - START) % 3 === 0) as h (h)}<text class="hour" class:night={inCurfew(h % 24)} x={xAt(h)} y="13">{String(h % 24).padStart(2, "0")}</text>{/each}
+        {#if fromWake}
+          {#each wakeAxis.ticks as h (h)}<text class="hour" x={xAt(h)} y="13">{h}h</text>{/each}
+        {:else}
+          {#each HOURS.filter((h) => (h - START) % 3 === 0) as h (h)}<text class="hour" class:night={inCurfew(h % 24)} x={xAt(h)} y="13">{String(h % 24).padStart(2, "0")}</text>{/each}
+        {/if}
         <text class="hour" x={x1 + 22} y="13" text-anchor="middle">none</text>
       </svg>
     </div>

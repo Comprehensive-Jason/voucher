@@ -56,8 +56,8 @@
 <script lang="ts">
   // Does doing one thing go with another going better? For each source, the
   // Days it earned against the Days it didn't, on the same Day and the Day
-  // after: did another source earn more, were more blocked opens walked away
-  // from, was the Day's longest focus stretch longer, or the night after
+  // after: did another source earn more, did fewer blocked opens end in an
+  // Unlock, was the Day's longest focus stretch longer, or the night after
   // longer? A good night, a busy calendar, and
   // late Distraction are drivers too (rules below), and a focus stretch with
   // an Unlock or Distraction in the hour before it is set against stretches
@@ -77,9 +77,9 @@
   //
   // One-third slot (and the phone): group boxes in two columns that each keep
   // their own height, scrolling, with a fade while more is below. Two-thirds
-  // and Full: one row a finding on a shared set of gridlines, with the axes
-  // AXES picks (below); a hollow dot for Days without, a filled one for Days
-  // with.
+  // and Full: one row a finding on one scale of ratios, fitted to the
+  // findings (lib/panels/trends/goodDayAxes.ts); a hollow dot for Days
+  // without, always at ×1, and a filled one for Days with.
   import TrendCard from "../../components/TrendCard.svelte";
   import { styleOf } from "../../sources";
   import { fitsSlot } from "../../fit.svelte";
@@ -88,7 +88,7 @@
   import { clock } from "../../time";
   import { measured } from "../../notes.svelte";
   import type { DayTotal } from "../../types";
-  import { scaleFor, type Axis, type Design } from "./goodDayAxes";
+  import { scaleFor, type Axis } from "./goodDayAxes";
 
   let { history, timeZone = "UTC" }: { history: DayTotal[]; timeZone?: string } = $props();
   const fit = fitsSlot();
@@ -141,7 +141,9 @@
       const s = styleOf(id);
       return { id, name: s.name, color: s.color, unit: "vouchers", up: true, note: "Vouchers", value: (d) => d.by_source?.[id] ?? 0 };
     }),
-    { id: "~walked", name: "Walked away", color: "var(--muted)", unit: "percent", up: true, note: "% of blocked opens", value: (d) => (d.opens ? (Math.min(d.walked ?? 0, d.opens) / d.opens) * 100 : NaN) },
+    // Blocked opens that ended in an Unlock, rather than the ones walked away
+    // from: the smaller share, so its ratio moves more for the same change.
+    { id: "~gavein", name: "Gave in", color: "var(--muted)", unit: "percent", up: false, note: "% of blocked opens", value: (d) => (d.opens ? ((d.opens - Math.min(d.walked ?? 0, d.opens)) / d.opens) * 100 : NaN) },
     { id: "~longest", name: "Longest focus stretch", color: "var(--ink)", unit: "minutes", up: true, note: "minutes", value: longest },
     { id: DISTRACTED, name: "Distraction", color: "var(--muted)", unit: "minutes", up: false, note: "minutes", value: distracted },
     // The night that led into the Day.
@@ -268,13 +270,10 @@
   /** Room left over (a Full card): the findings, then what's still short of Days. */
   const roomy = $derived(tall && bodyH > 760);
 
-  // The two-thirds and Full scale, in one of the designs in goodDayAxes.ts
-  // until one is picked (then the rest go).
-  const AXES = "units" as Design;
-  const asGroup = (g: Group) => ({ id: g.outcome.id, unit: g.outcome.unit, findings: g.findings });
-  /** The track's width, which the scale fits its tick labels (and "breaks" its cuts) to. */
+  // The two-thirds and Full scale: ratios, fitted to every finding shown.
+  /** The track's width, which the scale fits its tick labels to. */
   let trackW = $state(0);
-  const scale = $derived(scaleFor(AXES, groups.map(asGroup), trackW));
+  const scale = $derived(scaleFor(groups.flatMap((g) => g.findings), trackW));
 
   // Value labels above the dots. JetBrains Mono is 0.6em a letter, so a
   // label's width is known without measuring. Labels that would touch are
@@ -353,17 +352,12 @@
   <span class="conf" aria-hidden="true"><i class="on" style="height: 5px"></i><i class="on" style="height: 8px"></i><i style="height: 11px"></i></span>
 {/snippet}
 
-<!-- One axis's row of ticks: its name in the label column, a number on each gridline, and a break mark at each cut. -->
+<!-- The axis's row of ticks: its name in the label column, a factor on each gridline. -->
 {#snippet axis(a: Axis)}
   <div class="axis">
     <span class="name">{a.name}</span>
-    <span class="ticks">{#each a.ticks as t, i (i)}{#if t.text}<span style="left: {t.at * 100}%" class:first={t.at < 0.02} class:last={t.at > 0.98}>{t.text}</span>{/if}{/each}{#each a.cuts ?? [] as c (c)}{@render cut(c)}{/each}</span>
+    <span class="ticks">{#each a.ticks as t, i (i)}{#if t.text}<span style="left: {t.at * 100}%" class:first={t.at < 0.02} class:last={t.at > 0.98}>{t.text}</span>{/if}{/each}</span>
   </div>
-{/snippet}
-
-<!-- Where a stretch of an axis is cut out: two slanted strokes. -->
-{#snippet cut(at: number)}
-  <svg class="cut" style="left: {at * 100}%" width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M1 11 L5 1 M5 11 L9 1" /></svg>
 {/snippet}
 
 <!-- How far each activity still short of Days is from MIN_N each way. -->
@@ -413,19 +407,16 @@
         <p class="aside">Correlations, not causes.</p>
       </div>
     {:else}
-      {#if scale.top}<div class="edge">{@render axis(scale.top)}</div>{/if}
+      <div class="edge">{@render axis(scale.axis)}</div>
       <div class="mid">
-        <div class="grid" aria-hidden="true" bind:clientWidth={trackW}>{#each scale.grid ?? [] as at, i (i)}<i class:zero={scale.zero !== undefined && Math.abs(at - scale.zero) < 1e-6} style="left: {at * 100}%"></i>{/each}{#if scale.zero !== undefined && !scale.grid?.some((at) => Math.abs(at - scale.zero!) < 1e-6)}<i class="zero" style="left: {scale.zero * 100}%"></i>{/if}</div>
+        <div class="grid" aria-hidden="true" bind:clientWidth={trackW}>{#each scale.grid as at, i (i)}<i class:zero={Math.abs(at - scale.zero) < 1e-6} class:end={at > 0.99} style="left: {at * 100}%"></i>{/each}</div>
         <div class="rows" class:more bind:this={scroller}>
           {#each groups as g (g.outcome.id)}
-            {@const inl = scale.inline.get(g.outcome.id)}
-            {@const own = scale.own(asGroup(g))}
             <h3 class="ghead"><span><i style="background: {g.outcome.color}"></i><b>{g.outcome.name}</b><span class="unit">{g.outcome.note}</span></span></h3>
-            {#if inl}<div class="inline" class:own>{@render axis(inl)}</div>{/if}
             {#each g.findings as f (key(f))}
               {@const u = g.outcome.unit}
-              {@const [fa, fb] = scale.at(asGroup(g), f)}
-              {@const note = scale.note(asGroup(g), f)}
+              {@const [fa, fb] = scale.at(f)}
+              {@const note = scale.note(f)}
               {@const a = px(fa)}
               {@const b = px(fb)}
               {@const ta = num(f.withoutAvg, u)}
@@ -435,8 +426,7 @@
               {@const color = doerOf.get(f.driver)!.color}
               <div class="row">
                 <div class="left">{@render who(f)}{@render split(f, 50)}</div>
-                <div class="track" class:own>
-                  {#if own}{#each own.ticks as t, i (i)}<i class="gl" style="left: {t.at * 100}%"></i>{/each}{#each own.cuts ?? [] as c (c)}{@render cut(c)}{/each}{/if}
+                <div class="track">
                   <span class="label was" style="left: {at[0]}px">{ta}</span>
                   <span class="label" style="left: {at[1]}px">{tb}</span>
                   <span class="line" class:worse={!good} style="left: {Math.min(a, b)}px; width: {Math.abs(b - a)}px"></span>
@@ -451,7 +441,7 @@
           {/each}
         </div>
       </div>
-      {#if scale.bottom}<div class="edge">{@render axis(scale.bottom)}</div>{/if}
+      <div class="edge">{@render axis(scale.axis)}</div>
       <div class="key">
         <span><i class="ring"></i>Days without</span>
         <span><i class="disc"></i>Days with</span>
@@ -541,17 +531,9 @@
   /* The gridlines, drawn once behind every row and pinned while they scroll. */
   .grid { position: absolute; inset: 0 calc(var(--end-col) + var(--col-gap)) 0 calc(var(--label-col) + var(--col-gap)); pointer-events: none; }
   .grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
-  .grid i:last-child { transform: translateX(-1px); }
-  /* The change designs: no change, where every hollow dot sits. */
+  .grid i.end { transform: translateX(-1px); }
+  /* ×1, no change, where every hollow dot sits. */
   .grid i.zero { background: var(--axis-ink); }
-  /* A group whose gridlines aren't the shared ones draws its own over a
-     card-colored backing ("breaks" draws every group's this way). */
-  .track.own { background: var(--surface); }
-  .track > i.gl { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
-  .track > i.gl:last-of-type { transform: translateX(-1px); }
-  .cut { position: absolute; top: 0; transform: translateX(-50%); overflow: visible; }
-  .track > .cut { top: calc(50% + 6px); transform: translate(-50%, -50%); }
-  .cut path { fill: none; stroke: var(--axis-ink); stroke-width: 1.3; stroke-linecap: round; }
   .rows { position: relative; flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   /* Only the rows fade; the gridlines behind stay solid. */
   .rows.more { mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); }
@@ -575,14 +557,8 @@
   .label { bottom: calc(50% - 6px + 8px); font: 600 10px/12px var(--mono); color: var(--ink); white-space: nowrap; }
   .label.was { color: var(--muted); }
   .row .end { align-self: center; }
-  /* The axes across the top and bottom, outside the scroller. */
+  /* The axis across the top and bottom, outside the scroller. */
   .edge { flex: none; }
-  /* Ticks under a heading, backed so the gridlines don't run through them. */
-  .inline { flex: none; padding-top: 2px; }
-  .inline .ticks span { padding: 0 2px; background: var(--surface); }
-  .inline .ticks .first { margin-left: -2px; }
-  .inline .ticks .last { margin-left: 2px; }
-  .inline.own .ticks { background: var(--surface); }
 
   .key { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; color: var(--muted); }
   .key > span { display: inline-flex; align-items: center; gap: 6px; }

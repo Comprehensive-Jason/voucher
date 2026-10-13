@@ -197,7 +197,6 @@
     { kind: "box", color: "var(--voucher)", label: "In sources" },
     { kind: "box", color: "var(--heat-0)", label: "Elsewhere" },
     { kind: "hatch", label: "No data" },
-    { kind: "check", color: "var(--ink)", label: "Done" },
   ] : [{ kind: "frame", color: "var(--spend)", label: "Unlocked" }, ...markerKeys(marks)]);
 </script>
 

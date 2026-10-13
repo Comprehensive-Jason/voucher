@@ -34,8 +34,10 @@
 
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
   const middle = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
-  /** `better` says which way is good; "neither" (events) draws its arrow in ink, neither green nor crimson. */
-  type Measure = { name: string; of: (w: DayTotal[]) => number | null; unit: string; better: "up" | "down" | "neither"; digits?: number; format?: (v: number) => string };
+  /** `better` says which way is good; "neither" (events) draws its arrow in ink, neither green nor crimson.
+   *  A row reads "=" when it changed by under 2 points (a share), under its own `same` in its unit, or else
+   *  under 15%. Sleep takes 20 minutes, since 15% of a night is over an hour. */
+  type Measure = { name: string; of: (w: DayTotal[]) => number | null; unit: string; better: "up" | "down" | "neither"; digits?: number; format?: (v: number) => string; same?: number };
   const MEASURES: Measure[] = [
     { name: "Vouchers a Day", of: (w) => mean(w.map((d) => d.earned)), unit: "", better: "up", digits: 1 },
     { name: "Goal Days", of: (w) => (w.length ? (w.filter((d) => d.goal_met).length / w.length) * 100 : null), unit: "%", better: "up" },
@@ -44,7 +46,7 @@
     { name: "Walked away", of: (w) => { const o = w.reduce((a, d) => a + (d.opens ?? 0), 0); return o ? (w.reduce((a, d) => a + (d.walked ?? 0), 0) / o) * 100 : null; }, unit: "%", better: "up" },
     { name: "Longest focus", of: (w) => middle(w.filter((d) => d.stretches?.length).map((d) => Math.max(...d.stretches!))), unit: " min", better: "up" },
     // Nights with no sleep on record, and Days with no calendar sent, are left out rather than counted as none.
-    { name: "Asleep a night", of: (w) => mean(w.flatMap((d) => (d.sleep ? [d.sleep.asleep] : []))), unit: " min", better: "up", format: hoursAndMinutes },
+    { name: "Asleep a night", of: (w) => mean(w.flatMap((d) => (d.sleep ? [d.sleep.asleep] : []))), unit: " min", better: "up", format: hoursAndMinutes, same: 20 },
     { name: "Events a Day", of: (w) => mean(w.flatMap((d) => (d.calendar ? [d.calendar.events] : []))), unit: "", better: "neither", digits: 1 },
   ];
 
@@ -94,7 +96,7 @@
       <span></span><span class="cap h">Before</span><span class="cap h">After</span><span></span>
       {#each rows as r (r.name)}
         {@const up = r.b! > r.a!}
-        {@const same = Math.abs(r.b! - r.a!) < (r.unit === "%" ? 2 : 0.15 * Math.max(1, Math.abs(r.a!)))}
+        {@const same = Math.abs(r.b! - r.a!) < (r.unit === "%" ? 2 : r.same ?? 0.15 * Math.max(1, Math.abs(r.a!)))}
         {@const good = same || r.better === "neither" ? null : (up === (r.better === "up"))}
         <span class="name">{r.name}</span>
         <b class="mono">{show(r.a!, r)}</b>

@@ -157,7 +157,6 @@
       ...(days.some((d) => d.goal_met) ? [{ kind: "tick" as const, color: "var(--voucher)", label: "Goal Day" }] : []),
       ...(runs.length ? [{ kind: "line" as const, color: "var(--worse)", label: "Lapse" }] : []),
       ...(runs.some(isLong) ? [{ kind: "box" as const, color: "color-mix(in srgb, var(--worse) 16%, transparent)", label: "Long lapse" }] : []),
-      ...(back ? [{ kind: "ring" as const, color: "var(--goal)", label: "2 weeks ago" }] : []),
       ...markerKeys(marks),
     ]} />
   {/if}
