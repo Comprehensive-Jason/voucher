@@ -98,5 +98,5 @@
   /* The shared .btn, as a link. */
   a.btn { text-decoration: none; }
   .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .error { margin: 0; color: var(--danger); }
+  .error { margin: 0; color: var(--danger-text); }
 </style>

@@ -95,5 +95,5 @@
   .card { border-radius: 16px; background: var(--surface); border: 1px solid var(--line); padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; }
   .card p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
   .card p.warn { color: var(--goal); }
-  .error { margin: 0; color: var(--danger); }
+  .error { margin: 0; color: var(--danger-text); }
 </style>

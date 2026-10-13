@@ -256,5 +256,5 @@
   input:focus { outline: none; border-color: var(--voucher); }
   .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
   .save { margin-top: auto; }
-  .error { margin: 0; color: var(--danger); }
+  .error { margin: 0; color: var(--danger-text); }
 </style>

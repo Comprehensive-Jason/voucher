@@ -96,6 +96,6 @@
   input { height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); padding: 0 14px; font-size: 14px; }
   input:focus { outline: none; border-color: var(--voucher); }
   input[aria-invalid="true"] { border-color: var(--danger); }
-  .error { font-size: 13px; color: var(--danger); line-height: 1.4; }
+  .error { font-size: 13px; color: var(--danger-text); line-height: 1.4; }
   .save { height: 52px; font-size: 16px; }
 </style>

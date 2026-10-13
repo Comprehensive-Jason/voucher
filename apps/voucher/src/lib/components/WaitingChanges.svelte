@@ -114,5 +114,5 @@
   .pcard.gone .pdesc { text-decoration: line-through; }
   .gonelabel { color: var(--muted); padding-right: 6px; }
   .pcard .btn { flex: none; }
-  .error { margin: 0; color: var(--danger); }
+  .error { margin: 0; color: var(--danger-text); }
 </style>

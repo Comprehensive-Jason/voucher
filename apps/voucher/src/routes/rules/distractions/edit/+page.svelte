@@ -148,5 +148,5 @@
   input { height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 14px; font: 700 15px var(--font); }
   input:focus { outline: none; border-color: var(--voucher); }
   .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .error { margin: 0; color: var(--danger); }
+  .error { margin: 0; color: var(--danger-text); }
 </style>

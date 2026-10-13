@@ -230,5 +230,5 @@
   .calicon { flex: none; }
   .calbtn { align-self: flex-start; }
   .footnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
-  .error { margin: 0; color: var(--danger); }
+  .error { margin: 0; color: var(--danger-text); }
 </style>

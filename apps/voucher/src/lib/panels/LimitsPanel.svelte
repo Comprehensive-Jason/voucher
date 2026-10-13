@@ -126,5 +126,5 @@
   .ptitle b { font-size: 14px; }
   .ptitle small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .note { font-size: 12px; color: var(--muted); text-align: center; }
-  .error { margin: 0; color: var(--danger); }
+  .error { margin: 0; color: var(--danger-text); }
 </style>
