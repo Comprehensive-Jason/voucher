@@ -5,6 +5,16 @@ import type { PanelId } from "./cards";
 import { defineAbout } from "$core/about";
 
 export const ABOUT = defineAbout<PanelId>()({
+  insights: {
+    for: "What my history turned up: the biggest and surest findings of every kind, first.",
+    read: [
+      "One row per finding. The top one sits on a raised row; the first three come first, and the rest scroll under \"N more\".",
+      "Every kind: what goes with what (all of them are on What goes with a good Day), this week against the 4 weeks before, where lost planned time falls, things that keep happening, Before and after on recent Markers, new records, and lapses.",
+      "A sentence says what and when, with sources and blocklists in {sources:their own colors}. The pill is the change, {green:green} when better, {crimson:crimson} when worse, and {gold:gold} for a record.",
+      "The bars say how sure: 1 bar Low, 2 Medium, 3 High. Records and lapses are counts, so they have none. Tap a row for what it rests on.",
+      "Findings dismissed in Voucher stay hidden here too. Suggestions and Experiments are Voucher's: Counterfoil only reads.",
+    ],
+  },
   sleep: {
     for: "How my nights go, and how the Day after each one went.",
     read: [

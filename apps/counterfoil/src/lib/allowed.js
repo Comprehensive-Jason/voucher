@@ -4,7 +4,7 @@
 // before it's sent, and the dev server's Ledger proxy refuses it too
 // (vite.config.js), so it never reaches the Ledger either way. Plain
 // JavaScript, so the Vite config can import it as it is.
-const READS = ["/key", "/status", "/history", "/day", "/markers", "/calendars"];
+const READS = ["/key", "/status", "/history", "/day", "/markers", "/calendars", "/insights"];
 const WRITES = ["/marker", "/marker/remove"];
 
 /**

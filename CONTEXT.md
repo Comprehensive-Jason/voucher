@@ -25,11 +25,11 @@ The one app that sends a given kind of data to the Ledger: Voucher's Android app
 _Avoid_: source (that's an Activity source), uploader
 
 **Insight**:
-A finding about what goes with what across Days, such as more focus on Days after a long night, with how sure it is. Shown, never acted on by itself.
+A finding from the history, with how sure it is where that applies: what goes with what across Days (more focus on Days after a long night), this week against the usual, where lost planned time falls, something that keeps happening, Before and after on a Marker, a record, or a lapse. Shown, never acted on by itself; one may suggest an Experiment.
 _Avoid_: correlation, tip, recommendation
 
 **Experiment**:
-A rule change made on purpose and tied to a Marker, so Before and after can say whether it worked.
+A rule change made on purpose and tied to a Marker, so Before and after can say whether it worked: 3 Days settle, 14 are measured, and the verdict comes the Day after. One runs at a time, started only from Voucher.
 _Avoid_: trial, test
 
 ### Earning
