@@ -7,7 +7,7 @@
   import { goto, onNavigate } from "$app/navigation";
   import { connection, device } from "$core/api";
   import { easeIn, easeOut, motionVars, ms } from "$core/motion";
-  import Home from "$lib/Dashboard.svelte";
+  import Home from "$lib/Home.svelte";
   import Toast from "$core/components/Toast.svelte";
   import { sheet } from "$core/sheet.svelte";
   import { setArrangementContext } from "$core/arrangement.svelte";

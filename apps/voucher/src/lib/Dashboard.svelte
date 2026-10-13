@@ -1,101 +1,49 @@
-<script lang="ts" module>
-  import type { DayTotal as Kept, DeviceUsage as KeptUsage, Status as KeptStatus } from "$core/types";
-  /** What the tablet's columns last showed, so coming back from Rules shows
-   *  it at once (then refreshes) instead of blank tiles for a few seconds. */
-  const kept: { status: KeptStatus | null; history: Kept[]; usage: KeptUsage | null } = { status: null, history: [], usage: null };
-</script>
-
 <script lang="ts">
-  // Today. On a phone: one column, with the tab bar below. On a wide screen:
-  // the Today column stays put on the left, and the rest is a row of columns
-  // that scrolls sideways, two in view at a time, holding the charts and the
-  // Log in whatever arrangement was chosen here (see arrangement.svelte.ts).
-  import { tick } from "svelte";
-  import { page } from "$app/state";
+  // A dashboard on a wide screen: the app's first column stays put on the
+  // left, and the rest is a row of columns that scrolls sideways, two in view
+  // at a time, holding the app's cards in whatever arrangement was chosen
+  // here (see $core/arrangement.svelte.ts). Upright, it's the first column
+  // and one column of cards scrolling up and down. The app gives it the
+  // first column (`first`), what sits left of the page bar (`footLeft`), how
+  // to draw a card (`card`), and each card's explanation (`about`); the
+  // arrangement comes from the app's root layout (useArrangement).
+  import { tick, type Snippet } from "svelte";
   import { fade } from "svelte/transition";
-  import { ROWS } from "$core/arrangement.svelte";
-  import { arrangement, PANELS, type PanelId } from "$lib/cards";
+  import { ROWS, useArrangement } from "$core/arrangement.svelte";
   import { fillSlots } from "$core/fit.svelte";
   import { EASE, ms } from "$core/motion";
-  import { deviceUsage, ledger } from "$core/api";
-  import { Live, POLL_MS } from "$lib/live.svelte";
   import { wide } from "$core/wide.svelte";
-  import { sheet, whenIdle } from "$core/sheet.svelte";
-  import { historyDays } from "$core/time";
-  import TodayColumn from "$lib/panels/TodayColumn.svelte";
-  import RulesNotices from "$lib/components/RulesNotices.svelte";
-  import MarkerSheet from "$core/components/MarkerSheet.svelte";
-  import HourChart from "$lib/panels/HourChart.svelte";
-  import Heatmap from "$lib/panels/Heatmap.svelte";
-  import { selection } from "$core/selection.svelte";
-  import { setCurfew } from "$core/curfew.svelte";
-  import LogPanel from "$lib/panels/LogPanel.svelte";
-  import TrendLines from "$lib/panels/trends/TrendLines.svelte";
-  import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
-  import PaceToGoal from "$lib/panels/trends/PaceToGoal.svelte";
-  import MorningRunway from "$lib/panels/trends/MorningRunway.svelte";
-  import HabitStrength from "$lib/panels/trends/HabitStrength.svelte";
-  import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
-  import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
-  import BestHours from "$lib/panels/trends/BestHours.svelte";
-  import GoodDays from "$lib/panels/trends/GoodDays.svelte";
-  import Replay from "$lib/panels/trends/Replay.svelte";
-  import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
-  import VerdictSheet from "$lib/components/VerdictSheet.svelte";
   import CardTab from "$core/components/CardTab.svelte";
   import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import ScrollCue from "$core/components/ScrollCue.svelte";
-  import { ABOUT } from "$lib/about";
   import AboutText from "$core/components/AboutText.svelte";
-  import Verdicts from "$lib/panels/trends/Verdicts.svelte";
-  import Compare from "$lib/panels/trends/Compare.svelte";
-  import Reasons from "$lib/panels/trends/Reasons.svelte";
-  import Sleep from "$lib/panels/trends/Sleep.svelte";
-  import CalendarLoad from "$lib/panels/trends/CalendarLoad.svelte";
-  import Planned from "$lib/panels/trends/Planned.svelte";
   import PanelOptions from "$core/components/PanelOptions.svelte";
-  import type { DayTotal, DeviceUsage, Status } from "$core/types";
+  import type { About } from "$core/about";
 
+  let { first, footLeft, card, about }: {
+    /** The first column's contents, above its foot. */
+    first: Snippet;
+    /** Left of the page bar, at the first column's foot. */
+    footLeft?: Snippet;
+    /** One card, by its id. */
+    card: Snippet<[string]>;
+    /** What each card is for and how to read it, shown while arranging. */
+    about: Record<string, About>;
+  } = $props();
+
+  const arrangement = useArrangement();
+  const PANELS = arrangement.panels;
+  type PanelId = string;
   /** The space between cards, both ways, in px (the CSS --gap). */
   const GAP = 20;
-  const live = new Live();
   // The strip's panels fill their slots (thirds of a column).
   fillSlots();
-  let status = $state.raw<Status | null>(kept.status);
-  let history = $state.raw<DayTotal[]>(kept.history);
-  let usage = $state<DeviceUsage | null>(kept.usage);
-
-  // The tablet's other columns refresh less often than the Voucher stack.
-  // An answer that hasn't changed is dropped, so the cards don't all redraw
-  // (a long pause on the tablet) for nothing.
-  /** The Marker button beside the status card opens the Marker choices. */
-  let addingMarker = $state(false);
-  /** Each answer as last shown, as text, so a new one is compared without
-   *  turning the old one into text again (the history is long). */
-  const shown = { status: "", history: "", usage: "" };
-  /** True when `value` differs from what `key` last showed (and remembers it). */
-  function changed(key: keyof typeof shown, value: unknown) {
-    const text = JSON.stringify(value);
-    if (text === shown[key]) return false;
-    shown[key] = text;
-    return true;
-  }
-  async function loadWide() {
-    try {
-      const s = await ledger<Status>("GET", "/status");
-      if (changed("status", s)) { status = kept.status = s; setCurfew(s.settings.curfew_start, s.settings.curfew_end); }
-      const h = await ledger<DayTotal[]>("GET", `/history?days=${historyDays(s.today.day, s.first_day)}`);
-      if (changed("history", h)) history = kept.history = h;
-      const u = await deviceUsage();
-      if (changed("usage", u)) usage = kept.usage = u;
-    } catch { /* the Today column shows the error */ }
-  }
 
   // ---- Arranging ----
   // Hold a panel's heading (or, while arranging, any panel) and drag it: the
   // others make room as it passes, as on a phone's home screen. While
   // arranging, panels jiggle, and each shows what it's for and how to read
-  // it (lib/about.ts), with its size buttons and Hide along the bottom.
+  // it (the app's `about`), with its size buttons and Hide along the bottom.
   let arranging = $state(false);
   let strip = $state<HTMLDivElement>();
   /** Each arranging panel's scrolling explanation, for its ScrollCue. */
@@ -288,7 +236,7 @@
   const pageWidth = () => 2 * (colWidth() + GAP);
   // ---- Drawing only what's near ----
   // Every column drawn costs every frame that redraws the dashboard (a
-  // poll's answer, the clock, Rules sliding over it), and most of the strip
+  // poll's answer, the clock, a page sliding over it), and most of the strip
   // is out of view. So only the columns in view and one either side are
   // drawn; the rest keep their place and size but skip drawing
   // (content-visibility: hidden) until a scroll brings them near. A page
@@ -332,183 +280,117 @@
     setTimeout(land, 1500);
     strip.scrollTo({ left: Math.min(i * pageWidth(), strip.scrollWidth - strip.clientWidth), behavior: "smooth" });
   }
-  // While Rules covers the dashboard, or slides over it or off it, the
-  // dashboard holds still: no clock, no polls, so nothing on it redraws (on
-  // the tablet, every redraw of the dashboard during a slide costs a frame).
-  // Back on it, it asks again once the sheet has gone and the screen is idle.
-  const covered = $derived(page.url.pathname !== "/");
-  const still = $derived(wide.on && (covered || sheet.moving));
-  // Uncovered, the clock jumps to now at once, in the first frame of the
-  // slide back down (which redraws anyway), so what the sheet uncovers isn't
-  // stale; it ticks again, and the Ledger is asked, once the slide is over.
-  $effect(() => { if (!covered) live.now = Math.floor(Date.now() / 1000); });
-  let resumed = false;
-  $effect(() => {
-    if (still) return;
-    let stop: (() => void) | undefined;
-    const cancel = resumed ? whenIdle(() => (stop = live.start())) : ((stop = live.start()), undefined);
-    resumed = true;
-    return () => { cancel?.(); stop?.(); };
-  });
-  $effect(() => {
-    if (!wide.on || still) return;
-    const cancel = kept.status ? whenIdle(loadWide) : (loadWide(), undefined);
-    const timer = setInterval(loadWide, import.meta.env.DEV ? POLL_MS : 60_000);
-    return () => { cancel?.(); clearInterval(timer); };
-  });
 </script>
 
-{#if wide.on}
-  <!-- Rules opens from the foot of the Today column, left of the page bar. -->
-  {#snippet rulesButton()}
-    <span class="footleft">
-    <a class="iconbtn" href="/rules" aria-label="Rules" data-sveltekit-keepfocus>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
-    </a>
-    </span>
-  {/snippet}
-  {#snippet panel(id: PanelId)}
-    {#if id === "log"}<div class="logcard tile"><LogPanel compact /></div>
-    {:else if status}
-      {#if id === "earned"}<HourChart today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} tall />
-      {:else if id === "heat"}<Heatmap {history} goal={status.today.goal} firstDay={status.first_day} selected={selection.day ?? status.today.day} onpick={(day) => selection.set("heat", { day, picked: true })} keyBelow={false} />
-      {:else if id === "distraction"}<HourChart measure="distraction" today={status.today} timeZone={status.settings.time_zone} firstDay={status.first_day} blocklists={status.settings.blocklists} device={usage} tall />
-      {:else if id === "trend"}<TrendLines {history} goal={status.today.goal} />
-      {:else if id === "when"}<WhenYouEarn {history} />
-      {:else if id === "pace"}<PaceToGoal {history} today={status.today} timeZone={status.settings.time_zone} />
-      {:else if id === "runway"}<MorningRunway {history} timeZone={status.settings.time_zone} />
-      {:else if id === "strength"}<HabitStrength {history} />
-      {:else if id === "streaks"}<SourceStreaks {history} sources={status.today.sources} />
-      {:else if id === "records"}<PersonalRecords {history} timeZone={status.settings.time_zone} />
-      {:else if id === "best"}<BestHours {history} />
-      {:else if id === "gooddays"}<GoodDays {history} timeZone={status.settings.time_zone} />
-      {:else if id === "replay"}<Replay {history} />
-      {:else if id === "focus"}<FocusStretches {history} />
-      {:else if id === "verdicts"}<Verdicts {history} />
-      {:else if id === "compare"}<Compare {history} />
-      {:else if id === "reasons"}<Reasons {history} />
-      {:else if id === "sleep"}<Sleep {history} timeZone={status.settings.time_zone} blocklists={status.settings.blocklists} />
-      {:else if id === "calendar"}<CalendarLoad {history} />
-      {:else if id === "planned"}<Planned {history} timeZone={status.settings.time_zone} blocklists={status.settings.blocklists} />{/if}
-    {/if}
-  {/snippet}
-  {#if wide.portrait}
-  <!-- Upright: the Today column and one column of cards, scrolling up and
-       down, in Arrange's order and sizes (a third is about a landscape
-       third's height). -->
-  <div class="wide portrait">
-    <section class="col today"><TodayColumn {live} wide onmarker={() => (addingMarker = true)} /><RulesNotices /><div class="leftfoot">{@render rulesButton()}</div></section>
-    <div class="vstrip" role="group" aria-label="Charts">
-      {#each arrangement.order as id (id)}
-        <div class="slot" role="group" aria-label={PANELS[id].name} style="height: calc({arrangement.size(id)} * var(--third) + {arrangement.size(id) - 1} * var(--gap)); flex: none">
-          <span class="tab"><CardTab name={PANELS[id].name} /></span>
-          {@render panel(id)}
-        </div>
-      {/each}
-    </div>
-  </div>
-  {:else}
-  <div class="wide">
-    <section class="col today">
-      <TodayColumn {live} wide onmarker={() => (addingMarker = true)} />
-      <!-- Above the page bar, Rules' notices (Protection off, a Loosening
-           waiting for the morning, the grace period): the list above gives
-           them room, so nothing over them moves when they come or go. -->
-      <RulesNotices />
-      <!-- At the foot of the Today column: the page bar for the cards, so the
-           cards get the screen's full height. -->
-      <div class="leftfoot">
-        {@render rulesButton()}
-        <!-- Pages of two columns: tap one to go there. -->
-        {#if pageCount > 1}
-          <div class="pages" role="tablist" aria-label="Pages of charts">
-            <!-- One pill behind the numbers, stretching over both pages while the view sits across two. -->
-            <span class="thumb" class:right={pillRight} style="left: {3 + pages.a * 44}px; right: {3 + (pageCount - 1 - pages.b) * 44}px"></span>
-            {#each Array(pageCount) as _, i (i)}
-              {@const on = i >= pages.a && i <= pages.b}
-              <button role="tab" aria-selected={on} class:on onclick={() => goPage(i)}>{i + 1}</button>
-            {/each}
-          </div>
-        {/if}
-        <!-- Right of it: Arrange once you're fully on the last page (not between it and the one before; holding a card's heading works anywhere), Done while arranging. -->
-        {#if arranging}
-          <button class="donepill" onclick={() => (arranging = false)} transition:fade={{ duration: ms("base") }}>Done</button>
-        {:else if pages.a === pageCount - 1}
-          <button class="arrangepill" title="Or hold any card's heading" onclick={() => (arranging = true)} transition:fade={{ duration: ms("base") }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2" /><rect x="14" y="3" width="7" height="5" rx="2" /><rect x="14" y="12" width="7" height="9" rx="2" /><rect x="3" y="16" width="7" height="5" rx="2" /></svg>
-            Arrange
-          </button>
-        {/if}
+<!-- Left of the page bar, at the first column's foot (the app's footLeft). -->
+{#snippet foot()}<span class="footleft">{@render footLeft?.()}</span>{/snippet}
+{#if wide.portrait}
+<!-- Upright: the first column and one column of cards, scrolling up and
+     down, in Arrange's order and sizes (a third is about a landscape
+     third's height). -->
+<div class="wide portrait">
+  <section class="col today">{@render first()}<div class="leftfoot">{@render foot()}</div></section>
+  <div class="vstrip" role="group" aria-label="Charts">
+    {#each arrangement.order as id (id)}
+      <div class="slot" role="group" aria-label={PANELS[id].name} style="height: calc({arrangement.size(id)} * var(--third) + {arrangement.size(id) - 1} * var(--gap)); flex: none">
+        <span class="tab"><CardTab name={PANELS[id].name} /></span>
+        {@render card(id)}
       </div>
-    </section>
-    <div class="stripwrap">
-      <div class="strip" role="group" aria-label="Charts" class:arranging class:dragging={!!dragging} bind:this={strip} onscroll={onStripScroll}
-        onpointermove={onMove} onpointerup={onRelease} onpointercancel={onRelease}
-        style="--rows: {ROWS}; --cols: {totalCols}">
-        <!-- One invisible marker per column for the strip to stop on. -->
-        {#each Array(totalCols) as _, i (i)}<span class="snap" style="grid-column: {i + 1}"></span>{/each}
-        <!-- Panels in one keyed list, placed on the grid, so one being dragged
-             into another column stays the same element under the finger. -->
-        {#each placed as p (p.id)}
-          {@const id = p.id}
-          <div class="slot" role="group" aria-label={PANELS[id].name} class:lifted={dragging?.id === id} class:far={!arranging && (p.col < near.a || p.col > near.b)} data-id={id}
-            style="grid-column: {p.col + 1}; grid-row: {p.row + 1} / span {p.size}; --jiggle: {(p.col * 3 + p.row) % 4}"
-            onpointerdown={(e) => onPress(e, id)}>
-            <!-- The card's name, on a tab growing out of its top edge, so naming it costs the card no height. -->
-            <span class="tab"><CardTab name={PANELS[id].name} /></span>
-            {@render panel(id)}
-            {#if arranging}
-              <!-- While arranging, the card is covered by what it's for and how
-                   to read it, scrolling when it's long, over its size (if it has a
-                   choice) at the bottom left and Hide at the bottom right. The
-                   name stays on the tab. Drag it from anywhere; on the text, hold first. -->
-              <div class="tools" role="group" aria-label="Arrange {PANELS[id].name}">
-                <div class="aboutframe">
-                  <ScrollCue target={abouts[id]} />
-                  <div class="about" bind:this={abouts[id]}>
-                    <p class="cap label">What it's for</p>
-                    <p class="for"><AboutText text={ABOUT[id].for} /></p>
-                    <p class="cap label">How to read it</p>
-                    {#each ABOUT[id].read as line, i (i)}<p class="point"><AboutText text={line} /></p>{/each}
-                  </div>
-                </div>
-                {#if PANELS[id].options}<div class="options"><PanelOptions {id} /></div>{/if}
-                <div class="controls">
-                  {#if PANELS[id].max > PANELS[id].min}
-                    <div class="sizes">
-                      <ZoomSwitch size="large" label="Height" options={[1, 2, 3].filter((n) => n >= PANELS[id].min && n <= PANELS[id].max).map((n) => ({ id: String(n), label: n === 3 ? "Full" : `${n}/3` }))} value={String(arrangement.size(id))} onchange={(v) => rearrange(() => arrangement.resize(id, Number(v)))} />
-                    </div>
-                  {:else}<span></span>{/if}
-                  <button class="btn small ghost" aria-label="Hide {PANELS[id].name}" onclick={() => hide(id)}>Hide</button>
+    {/each}
+  </div>
+</div>
+{:else}
+<div class="wide">
+  <section class="col today">
+    {@render first()}
+    <!-- At the foot of the first column: the page bar for the cards, so the
+         cards get the screen's full height. -->
+    <div class="leftfoot">
+      {@render foot()}
+      <!-- Pages of two columns: tap one to go there. -->
+      {#if pageCount > 1}
+        <div class="pages" role="tablist" aria-label="Pages of charts">
+          <!-- One pill behind the numbers, stretching over both pages while the view sits across two. -->
+          <span class="thumb" class:right={pillRight} style="left: {3 + pages.a * 44}px; right: {3 + (pageCount - 1 - pages.b) * 44}px"></span>
+          {#each Array(pageCount) as _, i (i)}
+            {@const on = i >= pages.a && i <= pages.b}
+            <button role="tab" aria-selected={on} class:on onclick={() => goPage(i)}>{i + 1}</button>
+          {/each}
+        </div>
+      {/if}
+      <!-- Right of it: Arrange once you're fully on the last page (not between it and the one before; holding a card's heading works anywhere), Done while arranging. -->
+      {#if arranging}
+        <button class="donepill" onclick={() => (arranging = false)} transition:fade={{ duration: ms("base") }}>Done</button>
+      {:else if pages.a === pageCount - 1}
+        <button class="arrangepill" title="Or hold any card's heading" onclick={() => (arranging = true)} transition:fade={{ duration: ms("base") }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2" /><rect x="14" y="3" width="7" height="5" rx="2" /><rect x="14" y="12" width="7" height="9" rx="2" /><rect x="3" y="16" width="7" height="5" rx="2" /></svg>
+          Arrange
+        </button>
+      {/if}
+    </div>
+  </section>
+  <div class="stripwrap">
+    <div class="strip" role="group" aria-label="Charts" class:arranging class:dragging={!!dragging} bind:this={strip} onscroll={onStripScroll}
+      onpointermove={onMove} onpointerup={onRelease} onpointercancel={onRelease}
+      style="--rows: {ROWS}; --cols: {totalCols}">
+      <!-- One invisible marker per column for the strip to stop on. -->
+      {#each Array(totalCols) as _, i (i)}<span class="snap" style="grid-column: {i + 1}"></span>{/each}
+      <!-- Panels in one keyed list, placed on the grid, so one being dragged
+           into another column stays the same element under the finger. -->
+      {#each placed as p (p.id)}
+        {@const id = p.id}
+        <div class="slot" role="group" aria-label={PANELS[id].name} class:lifted={dragging?.id === id} class:far={!arranging && (p.col < near.a || p.col > near.b)} data-id={id}
+          style="grid-column: {p.col + 1}; grid-row: {p.row + 1} / span {p.size}; --jiggle: {(p.col * 3 + p.row) % 4}"
+          onpointerdown={(e) => onPress(e, id)}>
+          <!-- The card's name, on a tab growing out of its top edge, so naming it costs the card no height. -->
+          <span class="tab"><CardTab name={PANELS[id].name} /></span>
+          {@render card(id)}
+          {#if arranging}
+            <!-- While arranging, the card is covered by what it's for and how
+                 to read it, scrolling when it's long, over its size (if it has a
+                 choice) at the bottom left and Hide at the bottom right. The
+                 name stays on the tab. Drag it from anywhere; on the text, hold first. -->
+            <div class="tools" role="group" aria-label="Arrange {PANELS[id].name}">
+              <div class="aboutframe">
+                <ScrollCue target={abouts[id]} />
+                <div class="about" bind:this={abouts[id]}>
+                  <p class="cap label">What it's for</p>
+                  <p class="for"><AboutText text={about[id].for} /></p>
+                  <p class="cap label">How to read it</p>
+                  {#each about[id].read as line, i (i)}<p class="point"><AboutText text={line} /></p>{/each}
                 </div>
               </div>
-            {/if}
-          </div>
-        {/each}
-        <!-- Where a drop would land. -->
-        {#if dragging && target?.ghost}<div class="dropghost" style="left: {target.ghost.left}px; top: {target.ghost.top}px; width: {target.ghost.width}px; height: {target.ghost.height}px"></div>{/if}
-        <!-- While arranging, one more column at the end: hidden panels come back here. -->
-        {#if arranging}
-          <div class="endcol" style="grid-column: {arrangement.columns.length + 1}" transition:fade={{ duration: ms("base") }}>
-            {#each arrangement.hidden as id (id)}
-              <button class="add" onclick={() => rearrange(() => arrangement.show(id))}>+ {PANELS[id].name}</button>
-            {/each}
-            <button class="reset" onclick={() => rearrange(() => arrangement.reset())}>Back to the default</button>
-          </div>
-        {/if}
-      </div>
+              {#if PANELS[id].options}<div class="options"><PanelOptions {id} /></div>{/if}
+              <div class="controls">
+                {#if PANELS[id].max > PANELS[id].min}
+                  <div class="sizes">
+                    <ZoomSwitch size="large" label="Height" options={[1, 2, 3].filter((n) => n >= PANELS[id].min && n <= PANELS[id].max).map((n) => ({ id: String(n), label: n === 3 ? "Full" : `${n}/3` }))} value={String(arrangement.size(id))} onchange={(v) => rearrange(() => arrangement.resize(id, Number(v)))} />
+                  </div>
+                {:else}<span></span>{/if}
+                <button class="btn small ghost" aria-label="Hide {PANELS[id].name}" onclick={() => hide(id)}>Hide</button>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/each}
+      <!-- Where a drop would land. -->
+      {#if dragging && target?.ghost}<div class="dropghost" style="left: {target.ghost.left}px; top: {target.ghost.top}px; width: {target.ghost.width}px; height: {target.ghost.height}px"></div>{/if}
+      <!-- While arranging, one more column at the end: hidden panels come back here. -->
+      {#if arranging}
+        <div class="endcol" style="grid-column: {arrangement.columns.length + 1}" transition:fade={{ duration: ms("base") }}>
+          {#each arrangement.hidden as id (id)}
+            <button class="add" onclick={() => rearrange(() => arrangement.show(id))}>+ {PANELS[id].name}</button>
+          {/each}
+          <button class="reset" onclick={() => rearrange(() => arrangement.reset())}>Back to the default</button>
+        </div>
+      {/if}
     </div>
   </div>
-  {/if}
-{:else}
-  <main><TodayColumn {live} onmarker={() => (addingMarker = true)} /></main>
+</div>
 {/if}
-<VerdictSheet curfewActive={live.data?.curfewActive ?? false} />
-{#if addingMarker}<MarkerSheet onclose={() => (addingMarker = false)} />{/if}
 
 <style>
-  main { flex: 1; padding: calc(24px + env(safe-area-inset-top)) 20px 12px; display: flex; flex-direction: column; gap: 18px; }
-  /* The Today column takes a third of the width and stays put; the strip
+  /* The first column takes a third of the width and stays put; the strip
      beside it scrolls, with two columns in view. */
   /* The right margin sits outside the strip, so every page (two columns)
      scrolls exactly into place, the last one too. The bottom margin is deep enough to hold the "more" and Done pills well clear of the screen's edge. */
@@ -574,7 +456,7 @@
   .endcol .add { border-style: dashed; }
   .endcol .reset { color: var(--muted); font-weight: 500; font-size: 13px; }
   .leftfoot { margin-top: auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
-  /* One row: Rules, the page bar, and Arrange or Done. While Arrange and Done
+  /* One row: footLeft (Voucher's Rules), the page bar, and Arrange or Done. While Arrange and Done
      cross-fade they share the right cell, overlapping, instead of the
      second wrapping onto a row of its own and pushing the column up. */
   .leftfoot > * { grid-row: 1; }
@@ -583,7 +465,7 @@
   .leftfoot .arrangepill, .leftfoot .donepill { grid-column: 3; justify-self: end; }
   .arrangepill { height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }
   .donepill { height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: var(--ground); font: 700 13px var(--font); box-shadow: 0 6px 18px var(--shadow); cursor: pointer; }
-  /* Centred in the Today column's foot, Arrange or Done to its right. */
+  /* Centred in the first column's foot, Arrange or Done to its right. */
   .pages { position: relative; grid-column: 2; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
   .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), right var(--t-move) var(--ease-out) 90ms; }
   /* The edge on the side it's heading leads; the far edge follows a beat later, in one stretch and shrink. */
@@ -591,13 +473,7 @@
   .pages button { position: relative; width: 40px; height: 32px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 700 13px var(--mono); cursor: pointer; transition: background-color var(--t-base), color var(--t-base), var(--press); }
   .pages button.on { color: var(--ink); }
   .col { display: flex; flex-direction: column; gap: var(--gap, 20px); min-width: 0; min-height: 0; }
-  /* Everything in the Today column keeps its size; the list of sources takes
-     what's left and scrolls under its fixed heading when it's long. */
+  /* Everything in the first column keeps its size, unless the app lets a
+     part of it take what's left (Voucher's Home.svelte). */
   .today > :global(*) { flex: none; }
-  .today > :global(section.next) { flex: 1 1 0; min-height: 0; }
-  .today :global(section.next .frame) { flex: 1; min-height: 0; }
-  /* 16 px of room at the sides (and 4 at the ends), so a raised row's card
-     is never clipped by the scrolling edge. */
-  .today :global(section.next .list) { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; margin: 0 -16px; padding: 4px 16px; }
-  .logcard { flex: 1; min-height: 0; overflow: hidden; gap: 6px; }
 </style>

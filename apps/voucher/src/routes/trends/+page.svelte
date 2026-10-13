@@ -1,6 +1,6 @@
 <script lang="ts">
   // The phone's Trends: the tablet's cards and the Log, in the tablet's
-  // arrangement (arrangement.svelte.ts), one column of three thirds per
+  // arrangement ($core/arrangement.svelte.ts), one column of three thirds per
   // page. Pages are the phone's full width and swipe sideways one at a
   // time; the tab bar's Trends tab turns into the page selector meanwhile
   // (phonepages.svelte.ts). Each card fills its slot and redraws to its
@@ -9,32 +9,12 @@
   import { shownByNotice } from "$core/health.svelte";
   import { onMount, tick } from "svelte";
   import { deviceUsage, ledger } from "$core/api";
-  import HourChart from "$lib/panels/HourChart.svelte";
-  import TrendLines from "$lib/panels/trends/TrendLines.svelte";
-  import WhenYouEarn from "$lib/panels/trends/WhenYouEarn.svelte";
-  import PaceToGoal from "$lib/panels/trends/PaceToGoal.svelte";
-  import MorningRunway from "$lib/panels/trends/MorningRunway.svelte";
-  import HabitStrength from "$lib/panels/trends/HabitStrength.svelte";
-  import SourceStreaks from "$lib/panels/trends/SourceStreaks.svelte";
-  import PersonalRecords from "$lib/panels/trends/PersonalRecords.svelte";
-  import BestHours from "$lib/panels/trends/BestHours.svelte";
-  import GoodDays from "$lib/panels/trends/GoodDays.svelte";
-  import Replay from "$lib/panels/trends/Replay.svelte";
-  import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
-  import Verdicts from "$lib/panels/trends/Verdicts.svelte";
-  import Compare from "$lib/panels/trends/Compare.svelte";
-  import Reasons from "$lib/panels/trends/Reasons.svelte";
-  import Sleep from "$lib/panels/trends/Sleep.svelte";
-  import CalendarLoad from "$lib/panels/trends/CalendarLoad.svelte";
-  import Planned from "$lib/panels/trends/Planned.svelte";
-  import Heatmap from "$lib/panels/Heatmap.svelte";
-  import LogPanel from "$lib/panels/LogPanel.svelte";
+  import Card from "$lib/Card.svelte";
   import CardTab from "$core/components/CardTab.svelte";
   import { ROWS } from "$core/arrangement.svelte";
-  import { arrangement, PANELS, type PanelId } from "$lib/cards";
+  import { arrangement, PANELS } from "$lib/cards";
   import { fillSlots } from "$core/fit.svelte";
   import { phonePages } from "$core/phonepages.svelte";
-  import { selection } from "$core/selection.svelte";
   import { setCurfew } from "$core/curfew.svelte";
   import { historyDays } from "$core/time";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$core/types";
@@ -105,32 +85,6 @@
   }
 </script>
 
-{#snippet panel(id: PanelId)}
-  {#if id === "log"}<div class="logcard tile"><LogPanel compact /></div>
-  {:else if today}
-    {#if id === "earned"}<HourChart {today} {timeZone} {firstDay} tall />
-    {:else if id === "heat"}<Heatmap {history} goal={today.goal} {firstDay} selected={selection.day ?? today.day} onpick={(day) => selection.set("heat", { day, picked: true })} />
-    {:else if id === "distraction"}<HourChart measure="distraction" {today} {timeZone} {firstDay} {blocklists} device={usage} tall />
-    {:else if id === "trend"}<TrendLines {history} goal={today.goal} />
-    {:else if id === "when"}<WhenYouEarn {history} />
-    {:else if id === "pace"}<PaceToGoal {history} {today} {timeZone} />
-    {:else if id === "runway"}<MorningRunway {history} {timeZone} />
-    {:else if id === "strength"}<HabitStrength {history} />
-    {:else if id === "streaks"}<SourceStreaks {history} sources={today.sources} />
-    {:else if id === "records"}<PersonalRecords {history} {timeZone} />
-    {:else if id === "best"}<BestHours {history} />
-    {:else if id === "gooddays"}<GoodDays {history} {timeZone} />
-    {:else if id === "replay"}<Replay {history} />
-    {:else if id === "focus"}<FocusStretches {history} />
-    {:else if id === "verdicts"}<Verdicts {history} />
-    {:else if id === "compare"}<Compare {history} />
-    {:else if id === "reasons"}<Reasons {history} />
-    {:else if id === "sleep"}<Sleep {history} {timeZone} {blocklists} />
-    {:else if id === "calendar"}<CalendarLoad {history} />
-    {:else if id === "planned"}<Planned {history} {timeZone} {blocklists} />{/if}
-  {/if}
-{/snippet}
-
 <!-- No page title: the tab bar already says Trends, so the cards get the height. -->
 <main>
   {#if error}
@@ -144,7 +98,7 @@
             <div class="slot" role="group" aria-label={PANELS[id].name} style="grid-row: span {arrangement.size(id)}">
               <!-- The card's name, on a tab growing out of its top edge, so naming it costs the card no height. -->
               <span class="tab"><CardTab name={PANELS[id].name} /></span>
-              {@render panel(id)}
+              <Card {id} {today} {timeZone} {firstDay} {blocklists} {history} {usage} />
             </div>
           {/each}
         </div>
@@ -166,5 +120,4 @@
   .slot > :global(.tile) { border-top-left-radius: 0; }
   .tab { position: absolute; z-index: 1; top: 0; left: 0; }
   .slot > :global(.card), .slot > :global(.logcard) { flex: 1; min-height: 0; overflow: hidden; }
-  .logcard { gap: 6px; }
 </style>
