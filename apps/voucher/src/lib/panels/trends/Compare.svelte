@@ -10,15 +10,14 @@
   import TrendCard from "$core/components/TrendCard.svelte";
   import { fitsSlot } from "$core/fit.svelte";
   import { dayOfMoment, notes } from "$core/notes.svelte";
-  import { measured } from "$core/notes.svelte";
   import type { DayTotal } from "$core/types";
-  import { hoursAndMinutes, shortDate } from "$core/time";
+  import { shortDate } from "$core/time";
+  import { MEASURES, SETTLE, measureOf, luck, same as alike, show, sides } from "$core/beforeAfter";
 
   let { history }: { history: DayTotal[] } = $props();
   const fit = fitsSlot();
   $effect(() => { notes.load(); });
 
-  const SPAN = 14, SETTLE = 3;
   /** Settled Days only: today is still going. */
   const days = $derived(history.slice(0, -1));
   const today = $derived(history.at(-1)?.day ?? "");
@@ -32,44 +31,14 @@
   /** Where the shown Marker sits in `choices`: older ones come after it. */
   const pos = $derived(marker ? choices.indexOf(marker) : -1);
 
-  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-  const middle = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b); return s.length ? s[Math.floor(s.length / 2)] : null; };
-  /** `better` says which way is good; "neither" (events) draws its arrow in ink, neither green nor crimson.
-   *  A row reads "=" when it changed by under 2 points (a share), under its own `same` in its unit, or else
-   *  under 15%. Sleep takes 20 minutes, since 15% of a night is over an hour. */
-  type Measure = { name: string; of: (w: DayTotal[]) => number | null; unit: string; better: "up" | "down" | "neither"; digits?: number; format?: (v: number) => string; same?: number };
-  const MEASURES: Measure[] = [
-    { name: "Vouchers a Day", of: (w) => mean(w.map((d) => d.earned)), unit: "", better: "up", digits: 1 },
-    { name: "Goal Days", of: (w) => (w.length ? (w.filter((d) => d.goal_met).length / w.length) * 100 : null), unit: "%", better: "up" },
-    { name: "Distracted per Day", of: (w) => mean(w.filter(measured).map((d) => Object.values(d.used ?? {}).reduce((a, b) => a + b, 0))), unit: " min", better: "down" },
-    { name: "Unlocked per Day", of: (w) => mean(w.map((d) => d.unlocked_minutes ?? 0)), unit: " min", better: "down" },
-    { name: "Walked away", of: (w) => { const o = w.reduce((a, d) => a + (d.opens ?? 0), 0); return o ? (w.reduce((a, d) => a + (d.walked ?? 0), 0) / o) * 100 : null; }, unit: "%", better: "up" },
-    { name: "Longest focus", of: (w) => middle(w.filter((d) => d.stretches?.length).map((d) => Math.max(...d.stretches!))), unit: " min", better: "up" },
-    // Nights with no sleep on record, and Days with no calendar sent, are left out rather than counted as none.
-    { name: "Asleep a night", of: (w) => mean(w.flatMap((d) => (d.sleep ? [d.sleep.asleep] : []))), unit: " min", better: "up", format: hoursAndMinutes, same: 20 },
-    { name: "Events a Day", of: (w) => mean(w.flatMap((d) => (d.calendar ? [d.calendar.events] : []))), unit: "", better: "neither", digits: 1 },
-  ];
-
   const at = $derived(marker ? index.get(dayOfMoment(marker.at)) ?? null : null);
-  const before = $derived(at === null ? [] : days.slice(Math.max(0, at - SPAN), at));
-  const after = $derived(at === null ? [] : days.slice(at + SETTLE, at + SETTLE + SPAN));
-  const rows = $derived(MEASURES.map((m) => ({ ...m, a: m.of(before), b: m.of(after) })).filter((r) => r.a !== null && r.b !== null));
-  const show = (v: number, m: Measure) => m.format ? m.format(v) : `${m.digits ? v.toFixed(m.digits).replace(/\.0$/, "") : Math.round(v)}${m.unit}`;
+  const around = $derived(at === null ? { before: [], after: [] } : sides(days, at));
+  const before = $derived(around.before);
+  const after = $derived(around.after);
+  const rows = $derived(MEASURES.filter((m) => m.table).map((m) => ({ ...m, a: m.of(before, {}), b: m.of(after, {}) })).filter((r) => r.a !== null && r.b !== null));
 
   /** How often other same-length stretches differ in Vouchers a Day by as much. */
-  const luck = $derived.by(() => {
-    if (at === null || after.length < 5) return null;
-    const n = after.length;
-    const observed = Math.abs((mean(after.map((d) => d.earned)) ?? 0) - (mean(before.map((d) => d.earned)) ?? 0));
-    let total = 0, asBig = 0;
-    for (let p = SPAN; p + SETTLE + n <= days.length; p++) {
-      if (Math.abs(p - at) < SPAN) continue;
-      const diff = Math.abs((mean(days.slice(p + SETTLE, p + SETTLE + n).map((d) => d.earned)) ?? 0) - (mean(days.slice(p - SPAN, p).map((d) => d.earned)) ?? 0));
-      total++;
-      if (diff >= observed - 1e-9) asBig++;
-    }
-    return total >= 10 ? { share: Math.round((asBig / total) * 100), total } : null;
-  });
+  const luckNow = $derived(at === null ? null : luck(days, at, measureOf("earned")!));
   /** The settling-in Days left out, as "09-14 to 09-16". */
   const settled = $derived.by(() => {
     if (at === null) return "";
@@ -83,7 +52,7 @@
 
 {#snippet summary()}
   Left out {settled} to settle in.
-  {#if luck}<span class="luck" class:unusual={luck.share <= 10}>{#if luck.share <= 10}<b>Likely real</b>: a swing this big shows up in only {luck.share}% of other stretches.{:else}<b>Could be chance</b>: swings this big show up in {luck.share}% of other stretches.{/if}</span>{/if}
+  {#if luckNow}<span class="luck" class:unusual={luckNow.share <= 10}>{#if luckNow.share <= 10}<b>Likely real</b>: a swing this big shows up in only {luckNow.share}% of other stretches.{:else}<b>Could be chance</b>: swings this big show up in {luckNow.share}% of other stretches.{/if}</span>{/if}
 {/snippet}
 
 <TrendCard title="Before and after" nav={choices.length ? { label: marker ? label(marker) : "", back: pos >= 0 && pos < choices.length - 1, forward: pos > 0, onback: () => (pickedAt = choices[pos + 1].at), onforward: () => (pickedAt = choices[pos - 1].at) } : undefined} foot={compared ? summary : undefined}>
@@ -96,7 +65,7 @@
       <span></span><span class="cap h">Before</span><span class="cap h">After</span><span></span>
       {#each rows as r (r.name)}
         {@const up = r.b! > r.a!}
-        {@const same = Math.abs(r.b! - r.a!) < (r.unit === "%" ? 2 : r.same ?? 0.15 * Math.max(1, Math.abs(r.a!)))}
+        {@const same = alike(r, r.a!, r.b!)}
         {@const good = same || r.better === "neither" ? null : (up === (r.better === "up"))}
         <span class="name">{r.name}</span>
         <b class="mono">{show(r.a!, r)}</b>
