@@ -47,7 +47,7 @@
   const missing = $derived(missingProtection(guard));
 
   onMount(() => {
-    // Fresh answers once the page has slid in (lib/sheet.svelte.ts).
+    // Fresh answers once the page has slid in ($core/sheet.svelte.ts).
     const cancel = sheet.afterSlide(() => load().then(async () => { guard = await protection(); }));
     // A change made anywhere on Rules shows here at once.
     window.addEventListener(RULES_CHANGED, load);

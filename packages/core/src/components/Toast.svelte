@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The short message at the spot (lib/toast.svelte.ts): the danger notice's
+  // The short message at the spot ($core/toast.svelte.ts): the danger notice's
   // look, compact, by what was tapped: above it, or below when there's no
   // room above. With nothing to point at it sits at the bottom centre, just
   // above the tab bar. It fades after HOLD_MS; a tap takes it down sooner.

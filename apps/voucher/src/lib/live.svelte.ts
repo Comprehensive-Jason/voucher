@@ -39,7 +39,7 @@ export class Live {
   };
 
   /** Tears `count` Vouchers off; true if the Ledger took it. One it turns
-   *  down says so by the stack, as a short message (lib/toast.svelte.ts);
+   *  down says so by the stack, as a short message ($core/toast.svelte.ts);
    *  connection trouble is the Ledger notice's, and stays in `error`. */
   tear = async (count: number): Promise<boolean> => {
     try {

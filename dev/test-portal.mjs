@@ -931,7 +931,7 @@ const PAGE = String.raw`<!doctype html>
 </div>
 <script>
 // Defaults for sources with no colour chosen, as swatches in the app's
-// palette (src/lib/palette.ts and sources.ts); names come from the Ledger.
+// palette (packages/core/src/palette.ts and sources.ts); names come from the Ledger.
 const COLORS = { tasks: "#289ffb", obsidian: "#b57ae2", workout: "#e2781f", reading: "#c1d58a", anki: "#f4b3ec", steps: "#05afa5" };
 // A saved colour that moved in the 2026-10 retheme shows as the swatch it became (palette.ts LEGACY).
 const LEGACY = {

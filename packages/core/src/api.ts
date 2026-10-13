@@ -43,7 +43,7 @@ function faultFor(method: string, path: string): Error | null {
   }
 }
 
-/** Runs a Ledger call, telling lib/health.svelte.ts whether it got through.
+/** Runs a Ledger call, telling $core/health.svelte.ts whether it got through.
  *  `method` and `path` name it for the preview's faults. */
 async function watched<T>(call: () => Promise<T> | T, method = "GET", path = ""): Promise<T> {
   try {

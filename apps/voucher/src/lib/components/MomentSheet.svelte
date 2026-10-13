@@ -4,11 +4,12 @@
   import { ledger } from "$core/api";
   import Flame from "./Flame.svelte";
   import Sheet from "$core/components/Sheet.svelte";
-  import { remember, remembered } from "$core/storage";
+  import { storage } from "$core/storage";
   import { shiftDay } from "$core/time";
   import type { DaySummary, Today } from "$core/types";
 
   let { data }: { data: Today } = $props();
+  const { remember, remembered } = storage("voucher");
 
   type Moment = { kind: "goal" | "lost"; title: string; body: string; action: string };
   let moment = $state<Moment | null>(null);

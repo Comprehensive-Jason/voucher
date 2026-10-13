@@ -4,7 +4,7 @@
 // a few seconds; a tap dismisses it sooner. One shows at a time: a new one
 // replaces it. components/Toast.svelte draws it, mounted once in the layout.
 // Connection trouble is never a toast: the Ledger notice already says it
-// (lib/health.svelte.ts), so `actionFailed` leaves those to it.
+// ($core/health.svelte.ts), so `actionFailed` leaves those to it.
 import { shownByNotice } from "./health.svelte";
 
 export type Flash = {

@@ -30,7 +30,7 @@
     try { await ledger("POST", "/grace/end"); window.dispatchEvent(new Event(RULES_CHANGED)); await load(); } catch (e) { actionFailed(e, "The Ledger turned this change down."); }
   }
   onMount(() => {
-    // Fresh answers once a page sliding in has landed (lib/sheet.svelte.ts).
+    // Fresh answers once a page sliding in has landed ($core/sheet.svelte.ts).
     const cancel = sheet.afterSlide(load);
     // The tablet's Today column stays open for days: ask again on its poll, so the banner goes when grace ends.
     const poll = setInterval(load, POLL_MS);

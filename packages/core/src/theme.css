@@ -8,7 +8,7 @@
 :root {
   color-scheme: dark;
   /* Every color in the app is one of these tokens, or a swatch from
-     lib/palette.ts. Variants come from rules, not hand-picked hexes:
+     $core/palette.ts. Variants come from rules, not hand-picked hexes:
        -text  the same OKLCH hue and chroma, lightened until it reads at
               4.5:1 on --raised and on its own wash (the base when it passes)
        -wash  color-mix(in oklab, X 15%, var(--ground)): notices, tinted cards
@@ -185,7 +185,7 @@ button { font: inherit; color: inherit; }
 .stats span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cardhead .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
-/* Every bar slides to a new value (lib/motion.ts sets the timing). */
+/* Every bar slides to a new value ($core/motion.ts sets the timing). */
 .bar > i { display: block; height: 100%; border-radius: 3px; transition: width var(--t-move) var(--ease-out); }
 
 /* Press feedback, one for every tappable thing (buttons, links, tabs): held

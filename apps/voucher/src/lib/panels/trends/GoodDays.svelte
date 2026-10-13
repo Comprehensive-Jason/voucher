@@ -15,7 +15,7 @@
   // night after. A Day without the data (no night recorded, no calendar
   // chosen, no device reporting Distraction, no Distraction spans) is
   // missing, never zero. Which
-  // findings show, and how sure each is, comes from lib/correlate.ts (its
+  // findings show, and how sure each is, comes from $core/correlate.ts (its
   // showing rule and confidence tiers), every pair corrected together.
   // Findings are grouped by what changed, groups by how much changed in all
   // (each change in its outcome's usual Day-to-Day spread), largest first.
@@ -23,7 +23,7 @@
   // One-third slot (and the phone): group boxes in two columns that each keep
   // their own height, scrolling, with a fade while more is below. Two-thirds
   // and Full: one row a finding on one scale of ratios, fitted to the
-  // findings (lib/panels/trends/goodDayAxes.ts); a hollow dot for Days
+  // findings ($core/panels/trends/goodDayAxes.ts); a hollow dot for Days
   // without, always at ×1, and a filled one for Days with.
   import TrendCard from "$core/components/TrendCard.svelte";
   import { styleOf } from "$core/sources";
@@ -95,7 +95,7 @@
     // The night that led into the Day.
     { id: SLEEP, name: "Time asleep", color: "var(--sleep)", unit: "minutes", up: true, note: "minutes", value: (d) => d.sleep?.asleep ?? NaN },
   ]);
-  /** Stretch by stretch, after a break (an Unlock or Distraction in the hour before) or not; see lib/correlate.ts. */
+  /** Stretch by stretch, after a break (an Unlock or Distraction in the hour before) or not; see $core/correlate.ts. */
   const lengths: Measure = { id: STRETCH, name: "Focus stretch length", color: "var(--ink)", unit: "minutes", up: true, note: "minutes", value: () => NaN };
   const doers = $derived<Doer[]>([
     ...sources.map((id): Doer => { const s = styleOf(id); return { id, color: s.color, days: `${s.short} Days`, after: `Day after ${s.short}`, night: `Night after ${s.short}` }; }),

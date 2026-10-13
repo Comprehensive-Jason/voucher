@@ -22,7 +22,7 @@ export const MOTION = {
   stagger: 60,
 } as const;
 
-/** How long a short message at the spot (lib/toast.svelte.ts) stays before
+/** How long a short message at the spot ($core/toast.svelte.ts) stays before
  *  it fades: long enough to read twice. Not shortened for reduced motion,
  *  since it's reading time, not movement. */
 export const HOLD_MS = 4000;

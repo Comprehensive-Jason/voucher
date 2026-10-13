@@ -1,14 +1,15 @@
 <script lang="ts">
-  // A card's own options in Arrange mode (PANELS' `options`), over its size
+  // A card's own options in Arrange mode (its Panel's `options`), over its size
   // switch: a Switch for an on-or-off one, chips for picking some of a few
   // (dimmed once as many are on as the card's height allows). Choices are
   // kept with the arrangement and apply wherever the card is drawn.
-  import { arrangement, PANELS, type PanelId } from "../arrangement.svelte";
+  import { useArrangement } from "../arrangement.svelte";
   import Switch from "$core/components/Switch.svelte";
-  let { id }: { id: PanelId } = $props();
+  let { id }: { id: string } = $props();
+  const arrangement = useArrangement();
 </script>
 
-{#each PANELS[id].options ?? [] as o (o.id)}
+{#each arrangement.panels[id].options ?? [] as o (o.id)}
   <div class="option" role="group" aria-label={o.label}>
     <span class="cap">{o.label}</span>
     {#if o.kind === "switch"}

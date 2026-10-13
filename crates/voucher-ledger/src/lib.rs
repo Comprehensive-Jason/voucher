@@ -2332,7 +2332,7 @@ fn same_setting(a: &Change, b: &Change) -> bool {
 
 /// Old colors a Ledger may still hold, and the swatch each became: the
 /// swatches that moved in the 2026-10 retheme, and the off-palette premade
-/// blocklist colors. Mirrors LEGACY in the app's src/lib/palette.ts.
+/// blocklist colors. Mirrors LEGACY in packages/core/src/palette.ts.
 const LEGACY_COLORS: [(&str, &str); 16] = [
     ("#aeccfe", "#acd6ff"),
     ("#9890d0", "#f698fe"),

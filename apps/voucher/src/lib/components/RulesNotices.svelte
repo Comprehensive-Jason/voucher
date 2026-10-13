@@ -26,7 +26,7 @@
 
   onMount(() => {
     const check = () => protection().then((g) => { if (!sameAnswer(g, guard)) guard = g; });
-    // Fresh answers once a page sliding in has landed (lib/sheet.svelte.ts).
+    // Fresh answers once a page sliding in has landed ($core/sheet.svelte.ts).
     const cancel = sheet.afterSlide(check);
     // Today's column stays open for days, so look again on its poll.
     const poll = setInterval(check, POLL_MS);

@@ -1,5 +1,5 @@
 // Whether the app can talk to the Ledger. Every Ledger request reports here
-// (lib/api.ts), so one notice can say what's wrong, at the top of Rules'
+// ($core/api.ts), so one notice can say what's wrong, at the top of Rules'
 // notices and on the phone's Today, instead of each card printing the raw
 // error. A problem clears as soon as any request gets through.
 

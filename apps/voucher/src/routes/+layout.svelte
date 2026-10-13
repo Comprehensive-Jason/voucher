@@ -10,8 +10,10 @@
   import Home from "$lib/Home.svelte";
   import Toast from "$core/components/Toast.svelte";
   import { sheet } from "$core/sheet.svelte";
+  import { setArrangementContext } from "$lib/arrangement.svelte";
+  import { arrangement } from "$lib/cards";
 
-  // Every animation's timing comes from lib/motion.ts, as CSS variables on the
+  // Every animation's timing comes from $core/motion.ts, as CSS variables on the
   // root, set before anything draws.
   if (typeof document !== "undefined") {
     for (const part of motionVars().split("; ")) {
@@ -21,6 +23,9 @@
   }
 
   let { children } = $props();
+  // Voucher's one arrangement of its cards, for the dashboard, the phone's
+  // Trends, and any card that reads its own options.
+  setArrangementContext(arrangement);
   // Setup and the blocked-app screen stand alone, without the tab bar.
   const setup = $derived(page.url.pathname.startsWith("/setup"));
   const alone = $derived(setup || ["/blocked", "/tray", "/pc-blocked"].some((p) => page.url.pathname.startsWith(p)));
@@ -52,7 +57,7 @@
   onNavigate((nav) => {
     const from = nav.from?.url.pathname, to = nav.to?.url.pathname;
     // Rules sliding over the tablet's dashboard, or off it: the dashboard
-    // holds still until the slide ends (lib/sheet.svelte.ts), so nothing on
+    // holds still until the slide ends ($core/sheet.svelte.ts), so nothing on
     // it redraws during the slide. The safety net covers a slide that never
     // reports its end.
     if (wide.on && ((from === "/" && to?.startsWith("/rules")) || (from?.startsWith("/rules") && to === "/"))) sheet.start(ms("move") + 1500);
@@ -106,7 +111,7 @@
        restyles every element on it, a long pause halfway through the slide. -->
   {#if keepHome}<div class="body home" class:under={!atHome} aria-hidden={!atHome}><Home /></div>{/if}
   {#if !atHome}<div class="body" class:over={keepHome} in:sheetSlide={{ on: keepHome }} out:sheetSlide={{ on: keepHome, leaving: true }} onintroend={landed} onoutroend={() => sheet.end()}>{@render children()}</div>{/if}
-  <!-- Short messages at the spot when an action doesn't go through (lib/toast.svelte.ts). -->
+  <!-- Short messages at the spot when an action doesn't go through ($core/toast.svelte.ts). -->
   <Toast />
   {#if !wide.on && !alone}<NavTabs {active} />{/if}
 </div>

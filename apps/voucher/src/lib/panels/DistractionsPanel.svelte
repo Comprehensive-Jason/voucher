@@ -45,7 +45,7 @@
   }
 
   onMount(() => {
-    // Fresh answers once the page has slid in (lib/sheet.svelte.ts).
+    // Fresh answers once the page has slid in ($core/sheet.svelte.ts).
     const cancel = sheet.afterSlide(load);
     // Reload when a change is made anywhere on Rules.
     window.addEventListener(RULES_CHANGED, load);

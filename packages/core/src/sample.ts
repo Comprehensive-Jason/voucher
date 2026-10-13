@@ -200,7 +200,7 @@ let pending: [Record<string, unknown>, string][] = [[{ UnlockMinutes: 15 }, next
 export function sampleLedger(method: string, path: string, body: unknown): unknown {
   const [route, query = ""] = path.split("?");
   const params = new URLSearchParams(query);
-  // Sleep and calendar load (lib/sampleExtra.ts).
+  // Sleep and calendar load ($core/sampleExtra.ts).
   const measured = measuresRoute(method, route, body);
   if (measured !== undefined) return measured;
   if (route === "/status") {

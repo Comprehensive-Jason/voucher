@@ -23,7 +23,7 @@
   import { clock, shortDate } from "$core/time";
   import { median } from "$core/trends";
   import { fitsSlot } from "$core/fit.svelte";
-  import { arrangement } from "../../arrangement.svelte";
+  import { useArrangement } from "../../arrangement.svelte";
   import { minutesByList, type ListMinutes } from "$core/blocklists";
   import type { Blocklist, DayTotal, Marker, Verdict } from "$core/types";
   import { dayOfMoment, markerKeys, measured, notes } from "$core/notes.svelte";
@@ -31,6 +31,7 @@
   import { untrack } from "svelte";
 
   let { history, timeZone, blocklists = {} }: { history: DayTotal[]; timeZone: string; blocklists?: Record<string, Blocklist> } = $props();
+  const arrangement = useArrangement();
   const fit = fitsSlot();
   const uid = $props.id();
 

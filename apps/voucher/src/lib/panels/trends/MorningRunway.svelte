@@ -35,9 +35,10 @@
   import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
   import { selection } from "$core/selection.svelte";
   import { untrack } from "svelte";
-  import { arrangement } from "../../arrangement.svelte";
+  import { useArrangement } from "../../arrangement.svelte";
 
   let { history, timeZone }: { history: DayTotal[]; timeZone: string } = $props();
+  const arrangement = useArrangement();
   const fit = fitsSlot();
   const START = 6, END = 30;
   const hoursAt = (at: string) => { const [h, m] = clock(at, timeZone).split(":").map(Number); return (h < START ? h + 24 : h) + m / 60; };

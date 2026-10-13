@@ -3,8 +3,8 @@ package io.github.comprehensivejason.voucher
 /**
  * The app's color tokens for the parts that don't read CSS: the widget, the
  * live wallpaper, and the notifications. Each mirrors a token in
- * src/lib/theme.css (named in its comment), and the swatch defaults and
- * LEGACY mirror src/lib/palette.ts, so change them together.
+ * packages/core/src/theme.css (named in its comment), and the swatch defaults and
+ * LEGACY mirror packages/core/src/palette.ts, so change them together.
  */
 object VoucherColors {
     // Neutrals

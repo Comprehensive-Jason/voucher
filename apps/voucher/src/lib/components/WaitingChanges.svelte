@@ -55,7 +55,7 @@
   }
 
   onMount(() => {
-    // Fresh answers once a page sliding in has landed (lib/sheet.svelte.ts).
+    // Fresh answers once a page sliding in has landed ($core/sheet.svelte.ts).
     const cancel = sheet.afterSlide(load);
     // At the morning boundary the changes apply, and the card goes.
     const poll = setInterval(load, POLL_MS);

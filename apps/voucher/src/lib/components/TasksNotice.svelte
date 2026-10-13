@@ -67,7 +67,7 @@
   }
 
   onMount(() => {
-    // Fresh answers once a page sliding in has landed (lib/sheet.svelte.ts).
+    // Fresh answers once a page sliding in has landed ($core/sheet.svelte.ts).
     const cancel = sheet.afterSlide(load);
     const poll = setInterval(load, POLL_MS);
     window.addEventListener(RULES_CHANGED, load);

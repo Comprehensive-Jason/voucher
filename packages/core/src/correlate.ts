@@ -257,7 +257,7 @@ function dayBreaks(own: StretchDay, other: StretchDay) {
 export const pairKey = (driver: string, outcome: string, lag: 0 | 1) => `${driver}|${outcome}|${lag}`;
 
 /** `correlate`'s arguments as plain data, so they can be sent to a Web
- *  Worker (lib/correlate.worker.ts): the `skip` rule becomes the list of
+ *  Worker ($core/correlate.worker.ts): the `skip` rule becomes the list of
  *  pairs it skips (see `skippedPairs`). */
 export type Request = { days: string[]; drivers: Driver[]; outcomes: Outcome[]; breaks: BreakDriver[]; skipped: string[] };
 

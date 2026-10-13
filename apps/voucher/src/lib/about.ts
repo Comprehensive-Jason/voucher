@@ -1,5 +1,5 @@
 // What each tablet card is for and how to read it, shown inside the card
-// while arranging (Home.svelte). One entry per panel in arrangement's PANELS,
+// while arranging (Home.svelte). One entry per panel in lib/cards.ts' PANELS,
 // so a new card can't ship without its explanation. Keep each one true to
 // what the card's code does: when a card changes, change its entry here.
 //
@@ -9,7 +9,7 @@
 // (components/AboutText.svelte). Hues are the keys of HUES; an unknown one
 // fails type-check. Neutral outlines and rings aren't marked unless the
 // text names their color ("gray", "ink").
-import type { PanelId } from "./arrangement.svelte";
+import type { PanelId } from "./cards";
 import { swatch } from "$core/palette";
 
 /** Each hue's color on the card (`mark`, its theme token) and as 13px text on
@@ -69,15 +69,20 @@ export function runs(text: string): Run[] {
 type Unknown<S extends string> = S extends `${string}{${infer K}:${string}}${infer Rest}` ? (K extends Hue ? never : K) | Unknown<Rest> : never;
 type Checked<S> = S extends string ? ([Unknown<S>] extends [never] ? S : `Unknown hue "${Unknown<S>}"`) : S;
 type CheckAll<T> = { [P in keyof T]: { for: T[P] extends { for: infer F } ? Checked<F> : never; read: T[P] extends { read: infer R extends readonly string[] } ? { [I in keyof R]: Checked<R[I]> } : never } };
-function checked<const T extends Record<PanelId, About>>(t: T & CheckAll<T>): Record<PanelId, About> {
-  if (import.meta.env?.DEV) for (const a of Object.values<About>(t)) for (const line of [a.for, ...a.read]) {
-    const left = line.replace(RUN, (m, k: string) => (k in HUES ? "" : m));
-    if (/[{}]/.test(left)) console.error(`about.ts: bad color markup in "${line}"`);
-  }
-  return t;
+/** An app's explanations, one per panel id, with their color markup checked:
+ *  `defineAbout<PanelId>()({ ... })`. A missing panel or an unknown hue fails
+ *  type-check; in dev, a stray brace is reported in the console too. */
+export function defineAbout<Id extends string>() {
+  return function checked<const T extends Record<Id, About>>(t: T & CheckAll<T>): Record<Id, About> {
+    if (import.meta.env?.DEV) for (const a of Object.values<About>(t)) for (const line of [a.for, ...a.read]) {
+      const left = line.replace(RUN, (m, k: string) => (k in HUES ? "" : m));
+      if (/[{}]/.test(left)) console.error(`about.ts: bad color markup in "${line}"`);
+    }
+    return t;
+  };
 }
 
-export const ABOUT = checked({
+export const ABOUT = defineAbout<PanelId>()({
   earned: {
     for: "When a Day's Vouchers came in, and from which sources.",
     read: [

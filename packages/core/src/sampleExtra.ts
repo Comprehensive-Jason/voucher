@@ -1,5 +1,5 @@
 // Sample sleep and calendar load for the browser preview, added to
-// lib/sample.ts's Days (and so to `?history=N`). A hash of each date picks
+// $core/sample.ts's Days (and so to `?history=N`). A hash of each date picks
 // its figures, so any span agrees and screenshots are stable. Like the
 // Ledger: nights are later and longer at the weekend, about one in seven is
 // estimated (no Health Connect session), and weekdays carry most events.

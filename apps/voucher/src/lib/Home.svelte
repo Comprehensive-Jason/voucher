@@ -13,7 +13,8 @@
   import { tick } from "svelte";
   import { page } from "$app/state";
   import { fade } from "svelte/transition";
-  import { arrangement, flow, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
+  import { ROWS } from "$lib/arrangement.svelte";
+  import { arrangement, PANELS, type PanelId } from "$lib/cards";
   import { fillSlots } from "$core/fit.svelte";
   import { EASE, ms } from "$core/motion";
   import { deviceUsage, ledger } from "$core/api";
@@ -213,7 +214,7 @@
     next.splice(at, 0, d.id);
     if (next.join() === arrangement.order.join()) { target = null; return; }
     // Where it would land.
-    const cols = flow(next, arrangement.sizes);
+    const cols = arrangement.flow(next);
     const col = cols.findIndex((c) => c.includes(d.id));
     const row = cols[col].slice(0, cols[col].indexOf(d.id)).reduce((n, p) => n + arrangement.size(p), 0);
     const size = arrangement.size(d.id);

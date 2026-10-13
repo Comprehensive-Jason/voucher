@@ -23,10 +23,11 @@
   import Sheet from "$core/components/Sheet.svelte";
   import MarkerChips from "$core/components/MarkerChips.svelte";
   import { answerVerdict, dayNow } from "$core/notes.svelte";
-  import { remember, remembered } from "$core/storage";
+  import { storage } from "$core/storage";
   import type { DayTotal, Verdict } from "$core/types";
 
   let { curfewActive }: { curfewActive: boolean } = $props();
+  const { remember, remembered } = storage("voucher");
 
   type Ask = "verdict" | "marker";
   let open = $state(false);
