@@ -105,8 +105,11 @@ function match(existing, entry) {
 function listColors() {
   const file = path.join(import.meta.dirname, "..", "apps", "voucher", "src", "lib", "blocklists.ts");
   const found = readFileSync(file, "utf8").match(/LIST_COLORS\s*=\s*\[([^\]]*)\]/);
-  const colors = found?.[1].match(/#[0-9a-fA-F]{6}/g);
-  if (!colors?.length) throw new Error(`no LIST_COLORS in ${file}`);
+  // LIST_COLORS names palette swatches (swatch("Rose")); palette.ts maps each name to its hex.
+  const palette = readFileSync(path.join(path.dirname(file), "palette.ts"), "utf8");
+  const hexOf = Object.fromEntries([...palette.matchAll(/color:\s*"(#[0-9a-fA-F]{6})",\s*name:\s*"([^"]+)"/g)].map((m) => [m[2], m[1]]));
+  const colors = [...(found?.[1] ?? "").matchAll(/swatch\("([^"]+)"\)|(#[0-9a-fA-F]{6})/g)].map((m) => m[2] ?? hexOf[m[1]]).filter(Boolean);
+  if (!colors.length) throw new Error(`no LIST_COLORS in ${file}`);
   return colors;
 }
 
