@@ -12,7 +12,20 @@
 // shorter night); and about half the stretches that aren't the Day's
 // longest start soon after an Unlock (with Distraction in it) and run
 // shorter than the rest.
+//
+// And something of every kind for Insights to find (see `forInsights`):
+// this week's Distraction up, mostly YouTube after 21:00; lost planned time
+// mostly 14:00 to 16:00; a site on no blocklist most Days; a record six
+// Days ago and a lapse since; and the Ledger's side of Insights (an
+// Experiment due for its verdict, and with `?experiment=running` one
+// running instead).
+import type { InsightsState } from "./insights/types";
 import type { CalendarChoice, CalendarDay, CalendarId, DaySummary, DayTotal, PlannedBlock, Sleep, TimedStretch } from "./types";
+
+/** The sample's today, as sample.ts serves it. */
+export const SAMPLE_TODAY = "2026-10-07";
+/** Days from a sample Day to today. */
+const back = (day: string) => Math.round((Date.parse(`${SAMPLE_TODAY}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86_400_000);
 
 /** A number in [0, 1) from a date and a salt. */
 function hash(day: string, salt: number): number {
@@ -156,6 +169,8 @@ function plannedOf(d: DayTotal, b: ReturnType<typeof breaksOf>): PlannedBlock[] 
     bySource.get(s.source)!.fill(1, off(s.start), off(s.start) + s.minutes);
   }
   const placed: [number, number][] = [], unlockAt = (b.unlocks ?? []).map(([a]) => off(a));
+  // Insights: the last four weeks' weekdays have a block from 14:00 to 15:30.
+  if (back(d.day) >= 1 && back(d.day) <= 28) placed.push([480, 570]);
   for (let i = 0, n = 2 + Math.floor(hash(d.day, 120) * 4); i < n; i++) {
     const length = 30 + 15 * Math.floor(hash(d.day, 130 + i) * 7);
     let start = i < 2 && unlockAt[i] > 150 && hash(d.day, 121 + i) < 0.5 ? unlockAt[i] - 20 : 150 + 30 * Math.floor(hash(d.day, 140 + i) * 22);
@@ -187,10 +202,126 @@ function plannedOf(d: DayTotal, b: ReturnType<typeof breaksOf>): PlannedBlock[] 
 export function withMeasures<T extends DayTotal | DaySummary>(days: T[]): T[] {
   return days.map((d) => {
     const sleep = sampleSleep(d.day), calendar = sampleCalendar(d.day);
-    const breaks = "stretches" in d ? breaksOf(d) : null;
-    const extra = breaks ? { ...breaks, planned: plannedOf(d as DayTotal, breaks) } : {};
-    return { ...d, ...extra, sleep, calendar };
+    const shaped = "stretches" in d ? forInsights(d as DayTotal) : null;
+    const breaks = shaped ? lateSpans(shaped, breaksOf(shaped)) : null;
+    const extra = breaks ? { ...breaks, planned: plannedOf(shaped!, breaks) } : {};
+    return { ...d, ...(shaped ?? {}), ...extra, sleep, calendar } as T;
   });
+}
+
+/** A history Day shaped so Insights finds something of every kind. */
+function forInsights(d: DayTotal): DayTotal {
+  const n = back(d.day);
+  if (n < 1) return d;
+  const out: DayTotal = { ...d, used: { ...d.used }, by_source: { ...d.by_source }, hours: [...(d.hours ?? [])], source_hours: { ...d.source_hours } };
+  // This week: more YouTube, in the evening (lateSpans times it).
+  if (n <= 7 && d.reported) out.used!.YouTube = (out.used!.YouTube ?? 0) + 30 + Math.floor(hash(d.day, 170) * 20);
+  // A site on no blocklist, most Days of the last two weeks.
+  if (n <= 14 && d.reported && hash(d.day, 171) < 0.72) out.used!["news.ycombinator.com"] = 6 + Math.floor(hash(d.day, 172) * 14);
+  // A record six Days ago: 23 Vouchers.
+  if (n === 6) {
+    const more = 23 - d.earned;
+    out.earned = 23; out.goal_met = true;
+    out.by_source!.tasks = (out.by_source!.tasks ?? 0) + more;
+    out.hours![15] = (out.hours![15] ?? 0) + more;
+    out.source_hours!.tasks = (out.source_hours!.tasks ?? Array<number>(24).fill(0)).map((x, h) => (h === 15 ? x + more : x));
+  }
+  // Then a lapse: the five Days since miss the goal.
+  if (n <= 5 && d.earned >= (d.goal ?? 16)) {
+    const less = d.earned - (9 + n);
+    out.earned -= less; out.goal_met = false;
+    let left = less;
+    for (const id of ["tasks", "obsidian", "reading", "chinese", "workout"]) {
+      const take = Math.min(left, out.by_source![id] ?? 0);
+      if (!take) continue;
+      out.by_source![id] -= take; left -= take;
+      if (!out.by_source![id]) delete out.by_source![id];
+    }
+    let drop = less;
+    for (let h = 23; h >= 0 && drop > 0; h--) { const t = Math.min(drop, out.hours![h]); out.hours![h] -= t; drop -= t; }
+  }
+  return out;
+}
+
+/** This week's evenings: Distraction from about 21:05 to 21:40. The last four
+ *  weeks' weekdays: most have Distraction from 14:25 to 14:55, in the
+ *  planned block then. */
+function lateSpans(d: DayTotal, b: ReturnType<typeof breaksOf>): ReturnType<typeof breaksOf> {
+  const n = back(d.day);
+  if (!b.distraction_spans) return b;
+  const spans = [...b.distraction_spans];
+  if (n >= 1 && n <= 7) { const a = 905 + Math.floor(hash(d.day, 173) * 10); spans.push([at(d.day, a), at(d.day, a + 30 + Math.floor(hash(d.day, 174) * 10))]); }
+  if (n >= 1 && n <= 28 && weekday(d.day) % 6 !== 0 && hash(d.day, 175) < 0.75) spans.push([at(d.day, 505), at(d.day, 535)]);
+  spans.sort((x, y) => x[0].localeCompare(y[0]));
+  return { ...b, distraction_spans: spans };
+}
+
+// ---- Insights: the Ledger's dismissals and Experiments ----
+
+/** An Experiment started 09-12, due for its verdict since 09-29: the app works
+ *  the verdict out and sends it, and it waits for Keep it or Go back. With
+ *  `?experiment=running`, one started 10-03 is on its 2nd measured Day
+ *  instead; with `?experiment=none`, there's neither. */
+function sampleInsights(): InsightsState {
+  const which = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("experiment");
+  const due = {
+    id: 1, change: { UnlockMinutes: 10 }, undo: { UnlockMinutes: 15 }, text: "Unlocks of 10 min", measure: "unlocks" as const, finding: "shift:per_unlock",
+    requested_at: "2026-09-12T09:30:00-07:00", starts_at: "2026-09-12T09:30:00-07:00", start_day: "2026-09-12", settle_days: 3, measure_days: 14,
+    verdict_day: "2026-09-29", marker_at: "2026-09-12T09:30:00-07:00", status: "running" as const, verdict: null, ended_at: null,
+  };
+  const running = {
+    id: 2, change: { Curfew: { start: "21:30:00", end: "06:00:00" } }, undo: { Curfew: { start: "22:00:00", end: "06:00:00" } }, text: "Curfew at 21:30", measure: "late" as const, finding: "shift:late",
+    requested_at: "2026-10-01T20:10:00-07:00", starts_at: "2026-10-01T20:10:00-07:00", start_day: "2026-10-01", settle_days: 3, measure_days: 14,
+    verdict_day: "2026-10-18", marker_at: "2026-10-01T20:10:00-07:00", status: "running" as const, verdict: null, ended_at: null,
+  };
+  return { dismissed: {}, experiments: which === "none" ? [] : which === "running" ? [{ ...due, status: "kept" }, running] : [due] };
+}
+let insights: InsightsState | null = null;
+const insightsNow = () => (insights ??= sampleInsights());
+/** The Experiments /status lists: running, or judged and waiting. */
+export const sampleOpenExperiments = () => insightsNow().experiments.filter((e) => e.status === "running" || e.status === "ready");
+/** The sample's Markers for its Experiments, for /markers. */
+export const sampleExperimentMarkers = () => insightsNow().experiments.flatMap((e) => (e.marker_at ? [{ at: e.marker_at, text: `Trying ${e.text}`, rule: true }] : []));
+
+/** The sample Ledger's Insights routes, or undefined for any other. */
+function insightsRoute(method: string, route: string, body: unknown): unknown {
+  const st = insightsNow();
+  if (route === "/insights" && method === "GET") return st;
+  if (route === "/insights/dismiss" && method === "POST") {
+    const b = body as { id: string; kind: string; value: number };
+    st.dismissed = { ...st.dismissed, [b.id]: { at: new Date().toISOString(), kind: b.kind, value: b.value } };
+    return st.dismissed;
+  }
+  if (route === "/insights/undismiss" && method === "POST") {
+    const { [(body as { id: string }).id]: _, ...rest } = st.dismissed;
+    st.dismissed = rest;
+    return st.dismissed;
+  }
+  if (route === "/experiment" && method === "POST") {
+    const b = body as { change: Record<string, unknown>; text: string; measure: string; finding: string };
+    if (st.experiments.some((e) => e.status === "running")) throw new Error("The Ledger refused this (409)");
+    const now = new Date(), day = SAMPLE_TODAY;
+    const shift = (n: number) => new Date(Date.parse(`${day}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+    const tightens = !("DailyGoal" in b.change);
+    const e = {
+      id: Math.max(0, ...st.experiments.map((x) => x.id)) + 1, change: b.change, undo: {}, text: b.text, measure: b.measure as InsightsState["experiments"][number]["measure"], finding: b.finding,
+      requested_at: now.toISOString(), starts_at: now.toISOString(), start_day: tightens ? day : shift(1), settle_days: 3, measure_days: 14,
+      verdict_day: shift((tightens ? 0 : 1) + 17), marker_at: tightens ? now.toISOString() : null, status: "running" as const, verdict: null, ended_at: null,
+    };
+    st.experiments = [...st.experiments, e];
+    return e;
+  }
+  if (route === "/experiment/verdict" && method === "POST") {
+    const b = body as { id: number; title: string; text: string; outcome: "helped" | "unclear" | "worse"; back: string };
+    st.experiments = st.experiments.map((e) => (e.id === b.id && e.status === "running" ? { ...e, status: "ready", verdict: { title: b.title, text: b.text, outcome: b.outcome, back: b.back, at: new Date().toISOString() } } : e));
+    return st.experiments.find((e) => e.id === b.id);
+  }
+  if (route === "/experiment/end" && method === "POST") {
+    const b = body as { id: number; keep: boolean };
+    st.experiments = st.experiments.map((e) => (e.id !== b.id ? e : { ...e, status: b.keep ? "kept" : e.status === "ready" ? "reverted" : "ended", ended_at: new Date().toISOString() }));
+    return { experiment: st.experiments.find((e) => e.id === b.id), effect: b.keep ? "Now" : { At: new Date(Date.now() + 86_400_000).toISOString() } };
+  }
+  return undefined;
 }
 
 /** The calendars on the sample Android device (`?calendars=pick`). */
@@ -215,6 +346,8 @@ export const sampleCalendarChoice = () => choice;
 
 /** The sample Ledger's answers for the new routes, or undefined for any other. */
 export function measuresRoute(method: string, route: string, body: unknown): unknown {
+  const insight = insightsRoute(method, route, body);
+  if (insight !== undefined) return insight;
   if (route === "/sleep" && method === "POST") return { message: "kept" };
   if (route === "/calendar" && method === "POST") return { days: 0 };
   if (route === "/calendars" && method === "GET") return choice;

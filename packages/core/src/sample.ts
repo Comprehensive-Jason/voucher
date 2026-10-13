@@ -2,13 +2,13 @@
 // no Tauri and no Ledger. Mirrors the round 4 canvas with neutral task names.
 import { swatch } from "./palette";
 import type { Blocklist, DaySummary, DayTotal, Entry, Source } from "./types";
-import { measuresRoute, sampleCalendarChoice, withMeasures } from "./sampleExtra";
+import { measuresRoute, SAMPLE_TODAY, sampleCalendarChoice, sampleExperimentMarkers, sampleOpenExperiments, withMeasures } from "./sampleExtra";
 
 const app = (pkg: string, label: string, note: string | null = null, added = false) =>
   ({ package: pkg, label, note, on: true, added });
 const site = (s: string, note: string | null = null, added = false) => ({ site: s, note, on: true, added });
 
-const TODAY = "2026-10-07";
+const TODAY = SAMPLE_TODAY;
 
 const earned = (time: string, task: string, title: string, day = TODAY): Entry =>
   ({ kind: "earned", at: `${day}T${time}:00-07:00`, task, title, kept: true });
@@ -210,7 +210,7 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
       setup_complete: !new URLSearchParams(location.search).get("fresh"),
       first_day: "2026-06-29", log_first_day: "2026-10-01",
       grace_until: new URLSearchParams(location.search).get("grace") ? "2026-10-11T13:00:00Z" : null,
-      blocked: { apps: [], sites: [] }, calendars: sampleCalendarChoice() };
+      blocked: { apps: [], sites: [] }, calendars: sampleCalendarChoice(), experiments: sampleOpenExperiments() };
   }
   if (route === "/day") {
     const d = params.get("date") ?? TODAY;
@@ -219,7 +219,7 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
   // ?history=N in the page's address serves N Days whatever is asked: a short
   // one for empty states, a long one for What goes with a good Day.
   if (route === "/history") return withMeasures(history(Number(new URLSearchParams(location.search).get("history") ?? params.get("days") ?? 84)));
-  if (route === "/markers") return markers;
+  if (route === "/markers") return [...markers, ...sampleExperimentMarkers()].sort((a, c) => a.at.localeCompare(c.at));
   if (route === "/marker" && method === "POST") {
     const b = body as { text: string; at?: string };
     markers = [...markers, { at: b.at ?? new Date().toISOString(), text: b.text, rule: false }].sort((a, c) => a.at.localeCompare(c.at));
