@@ -110,6 +110,13 @@
   let open = $state<Finding | null>(null);
   const openExperiment = $derived(open?.experiment !== undefined ? experiments.find((e) => e.id === open!.experiment) : undefined);
   let scroller = $state<HTMLDivElement>();
+  // Opened from a notification ("Open" on an Experiment's verdict):
+  // `?insight=<finding id>` opens that finding's proof once it's in the list.
+  let asked = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("insight");
+  $effect(() => {
+    const f = asked ? list.find((x) => x.id === asked) : undefined;
+    if (f) { open = f; asked = null; }
+  });
 
   async function dismiss(f: Finding, e: Event) {
     e.stopPropagation();

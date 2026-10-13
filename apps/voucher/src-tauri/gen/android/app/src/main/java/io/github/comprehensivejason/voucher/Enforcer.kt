@@ -80,6 +80,7 @@ object Enforcer {
         }
         Moments.check(ctx, decision)
         Questions.check(ctx, decision)
+        Verdicts.check(ctx, decision)
         Surfaces.refresh(ctx, decision)
         return decision
     }

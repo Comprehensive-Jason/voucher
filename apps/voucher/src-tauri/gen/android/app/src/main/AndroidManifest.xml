@@ -91,6 +91,7 @@
 
         <receiver android:name=".ActionReceiver" android:exported="false" />
         <receiver android:name=".QuestionReceiver" android:exported="false" />
+        <receiver android:name=".VerdictReceiver" android:exported="false" />
 
         <service
             android:name=".TearTileService"
