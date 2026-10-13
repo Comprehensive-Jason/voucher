@@ -2,13 +2,15 @@
   // A line of a card's explanation (lib/about.ts), with its {hue:words}
   // markup shown in color. HIGHLIGHT there picks the look for every card:
   // "text" colors the words, "mark" keeps them in ink on a wash of the color
-  // with a solid underline in it.
-  import { HIGHLIGHT, HUES, runs } from "../about";
-  let { text }: { text: string } = $props();
-  const parts = $derived(runs(text));
+  // with a solid underline in it. Other text in the same look (an Insight's
+  // sentence, naming a source or blocklist) passes its runs as `parts`,
+  // where a run can carry a color of its own instead of a hue.
+  import { HIGHLIGHT, HUES, runs, type Run } from "../about";
+  let { text = "", parts: given }: { text?: string; parts?: Run[] } = $props();
+  const parts = $derived(given ?? runs(text));
 </script>
 
-{#each parts as r, i (i)}{#if r.hue}<span class="hue {HIGHLIGHT}" class:multi={r.hue === "sources"} style="--hue: {HUES[r.hue].mark}; --hue-text: {HUES[r.hue].text}">{r.text}</span>{:else}{r.text}{/if}{/each}
+{#each parts as r, i (i)}{#if r.hue}<span class="hue {HIGHLIGHT}" class:multi={r.hue === "sources"} style="--hue: {HUES[r.hue].mark}; --hue-text: {HUES[r.hue].text}">{r.text}</span>{:else if r.color}<span class="hue {HIGHLIGHT}" style="--hue: {r.color}; --hue-text: {r.color}">{r.text}</span>{:else}{r.text}{/if}{/each}
 
 <style>
   .hue { font-weight: 500; }

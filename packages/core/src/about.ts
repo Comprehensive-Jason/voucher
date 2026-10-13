@@ -45,8 +45,9 @@ export type About = {
   read: readonly string[];
 };
 
-/** A piece of explanation text: plain, or in a hue. */
-export type Run = { text: string; hue?: Hue };
+/** A piece of explanation text: plain, in a hue, or in a color of its own
+ *  (a source's or a blocklist's, which no hue names). */
+export type Run = { text: string; hue?: Hue; color?: string };
 
 const RUN = /\{(\w+):([^{}]+)\}/g;
 
