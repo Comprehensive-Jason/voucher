@@ -143,11 +143,42 @@ export const statusNow = () => lastStatus;
  *  it shows (and skip a redraw) when a fresh answer hasn't changed. */
 export const sameAnswer = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/** Which Ledger requests this app may make, when it limits them (allowLedger). */
+let mayCall: ((method: string, path: string) => boolean) | null = null;
+/** Limits this app's Ledger requests to those `check` allows: any other one
+ *  throws before it's sent. Counterfoil, which only reads, sets this. */
+export function allowLedger(check: (method: string, path: string) => boolean) {
+  mayCall = check;
+}
+
+/** A dev server's way through to a real Ledger, when it has one
+ *  (packages/core/ledgerProxy.js): a browser build then asks the Ledger
+ *  there instead of answering from sample data. */
+const proxy: string | undefined = !inTauri ? import.meta.env.VITE_LEDGER_PROXY : undefined;
+
+/** A Ledger request through the dev server's proxy, failing with the words
+ *  the app's Rust side uses, so the Ledger notice reads them the same. */
+async function viaProxy<T>(method: string, path: string, body: unknown): Promise<T> {
+  let reply: Response;
+  try {
+    reply = await fetch(`${proxy}${path}`, { method, headers: body === undefined ? {} : { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch (e) { throw new Error(`Can't reach the Ledger: ${e}`); }
+  if (reply.status === 401) throw new Error("The Ledger wants its access code: set LEDGER_CODE for the dev server.");
+  // The dev server answers an empty 500 when the Ledger doesn't answer it.
+  if (reply.status >= 500 && !(await reply.clone().text())) throw new Error(`Can't reach the Ledger: the dev server's proxy got no answer (${reply.status})`);
+  if (!reply.ok) throw new Error(`The Ledger refused this (${reply.status})`);
+  const text = await reply.text();
+  if (path.split("?")[0].endsWith(".csv")) return text as T;
+  try { return JSON.parse(text) as T; } catch (e) { throw new Error(`Unexpected Ledger reply: ${e}`); }
+}
+
 /** Any other Ledger request, passed through the app's Rust side. */
 export async function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  if (mayCall && !mayCall(method, path)) throw new Error(`${method} ${path.split("?")[0]} isn't a request this app may make`);
   if (previewLatency) await new Promise((r) => setTimeout(r, previewLatency));
   const reply = await watched(() => (inTauri
     ? invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
+    : proxy ? viaProxy<T>(method, path, body)
     : previewReply<T>(method, path, body)), method, path);
   // A blocklist saved in a swatch that moved in a retheme draws as the one it became.
   const lists = (reply as { settings?: { blocklists?: Record<string, { color: string }> } } | null)?.settings?.blocklists;

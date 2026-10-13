@@ -4,6 +4,11 @@
   import { setArrangementContext } from "$core/arrangement.svelte";
   import Toast from "$core/components/Toast.svelte";
   import { arrangement } from "$lib/cards";
+  import { allowLedger } from "$core/api";
+  import { mayCall } from "$lib/allowed";
+
+  // Counterfoil reads; it asks the Ledger for nothing else (lib/allowed.ts).
+  allowLedger(mayCall);
 
   // Every animation's timing comes from $core/motion.ts, as CSS variables on
   // the root, set before anything draws.

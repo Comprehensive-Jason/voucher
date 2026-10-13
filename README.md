@@ -98,6 +98,12 @@ npm run dev:counterfoil   # http://localhost:1430
 
 In a plain browser both apps show sample data; `?state=`, `?ledger=down`, and `?fault=` pick a situation (see `packages/core/src/api.ts`). To serve a dev build to a tablet on the network, set `TAURI_DEV_HOST` to this machine's address.
 
+To have Counterfoil's dev build read a real Ledger instead, give its dev server the Ledger's address and access code; the server forwards `/ledger/...` with the code added, so the code never reaches the page, and it passes only the requests Counterfoil may make:
+
+```sh
+LEDGER_PROXY=http://<ledger-address>:8787 LEDGER_CODE=$(cat <ledger-data-dir>/access.code) npm run dev:counterfoil
+```
+
 ## Running the Ledger
 
 The Ledger is one small program that keeps your Bank and signs Unlocks. Run it on an always-on machine (a home server, NAS, or Raspberry Pi) and reach it over Tailscale or your LAN. Don't expose it to the open internet.
