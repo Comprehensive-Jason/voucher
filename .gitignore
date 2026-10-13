@@ -14,3 +14,6 @@ secrets/
 
 # Test portal data (dev/test-portal.mjs)
 /dev/test-ledger/
+
+# Personal seeds for dev/apply-seed.mjs stay private, like /design/.
+/dev/seeds/
