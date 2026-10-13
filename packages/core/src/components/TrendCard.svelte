@@ -6,9 +6,9 @@
   // line; a card that steps through something else (Before and after's
   // Markers) passes its own `nav` for the switcher.
   import type { Snippet } from "svelte";
-  import { fitsSlot } from "$core/fit.svelte";
+  import { fitsSlot } from "../fit.svelte";
   import CardHead from "./CardHead.svelte";
-  import { stepper, type DateProps } from "$core/stepper";
+  import { stepper, type DateProps } from "../stepper";
   const fit = fitsSlot();
   type Nav = { label: string; back: boolean; forward: boolean; onback: () => void; onforward: () => void };
   let { title, date, nav, tools, children, foot }: { title: string; date?: DateProps; nav?: Nav; tools?: Snippet; children: Snippet; foot?: Snippet } = $props();

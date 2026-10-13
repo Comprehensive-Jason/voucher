@@ -8,7 +8,7 @@
   import { connection, device } from "$core/api";
   import { easeIn, easeOut, motionVars, ms } from "$core/motion";
   import Home from "$lib/Home.svelte";
-  import Toast from "$lib/components/Toast.svelte";
+  import Toast from "$core/components/Toast.svelte";
   import { sheet } from "$core/sheet.svelte";
 
   // Every animation's timing comes from lib/motion.ts, as CSS variables on the

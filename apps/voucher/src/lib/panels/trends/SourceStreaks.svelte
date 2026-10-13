@@ -11,8 +11,8 @@
   // (the Marker colour), the texts in their
   // tooltips, with a key under the grid while any is drawn.
   import { untrack } from "svelte";
-  import TrendCard from "../../components/TrendCard.svelte";
-  import Legend from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import Legend from "$core/components/Legend.svelte";
   import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
   import { compareSources, styleOf } from "$core/sources";
   import { MONTHS } from "$core/trends";

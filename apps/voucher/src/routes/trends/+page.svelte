@@ -29,7 +29,7 @@
   import Planned from "$lib/panels/trends/Planned.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import LogPanel from "$lib/panels/LogPanel.svelte";
-  import CardTab from "$lib/components/CardTab.svelte";
+  import CardTab from "$core/components/CardTab.svelte";
   import { arrangement, PANELS, ROWS, type PanelId } from "$lib/arrangement.svelte";
   import { fillSlots } from "$core/fit.svelte";
   import { phonePages } from "$core/phonepages.svelte";

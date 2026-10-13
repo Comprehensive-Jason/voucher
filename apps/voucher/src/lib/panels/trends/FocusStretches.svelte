@@ -8,10 +8,10 @@
   // right end, and its first, faint, over the first column.
   // Neutral greys and ink: a stretch can be in any source, so no source's
   // colour (and no reserved one) fits.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ChartAxis from "../../components/ChartAxis.svelte";
-  import Legend from "../../components/Legend.svelte";
-  import ZoomSwitch from "../../components/ZoomSwitch.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ChartAxis from "$core/components/ChartAxis.svelte";
+  import Legend from "$core/components/Legend.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import { median, mondayOf, monthOf, quantile } from "$core/trends";
   import { shortDate } from "$core/time";
   import { drawHeight, fitsSlot } from "$core/fit.svelte";

@@ -6,10 +6,10 @@
   // "busiest over N Days" over it (every Day the log keeps hours for). The hours sit under the rows, outside the scroller,
   // so they never move. A row holding a Marker has a small notched flag after
   // its date, the texts in its tooltip.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ZoomSwitch from "../../components/ZoomSwitch.svelte";
-  import HourAxis from "../../components/HourAxis.svelte";
-  import Legend from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
+  import HourAxis from "$core/components/HourAxis.svelte";
+  import Legend from "$core/components/Legend.svelte";
   import { monthOf, mondayOf } from "$core/trends";
   import { zoomFade } from "$core/motion";
   import { inCurfew } from "$core/curfew.svelte";

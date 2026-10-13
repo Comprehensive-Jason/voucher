@@ -8,7 +8,7 @@
   import { onMount } from "svelte";
   import { sheet } from "$core/sheet.svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
-  import Sheet from "./Sheet.svelte";
+  import Sheet from "$core/components/Sheet.svelte";
   import { describe, hhmm, until } from "../rules";
   import { POLL_MS } from "../live.svelte";
   import type { Status } from "$core/types";

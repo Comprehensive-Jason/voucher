@@ -7,7 +7,7 @@
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { ledger } from "$core/api";
-  import Tag from "$lib/components/Tag.svelte";
+  import Tag from "$core/components/Tag.svelte";
   import EntryList from "$lib/components/EntryList.svelte";
   import AddEntrySheets from "$lib/components/AddEntrySheets.svelte";
   import AppPicker from "$lib/components/AppPicker.svelte";

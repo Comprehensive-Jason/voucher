@@ -7,7 +7,7 @@
   // stretches often match isn't evidence yet. The switcher in the title's
   // place steps through the Markers; the lines under the table say what was
   // compared and how likely luck is.
-  import TrendCard from "../../components/TrendCard.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
   import { fitsSlot } from "$core/fit.svelte";
   import { dayOfMoment, notes } from "$core/notes.svelte";
   import { measured } from "$core/notes.svelte";

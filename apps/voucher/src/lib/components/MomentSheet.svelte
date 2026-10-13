@@ -3,7 +3,7 @@
   // Streak that ended yesterday. Each shows once per Day on this device.
   import { ledger } from "$core/api";
   import Flame from "./Flame.svelte";
-  import Sheet from "./Sheet.svelte";
+  import Sheet from "$core/components/Sheet.svelte";
   import { remember, remembered } from "$core/storage";
   import { shiftDay } from "$core/time";
   import type { DaySummary, Today } from "$core/types";

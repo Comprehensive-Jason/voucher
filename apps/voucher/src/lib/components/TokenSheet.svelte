@@ -9,7 +9,7 @@
   import { ledger } from "$core/api";
   import { serviceOf } from "$core/sources";
   import { andList, noteTokenSaved, tokenAction, type TokenNeed } from "../tokens.svelte";
-  import Sheet from "./Sheet.svelte";
+  import Sheet from "$core/components/Sheet.svelte";
 
   let { services, source, onclose, onsaved }: {
     /** The services to ask for, in order. */

@@ -15,9 +15,9 @@
   import { styleOf } from "$core/sources";
   import { WIN_HOLD_MS, wins } from "../celebrate.svelte";
   import { MOTION, easeOut } from "$core/motion";
-  import Marker from "./Marker.svelte";
-  import ProgressFill from "./ProgressFill.svelte";
-  import ScrollCue from "./ScrollCue.svelte";
+  import Marker from "$core/components/Marker.svelte";
+  import ProgressFill from "$core/components/ProgressFill.svelte";
+  import ScrollCue from "$core/components/ScrollCue.svelte";
   import type { SourceProgress } from "$core/types";
 
   /** `bank` tells a kept Voucher from one a full Bank lost. */

@@ -2,7 +2,7 @@
   // One section of a blocklist or source group: its apps, sites, or services,
   // each with a switch (unless `switches` is off), and a remove button for
   // entries the user added.
-  import Switch from "./Switch.svelte";
+  import Switch from "$core/components/Switch.svelte";
   import AppIcon from "./AppIcon.svelte";
 
   type Row = { key: string; name: string; note: string | null; on: boolean; added: boolean; waiting?: string | null };

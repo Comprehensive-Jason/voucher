@@ -20,8 +20,8 @@
   import { goto } from "$app/navigation";
   import { ledger } from "$core/api";
   import { ms } from "$core/motion";
-  import Sheet from "./Sheet.svelte";
-  import MarkerChips from "./MarkerChips.svelte";
+  import Sheet from "$core/components/Sheet.svelte";
+  import MarkerChips from "$core/components/MarkerChips.svelte";
   import { answerVerdict, dayNow } from "$core/notes.svelte";
   import { remember, remembered } from "$core/storage";
   import type { DayTotal, Verdict } from "$core/types";

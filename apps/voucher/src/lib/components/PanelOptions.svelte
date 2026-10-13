@@ -4,7 +4,7 @@
   // (dimmed once as many are on as the card's height allows). Choices are
   // kept with the arrangement and apply wherever the card is drawn.
   import { arrangement, PANELS, type PanelId } from "../arrangement.svelte";
-  import Switch from "./Switch.svelte";
+  import Switch from "$core/components/Switch.svelte";
   let { id }: { id: PanelId } = $props();
 </script>
 

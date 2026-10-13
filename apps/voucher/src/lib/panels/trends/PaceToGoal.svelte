@@ -8,10 +8,10 @@
   // 06:00; hours after midnight count as 24 to 29. A thin lane under the
   // baseline holds the Day's calendar events, so a flat stretch of the line
   // has its reason.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ChartAxis from "../../components/ChartAxis.svelte";
-  import MarkerLines from "../../components/MarkerLines.svelte";
-  import Legend from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ChartAxis from "$core/components/ChartAxis.svelte";
+  import MarkerLines from "$core/components/MarkerLines.svelte";
+  import Legend from "$core/components/Legend.svelte";
   import { clock, dayLabel, minutesIntoDay } from "$core/time";
   import { clockOfHours, median, quantile } from "$core/trends";
   import type { DaySummary, DayTotal } from "$core/types";

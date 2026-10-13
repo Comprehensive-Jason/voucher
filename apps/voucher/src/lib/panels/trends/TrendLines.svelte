@@ -6,11 +6,11 @@
   // Earned and torn carry their values on the chart: bold at the right end,
   // faint at the start, so the change reads without a sentence. Torn is in
   // salmon, Unlocks' colour everywhere.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ChartAxis from "../../components/ChartAxis.svelte";
-  import MarkerLines from "../../components/MarkerLines.svelte";
-  import Legend from "../../components/Legend.svelte";
-  import ZoomSwitch from "../../components/ZoomSwitch.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ChartAxis from "$core/components/ChartAxis.svelte";
+  import MarkerLines from "$core/components/MarkerLines.svelte";
+  import Legend from "$core/components/Legend.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import { monthOf, rolling } from "$core/trends";
   import { zoomFade } from "$core/motion";
   import type { DayTotal } from "$core/types";

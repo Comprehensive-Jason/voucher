@@ -9,9 +9,9 @@
   import { heat } from "$core/heat.svelte";
   import type { DayTotal } from "$core/types";
   import { untrack } from "svelte";
-  import TodayButton from "../components/TodayButton.svelte";
-  import Legend from "../components/Legend.svelte";
-  import ZoomSwitch from "../components/ZoomSwitch.svelte";
+  import TodayButton from "$core/components/TodayButton.svelte";
+  import Legend from "$core/components/Legend.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import { shiftDay, shortDate } from "$core/time";
   import { easeOut, ms } from "$core/motion";
   import { fitsSlot } from "$core/fit.svelte";

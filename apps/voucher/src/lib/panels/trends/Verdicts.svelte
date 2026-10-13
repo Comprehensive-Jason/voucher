@@ -11,8 +11,8 @@
   // enough answers, one line under it says what the mismatch suggests. A Day
   // in the strip with a Marker carries Activity's corner tick (the Marker
   // colour), the texts in its tooltip.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import Legend from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import Legend from "$core/components/Legend.svelte";
   import { fitsSlot } from "$core/fit.svelte";
   import type { DayTotal, Marker, Verdict } from "$core/types";
   import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";

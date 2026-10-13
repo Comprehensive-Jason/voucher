@@ -6,10 +6,10 @@
   import { onMount } from "svelte";
   import { sheet } from "$core/sheet.svelte";
   import { ledger, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
-  import Switch from "../components/Switch.svelte";
+  import Switch from "$core/components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
   import RulesCard from "../components/RulesCard.svelte";
-  import Tag from "../components/Tag.svelte";
+  import Tag from "$core/components/Tag.svelte";
   import ColorSheet from "../components/ColorSheet.svelte";
   import { summary } from "$core/blocklists";
   import { hhmm } from "../rules";

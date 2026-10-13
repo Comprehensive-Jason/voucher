@@ -1,7 +1,7 @@
 <script lang="ts">
   // What are my bests, to try to beat? Records only go up; one set today is
   // marked New.
-  import TrendCard from "../../components/TrendCard.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
   import { clock, shortDate } from "$core/time";
   import { goalRuns, mondayOf } from "$core/trends";
   import { styleOf } from "$core/sources";

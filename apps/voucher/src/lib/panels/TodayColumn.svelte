@@ -8,7 +8,7 @@
   import VoucherStack from "../components/VoucherStack.svelte";
   import StatusCard from "../components/StatusCard.svelte";
   import NextVoucher from "../components/NextVoucher.svelte";
-  import MarkerButton from "../components/MarkerButton.svelte";
+  import MarkerButton from "$core/components/MarkerButton.svelte";
   import LedgerNotice from "../components/LedgerNotice.svelte";
   import { shownByNotice } from "$core/health.svelte";
   import MomentSheet from "../components/MomentSheet.svelte";

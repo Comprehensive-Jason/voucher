@@ -31,11 +31,11 @@
   import { compareSources, groupOf, sourceOf, styleOf } from "$core/sources";
   import { blocklistOf } from "$core/blocklists";
   import { clock, dayLabel, hourOf, hoursAndMinutes, minutesIntoDay, periodLabel, shiftDay, shortDate } from "$core/time";
-  import CardHead from "../components/CardHead.svelte";
-  import Marker from "../components/Marker.svelte";
+  import CardHead from "$core/components/CardHead.svelte";
+  import Marker from "$core/components/Marker.svelte";
   import type { Blocklist, DaySummary, DayTotal, DeviceUsage, Entry } from "$core/types";
-  import ScrollCue from "../components/ScrollCue.svelte";
-  import ZoomSwitch from "../components/ZoomSwitch.svelte";
+  import ScrollCue from "$core/components/ScrollCue.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import { ms, zoomFade } from "$core/motion";
   import { selection } from "$core/selection.svelte";
   import { inCurfew } from "$core/curfew.svelte";

@@ -5,7 +5,7 @@
   // column (after `lead` too), so lead + gap is the distance from a row's
   // start to its first cell: 44 for 44px labels with a 2px gap, 90 for 84px
   // labels with an 8px gap.
-  import { inCurfew } from "$core/curfew.svelte";
+  import { inCurfew } from "../curfew.svelte";
   let { lead, gap = 2 }: { lead: number; gap?: number } = $props();
   /** Column c is the clock hour c after the Day starts at 06:00. */
   const hourOf = (c: number) => (c + 6) % 24;

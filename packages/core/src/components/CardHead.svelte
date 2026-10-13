@@ -8,7 +8,7 @@
   import type { Snippet } from "svelte";
   import DateNav from "./DateNav.svelte";
   import TodayButton from "./TodayButton.svelte";
-  import { fitsSlot } from "$core/fit.svelte";
+  import { fitsSlot } from "../fit.svelte";
   /** On the tablet the card's name is on a tab above its edge, so the heading leaves it out. */
   const tabbed = fitsSlot();
 

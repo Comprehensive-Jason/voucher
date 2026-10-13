@@ -28,11 +28,11 @@
   // Distraction minutes without their times (older Enforcers), or none sent
   // any (Windows), Distraction isn't known: its elsewhere shows as no data.
   import { untrack } from "svelte";
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ZoomSwitch from "../../components/ZoomSwitch.svelte";
-  import ChartAxis from "../../components/ChartAxis.svelte";
-  import MarkerLines from "../../components/MarkerLines.svelte";
-  import Legend, { type LegendItem } from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
+  import ChartAxis from "$core/components/ChartAxis.svelte";
+  import MarkerLines from "$core/components/MarkerLines.svelte";
+  import Legend, { type LegendItem } from "$core/components/Legend.svelte";
   import { drawHeight, fitsSlot } from "$core/fit.svelte";
   import { zoomFade } from "$core/motion";
   import { curfew } from "$core/curfew.svelte";

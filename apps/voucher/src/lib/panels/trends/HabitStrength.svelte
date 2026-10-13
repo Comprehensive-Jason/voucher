@@ -15,10 +15,10 @@
   // usual a faint red band behind the line, so the long ones stand out.
   // A legend under the chart keys each mark (only those in view), and the
   // foot line says what the score is, since that can't be drawn.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ChartAxis from "../../components/ChartAxis.svelte";
-  import Legend from "../../components/Legend.svelte";
-  import MarkerLines from "../../components/MarkerLines.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ChartAxis from "$core/components/ChartAxis.svelte";
+  import Legend from "$core/components/Legend.svelte";
+  import MarkerLines from "$core/components/MarkerLines.svelte";
   import { dayOfMoment, markerKeys, notes } from "$core/notes.svelte";
   import { monthOf } from "$core/trends";
   import type { DayTotal } from "$core/types";

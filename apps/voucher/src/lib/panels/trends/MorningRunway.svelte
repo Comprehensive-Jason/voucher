@@ -25,8 +25,8 @@
   // wake-up are drawn: an estimated one comes from the first device use,
   // which may be the Unlock itself. Curfew's shading and the wake ticks go,
   // since neither has one place on that axis.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import Legend from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import Legend from "$core/components/Legend.svelte";
   import { inCurfew } from "$core/curfew.svelte";
   import { clock, hoursAndMinutes, shortDate } from "$core/time";
   import { clockOfHours, median, mondayOf } from "$core/trends";

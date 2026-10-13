@@ -9,9 +9,9 @@
   import { fade } from "svelte/transition";
   import { tick } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
-  import { ms } from "$core/motion";
-  import { MARKER_CHOICES, dayNow, notes } from "$core/notes.svelte";
-  import { actionFailed } from "$core/toast.svelte";
+  import { ms } from "../motion";
+  import { MARKER_CHOICES, dayNow, notes } from "../notes.svelte";
+  import { actionFailed } from "../toast.svelte";
 
   let { choices = MARKER_CHOICES }: { choices?: string[] } = $props();
 

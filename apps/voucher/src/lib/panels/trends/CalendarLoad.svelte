@@ -8,10 +8,10 @@
   // Day, steps a week at a time, lights that Day's column, and shares a Day
   // when its column is tapped. Markers are thin lines with a flag. With no
   // calendar chosen, it says where to choose one.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ChartAxis from "../../components/ChartAxis.svelte";
-  import MarkerLines from "../../components/MarkerLines.svelte";
-  import Legend from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ChartAxis from "$core/components/ChartAxis.svelte";
+  import MarkerLines from "$core/components/MarkerLines.svelte";
+  import Legend from "$core/components/Legend.svelte";
   import { drawHeight, fitsSlot } from "$core/fit.svelte";
   import { mondayOf } from "$core/trends";
   import { shiftDay, shortDate } from "$core/time";

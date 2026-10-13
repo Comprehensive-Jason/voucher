@@ -18,13 +18,13 @@
   import { ledger } from "$core/api";
   import { POLL_MS } from "../live.svelte";
   import { serviceOf, sourceOf } from "$core/sources";
-  import Marker, { type MarkerKind } from "../components/Marker.svelte";
+  import Marker, { type MarkerKind } from "$core/components/Marker.svelte";
   import { clock, dayLabel, hoursAndMinutes, shiftDay } from "$core/time";
   import type { DaySummary } from "$core/types";
-  import ScrollCue from "../components/ScrollCue.svelte";
+  import ScrollCue from "$core/components/ScrollCue.svelte";
   import { fade } from "svelte/transition";
   import { ms } from "$core/motion";
-  import CardHead from "../components/CardHead.svelte";
+  import CardHead from "$core/components/CardHead.svelte";
   import { notes } from "$core/notes.svelte";
   let list = $state<HTMLDivElement>();
 

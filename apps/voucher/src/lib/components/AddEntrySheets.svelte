@@ -3,7 +3,7 @@
   // app, or type a site. Source groups (`counting`) leave out "Every game",
   // and show apps and sites another group already counts as not pickable.
   import { launchableApps } from "$core/api";
-  import Sheet from "./Sheet.svelte";
+  import Sheet from "$core/components/Sheet.svelte";
   import { domainOf, isDomain } from "$core/blocklists";
 
   let { mode, onapp, onsite, onclose, games = true, taken = {}, counting = false }: {

@@ -23,7 +23,7 @@
   import { historyDays } from "$core/time";
   import TodayColumn from "$lib/panels/TodayColumn.svelte";
   import RulesNotices from "$lib/components/RulesNotices.svelte";
-  import MarkerSheet from "$lib/components/MarkerSheet.svelte";
+  import MarkerSheet from "$core/components/MarkerSheet.svelte";
   import HourChart from "$lib/panels/HourChart.svelte";
   import Heatmap from "$lib/panels/Heatmap.svelte";
   import { selection } from "$core/selection.svelte";
@@ -41,9 +41,9 @@
   import Replay from "$lib/panels/trends/Replay.svelte";
   import FocusStretches from "$lib/panels/trends/FocusStretches.svelte";
   import VerdictSheet from "$lib/components/VerdictSheet.svelte";
-  import CardTab from "$lib/components/CardTab.svelte";
-  import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
-  import ScrollCue from "$lib/components/ScrollCue.svelte";
+  import CardTab from "$core/components/CardTab.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
+  import ScrollCue from "$core/components/ScrollCue.svelte";
   import { ABOUT } from "$lib/about";
   import AboutText from "$lib/components/AboutText.svelte";
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";

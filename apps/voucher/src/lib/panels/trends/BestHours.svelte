@@ -5,9 +5,9 @@
   // That busiest hour's bar is the solid one, with its time over it; the
   // rest are dimmer. The range picks which Days count. The hours sit under the rows, outside
   // their scroller.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import ZoomSwitch from "../../components/ZoomSwitch.svelte";
-  import HourAxis from "../../components/HourAxis.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
+  import HourAxis from "$core/components/HourAxis.svelte";
   import { compareSources, styleOf } from "$core/sources";
   import { zoomFade } from "$core/motion";
   import { inCurfew } from "$core/curfew.svelte";

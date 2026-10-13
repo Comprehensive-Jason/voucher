@@ -4,7 +4,7 @@
   // exist, so accounts are frozen for a minute rather than removed (removing a
   // Samsung account would delete Samsung Wallet cards).
   import { DEVICE_OWNER_COMMAND } from "$core/api";
-  import Sheet from "./Sheet.svelte";
+  import Sheet from "$core/components/Sheet.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
   let copied = $state(false);

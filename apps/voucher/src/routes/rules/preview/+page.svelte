@@ -8,7 +8,7 @@
   import { onMount } from "svelte";
   import { Live } from "$lib/live.svelte";
   import { styleOf } from "$core/sources";
-  import ZoomSwitch from "$lib/components/ZoomSwitch.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import { wide } from "$core/wide.svelte";
   import type { Today } from "$core/types";

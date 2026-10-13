@@ -11,9 +11,9 @@
   // the others'. Today counts only once it's the period's only Day, since
   // it's still going.
   import { untrack } from "svelte";
-  import TrendCard from "../../components/TrendCard.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
   import { measured } from "$core/notes.svelte";
-  import ZoomSwitch from "../../components/ZoomSwitch.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import { styleOf } from "$core/sources";
   import { mondayOf } from "$core/trends";
   import { zoomFade } from "$core/motion";

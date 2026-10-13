@@ -11,7 +11,7 @@
   import { sheet } from "$core/sheet.svelte";
   import { ledger, plannedToday, RULES_CHANGED, sameAnswer, statusNow } from "$core/api";
   import RuleSlider from "../components/RuleSlider.svelte";
-  import Switch from "../components/Switch.svelte";
+  import Switch from "$core/components/Switch.svelte";
   import RulesColumn from "../components/RulesColumn.svelte";
   import RulesCard from "../components/RulesCard.svelte";
   import TokenSheet from "../components/TokenSheet.svelte";

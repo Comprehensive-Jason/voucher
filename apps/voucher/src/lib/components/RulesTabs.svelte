@@ -16,7 +16,7 @@
   // The phone's Rules tabs, with the page-wide notices under them. The Rules
   // layout keeps this mounted from tab to tab, so the highlight fades across.
   import { goto } from "$app/navigation";
-  import ZoomSwitch from "./ZoomSwitch.svelte";
+  import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import RulesNotices from "./RulesNotices.svelte";
   import { NOTICES_IN_HEADER } from "../notices";
 

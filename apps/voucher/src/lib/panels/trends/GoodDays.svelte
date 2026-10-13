@@ -25,7 +25,7 @@
   // and Full: one row a finding on one scale of ratios, fitted to the
   // findings (lib/panels/trends/goodDayAxes.ts); a hollow dot for Days
   // without, always at ×1, and a filled one for Days with.
-  import TrendCard from "../../components/TrendCard.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
   import { styleOf } from "$core/sources";
   import { fitsSlot } from "$core/fit.svelte";
   import { MIN_N, skippedPairs, STRETCH, type BreakDriver, type Request, type StretchDay, type Tested } from "$core/correlate";

@@ -7,7 +7,7 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { connect, connection, device, fixProtection, ledger, onWindows, protection, protectionParts, requestHealth } from "$core/api";
-  import Switch from "$lib/components/Switch.svelte";
+  import Switch from "$core/components/Switch.svelte";
   import TokenSheet from "$lib/components/TokenSheet.svelte";
   import DeviceOwnerSteps from "$lib/components/DeviceOwnerSteps.svelte";
   import { compareSources, memberName, needsToken, serviceOf, styleOf } from "$core/sources";

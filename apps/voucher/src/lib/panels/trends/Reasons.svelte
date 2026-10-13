@@ -8,7 +8,7 @@
   // information. The most common reason's bar is in full colour, the rest
   // dimmer. The heading line over the rows gives the span and how many of
   // its Unlocks had a reason, so the card needs no line under it.
-  import TrendCard from "../../components/TrendCard.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
   import { fitsSlot } from "$core/fit.svelte";
   import type { DayTotal } from "$core/types";
 

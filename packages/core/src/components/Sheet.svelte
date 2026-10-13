@@ -6,7 +6,7 @@
   // wide, centred. `tone` tints it: "goal" gold for the Daily goal's moments,
   // "night" Curfew indigo for the Curfew question.
   import { fade, fly } from "svelte/transition";
-  import { easeIn, easeOut, ms } from "$core/motion";
+  import { easeIn, easeOut, ms } from "../motion";
   let { onclose, tone = "default", label, children }: {
     onclose: () => void;
     tone?: "default" | "goal" | "night";

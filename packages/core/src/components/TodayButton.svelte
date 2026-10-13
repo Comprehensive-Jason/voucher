@@ -2,7 +2,7 @@
   // Back to today, for a view that has moved to another Day or scrolled back
   // in time. Fades in when it's needed, and out once you're back.
   import { fade } from "svelte/transition";
-  import { ms } from "$core/motion";
+  import { ms } from "../motion";
   let { show, onclick, short = false }: { show: boolean; onclick: () => void; short?: boolean } = $props();
 </script>
 

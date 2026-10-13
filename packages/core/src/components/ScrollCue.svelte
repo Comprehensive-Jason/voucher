@@ -3,7 +3,7 @@
   // are out of view each way. Tap one to go to that end. Put it in a
   // positioned box around the list; the list itself must be positioned too,
   // so its rows' offsets are measured from its top.
-  import { MOTION } from "$core/motion";
+  import { MOTION } from "../motion";
   let { target }: { target: HTMLElement | undefined } = $props();
 
   let above = $state(0);

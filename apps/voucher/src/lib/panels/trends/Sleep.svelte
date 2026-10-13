@@ -17,8 +17,8 @@
   // and tapping a row shares its Day. A Day with a Marker has a flag by its date.
   // The legend keys each column picked, named by its head (Day, Earned,
   // Distr), so it fits one line at a one-third width.
-  import TrendCard from "../../components/TrendCard.svelte";
-  import Legend, { type LegendItem } from "../../components/Legend.svelte";
+  import TrendCard from "$core/components/TrendCard.svelte";
+  import Legend, { type LegendItem } from "$core/components/Legend.svelte";
   import { curfew } from "$core/curfew.svelte";
   import { clock, shortDate } from "$core/time";
   import { median } from "$core/trends";
