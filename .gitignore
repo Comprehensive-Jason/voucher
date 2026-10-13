@@ -17,3 +17,6 @@ secrets/
 
 # Personal seeds for dev/apply-seed.mjs stay private, like /design/.
 /dev/seeds/
+
+# Agent worktrees and local Claude settings
+/.claude/
