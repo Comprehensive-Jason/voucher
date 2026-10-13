@@ -8,7 +8,8 @@
 // round factors inside. A side with no finding keeps a sliver of the track,
 // so ×1 stays in view and the other side gets the rest. Past ×8 or ×1/8, a
 // finding is pinned at the edge (the card draws a chevron) with its ratio
-// printed, and its side reaches ×8.
+// printed. Pinned findings don't stretch the fit: their side reaches just
+// past the farthest finding that isn't pinned, or ×8 when every one is.
 
 export type Finding = { withAvg: number; withoutAvg: number };
 /** A tick: where it sits across the track (0 to 1) and what it says ("" draws only its gridline). */
@@ -78,9 +79,13 @@ export function scaleFor<F extends Finding>(findings: F[], trackW: number): Scal
   const W = trackW || 240;
   const all = findings.map(doublingsOf);
   const up = all.filter((d) => d > 0), down = all.filter((d) => d < 0).map((d) => -d);
-  // Each side fitted to its own findings, or a sliver when it has none
-  // (×1/1.25 to ×1.25 when nothing changed at all).
-  const r = up.length ? sideFor(Math.max(...up)) : 0, l = down.length ? sideFor(Math.max(...down)) : 0;
+  // Each side fitted to its own findings, leaving out pinned ones, or a
+  // sliver when it has none (×1/1.25 to ×1.25 when nothing changed at all).
+  const reach = (side: number[]) => {
+    const fit = side.filter((d) => d <= MAX_DOUBLINGS);
+    return fit.length ? sideFor(Math.max(...fit)) : side.length ? MAX_DOUBLINGS : 0;
+  };
+  const r = reach(up), l = reach(down);
   let where: (d: number) => number;
   if (r && l) where = (d) => (d + l) / (l + r);
   else if (r) where = (d) => EMPTY_SIDE + (1 - EMPTY_SIDE) * (d / r);
@@ -93,7 +98,7 @@ export function scaleFor<F extends Finding>(findings: F[], trackW: number): Scal
     axis: { name: "Change", ticks },
     grid: ticks.map((t) => t.at),
     zero: where(0),
-    at: (f) => { const d = doublingsOf(f); return [where(0), Number.isFinite(d) ? where(d) : d > 0 ? 1.01 : -0.01]; },
+    at: (f) => { const x = where(doublingsOf(f)); return [where(0), Number.isNaN(x) ? where(0) : Math.min(1.01, Math.max(-0.01, x))]; },
     note: (f) => {
       const d = doublingsOf(f), x = where(d);
       if (Number.isFinite(d) && x >= 0 && x <= 1) return "";
