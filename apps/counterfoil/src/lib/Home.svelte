@@ -14,6 +14,8 @@
   import MarkerSheet from "$core/components/MarkerSheet.svelte";
   import type { DayTotal, Status } from "$core/types";
   import { ABOUT } from "$lib/about";
+  import Card from "$lib/Card.svelte";
+  import type { PanelId } from "$lib/cards";
   import { useArrangement } from "$core/arrangement.svelte";
   import { NAME } from "$lib/app";
 
@@ -53,7 +55,7 @@
 {#if wide.on}
   <Dashboard about={ABOUT}>
     {#snippet first()}{@render dayColumn()}{/snippet}
-    {#snippet card(_id: string)}{/snippet}
+    {#snippet card(id: string)}<Card id={id as PanelId} {status} {history} />{/snippet}
   </Dashboard>
 {:else}
   <main>
@@ -62,6 +64,7 @@
       {@const name = arrangement.panels[id].name}
       <div class="slot" role="group" aria-label={name}>
         <span class="tab"><CardTab {name} /></span>
+        <Card id={id as PanelId} {status} {history} />
       </div>
     {/each}
   </main>

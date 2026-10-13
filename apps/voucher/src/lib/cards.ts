@@ -8,7 +8,7 @@ export type PanelId = "earned" | "heat" | "distraction" | "log"
   | "trend" | "when" | "pace" | "runway" | "strength" | "streaks" | "records"
   | "best" | "gooddays" | "replay" | "focus"
   | "verdicts" | "compare" | "reasons"
-  | "sleep" | "calendar" | "planned";
+  | "planned";
 
 export const PANELS: Record<PanelId, Panel> = {
   earned: { name: "Vouchers earned", min: 2, max: 3, size: 2 },
@@ -29,17 +29,10 @@ export const PANELS: Record<PanelId, Panel> = {
   verdicts: { name: "Goal vs how the Day went", min: 1, max: 1, size: 1 },
   compare: { name: "Before and after", min: 1, max: 2, size: 1 },
   reasons: { name: "Why you unlock", min: 1, max: 1, size: 1 },
-  sleep: { name: "Sleep", min: 1, max: 3, size: 1, options: [{
-    kind: "chips", id: "columns", label: "Beside each night",
-    choices: [{ id: "verdict", label: "Curfew answer" }, { id: "vouchers", label: "Vouchers" }, { id: "distraction", label: "Distraction" }],
-    start: (size) => (size === 1 ? ["verdict"] : ["verdict", "vouchers", "distraction"]),
-    most: (size) => (size === 1 ? 2 : 3),
-  }] },
-  calendar: { name: "Calendar load", min: 1, max: 1, size: 1 },
   planned: { name: "Planned vs actual", min: 1, max: 2, size: 1 },
 };
 
-const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "records", "streaks", "replay", "planned", "best", "gooddays", "sleep", "calendar", "focus", "verdicts", "compare", "reasons"];
+const DEFAULT: PanelId[] = ["earned", "heat", "distraction", "pace", "log", "when", "trend", "runway", "strength", "records", "streaks", "replay", "planned", "best", "gooddays", "focus", "verdicts", "compare", "reasons"];
 
 /** Kept as "voucher:tablet-arrangement", the name it has always had. */
 export const arrangement = createArrangement<PanelId>({

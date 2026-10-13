@@ -20,8 +20,6 @@
   import Verdicts from "$lib/panels/trends/Verdicts.svelte";
   import Compare from "$lib/panels/trends/Compare.svelte";
   import Reasons from "$lib/panels/trends/Reasons.svelte";
-  import Sleep from "$lib/panels/trends/Sleep.svelte";
-  import CalendarLoad from "$lib/panels/trends/CalendarLoad.svelte";
   import Planned from "$lib/panels/trends/Planned.svelte";
   import { selection } from "$core/selection.svelte";
   import type { DaySummary, DayTotal, DeviceUsage, Status } from "$core/types";
@@ -60,8 +58,6 @@
   {:else if id === "verdicts"}<Verdicts {history} />
   {:else if id === "compare"}<Compare {history} />
   {:else if id === "reasons"}<Reasons {history} />
-  {:else if id === "sleep"}<Sleep {history} {timeZone} {blocklists} />
-  {:else if id === "calendar"}<CalendarLoad {history} />
   {:else if id === "planned"}<Planned {history} {timeZone} {blocklists} />{/if}
 {/if}
 
