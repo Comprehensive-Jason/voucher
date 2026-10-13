@@ -119,7 +119,7 @@
   .table b:nth-of-type(2n) { color: var(--ink); }
   .arrow { text-align: center; font-size: 11px; color: var(--muted); }
   .arrow.good { color: var(--voucher); }
-  .arrow.bad { color: var(--worse); }
+  .arrow.bad { color: var(--worse-text); }
   /* A change that's neither good nor bad (events): its arrow in ink. */
   .arrow.neutral { color: var(--ink); }
   /* The luck sentence gets a line of its own under the first. */

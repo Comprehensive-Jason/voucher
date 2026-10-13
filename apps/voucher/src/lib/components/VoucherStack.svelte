@@ -52,7 +52,7 @@
   const LEVEL_TOP = [22, 10, 0, -10, -20, -30];
   const levelBox = (k: number) => `left: ${12 * k}px; right: ${12 * k}px; top: ${LEVEL_TOP[Math.min(k, 5)]}px`;
   const levelColor = (k: number) => mode === "curfew"
-    ? (k === 0 ? "var(--night-voucher)" : k === 1 ? "#242e63" : "#1b2350")
+    ? (k === 0 ? "var(--night-voucher)" : k === 1 ? "var(--night-stack-1)" : "var(--night-stack-2)")
     : (k === 0 ? "var(--voucher)" : k === 1 ? "var(--voucher-deep)" : "var(--voucher-deeper)");
 
   // After a tear the stack refills as a cascade: the next Voucher rises into
@@ -256,7 +256,7 @@
 
 <style>
   .stack { position: relative; height: 140px; touch-action: pan-y; user-select: none; -webkit-user-select: none; --move: var(--t-move); }
-  .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed #3a3f45; animation: arrive var(--t-base) ease both; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+  .none { position: absolute; left: 0; right: 0; top: 22px; height: 116px; border-radius: 16px; border: 2px dashed var(--line-strong); animation: arrive var(--t-base) ease both; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; }
   .nonetitle { font-size: 17px; font-weight: 700; }
   .nonesub { font-size: 13px; color: var(--muted); }
   /* The Vouchers behind the top one: a stub and a right half each, notched
@@ -310,7 +310,7 @@
     position: absolute; left: 0; right: 0; top: 22px; height: 116px; display: flex; color: var(--voucher-ink);
   }
   .stub, .body { background: var(--voucher); height: 100%; }
-  .night .stub, .night .body { background: var(--night-voucher); color: #e8ebff; }
+  .night .stub, .night .body { background: var(--night-voucher); color: var(--night-bright); }
   .stub {
     width: 30%; border-radius: 16px 0 0 16px; padding: 6px 8px; display: flex; flex-direction: column;
     align-items: stretch; justify-content: center; gap: 2px;
@@ -338,7 +338,7 @@
   .bridge.away { visibility: hidden; transition: none; }
   .stubcap { color: var(--night-ink); }
   .step {
-    height: 34px; padding: 0; border: 0; border-radius: 10px; background: rgba(7, 23, 13, .14);
+    height: 34px; padding: 0; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--voucher-on) 14%, transparent);
     color: var(--voucher-ink); display: flex; align-items: center; justify-content: center; cursor: pointer;
     transition: opacity var(--t-base) var(--ease-out), background-color var(--t-quick), var(--press);
   }

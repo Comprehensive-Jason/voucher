@@ -838,7 +838,7 @@ const PAGE = String.raw`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Voucher Test Portal</title>
 <style>
-  :root { color-scheme: dark; --bg: #0e0f11; --card: #16181b; --line: #2a2e33; --ink: #f2f2f0; --muted: #a3a8ad; --green: #3ddc84; --gold: #ffb547;
+  :root { color-scheme: dark; --bg: #0e0f11; --card: #16181b; --line: #2a2e33; --ink: #f2f2f0; --muted: #a3a8ad; --other: var(--muted); --green: #3ddc84; --gold: #ffb547;
     --font: system-ui, -apple-system, "Segoe UI", sans-serif; --mono: ui-monospace, "JetBrains Mono", Menlo, monospace; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 var(--font); }
@@ -930,8 +930,17 @@ const PAGE = String.raw`<!doctype html>
   <div class="buttons"><button id="history">Add 4 more weeks of made-up history</button><button id="usagehistory">Fill in Distraction time for past Days</button><button id="grace">Start a 2-day grace period</button><button class="danger" id="reset">Fresh test Ledger: empty Bank, empty Day</button></div>
 </div>
 <script>
-// Defaults for sources with no colour chosen; names come from the Ledger.
+// Defaults for sources with no colour chosen, as swatches in the app's
+// palette (src/lib/palette.ts and sources.ts); names come from the Ledger.
 const COLORS = { tasks: "#289ffb", obsidian: "#b57ae2", workout: "#e2781f", reading: "#c1d58a", anki: "#f4b3ec", steps: "#05afa5" };
+// A saved colour that moved in the 2026-10 retheme shows as the swatch it became (palette.ts LEGACY).
+const LEGACY = {
+  "#aeccfe": "#acd6ff", "#9890d0": "#f698fe",
+  "#05736c": "#088988", "#086e8a": "#1284a0", "#015189": "#3c7cb5", "#7a5589": "#8169a9", "#8e4381": "#9b6090",
+  "#874c69": "#966973", "#984b00": "#a5663a", "#5a6c04": "#737f34", "#616467": "#75787b",
+  "#e5609b": "#e6688d", "#5bc8ff": "#7dd9fb", "#9be36d": "#c1d58a", "#c3a6ff": "#b57ae2", "#7d8cff": "#d26ec1",
+};
+const current = (c) => (c ? LEGACY[c.toLowerCase()] || c : c);
 const SERVICES = { todoist: "Todoist", clickup: "ClickUp" };
 let NAMES = {};
 const USAGE_APPS = ${JSON.stringify(USAGE_APPS)};
@@ -969,7 +978,7 @@ function render(s) {
   const cards = [];
   NAMES = Object.fromEntries(t.sources.map((src) => [src.id, src.name || src.id]));
   for (const src of [...t.sources].sort((a, b) => rank(a.id) - rank(b.id) || a.name.localeCompare(b.name))) {
-    const color = src.color || COLORS[src.id] || "#9aa0a6";
+    const color = current(src.color) || COLORS[src.id] || "var(--other)";
     const name = NAMES[src.id];
     if (src.kind === "tasks") {
       // One field and button per service in the group, so the Log can name it.

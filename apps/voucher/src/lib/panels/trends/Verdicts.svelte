@@ -73,7 +73,7 @@
     </div>
     <Legend items={[
       { kind: "box", color: "var(--heat-3)", label: "Yes" },
-      { kind: "box", color: "var(--mostly)", label: "Mostly" },
+      { kind: "box", color: "var(--mostly-mark)", label: "Mostly" },
       { kind: "box", color: "var(--worse)", label: "No" },
       { kind: "box", color: "var(--heat-0)", label: "No answer" },
       { kind: "frame", color: "var(--goal)", label: "Goal met" },
@@ -95,11 +95,11 @@
   .row.gold { color: var(--goal); }
   /* Each count in a box with the shared stat boxes' look (theme.css .stats). */
   .n { text-align: center; padding: 8px 10px; border-radius: 10px; background: var(--raised); font: 700 18px/1.1 var(--mono); min-width: 0; }
-  .n.yes { color: var(--voucher); } .n.mostly { color: var(--mostly-ink); } .n.no { color: var(--worse); }
+  .n.yes { color: var(--voucher); } .n.mostly { color: var(--mostly-ink); } .n.no { color: var(--worse-text); }
   .strip { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: 3px; }
   .strip i { position: relative; aspect-ratio: 1; border-radius: 3px; background: var(--heat-0); box-sizing: border-box; }
   /* A Day with a Marker: Activity's corner, in the Marker colour. */
   .strip i.marked::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-top: 6px solid var(--marker); border-left: 6px solid transparent; border-top-right-radius: 3px; }
-  .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: var(--mostly); } .strip i.no { background: var(--worse); }
+  .strip i.yes { background: var(--heat-3); } .strip i.mostly { background: var(--mostly-mark); } .strip i.no { background: var(--worse); }
   .strip i.met { outline: 1.5px solid var(--goal); outline-offset: -1.5px; }
 </style>

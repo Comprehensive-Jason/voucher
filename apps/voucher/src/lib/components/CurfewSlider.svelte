@@ -65,8 +65,8 @@
 <style>
   .track { position: relative; height: 28px; touch-action: none; cursor: pointer; }
   .rail { position: absolute; top: 11px; height: 6px; border-radius: 3px; }
-  .loose { background: repeating-linear-gradient(135deg, #3a3f45 0 4px, #22262a 4px 8px); }
+  .loose { background: repeating-linear-gradient(135deg, var(--line-strong) 0 4px, var(--well) 4px 8px); }
   .night { background: var(--night); }
-  .knob { position: absolute; top: 2px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px rgba(125, 140, 255, .3); }
+  .knob { position: absolute; top: 2px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px var(--night-glow); }
   .ghost { position: absolute; top: 2px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; border: 2px dashed var(--goal); }
 </style>

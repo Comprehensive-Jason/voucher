@@ -22,7 +22,7 @@
   out:fly|global={{ y: "100%", opacity: 1, duration: ms("move"), easing: easeIn }}>{@render children()}</div>
 
 <style>
-  .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); z-index: 10; }
+  .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 10; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 11; max-width: 640px; margin: 0 auto; max-height: 80vh; overflow-y: auto; border-radius: 24px 24px 0 0; background: var(--surface); border: 1px solid var(--line); border-bottom: 0; padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
   .sheet.goal { border-color: var(--goal-line); }
   .sheet.night { background: var(--night-bg); border-color: var(--night-voucher); }

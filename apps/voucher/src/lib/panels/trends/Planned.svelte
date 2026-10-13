@@ -101,7 +101,7 @@
     const lists = minutesByList(d.used, d.used_lists, blocklists);
     const byList = (m: number, open: boolean): Part[] => lists.length
       ? share(m, lists.map((l) => l.minutes)).map((n, i) => ({ key: `${open ? "u:" : ""}list:${lists[i].id}`, name: lists[i].name, fill: lists[i].color, m: n, lost: true, open }))
-      : [{ key: `${open ? "u:" : ""}list:~other`, name: "Distraction", fill: "#9aa0a6", m, lost: true, open }];
+      : [{ key: `${open ? "u:" : ""}list:~other`, name: "Distraction", fill: "var(--other)", m, lost: true, open }];
     // Elsewhere on a Day whose Distraction isn't known could have been Distraction: no data.
     const rest = (sources: number, other: number, none: number, open: boolean): Part[] => [
       { key: open ? "u:sources" : "sources", name: "in sources", fill: "var(--voucher)", m: sources, lost: false, open },
@@ -248,7 +248,7 @@
     {#key `${span}${period[0]}`}
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph} in:zoomFade={{ out: widened }}>
       <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Planned time and where it went">
-        <defs><pattern id="{uid}-hatch" width={7 * k} height={7 * k} patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width={3 * k} height={7 * k} fill="rgba(255, 255, 255, .09)" /></pattern></defs>
+        <defs><pattern id="{uid}-hatch" width={7 * k} height={7 * k} patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width={3 * k} height={7 * k} fill="var(--hatch)" /></pattern></defs>
         <!-- The headline: everything planned in view, split the same way, and the share lost. -->
         {#if total.len}
           {@render bar(2.5 * k, HY, W - headW - 2.5 * k, BAR, total.parts, false, "all", `${partsText(total.parts)}; ${pct(lostShare)} of planned time with data lost`, openOf(total.parts))}
@@ -279,7 +279,7 @@
           <MarkerLines {marks} y0={cy0} y1={top + 2 * k} />
           {#each columns as c, i (c.day)}
             {@const lostParts = c.t.parts.filter((p) => p.lost)}
-            {#if c.day === chosen}<rect x={x0 + slot * i} y={cy1} width={slot} height={cy0 - cy1} rx={3 * k} fill="#ffffff" opacity=".045" />{/if}
+            {#if c.day === chosen}<rect x={x0 + slot * i} y={cy1} width={slot} height={cy0 - cy1} rx={3 * k} fill="var(--select)" />{/if}
             <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
             <g class="col pressdim" onclick={() => !c.future && pick(c.day)}>
               <rect x={x0 + slot * i} y={cy1} width={slot} height={cy0 - cy1} fill="transparent"><title>{shortDate(c.day, today)}: {c.t.len ? `${pct(c.share)} of ${c.t.len - c.t.none} planned min lost` : "no time blocks"}</title></rect>

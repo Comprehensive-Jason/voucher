@@ -51,7 +51,7 @@
      for a bubble with nothing to point at. Above sheets and their scrim. */
   .dock { position: relative; flex: none; height: 0; margin-top: auto; z-index: 20; }
   /* The shared .notice, compact: one or two short lines, sized to its words. */
-  .toast { width: max-content; max-width: min(340px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 12px; font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, .5); }
+  .toast { width: max-content; max-width: min(340px, calc(100vw - 32px)); padding: 8px 14px; border-radius: 12px; font: inherit; text-align: left; cursor: pointer; box-shadow: 0 6px 20px var(--shadow); }
   .toast .ntext { font-size: 13.5px; gap: 2px; text-wrap: balance; }
   .pinned { position: fixed; }
   .docked { position: absolute; bottom: 12px; left: 50%; translate: -50% 0; }

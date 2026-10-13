@@ -18,5 +18,5 @@
 
 <style>
   /* The axis's name is quieter than its numbers: smaller and dimmer, so it labels without cluttering. */
-  .title { font-size: calc(9px * var(--k, 1)); fill: #5d6369; letter-spacing: .04em; }
+  .title { font-size: calc(9px * var(--k, 1)); fill: var(--faint); letter-spacing: .04em; }
 </style>

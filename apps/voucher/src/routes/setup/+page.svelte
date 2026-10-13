@@ -286,7 +286,7 @@
   .hintsm { font-size: 12px; color: var(--goal); max-width: 120px; text-align: right; }
   .ok { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--voucher); flex-shrink: 0; }
   .sm { height: 36px; padding: 0 14px; border-radius: 10px; border: 0; background: var(--voucher); color: var(--voucher-ink); font: 700 13px var(--font); flex-shrink: 0; }
-  .sm.out { background: none; border: 1px solid #3a3f45; color: var(--ink); }
+  .sm.out { background: none; border: 1px solid var(--line-strong); color: var(--ink); }
   .step { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--ink); font: 700 18px var(--font); }
   .val { min-width: 64px; text-align: center; font-size: 15px; font-weight: 700; }
   .field { display: flex; flex-direction: column; gap: 6px; }

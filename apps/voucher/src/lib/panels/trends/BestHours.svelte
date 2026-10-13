@@ -97,7 +97,7 @@
   /* Centred on the ridge, below the peak's time. */
   .name { margin-top: 11px; font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; }
   /* The top 11px holds the peak's time, over the ridge rather than on it. */
-  .ridge { height: 26px; margin-top: 11px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; align-items: end; border-bottom: 1px solid #2c3036; }
+  .ridge { height: 26px; margin-top: 11px; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; align-items: end; border-bottom: 1px solid var(--line); }
   .ridge .hour { position: relative; height: 100%; display: flex; align-items: flex-end; }
   /* Curfew's hours, in the night colour behind the ridge. */
   .ridge .hour.night { background: var(--night-band); }

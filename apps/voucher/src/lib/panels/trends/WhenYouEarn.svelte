@@ -182,7 +182,7 @@
   .peak b { color: var(--ink); font-weight: 700; }
   /* From the label's row down to the bottom of the rows in view. */
   .outline { position: absolute; inset: 0; }
-  .outline i { margin: 0 -1px; border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent); border-radius: 4px; }
+  .outline i { margin: 0 -1px; border: 1px solid var(--hatch-key); border-radius: 4px; }
   .row { display: grid; grid-template-columns: var(--lead) repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
   /* In a tablet slot the rows take whatever height is left. */
   .grid.fit, .grid.fit .stage { flex: 1; min-height: 0; }
@@ -194,5 +194,5 @@
   .label .flag { flex: none; }
   /* The row holding the Day picked on any card. */
   .row.chosen .label { color: var(--ink); font-weight: 700; }
-  .row.chosen i { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 50%, transparent); }
+  .row.chosen i { box-shadow: 0 0 0 1px var(--hatch-key); }
 </style>

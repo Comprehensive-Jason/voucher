@@ -154,7 +154,8 @@
   // so the legend stays on one line at a one-third width. With all three on
   // there's no room for the Curfew answer's "Day: Yes ... No" scale, so it
   // shrinks to a key like the others: its three colors and "Day".
-  const DAY_COLORS = [VERDICT.yes.fill, VERDICT.mostly.fill, VERDICT.no.fill];
+  // Mostly's key is half filled, as in the column.
+  const DAY_COLORS = [VERDICT.yes.fill, "var(--mostly-mark)", VERDICT.no.fill];
   const compact = $derived(cols.length === 3);
   const colKeys = $derived<LegendItem[]>([
     ...(compact ? [{ kind: "split" as const, colors: DAY_COLORS, label: COL_HEAD.verdict }] : []),
@@ -187,13 +188,13 @@
       <div class="rows" bind:this={scroller}>
         <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Each night's sleep, with the Day after it">
           <defs>
-            <pattern id="{uid}-hatch" width={7 * k} height={7 * k} patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width={3 * k} height={7 * k} fill="rgba(255, 255, 255, .09)" /></pattern>
+            <pattern id="{uid}-hatch" width={7 * k} height={7 * k} patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width={3 * k} height={7 * k} fill="var(--hatch)" /></pattern>
           </defs>
           <rect x={xAt(night.from)} y="0" width={xAt(night.to) - xAt(night.from)} height={H} style="fill: var(--night-band)" />
           {#if !Number.isNaN(usualBed)}
             {#each [usualBed, usualWake] as u}<line x1={xAt(u)} x2={xAt(u)} y1="0" y2={H} stroke="var(--goal)" stroke-width={1.2 * k} stroke-dasharray="{3 * k} {3 * k}" />{/each}
           {/if}
-          {#if chosenRow >= 0}<rect x="0" y={chosenRow * ROW} width={W} height={ROW} rx={4 * k} fill="#ffffff" opacity=".045" />{/if}
+          {#if chosenRow >= 0}<rect x="0" y={chosenRow * ROW} width={W} height={ROW} rx={4 * k} fill="var(--select)" />{/if}
           {#each nights as n, r (n.d.day)}
             {@const y = r * ROW + ROW / 2}
             {@const s = n.d.sleep}
@@ -226,7 +227,17 @@
               {#if cols.includes("verdict")}
                 {@const v = n.d.verdict ? VERDICT[n.d.verdict] : null}
                 {@const sq = Math.min(10 * k, bh + 2 * k)}
-                <rect x={colX.verdict + (COL_W.verdict * k - sq) / 2} y={y - sq / 2} width={sq} height={sq} rx={3 * k} style="fill: {v?.fill ?? 'var(--heat-0)'}"><title>{shortDate(n.d.day, today)}: {v ? v.word : "no answer"}</title></rect>
+                {@const sx = colX.verdict + (COL_W.verdict * k - sq) / 2}
+                {#if n.d.verdict === "mostly"}
+                  <!-- Mostly is half a Yes: a frame half filled, so it can't pass for No without color. -->
+                  {@const sw = 1.2 * k}
+                  <g><title>{shortDate(n.d.day, today)}: Mostly</title>
+                    <rect x={sx + sw / 2} y={y - sq / 2 + sw / 2} width={sq - sw} height={sq - sw} rx={3 * k - sw / 2} fill="none" stroke="var(--mostly)" stroke-width={sw} />
+                    <path d="M{sx + sw} {y + sq / 2 - sw} H{sx + sq - sw} V{y - sq / 2 + sw} Z" fill="var(--mostly)" />
+                  </g>
+                {:else}
+                  <rect x={sx} y={y - sq / 2} width={sq} height={sq} rx={3 * k} style="fill: {v?.fill ?? 'var(--heat-0)'}"><title>{shortDate(n.d.day, today)}: {v ? v.word : "no answer"}</title></rect>
+                {/if}
               {/if}
               {#if cols.includes("vouchers")}
                 {@const w = COL_W.vouchers * k}

@@ -545,8 +545,8 @@
   .slot > :global(*:not(.tools)) { transition: opacity var(--t-base); }
   @keyframes jiggle { from { rotate: -0.3deg; } to { rotate: 0.3deg; } }
   /* Where a drop would land: a dashed outline of the panel's place. */
-  .dropghost { position: absolute; z-index: 4; border-radius: 18px; border: 2px dashed var(--voucher); background: rgba(61, 220, 132, .08); pointer-events: none; transition: left var(--t-quick) var(--ease-out), top var(--t-quick) var(--ease-out), height var(--t-quick) var(--ease-out); }
-  .slot.lifted { z-index: 10; animation: none; filter: drop-shadow(0 14px 28px rgba(0, 0, 0, .6)); }
+  .dropghost { position: absolute; z-index: 4; border-radius: 18px; border: 2px dashed var(--voucher); background: var(--voucher-wash); pointer-events: none; transition: left var(--t-quick) var(--ease-out), top var(--t-quick) var(--ease-out), height var(--t-quick) var(--ease-out); }
+  .slot.lifted { z-index: 10; animation: none; filter: drop-shadow(0 14px 28px var(--shadow-lift)); }
   /* While arranging: an opaque cover the card's own shape and color, under
      the tab, so the text reads over whatever the card draws. */
   .tools { position: absolute; inset: 20px 0 0 0; z-index: 5; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px 18px; box-sizing: border-box; border-radius: 18px; border-top-left-radius: 0; border: 1px solid var(--line); background: var(--surface); cursor: grab; user-select: none; -webkit-user-select: none; animation: toolsin var(--t-base) var(--ease-out); }
@@ -581,7 +581,7 @@
   .leftfoot .pages { grid-column: 2; }
   .leftfoot .arrangepill, .leftfoot .donepill { grid-column: 3; justify-self: end; }
   .arrangepill { height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--raised); color: var(--muted); font: 700 13px var(--font); display: flex; align-items: center; gap: 7px; cursor: pointer; }
-  .donepill { height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: #0e0f11; font: 700 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, .5); cursor: pointer; }
+  .donepill { height: 30px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--voucher); color: var(--ground); font: 700 13px var(--font); box-shadow: 0 6px 18px var(--shadow); cursor: pointer; }
   /* Centred in the Today column's foot, Arrange or Done to its right. */
   .pages { position: relative; grid-column: 2; display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
   .thumb { position: absolute; top: 3px; height: 32px; border-radius: 999px; background: var(--line); transition: left var(--t-move) var(--ease-out), right var(--t-move) var(--ease-out) 90ms; }

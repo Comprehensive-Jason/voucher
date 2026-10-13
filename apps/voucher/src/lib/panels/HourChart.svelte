@@ -130,7 +130,7 @@
    *  knows each app's package, and which apps are games), or else to the
    *  blocklist naming an app of that name or that site, or else to Other. That keeps the bars and
    *  the list to a handful of rows, each in its blocklist's colour. */
-  const OTHER: Part = { id: "~other", name: "Other", color: "#9aa0a6", n: 0 };
+  const OTHER: Part = { id: "~other", name: "Other", color: "var(--other)", n: 0 };
   function listPart(app: string, said?: string): Part {
     const id = said && blocklists[said] ? said : blocklistOf(app, blocklists);
     return id ? { id, name: blocklists[id].name, color: blocklists[id].color, n: 0 } : { ...OTHER };
@@ -423,7 +423,7 @@
       }
       // Days past the kept log have a total but no sources: one grey segment.
       const known = [...counts.values()].reduce((a, q) => a + q.n, 0);
-      if (t && t.earned > known) counts.set(EARLIER, { id: EARLIER, name: EARLIER, color: "#6c7177", n: t.earned - known });
+      if (t && t.earned > known) counts.set(EARLIER, { id: EARLIER, name: EARLIER, color: "var(--faint)", n: t.earned - known });
       const total = [...counts.values()].reduce((a, q) => a + q.n, 0);
       return { day, total, unlocked: 0, redeemed: t?.redeemed ?? 0, goal: !!t?.goal_met, parts: partsOf(counts), segments: segmentsOf(counts), future: day > today.day, marks: notes.on(day) };
     });
@@ -791,12 +791,12 @@
      reaches 2 px past its bar, showed as a sliver of the page before. The
      3 px each side is wider than that outline's reach plus the pixel. */
   .day { contain: paint; box-sizing: border-box; padding-inline: 3px; flex: 0 0 100%; scroll-snap-align: start; display: flex; flex-direction: column; gap: 12px; }
-  .chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid #3a3f45; }
+  .chart { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; align-items: end; border-bottom: 1px solid var(--line-strong); }
   /* Bars, dots, and hours leave a gutter on the left for the tick numbers. */
   .chart, .dots, .axis { margin-left: 16px; }
   .chart { position: relative; }
   /* Tick lines sit behind the bars (the columns come later and are positioned). */
-  .tick { position: absolute; left: -16px; right: 0; border-top: 1px dashed #2c3036; pointer-events: none; }
+  .tick { position: absolute; left: -16px; right: 0; border-top: 1px dashed var(--line); pointer-events: none; }
   .tick span { position: absolute; left: 0; bottom: -5px; font-size: var(--axis-size); line-height: 1; color: var(--axis-ink); background: var(--surface); padding-right: 3px; }
   .col {
     position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 3px;
@@ -814,7 +814,7 @@
   .bar { position: relative; display: flex; flex-direction: column; gap: 1px; border-radius: 4px 4px 2px 2px; overflow: hidden; transition: height var(--t-move) var(--ease-out); }
   .bar i { min-height: 0; transition: flex-grow var(--t-move) var(--ease-out); }
   /* Hours Voucher wasn't watching (a device was silent): hatched, so a low bar there reads as unknown, not as none. */
-  .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .09) 0 3px, transparent 3px 7px); pointer-events: none; }
+  .col.silent::after { content: ""; position: absolute; z-index: -1; inset: 0 0 0 0; border-radius: 4px; background: repeating-linear-gradient(135deg, var(--hatch) 0 3px, transparent 3px 7px); pointer-events: none; }
   /* The night asleep: a faint sleep-coloured band behind the bars from
      bedtime to wake-up, to the minute, with a solid top edge (Curfew's band
      fills whole hours and has none); hatched when the night was estimated.
@@ -829,7 +829,7 @@
   .events { position: absolute; left: 0; right: 0; top: calc(100% + 4px); height: 4px; pointer-events: none; }
   .events i, .eventmark { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--calendar); }
   .eventmark { position: static; display: block; width: 12px; height: 4px; }
-  .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
+  .silentmark { display: block; width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, var(--hatch-key) 0 2px, transparent 2px 4px); }
   /* The Markers' lane across the top of the chart, in the plot's columns: the
      chart's top padding, so the bars, their counts, and the top tick sit under it. */
   .lane { position: absolute; top: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
@@ -841,7 +841,7 @@
   /* The notched flag of every Marker (the button, the Log, the keys). */
   .flag::after { content: ""; position: absolute; top: 0; left: 2px; width: 7px; height: 6px; background: inherit; clip-path: polygon(0 0, 100% 0, 72% 50%, 100% 100%, 0 100%); }
   /* Curfew's hours: a night-coloured band behind the bars, across the gaps too. */
-  .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: color-mix(in srgb, var(--night) 9%, transparent); pointer-events: none; }
+  .col.night::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(var(--gap, 4px) / -2); right: calc(var(--gap, 4px) / -2); background: var(--night-band); pointer-events: none; }
   .tall .col.night::before { --gap: 6px; }
   .axis.hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 4px; }
   .tall .axis.hours { gap: 6px; }
@@ -859,7 +859,7 @@
   .axis { display: flex; justify-content: space-between; font-size: var(--axis-size); color: var(--axis-ink); }
   /* The picked hour's (or the whole Day's) count per source; it doubles as
      the colour key, since it names every colour on screen. */
-  .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: var(--raised); font-size: 13px; color: #c9cdd1; }
+  .legend { display: flex; flex-direction: column; padding: 4px 12px; border-radius: 12px; background: var(--raised); font-size: 13px; color: var(--ink-soft); }
   .lframe { position: relative; display: flex; flex-direction: column; }
   .list { position: relative; display: flex; flex-direction: column; }
   .row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; min-height: 30px; border-top: 1px solid var(--divider); }

@@ -7,49 +7,137 @@
 
 :root {
   color-scheme: dark;
-  --ground: #0e0f11;
-  --surface: #16181b;
-  --line: #2a2e33;
-  --divider: #23272b;
-  --ink: #f2f2f0;
-  --muted: #a3a8ad;
-  --voucher: #3ddc84;          /* Vouchers, and good news */
-  --voucher-ink: #07170d;
-  --voucher-deep: #2b9a5e;     /* Vouchers further down the stack */
-  --voucher-deeper: #1f5c3c;
-  --unlocked-bg: #14251b;
-  --unlocked-line: #23573a;
-  --spend: #ffa09c;            /* Unlocks, and Vouchers torn: reserved, no source or blocklist may look like it */
-  --spend-bg: color-mix(in oklab, var(--spend) 12%, var(--surface)); /* a running Unlock's card */
-  --spend-line: color-mix(in oklab, var(--spend) 35%, var(--surface));
-  --danger: #ff0a0a;           /* destructive actions and warnings, rare on purpose */
-  --danger-bg: color-mix(in oklab, var(--danger) 12%, var(--surface));
-  --danger-line: color-mix(in oklab, var(--danger) 40%, var(--surface));
-  --worse: #b32146;            /* a measure that went the wrong way (down arrows, "No" answers) */
-  --mostly: #2a7a50;           /* a "Mostly" answer: the main green at 50% on the card, a weaker yes */
-  --mostly-ink: #2e7f55;       /* its numbers: the main green at 50% on --raised (3.3:1, bold), dim beside Yes */
-  --raised: #1f2226;           /* controls and boxes raised on a surface */
-  --marker: #d3ccff;           /* Markers, by hand or from a rule change: pale lavender, clear of every other meaning (11.7:1 on cards) */
-  --sleep: #4e52da;            /* sleep: violet-blue, Curfew's sister, since Curfew enforces sleep (3:1 on cards) */
-  --sleep-band: color-mix(in srgb, var(--sleep) 12%, transparent); /* a night asleep behind an hour chart, to the minute, under a solid --sleep top edge */
-  --sleep-hatch: repeating-linear-gradient(135deg, color-mix(in srgb, var(--sleep) 45%, transparent) 0 2px, transparent 2px 5px); /* the same, estimated */
-  --calendar: #a800f9;         /* calendar events: electric violet, at least 15 ΔE2000 from every indicator and 18.6 from every source swatch (3.4:1 on cards) */
-  --sleep-text: #8b8ff0;       /* sleep as text: --sleep lightened in its own hue (5.5:1 on --raised, 6.2:1 on cards) */
-  --calendar-text: #ba5eff;    /* calendar as text: --calendar lightened in its own hue (4.7:1 on --raised, 5.2:1 on cards) */
-  --marker-ink: #16181b;       /* text on a Marker fill (11.7:1) */
-  --heat-0: #22262a;           /* heat grids, fewer to more: an empty square, then the main green in three steps */
-  --heat-1: color-mix(in oklab, var(--voucher) 32%, var(--heat-0));
-  --heat-2: color-mix(in oklab, var(--voucher) 64%, var(--heat-0));
+  /* Every color in the app is one of these tokens, or a swatch from
+     lib/palette.ts. Variants come from rules, not hand-picked hexes:
+       -text  the same OKLCH hue and chroma, lightened until it reads at
+              4.5:1 on --raised and on its own wash (the base when it passes)
+       -wash  color-mix(in oklab, X 15%, var(--ground)): notices, tinted cards
+       -line  color-mix(in oklab, X 42%, var(--ground)): a wash's border
+       -on    text on a solid fill of X
+       -glow  color-mix(in srgb, X 25%, transparent): slider knob rings
+     The Android widget and wallpaper mirror these in VoucherColors.kt, and
+     dev/palette-test.mjs checks the contrast and distance rules. */
+
+  /* Neutrals: one cool ramp, OKLCH hue about 250 and chroma 0.012 or less.
+     Ink stays a hair warm. */
+  --ground: #0e0f11;           /* the page */
+  --surface: #16181b;          /* cards */
+  --raised: #1f2226;           /* boxes and controls raised on a card */
+  --well: #22262a;             /* empty grid squares, slider tracks, rules between rows */
+  --line: #2a2e33;             /* card and control borders, chart ticks */
+  --line-strong: #3a3f45;      /* chart baselines, a switch that's off, dashed boxes, slider stripes */
+  --faint: #7b8187;            /* axis labels, axis names, chart notes, Earlier bars (4.5:1 on cards) */
+  --muted: #a3a8ad;            /* labels and secondary text */
+  --other: var(--muted);       /* Other and Distraction fills in charts */
+  --ink-soft: #c9cdd1;         /* legend text, the widget's fallback dot */
+  --ink: #f2f2f0;              /* main text */
+  --scrim: rgb(0 0 0 / .6);    /* behind a sheet */
+  --shadow: rgb(0 0 0 / .5);   /* under a floating pill, toast, or cue */
+  --shadow-lift: rgb(0 0 0 / .6); /* under a card being dragged */
+
+  /* Voucher green: Vouchers, and good news. Every green is the token plus a rule. */
+  --voucher: #3ddc84;
+  --voucher-text: var(--voucher);
+  --voucher-on: #07170d;
+  --voucher-deep: color-mix(in oklab, var(--voucher) 70%, var(--ground));   /* one down the stack */
+  --voucher-deeper: color-mix(in oklab, var(--voucher) 42%, var(--ground)); /* two down */
+  --voucher-wash: color-mix(in oklab, var(--voucher) 15%, var(--ground));   /* the unlocked card, the grace notice */
+  --voucher-line: color-mix(in oklab, var(--voucher) 42%, var(--ground));
+  --voucher-glow: color-mix(in srgb, var(--voucher) 25%, transparent);
+  /* Heat grids, fewer to more: an empty square, then the green in three steps. */
+  --heat-1: color-mix(in oklab, var(--voucher) 32%, var(--well));
+  --heat-2: color-mix(in oklab, var(--voucher) 64%, var(--well));
   --heat-3: var(--voucher);
-  --goal: #ffb547;             /* daily goal and streak */
-  --goal-bg: #2a2116;
-  --goal-line: #6b4a17;
-  --night: #7d8cff;            /* Curfew */
-  --night-ink: #c9cfff;
-  --night-voucher: #2e3a78;
-  --night-bg: #151935;
+  --mostly: color-mix(in srgb, var(--voucher) 50%, var(--surface));     /* a "Mostly" answer, a weaker yes; drawn half-filled */
+  --mostly-ink: color-mix(in srgb, var(--voucher) 50%, var(--raised));  /* its numbers on a box, dim beside Yes on purpose (3.3:1, bold) */
+  /* A Mostly square as a CSS background: a frame, half filled from the
+     bottom right, since Mostly and No have the same lightness and merge for
+     deuteranopes. SVG charts draw the same with a rect and a path. */
+  --mostly-mark:
+    linear-gradient(to top left, var(--mostly) 50%, transparent 50%),
+    linear-gradient(var(--mostly) 0 0) top / 100% 1.5px no-repeat,
+    linear-gradient(var(--mostly) 0 0) bottom / 100% 1.5px no-repeat,
+    linear-gradient(var(--mostly) 0 0) left / 1.5px 100% no-repeat,
+    linear-gradient(var(--mostly) 0 0) right / 1.5px 100% no-repeat;
+
+  /* Goal gold: the Daily goal and streak. */
+  --goal: #ffb547;
+  --goal-text: var(--goal);
+  --goal-wash: color-mix(in oklab, var(--goal) 15%, var(--ground));
+  --goal-line: color-mix(in oklab, var(--goal) 42%, var(--ground));
+  --goal-glow: color-mix(in srgb, var(--goal) 25%, transparent);
+  /* A goal-met Day in Activity as a CSS background: gold with a small dark
+     dot, since gold and full green merge for protanopes. */
+  --goal-mark: radial-gradient(circle closest-side, var(--ground) 0 33%, transparent 38%), var(--goal);
+
+  /* Unlock salmon: Unlocks, and Vouchers torn. Reserved: no source or blocklist may look like it. */
+  --spend: #ffa09c;
+  --spend-text: var(--spend);
+  --spend-wash: color-mix(in oklab, var(--spend) 15%, var(--ground)); /* a running Unlock's card */
+  --spend-line: color-mix(in oklab, var(--spend) 42%, var(--ground));
+  --spend-glow: color-mix(in srgb, var(--spend) 25%, transparent);
+
+  /* Worse crimson: a measure that went the wrong way (No squares, lapse lines, down arrows). */
+  --worse: #be2d4e;
+  --worse-text: #e7556f;       /* No counts, the worse pill, arrows drawn as text */
+  --worse-wash: color-mix(in oklab, var(--worse) 15%, var(--ground));
+  --worse-line: color-mix(in oklab, var(--worse) 42%, var(--ground));
+
+  /* Danger red: destructive actions and warnings, rare on purpose. */
+  --danger: #ff0a0a;
+  --danger-text: #fe3e30;      /* danger buttons and notice caps */
+  --danger-wash: color-mix(in oklab, var(--danger) 15%, var(--ground));
+  --danger-line: color-mix(in oklab, var(--danger) 42%, var(--ground));
+
+  /* Marker: by hand or from a rule change. Always a flag or a corner tab. */
+  --marker: #d3ccff;
+  --marker-text: var(--marker);
+  --marker-on: var(--surface);
+
+  /* Sleep: Curfew's sister, since Curfew enforces sleep. A band with a solid top edge, or a bar. */
+  --sleep: #4e52da;
+  --sleep-text: #6e7bfe;
+  --sleep-band: color-mix(in srgb, var(--sleep) 12%, transparent); /* a night asleep behind an hour chart, under a solid --sleep top edge */
+  --sleep-hatch: repeating-linear-gradient(135deg, color-mix(in srgb, var(--sleep) 45%, transparent) 0 2px, transparent 2px 5px); /* the same, estimated */
+
+  /* Calendar events: thin bars under the hour axis. */
+  --calendar: #a800f9;
+  --calendar-text: #b959ff;
+
+  /* Curfew (night): one ramp at OKLCH hue 272 to 280. */
+  --night: #7d8cff;
+  --night-text: var(--night);
+  --night-ground: #0b0d1a;     /* the blocked page in Curfew */
+  --night-bg: #151935;         /* the wallpaper and widget in Curfew */
+  --night-raised: #1f2440;     /* Curfew sheet buttons and chips */
+  --night-stack-2: #1b2350;    /* a night Voucher two down, the widget's button */
+  --night-stack-1: #242e63;    /* a night Voucher one down */
+  --night-voucher: #2e3a78;    /* the Voucher during Curfew */
+  --night-muted: #b8bde6;      /* secondary text in Curfew */
+  --night-ink: #c9cfff;        /* text in Curfew */
+  --night-bright: #e8ebff;     /* strong text in Curfew */
+  --night-on: #0c1033;         /* text on a Curfew fill */
   --night-band: color-mix(in srgb, var(--night) 9%, transparent); /* Curfew's hours behind a chart, the same on every card */
-  --night-cell: color-mix(in srgb, var(--night) 12%, var(--heat-0)); /* an empty grid square in Curfew's hours */
+  --night-cell: color-mix(in srgb, var(--night) 12%, var(--well)); /* an empty grid square in Curfew's hours */
+  --night-glow: color-mix(in srgb, var(--night) 30%, transparent);
+
+  /* Overlays: ink at fixed alphas, so every chart hatches and highlights the same way. */
+  --hatch: color-mix(in srgb, var(--ink) 9%, transparent);      /* silent hours and estimated stripes */
+  --hatch-key: color-mix(in srgb, var(--ink) 35%, transparent); /* the same stripe in a 10px legend chip */
+  --select: color-mix(in srgb, var(--ink) 4.5%, transparent);   /* the chosen column or row */
+
+  /* Old names, kept as aliases until their uses are renamed. */
+  --heat-0: var(--well);
+  --divider: var(--well);
+  --axis-ink: var(--faint);
+  --voucher-ink: var(--voucher-on);
+  --unlocked-bg: var(--voucher-wash);
+  --unlocked-line: var(--voucher-line);
+  --goal-bg: var(--goal-wash);
+  --spend-bg: var(--spend-wash);
+  --danger-bg: var(--danger-wash);
+  --marker-ink: var(--marker-on);
+
   --font: "Space Grotesk", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
 }
@@ -81,10 +169,10 @@ button { font: inherit; color: inherit; }
 .empty { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .lead { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
 .lead b { color: var(--ink); font-family: var(--mono); }
-/* Axis labels (hours, dates, ticks) on every chart: small and dim, so they
-   give scale without competing with the data. Axis names stay their own
-   style (ChartAxis). */
-:root { --axis-size: 9px; --axis-ink: #6f757b; }
+/* Axis labels (hours, dates, ticks) on every chart: small and in --faint, so
+   they give scale without competing with the data. Axis names stay their
+   own style (ChartAxis). */
+:root { --axis-size: 9px; }
 /* A dashboard tile (Trends cards, the bar graphs, Activity, the Log): one
    shell, so every heading sits at the same height. A named container, so
    controls can shrink on a narrow tile. */
@@ -122,7 +210,7 @@ button { font: inherit; color: inherit; }
 .btn:disabled { opacity: .4; cursor: default; }
 .btn.primary { background: var(--voucher); border-color: transparent; color: var(--voucher-ink); }
 .btn.ghost { background: none; color: var(--muted); }
-.btn.danger { color: var(--danger); border-color: var(--danger-line); background: var(--danger-bg); }
+.btn.danger { color: var(--danger-text); border-color: var(--danger-line); background: var(--danger-bg); }
 .btn.small { height: 34px; padding: 0 12px; border-radius: 11px; font-size: 13px; }
 .btn.wide { width: 100%; }
 /* Icon-only buttons, in the same two sizes. */
@@ -134,11 +222,11 @@ button { font: inherit; color: inherit; }
 /* A notice: a tinted card with a caps line in its tone, its text, and its
    buttons on the right. Tones: .goal (gold: waiting, partly on), .good
    (green: the grace period), .danger (red: Protection off). */
-.notice { --tone: var(--goal); --tone-bg: var(--goal-bg); --tone-line: var(--goal-line); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 16px; background: var(--tone-bg); border: 1px solid var(--tone-line); }
-.notice.good { --tone: var(--voucher); --tone-bg: var(--unlocked-bg); --tone-line: var(--unlocked-line); }
-.notice.danger { --tone: var(--danger); --tone-bg: var(--danger-bg); --tone-line: var(--danger-line); }
+.notice { --tone: var(--goal); --tone-text: var(--goal-text); --tone-bg: var(--goal-bg); --tone-line: var(--goal-line); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-radius: 16px; background: var(--tone-bg); border: 1px solid var(--tone-line); }
+.notice.good { --tone: var(--voucher); --tone-text: var(--voucher-text); --tone-bg: var(--unlocked-bg); --tone-line: var(--unlocked-line); }
+.notice.danger { --tone: var(--danger); --tone-text: var(--danger-text); --tone-bg: var(--danger-bg); --tone-line: var(--danger-line); }
 .notice .ntext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.35; color: var(--ink); }
-.notice .ntext .cap { color: var(--tone); letter-spacing: .06em; }
+.notice .ntext .cap { color: var(--tone-text); letter-spacing: .06em; }
 .notice .btn { flex: none; }
 /* A notice's own fix, filled in its tone. */
 .notice .btn.fix { border-color: transparent; background: var(--tone); color: var(--ground); }

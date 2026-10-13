@@ -132,7 +132,7 @@
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph} in:zoomFade={{ out: span === "182" }}>
     <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Seven-day averages of Vouchers earned and torn">
       <ChartAxis {ticks} {yAt} {x0} {x1} {y0} {y1} title={roomy ? AXIS : "Vouchers a Day"} />
-      {#if bottom < 0}<line x1={x0} x2={x1} y1={yAt(0)} y2={yAt(0)} stroke="#3a3f45" />{/if}
+      {#if bottom < 0}<line x1={x0} x2={x1} y1={yAt(0)} y2={yAt(0)} stroke="var(--line-strong)" />{/if}
       <line x1={x0} x2={x1} y1={yAt(goal)} y2={yAt(goal)} stroke="var(--goal)" stroke-dasharray="5 5" opacity=".7" />
       <text x={x1} y={yAt(goal) - 5} text-anchor="end" style="fill: var(--goal)">goal {goal}</text>
       <MarkerLines marks={marks.map((m) => ({ x: xAt(m.i), text: m.text, rule: m.rule }))} {y0} {y1} />
@@ -163,5 +163,5 @@
   svg.chart text.tag { paint-order: stroke; stroke: var(--surface); stroke-width: calc(3px * var(--k, 1)); stroke-linejoin: round; }
   svg.chart text.end { font-weight: 700; }
   /* The averaging note among the month names: dimmer than they are, so it reads as a caption. */
-  svg.chart text.note { fill: #5d6369; }
+  svg.chart text.note { fill: var(--faint); }
 </style>

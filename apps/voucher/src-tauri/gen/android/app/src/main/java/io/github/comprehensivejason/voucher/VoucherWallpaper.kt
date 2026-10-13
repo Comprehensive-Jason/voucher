@@ -1,7 +1,6 @@
 package io.github.comprehensivejason.voucher
 
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -30,7 +29,7 @@ class VoucherWallpaper : WallpaperService() {
         }
         private val fill = Paint(Paint.ANTI_ALIAS_FLAG)
         private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xCCF2F2F0.toInt(); typeface = Typeface.create("monospace", Typeface.BOLD)
+            color = VoucherColors.INK; alpha = 0xCC; typeface = Typeface.create("monospace", Typeface.BOLD)
         }
 
         override fun onVisibilityChanged(visible: Boolean) {
@@ -49,7 +48,7 @@ class VoucherWallpaper : WallpaperService() {
         private fun paint(c: Canvas, status: JSONObject?) {
             val w = c.width.toFloat(); val h = c.height.toFloat()
             val curfew = status?.optBoolean("curfew_active") == true
-            c.drawColor(if (curfew) 0xFF151935.toInt() else 0xFF0E0F11.toInt())
+            c.drawColor(if (curfew) VoucherColors.NIGHT_BG else VoucherColors.GROUND)
             if (status == null) return
             val bank = status.optInt("bank"); val limit = status.optJSONObject("settings")?.optInt("bank_limit")?.takeIf { it > 0 } ?: 24
             val today = status.optJSONObject("today")
@@ -62,18 +61,18 @@ class VoucherWallpaper : WallpaperService() {
                     if (s.optInt("earned") > 0) parts.add(VoucherWidget.colorOf(s) to s.optInt("earned"))
                 }
             }
-            if (parts.isEmpty()) parts.add(0xFF6C7177.toInt() to 1)
+            if (parts.isEmpty()) parts.add(VoucherColors.FAINT to 1)
             val total = parts.sumOf { it.second }.toFloat()
             var x = 0f
             for ((color, n) in parts) {
                 val bw = w * n / total
-                fill.color = if (curfew) 0xFF2E3A78.toInt() else color
+                fill.color = if (curfew) VoucherColors.NIGHT_VOUCHER else color
                 fill.alpha = if (curfew) 110 else 95
                 c.drawRect(RectF(x, top, x + bw, h), fill)
                 x += bw
             }
             // The fill's top edge, a little brighter, and the line of numbers above it.
-            fill.color = if (curfew) 0xFF7D8CFF.toInt() else Color.WHITE; fill.alpha = 70
+            fill.color = if (curfew) VoucherColors.NIGHT else VoucherColors.INK; fill.alpha = 70
             c.drawRect(RectF(0f, top, w, top + h * 0.003f), fill)
             text.textSize = w * 0.035f
             val goal = today?.optInt("goal") ?: 0; val earned = today?.optInt("earned") ?: 0; val streak = today?.optInt("streak") ?: 0

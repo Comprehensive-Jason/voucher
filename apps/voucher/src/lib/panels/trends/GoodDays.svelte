@@ -476,11 +476,10 @@
 
   /* The change, one look at every confidence (the bars say how sure): its
      direction's color on a tint of it, green when better and crimson when
-     worse. Crimson text is lib/about.ts's crimson text tint lifted a little
-     (#ef5e76), so it reads at 4.5:1 on the tint over a box (4.7:1) as well
-     as on the card (5.2:1). */
-  .pill { font: 700 11px/1 var(--mono); padding: 3px 5px; border-radius: 6px; white-space: nowrap; color: #ef5e76; background: color-mix(in oklab, var(--worse) 13%, transparent); }
-  .pill.good { color: var(--voucher); background: color-mix(in oklab, var(--voucher) 13%, transparent); }
+     worse. Crimson text is --worse-text, which reads at 4.9:1 on its wash
+     and 5.0:1 on the card. */
+  .pill { font: 700 11px/1 var(--mono); padding: 3px 5px; border-radius: 6px; white-space: nowrap; color: var(--worse-text); background: var(--worse-wash); }
+  .pill.good { color: var(--voucher); background: var(--voucher-wash); }
 
   /* Confidence: three bars like a signal icon. */
   .conf { flex: none; display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }

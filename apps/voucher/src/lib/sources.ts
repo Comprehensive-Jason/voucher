@@ -3,6 +3,7 @@
 // its source by prefix (`reading:…`), or by its service (`todoist:…`) for
 // tasks. A colour chosen on Rules replaces the default.
 import { custom } from "./colors.svelte";
+import { swatch } from "./palette";
 import type { SourceKind } from "./types";
 export interface SourceStyle {
   name: string; short: string; color: string; sub?: string;
@@ -14,27 +15,27 @@ export interface SourceStyle {
  *  groups (`readwise`, `moonreader`) that older log entries still name. None
  *  may sit near salmon (Unlocks) or gold (the Daily goal); see palette.ts. */
 export const SOURCES: Record<string, SourceStyle> = {
-  tasks: { name: "Tasks", short: "Tasks", color: "#289ffb" },
-  obsidian: { name: "Obsidian", short: "Obsidian", color: "#b57ae2" },
-  workout: { name: "Workout", short: "Workout", color: "#e2781f" },
-  reading: { name: "Reading", short: "Reading", color: "#c1d58a" },
-  readwise: { name: "Readwise Reader", short: "Reader", color: "#c1d58a" },
-  moonreader: { name: "Moon+ Reader", short: "Moon+", color: "#8ba60c" },
-  anki: { name: "Anki", short: "Anki", color: "#f4b3ec" },
-  steps: { name: "Steps", short: "Steps", color: "#05afa5" },
+  tasks: { name: "Tasks", short: "Tasks", color: swatch("Blue") },
+  obsidian: { name: "Obsidian", short: "Obsidian", color: swatch("Violet") },
+  workout: { name: "Workout", short: "Workout", color: swatch("Orange") },
+  reading: { name: "Reading", short: "Reading", color: swatch("Light olive") },
+  readwise: { name: "Readwise Reader", short: "Reader", color: swatch("Light olive") },
+  moonreader: { name: "Moon+ Reader", short: "Moon+", color: swatch("Olive") },
+  anki: { name: "Anki", short: "Anki", color: swatch("Light purple") },
+  steps: { name: "Steps", short: "Steps", color: swatch("Teal") },
 };
 
 /** The task services, members of the Tasks group. */
 const SERVICES: Record<string, SourceStyle> = {
-  todoist: { name: "Todoist", short: "Todoist", color: "#289ffb", sub: "your completed tasks", tokenHelp: "An API token: in Todoist, Settings, Integrations, Developer." },
-  clickup: { name: "ClickUp", short: "ClickUp", color: "#aeccfe", sub: "assigned to you", tokenHelp: "A personal API token: in ClickUp, Settings, Apps." },
+  todoist: { name: "Todoist", short: "Todoist", color: swatch("Blue"), sub: "your completed tasks", tokenHelp: "An API token: in Todoist, Settings, Integrations, Developer." },
+  clickup: { name: "ClickUp", short: "ClickUp", color: swatch("Light blue"), sub: "assigned to you", tokenHelp: "A personal API token: in ClickUp, Settings, Apps." },
 };
 
 /** Colours for groups the user makes, in the order new ones take them (light
  *  swatches from the palette, so the picker shows them as chosen). A group
  *  without a saved colour takes one by its id's hash, so entries keep their
  *  places: the two near gold were swapped in place for light blue and pale orange. */
-export const SPARE = ["#7dd9fb", "#c1d58a", "#f4b3ec", "#9890d0", "#aeccfe", "#76e0d6", "#e3cbb1"];
+export const SPARE = [swatch("Light cyan"), swatch("Light olive"), swatch("Light purple"), swatch("Light orchid"), swatch("Light blue"), swatch("Light teal"), swatch("Pale orange")];
 
 /** Earnings name a service; they count toward the Tasks group. */
 export const groupOf = (id: string) => (SERVICES[id] ? "tasks" : id);

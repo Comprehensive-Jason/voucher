@@ -43,7 +43,7 @@ object Surfaces {
             .setSmallIcon(R.drawable.ic_voucher)
             .setContentIntent(openIntent(ctx))
             .setOngoing(true)
-            .setColor(if (d?.curfew == true) 0xFF7D8CFF.toInt() else 0xFF3DDC84.toInt())
+            .setColor(if (d?.curfew == true) VoucherColors.NIGHT else VoucherColors.VOUCHER)
             .setShowWhen(false)
         if (d?.status == null) {
             return b.setContentTitle("Voucher").setContentText("Connecting to your Ledger").build()

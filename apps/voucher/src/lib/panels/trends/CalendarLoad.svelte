@@ -79,7 +79,7 @@
     <div class="plot" bind:clientWidth={pw} bind:clientHeight={ph}>
       <svg class="chart" viewBox="0 0 {W} {H}" style="--k: {k}" role="img" aria-label="Busy time in events above, Vouchers below, a column per Day">
         {#each days as x, i (x.day)}
-          {#if x.day === chosen}<rect x={x0 + slot * i} y={y1} width={slot} height={bottom - y1} rx={3 * k} fill="#ffffff" opacity=".045" />{/if}
+          {#if x.day === chosen}<rect x={x0 + slot * i} y={y1} width={slot} height={bottom - y1} rx={3 * k} fill="var(--select)" />{/if}
         {/each}
         <ChartAxis ticks={busyTicks} yAt={up} {x0} {x1} y0={mid} {y1} title={named("Busy", y1, mid)} format={(m) => (m ? `${m / 60} h` : "")} />
         <ChartAxis ticks={vTicks} yAt={down} {x0} {x1} y0={bottom} y1={mid} title={named("Vouchers", mid, bottom)} />

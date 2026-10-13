@@ -283,3 +283,27 @@ fn colours_change_at_once_and_only_take_hex_values() {
     );
     assert_eq!(ledger.settings(now).sources["obsidian"].color, None);
 }
+
+#[test]
+fn colours_saved_in_an_old_swatch_load_as_the_new_one() {
+    let ledger = fresh();
+    let mut saved: serde_json::Value = serde_json::from_str(&ledger.save()).unwrap();
+    // Dusty violet, now Light orchid; the old Instagram default; the old
+    // Games default, Curfew's own indigo; and a colour no swatch ever had.
+    saved["settings"]["sources"]["obsidian"]["color"] = "#9890D0".into();
+    saved["settings"]["sources"]["anki"]["color"] = "#123456".into();
+    saved["settings"]["blocklists"]["instagram"]["color"] = "#e5609b".into();
+    saved["settings"]["blocklists"]["games"]["color"] = "#7d8cff".into();
+
+    let mut ledger = Ledger::load(&saved.to_string(), SigningKey::from_bytes(&[7; 32])).unwrap();
+    let settings = ledger.settings(at(NOON)).clone();
+    assert_eq!(
+        settings.sources["obsidian"].color.as_deref(),
+        Some("#f698fe")
+    );
+    assert_eq!(settings.sources["anki"].color.as_deref(), Some("#123456"));
+    assert_eq!(settings.blocklists["instagram"].color, "#e6688d");
+    assert_eq!(settings.blocklists["games"].color, "#d26ec1");
+    // A fresh Ledger's premade blocklists are on the palette already.
+    assert_eq!(default_blocklists()["browsers"].color, "#7dd9fb");
+}

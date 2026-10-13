@@ -5,8 +5,9 @@
   import { onMount } from "svelte";
   import { page } from "$app/state";
   import { appIcon, device, deviceUsage, ledger, tear, today } from "$lib/api";
-  import { blocklistColorOf } from "$lib/blocklists";
+  import { blocklistColorOf, blocklistOf } from "$lib/blocklists";
   import VoucherStack from "$lib/components/VoucherStack.svelte";
+  import { tileTint } from "$lib/palette";
   import { styleOf } from "$lib/sources";
   import { modeOf, type Blocklist, type DeviceUsage, type Status, type Today } from "$lib/types";
 
@@ -23,10 +24,10 @@
   const mode = $derived(data ? modeOf(data, Math.floor(Date.now() / 1000)) : "locked");
   // Each app's bar takes its blocklist's colour, as everywhere else.
   let blocklists = $state<Record<string, Blocklist>>({});
-  /** A tile colour when the app's own icon can't be read: brand colours for the usual ones. */
+  /** A tile color when the app's own icon can't be read: its blocklist's
+   *  color, as on every chart, or a deep swatch by its name. */
   function tileColor(name: string): string {
-    const known: Record<string, string> = { instagram: "#c13584", youtube: "#e62117", reddit: "#ff4500", tiktok: "#25f4ee" };
-    return known[name.toLowerCase()] ?? ["#5b6cff", "#c13584", "#2f9e6b", "#d9822b", "#7d8cff"][[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % 5];
+    return blocklistOf(name, blocklists) ? blocklistColorOf(name, blocklists) : tileTint(name);
   }
   const most = $derived(Math.max(1, ...(usage?.attempts ?? []).map((a) => a.count)));
   // Fastest ways to earn: each switched-on source, by what it still needs.
@@ -127,7 +128,7 @@
   main { min-height: 100%; padding: calc(40px + env(safe-area-inset-top)) 20px 28px; display: flex; flex-direction: column; gap: 22px; }
   .head { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
   /* Not `.tile`, the shared card shell, whose padding would squeeze the icon. */
-  .appicon { width: 76px; height: 76px; border-radius: 22px; background: var(--line); display: flex; align-items: center; justify-content: center; color: #fff; font: 700 34px var(--font); overflow: hidden; }
+  .appicon { width: 76px; height: 76px; border-radius: 22px; background: var(--line); display: flex; align-items: center; justify-content: center; color: var(--ink); font: 700 34px var(--font); overflow: hidden; }
   .appicon img { width: 100%; height: 100%; }
   h1 { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.15; }
   .head p { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.4; }
@@ -142,9 +143,9 @@
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; width: 100%; }
   .hint { font-size: 13px; color: var(--muted); text-align: center; }
   .error { color: var(--goal); }
-  main.night { background: #0b0d1a; color: #eef0ff; padding: calc(120px + env(safe-area-inset-top)) 28px 28px; align-items: center; text-align: center; gap: 18px; }
+  main.night { background: var(--night-ground); color: var(--night-bright); padding: calc(120px + env(safe-area-inset-top)) 28px 28px; align-items: center; text-align: center; gap: 18px; }
   .bigclock { font-size: 72px; font-weight: 700; line-height: 1; letter-spacing: -2px; }
   .night h1 { font-size: 30px; }
-  .night p { margin: 0; font-size: 16px; color: #b8bde6; line-height: 1.45; max-width: 300px; }
-  .btn.night { background: var(--night); border-color: transparent; color: #0c1033; }
+  .night p { margin: 0; font-size: 16px; color: var(--night-muted); line-height: 1.45; max-width: 300px; }
+  .btn.night { background: var(--night); border-color: transparent; color: var(--night-on); }
 </style>
