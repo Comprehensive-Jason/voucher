@@ -1,10 +1,11 @@
 <script lang="ts">
   // An app's own icon, or a lettered tile until (or unless) the device has one.
   import { icons, wantIcon } from "../icons.svelte";
+  import { tileTint } from "../palette";
   let { pkg, label, size = 32 }: { pkg: string; label: string; size?: number } = $props();
   $effect(() => wantIcon(pkg));
   const src = $derived(icons[pkg]);
-  const tint = $derived(["#5b6cff", "#c13584", "#2f9e6b", "#d9822b", "#7d8cff", "#0ca8d1"][[...pkg].reduce((n, c) => n + c.charCodeAt(0), 0) % 6]);
+  const tint = $derived(tileTint(pkg));
 </script>
 
 {#if src}
@@ -16,5 +17,5 @@
 <style>
   img { flex: none; border-radius: 22%; }
   /* Not `.tile`, the shared card shell, whose padding would squeeze the letter. */
-  .letter { flex: none; border-radius: 22%; display: grid; place-items: center; color: #fff; font-weight: 700; opacity: .85; }
+  .letter { flex: none; border-radius: 22%; display: grid; place-items: center; color: var(--ink); font-weight: 700; opacity: .85; }
 </style>

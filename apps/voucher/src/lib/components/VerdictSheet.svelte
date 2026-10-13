@@ -104,13 +104,13 @@
   .why { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--night-ink); opacity: .8; }
   .answers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
   /* The shared button, tinted for the Curfew sheet; each answer warms to its own colour when pressed. */
-  .answers .btn { background: #1f2440; border-color: var(--night-voucher); }
+  .answers .btn { background: var(--night-raised); border-color: var(--night-voucher); }
   .answers .yes:hover, .answers .yes:active { background: var(--heat-1); }
   .answers .mostly:hover, .answers .mostly:active { background: var(--mostly); }
-  .answers .no:hover, .answers .no:active { background: #4a2626; }
+  .answers .no:hover, .answers .no:active { background: var(--worse-line); }
   .later { align-self: center; }
   /* The Markers step: the sheet's own gap between its parts, the chips tinted like the answers. */
-  .step { display: flex; flex-direction: column; gap: 14px; --chip-bg: #1f2440; --chip-line: var(--night-voucher); }
+  .step { display: flex; flex-direction: column; gap: 14px; --chip-bg: var(--night-raised); --chip-line: var(--night-voucher); }
   .kept { margin: 0 0 -8px; color: var(--night); }
-  .done { align-self: center; min-width: 120px; margin-top: 4px; background: #1f2440; border-color: var(--night-voucher); }
+  .done { align-self: center; min-width: 120px; margin-top: 4px; background: var(--night-raised); border-color: var(--night-voucher); }
 </style>

@@ -1,5 +1,6 @@
 // Sample Ledger replies for design checks in a plain browser, where there is
 // no Tauri and no Ledger. Mirrors the round 4 canvas with neutral task names.
+import { swatch } from "./palette";
 import type { Blocklist, DaySummary, DayTotal, Entry, Source } from "./types";
 import { measuresRoute, sampleCalendarChoice, withMeasures } from "./sampleExtra";
 
@@ -166,22 +167,22 @@ const settings = {
       labels: { "md.obsidian": "Obsidian", "win:Obsidian.exe": "Obsidian for Windows" } },
     reading: { name: "Reading", kind: "focus", on: true, every: 30, packages: ["com.readermobile", "com.flyersoft.moonreaderp", "com.shortform.app", "site:readwise.io"],
       labels: { "com.readermobile": "Readwise Reader", "com.flyersoft.moonreaderp": "Moon+ Reader Pro", "com.shortform.app": "Shortform", "site:readwise.io": "readwise.io" } },
-    chinese: { name: "Chinese", kind: "focus", on: true, every: 30, packages: ["com.pleco.chinesesystem", "com.duolingo"], color: "#9be36d",
+    chinese: { name: "Chinese", kind: "focus", on: true, every: 30, packages: ["com.pleco.chinesesystem", "com.duolingo"], color: swatch("Light olive"),
       labels: { "com.pleco.chinesesystem": "Pleco", "com.duolingo": "Duolingo" } },
     anki: { name: "Anki", kind: "focus", on: false, every: 30, packages: ["com.ichi2.anki"], labels: { "com.ichi2.anki": "AnkiDroid" } },
     steps: { name: "Steps", kind: "steps", on: true, every: 2000, packages: [] },
   } as Record<string, Source>,
   blocklists: {
-    instagram: { name: "Instagram", color: "#e5609b", premade: true, on: true,
+    instagram: { name: "Instagram", color: swatch("Rose"), premade: true, on: true,
       apps: [app("com.instagram.android", "Instagram")], sites: [site("instagram.com", "All subdomains")] },
-    youtube: { name: "YouTube", color: "#874c69", premade: true, on: true,
+    youtube: { name: "YouTube", color: swatch("Deep rose"), premade: true, on: true,
       apps: [app("com.google.android.youtube", "YouTube"), app("org.schabi.newpipe", "NewPipe", "Alternative viewer"),
         app("com.github.libretube", "LibreTube", "Alternative viewer")],
       sites: [site("youtube.com", "All subdomains"), site("youtu.be"),
         site("list:invidious", "Known public instances, kept up to date"), site("list:piped", "Known public instances, kept up to date")] },
-    reddit: { name: "Reddit", color: "#e2781f", premade: true, on: true,
+    reddit: { name: "Reddit", color: swatch("Orange"), premade: true, on: true,
       apps: [app("com.reddit.frontpage", "Reddit")], sites: [site("reddit.com", "All subdomains")] },
-    games: { name: "Games", color: "#d26ec1", premade: false, on: true,
+    games: { name: "Games", color: swatch("Purple"), premade: false, on: true,
       apps: [app("com.example.chess", "Chess", null, true), app("com.example.puzzle", "Puzzle", null, true),
         app("com.example.cards", "Cards", null, true), app("com.example.words", "Words", null, true)], sites: [] },
   } as Record<string, Blocklist>,

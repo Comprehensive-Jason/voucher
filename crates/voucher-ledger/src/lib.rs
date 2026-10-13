@@ -130,13 +130,13 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
     let (name, color, apps, sites) = match id {
         "instagram" => (
             "Instagram",
-            "#e5609b",
+            "#e6688d",
             vec![app("com.instagram.android", "Instagram", None)],
             vec![site("instagram.com", all)],
         ),
         "youtube" => (
             "YouTube",
-            "#874c69",
+            "#966973",
             vec![
                 app("com.google.android.youtube", "YouTube", None),
                 app("org.schabi.newpipe", "NewPipe", viewer),
@@ -154,7 +154,7 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
         // games are covered without editing the list.
         "games" => (
             "Games",
-            "#7d8cff",
+            "#d26ec1",
             vec![
                 app("category:game", "Every game", Some("Apps marked as games")),
                 // Windows: launchers, since games start from them.
@@ -174,7 +174,7 @@ pub fn premade_blocklist(id: &str) -> Option<Blocklist> {
         // they stay paused outside Unlocks like any Distraction.
         "browsers" => (
             "Other browsers",
-            "#5bc8ff",
+            "#7dd9fb",
             vec![
                 app(
                     "com.sec.android.app.sbrowser",
@@ -926,6 +926,7 @@ fn set_up_already() -> bool {
 impl Ledger {
     pub fn new(mut settings: Settings, key: SigningKey, started_at: Timestamp) -> Self {
         upgrade_sources(&mut settings.sources);
+        upgrade_colors(&mut settings);
         Ledger {
             key,
             state: State {
@@ -962,6 +963,7 @@ impl Ledger {
     pub fn load(saved: &str, key: SigningKey) -> Result<Self, serde_json::Error> {
         let mut state: State = serde_json::from_str(saved)?;
         upgrade_sources(&mut state.settings.sources);
+        upgrade_colors(&mut state.settings);
         // Waiting changes to Todoist or ClickUp now belong to the Tasks group.
         for (change, _) in &mut state.pending {
             if let Change::Source { id, .. } | Change::SourceColor { id, .. } = change {
@@ -2325,6 +2327,52 @@ fn same_setting(a: &Change, b: &Change) -> bool {
         (Some(x), Some(y)) => x == y,
         (None, None) => std::mem::discriminant(a) == std::mem::discriminant(b),
         _ => false,
+    }
+}
+
+/// Old colors a Ledger may still hold, and the swatch each became: the
+/// swatches that moved in the 2026-10 retheme, and the off-palette premade
+/// blocklist colors. Mirrors LEGACY in the app's src/lib/palette.ts.
+const LEGACY_COLORS: [(&str, &str); 16] = [
+    ("#aeccfe", "#acd6ff"),
+    ("#9890d0", "#f698fe"),
+    ("#05736c", "#088988"),
+    ("#086e8a", "#1284a0"),
+    ("#015189", "#3c7cb5"),
+    ("#7a5589", "#8169a9"),
+    ("#8e4381", "#9b6090"),
+    ("#874c69", "#966973"),
+    ("#984b00", "#a5663a"),
+    ("#5a6c04", "#737f34"),
+    ("#616467", "#75787b"),
+    ("#e5609b", "#e6688d"),
+    ("#5bc8ff", "#7dd9fb"),
+    ("#9be36d", "#c1d58a"),
+    ("#c3a6ff", "#b57ae2"),
+    ("#7d8cff", "#d26ec1"),
+];
+
+/// A saved color as it shows now: the swatch an old one became, or itself.
+fn current_color(color: &str) -> Option<&'static str> {
+    let lower = color.to_ascii_lowercase();
+    LEGACY_COLORS
+        .iter()
+        .find(|(old, _)| *old == lower)
+        .map(|(_, new)| *new)
+}
+
+/// Brings saved source and blocklist colors onto the current palette, so
+/// every device draws them the same.
+fn upgrade_colors(settings: &mut Settings) {
+    for source in settings.sources.values_mut() {
+        if let Some(new) = source.color.as_deref().and_then(current_color) {
+            source.color = Some(new.into());
+        }
+    }
+    for list in settings.blocklists.values_mut() {
+        if let Some(new) = current_color(&list.color) {
+            list.color = new.into();
+        }
     }
 }
 

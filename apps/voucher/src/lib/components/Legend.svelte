@@ -66,6 +66,6 @@
   .goalbar::after { content: ""; position: absolute; left: 55%; top: -2px; width: 2px; height: 12px; background: var(--goal); }
   .split { width: 16px; height: 8px; border-radius: 2px; overflow: hidden; display: inline-flex; }
   .split b { flex: 1; }
-  .hatch { width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .35) 0 2px, transparent 2px 4px); }
+  .hatch { width: 10px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(135deg, var(--hatch-key) 0 2px, transparent 2px 4px); }
   .note { margin-left: auto; font-size: 11px; color: var(--axis-ink); }
 </style>

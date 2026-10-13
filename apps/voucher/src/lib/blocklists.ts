@@ -1,4 +1,5 @@
 // Shared wording for blocklists.
+import { swatch } from "./palette";
 import type { Blocklist } from "./types";
 
 /** "App, youtube.com, and alternative viewers" style summaries. */
@@ -28,7 +29,7 @@ export function siteName(site: string): string {
 }
 
 /** Colours new blocklists take in turn. None is the Curfew indigo, salmon, or gold. */
-export const LIST_COLORS = ["#e5609b", "#874c69", "#e2781f", "#d26ec1", "#5bc8ff", "#9be36d", "#c3a6ff"];
+export const LIST_COLORS = [swatch("Rose"), swatch("Deep rose"), swatch("Orange"), swatch("Purple"), swatch("Light cyan"), swatch("Light olive"), swatch("Violet")];
 
 /** Whether `host` is `site` or one of its subdomains: youtube.com covers m.youtube.com. */
 export const onSite = (host: string, site: string) => host === site || host.endsWith(`.${site}`);
@@ -45,7 +46,7 @@ export function blocklistOf(name: string, blocklists: Record<string, Blocklist>)
  *  none (Distraction time and the blocked-app screen use it). */
 export function blocklistColorOf(label: string, blocklists: Record<string, Blocklist>): string {
   const id = blocklistOf(label, blocklists);
-  return id ? blocklists[id].color : "#9aa0a6";
+  return id ? blocklists[id].color : "var(--other)";
 }
 
 /** One blocklist's share of some Distraction minutes, in its colour. */
@@ -62,7 +63,7 @@ export function minutesByList(used: Record<string, number> | undefined, lists: R
     const said = lists?.[app];
     const id = said && blocklists[said] ? said : blocklistOf(app, blocklists);
     const key = id ?? "~other";
-    const part = out.get(key) ?? (id ? { id, name: blocklists[id].name, color: blocklists[id].color, minutes: 0 } : { id: key, name: "Other", color: "#9aa0a6", minutes: 0 });
+    const part = out.get(key) ?? (id ? { id, name: blocklists[id].name, color: blocklists[id].color, minutes: 0 } : { id: key, name: "Other", color: "var(--other)", minutes: 0 });
     part.minutes += m;
     out.set(key, part);
   }

@@ -18,5 +18,5 @@
   .mark { color: var(--ink); background: color-mix(in oklab, var(--hue) 22%, var(--surface)); box-shadow: inset 0 -2px 0 var(--hue); border-radius: 3px 3px 0 0; padding: 0 2px; margin: 0 -2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   /* Several colors (a source's own): a band of source colors under the words in either look. */
   .multi { color: var(--ink); background: var(--hue) no-repeat left bottom / 100% 2px; box-shadow: none; padding-bottom: 1px; }
-  .mark.multi { background: var(--hue) no-repeat left bottom / 100% 2px, color-mix(in oklab, var(--ink) 10%, var(--surface)); }
+  .mark.multi { background: var(--hue) no-repeat left bottom / 100% 2px, var(--hatch); }
 </style>

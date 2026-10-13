@@ -10,27 +10,28 @@
 // fails type-check. Neutral outlines and rings aren't marked unless the
 // text names their color ("gray", "ink").
 import type { PanelId } from "./arrangement.svelte";
+import { swatch } from "./palette";
 
 /** Each hue's color on the card (`mark`, its theme token) and as 13px text on
- *  --surface (`text`, at least 4.5:1). The dark ones get a lighter tint of the
- *  same OKLCH hue for text: crimson #e85770 (5.1:1, token 2.7:1), the danger
- *  red #fe3e30 (5.0:1, token 4.49:1), sleep #8b8ff0 (the --sleep
- *  violet-blue lightened), and calendar #bc46ff (4.6:1, token 3.4:1). `sources` has no one color: the words
+ *  --surface (`text`, at least 4.5:1). The dark ones use their -text token,
+ *  a lighter tint of the same OKLCH hue: crimson (5.0:1, token 3.1:1), the
+ *  danger red (5.0:1, token 4.49:1), sleep (5.0:1, token 3.0:1), and
+ *  calendar (5.0:1, token 3.4:1). `sources` has no one color: the words
  *  get a band of source colors under them instead. */
 export const HUES = {
   green: { mark: "var(--voucher)", text: "var(--voucher)" },
   mostly: { mark: "var(--mostly-ink)", text: "var(--mostly-ink)" },
   gold: { mark: "var(--goal)", text: "var(--goal)" },
   salmon: { mark: "var(--spend)", text: "var(--spend)" },
-  crimson: { mark: "var(--worse)", text: "#e85770" },
-  red: { mark: "var(--danger)", text: "#fe3e30" },
+  crimson: { mark: "var(--worse)", text: "var(--worse-text)" },
+  red: { mark: "var(--danger)", text: "var(--danger-text)" },
   marker: { mark: "var(--marker)", text: "var(--marker)" },
-  sleep: { mark: "var(--sleep)", text: "#8b8ff0" },
-  calendar: { mark: "var(--calendar)", text: "#bc46ff" },
+  sleep: { mark: "var(--sleep)", text: "var(--sleep-text)" },
+  calendar: { mark: "var(--calendar)", text: "var(--calendar-text)" },
   night: { mark: "var(--night)", text: "var(--night)" },
   gray: { mark: "var(--muted)", text: "var(--muted)" },
   ink: { mark: "var(--ink)", text: "var(--ink)" },
-  sources: { mark: "linear-gradient(90deg, #05afa5, #289ffb, #b57ae2, #e6688d, #8ba60c)", text: "var(--ink)" },
+  sources: { mark: `linear-gradient(90deg, ${swatch("Teal")}, ${swatch("Blue")}, ${swatch("Violet")}, ${swatch("Rose")}, ${swatch("Olive")})`, text: "var(--ink)" },
 } as const;
 export type Hue = keyof typeof HUES;
 
@@ -91,7 +92,7 @@ export const ABOUT = checked({
   heat: {
     for: "How each Day went at a glance, across the weeks and the year.",
     read: [
-      "One {green:square} per Day, a column per week starting Monday. {green:Greener} means more Vouchers, measured against the Daily goal. A {gold:gold square} met the goal.",
+      "One {green:square} per Day, a column per week starting Monday. {green:Greener} means more Vouchers, measured against the Daily goal. A {gold:gold square} with a dark dot met the goal.",
       "A {marker:corner tick} marks a Day with a Marker.",
       "Swipe back for earlier weeks. Year fits the last 53 weeks into the same width.",
       "Tap a square to show that Day on the other cards. The outlined square is the Day they show, and Today brings you back.",
@@ -234,7 +235,7 @@ export const ABOUT = checked({
     read: [
       "The table counts your answers to the Curfew question, \"Did today go the way you wanted?\", over the last 8 weeks, split by whether the goal was met.",
       "Goal Days that went badly and missed Days that went well are the ones to look at. They say the goal or the sources may be weighing the wrong things.",
-      "The strip shows the last 4 weeks, one square a Day. {green:Bright green} is Yes, {mostly:dim green} Mostly, {crimson:crimson} No, and {gray:gray} no answer. A {gold:gold frame} means the goal was met, and a {marker:corner tick} marks a Marker.",
+      "The strip shows the last 4 weeks, one square a Day. {green:Bright green} is Yes, a {mostly:half-filled dim green} square Mostly, {crimson:crimson} No, and {gray:gray} no answer. A {gold:gold frame} means the goal was met, and a {marker:corner tick} marks a Marker.",
       "Once there are 10 answers, the line underneath says what any mismatch suggests.",
     ],
   },

@@ -48,7 +48,7 @@ object Moments {
             .setStyle(Notification.BigTextStyle().bigText(text))
             .setContentIntent(open)
             .setAutoCancel(true)
-            .setColor(0xFF3DDC84.toInt())
+            .setColor(VoucherColors.VOUCHER)
         if (tear) builder.addAction(Notification.Action.Builder(null, "Unlock $unlockMinutes min", Surfaces.tearIntent(ctx)).build())
         builder.addAction(Notification.Action.Builder(null, "Open", open).build())
         ctx.getSystemService(NotificationManager::class.java).notify(ID, builder.build())

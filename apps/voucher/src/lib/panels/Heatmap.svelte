@@ -176,7 +176,7 @@
   <!-- In a tablet slot the key always shows, on one line under the grid. -->
   {#if keyBelow || inSlot}
     <Legend scale={{ from: "Fewer", colors: HEAT, to: "More" }} items={[
-      { kind: "box", color: "var(--goal)", label: `Goal met, ${goal}+` },
+      { kind: "box", color: "var(--goal-mark)", label: `Goal met, ${goal}+` },
       ...markerKeys(notes.markers, "corner"),
     ]} />
   {/if}
@@ -220,7 +220,9 @@
   /* The Day the hour chart is showing. */
   .h.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
   button.h:focus-visible { outline: 2px solid var(--voucher); outline-offset: 1px; }
-  .h1 { background: var(--heat-1); } .h2 { background: var(--heat-2); } .h3 { background: var(--heat-3); } .h4 { background: var(--goal); }
+  .h1 { background: var(--heat-1); } .h2 { background: var(--heat-2); } .h3 { background: var(--heat-3); }
+  /* Goal met: gold with a dark dot, since gold and full green merge for protanopes. */
+  .h4 { background: var(--goal-mark); }
   .h.blank { background: transparent; }
   .wide { padding: 18px; border-radius: 18px; flex: none; }
 </style>

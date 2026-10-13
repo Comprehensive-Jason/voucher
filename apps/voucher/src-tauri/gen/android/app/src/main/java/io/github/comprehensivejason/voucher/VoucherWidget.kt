@@ -24,21 +24,15 @@ class VoucherWidget : AppWidgetProvider() {
     }
 
     companion object {
-        /** Default colours for the sources Voucher ships with; the Ledger sends
-         *  each source's name, and its colour once one is chosen. */
-        private val DEFAULT_COLORS = mapOf(
-            "tasks" to 0xFF289FFB, "obsidian" to 0xFFB57AE2, "workout" to 0xFFE2781F,
-            "reading" to 0xFFC1D58A, "anki" to 0xFFF4B3EC, "steps" to 0xFF05AFA5,
-        )
-
         private fun nameOf(s: JSONObject) = s.optString("name").ifEmpty { s.optString("id") }
 
-        /** A source's colour: the one chosen on Rules, or the shipped default. */
-        fun colorOf(s: JSONObject): Int {
-            val chosen = s.optString("color")
-            if (chosen.length == 7 && chosen.startsWith("#")) return (0xFF000000 or chosen.substring(1).toLong(16)).toInt()
-            return (DEFAULT_COLORS[s.optString("id")] ?: 0xFFC9CDD1).toInt()
-        }
+        /** A source's colour: the one chosen on Rules (a swatch that moved in a
+         *  retheme shows as the one it became), or the shipped default. The
+         *  Ledger sends each source's name, and its colour once one is chosen. */
+        fun colorOf(s: JSONObject): Int =
+            VoucherColors.parse(s.optString("color"))
+                ?: VoucherColors.SOURCE_DEFAULTS[s.optString("id")]
+                ?: VoucherColors.INK_SOFT
 
         fun updateAll(ctx: Context, d: Decision) {
             val manager = AppWidgetManager.getInstance(ctx)
@@ -57,12 +51,12 @@ class VoucherWidget : AppWidgetProvider() {
             val zone = runCatching { ZoneId.of(d.status?.optJSONObject("settings")?.optString("time_zone")) }.getOrElse { ZoneId.systemDefault() }
             fun hm(unix: Long) = Instant.ofEpochSecond(unix).atZone(zone).toLocalTime().toString().take(5)
             val full = d.bankLimit > 0 && d.bank >= d.bankLimit
-            var accent = 0xFF3DDC84.toInt()
-            var valColor = 0xFFF2F2F0.toInt()
-            var labelColor = 0xFFA3A8AD.toInt()
+            var accent = VoucherColors.VOUCHER
+            var valColor = VoucherColors.INK
+            var labelColor = VoucherColors.MUTED
             var button = "Unlock"
-            var buttonBg = 0xFF3DDC84.toInt()
-            var buttonInk = 0xFF07170D.toInt()
+            var buttonBg = VoucherColors.VOUCHER
+            var buttonInk = VoucherColors.VOUCHER_ON
             var tear = true
             var label2 = ""
             v.setTextViewText(R.id.`val`, d.bank.toString())
@@ -71,9 +65,9 @@ class VoucherWidget : AppWidgetProvider() {
             when {
                 d.status == null -> { label = "Not connected"; button = "Open Voucher"; tear = false }
                 d.curfew -> {
-                    accent = 0xFF7D8CFF.toInt(); valColor = 0xFFC9CFFF.toInt(); labelColor = 0xFF9AA6FF.toInt()
+                    accent = VoucherColors.NIGHT; valColor = VoucherColors.NIGHT_INK; labelColor = VoucherColors.NIGHT_MUTED
                     label = "Curfew · open at ${d.curfewEnd.take(5)}"; button = "Sleep well"
-                    buttonBg = 0xFF1B2350.toInt(); buttonInk = 0xFFC9CFFF.toInt(); tear = false
+                    buttonBg = VoucherColors.NIGHT_STACK_2; buttonInk = VoucherColors.NIGHT_INK; tear = false
                 }
                 d.unlockEndsAt != null -> {
                     val left = (d.unlockEndsAt - System.currentTimeMillis() / 1000).coerceAtLeast(0)
@@ -81,16 +75,16 @@ class VoucherWidget : AppWidgetProvider() {
                     v.setTextViewText(R.id.unit, "")
                     valColor = accent
                     label = "left · locks ${hm(d.unlockEndsAt)}"; label2 = "${d.bank} banked"
-                    button = "Unlocked until ${hm(d.unlockEndsAt)}"; buttonBg = 0xFF14251B.toInt(); buttonInk = accent; tear = false
+                    button = "Unlocked until ${hm(d.unlockEndsAt)}"; buttonBg = VoucherColors.VOUCHER_WASH; buttonInk = accent; tear = false
                 }
                 full -> {
-                    accent = 0xFFFFB547.toInt(); valColor = accent; labelColor = accent
+                    accent = VoucherColors.GOAL; valColor = accent; labelColor = accent
                     label = "Bank full"; label2 = "new earnings are lost"
                 }
                 d.bank == 0 -> {
-                    valColor = 0xFFA3A8AD.toInt(); label = "Bank empty"
+                    valColor = VoucherColors.MUTED; label = "Bank empty"
                     label2 = closest(d)?.let { "${it.first}: ${it.second} min to go" } ?: ""
-                    button = "No Vouchers"; buttonBg = 0xFF2A2E33.toInt(); buttonInk = 0xFFA3A8AD.toInt(); tear = false
+                    button = "No Vouchers"; buttonBg = VoucherColors.LINE; buttonInk = VoucherColors.MUTED; tear = false
                 }
                 else -> label = "in the Bank · locked"
             }
@@ -104,7 +98,7 @@ class VoucherWidget : AppWidgetProvider() {
                 if (id == 0) continue
                 // Only as many cells as the Bank holds; a limit of 12 leaves one row.
                 v.setViewVisibility(id, if (i < d.bankLimit.coerceAtLeast(1)) android.view.View.VISIBLE else android.view.View.GONE)
-                v.setColorStateList(id, "setImageTintList", ColorStateList.valueOf(if (i < d.bank) accent else 0xFF2A2E33.toInt()))
+                v.setColorStateList(id, "setImageTintList", ColorStateList.valueOf(if (i < d.bank) accent else VoucherColors.LINE))
             }
             v.setTextViewText(R.id.goal, "Today ${d.earned} of ${d.goal}")
             v.setTextViewText(R.id.streak, if (d.streak > 0) "${d.streak} day streak" else "No streak")

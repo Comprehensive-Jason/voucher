@@ -4,7 +4,7 @@
   // salmon meant Unlock, or near gold (the Daily goal), still shows as the
   // current one, but is no longer offered.
   import Sheet from "./Sheet.svelte";
-  import { PALETTE, nearGoal, nearSpend } from "../palette";
+  import { PALETTE, current as latest, nearGoal, nearSpend } from "../palette";
 
   let { title, current, fallback = null, onpick, onclose }: {
     title: string;
@@ -14,16 +14,18 @@
     onpick: (color: string | null) => void;
     onclose: () => void;
   } = $props();
-  const retired = $derived(nearSpend(current) ? "salmon, which means Unlock" : nearGoal(current) ? "gold, which means the Daily goal" : null);
+  // A saved swatch that moved in a retheme shows as, and checks, the one it became.
+  const now = $derived(latest(current).toLowerCase());
+  const retired = $derived(nearSpend(now) ? "salmon, which means Unlock" : nearGoal(now) ? "gold, which means the Daily goal" : null);
 </script>
 
 <Sheet {onclose}>
-  <div class="head"><h2>{title}</h2><span class="now" style="background: {current}"></span></div>
+  <div class="head"><h2>{title}</h2><span class="now" style="background: {now}"></span></div>
   {#if retired}<p class="lead">This color is too close to {retired}, so it's no longer offered. Pick another.</p>{/if}
   <div class="grid" style="--cols: {PALETTE[0].length}" role="radiogroup" aria-label="Colors">
     {#each PALETTE.flat() as swatch}
-      <button class="swatch" class:on={swatch.color === current.toLowerCase()} style="background: {swatch.color}"
-        role="radio" aria-checked={swatch.color === current.toLowerCase()} aria-label={swatch.name}
+      <button class="swatch" class:on={swatch.color === now} style="background: {swatch.color}"
+        role="radio" aria-checked={swatch.color === now} aria-label={swatch.name}
         onclick={() => onpick(swatch.color)}></button>
     {/each}
   </div>

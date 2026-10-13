@@ -4,6 +4,7 @@
 export const custom = $state<{ sources: Record<string, string>; names: Record<string, string> }>({ sources: {}, names: {} });
 
 import { untrack } from "svelte";
+import { current } from "./palette";
 
 type Named = { name?: string | null; color?: string | null };
 
@@ -17,7 +18,8 @@ export function rememberSources(sources: Record<string, Named | string> | (Named
   const names: Record<string, string> = untrack(() => ({ ...custom.names }));
   for (const [id, v] of entries) {
     const color = typeof v === "string" ? v : v?.color;
-    if (color) colors[id] = color;
+    // A swatch that moved in a retheme shows as the one it became.
+    if (color) colors[id] = current(color);
     if (typeof v !== "string" && v?.name) names[id] = v.name;
   }
   // Only a real change is written, so nothing redraws for nothing.

@@ -74,11 +74,11 @@
   .track { position: relative; height: 28px; touch-action: none; cursor: pointer; }
   .rail { position: absolute; top: 11px; height: 6px; border-radius: 3px; }
   .strictness { background: var(--voucher); }
-  .room { background: repeating-linear-gradient(135deg, #3a3f45 0 4px, #22262a 4px 8px); }
-  .knob { position: absolute; top: 2px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px rgba(61, 220, 132, .25); }
-  .knob.goal { box-shadow: 0 0 0 4px rgba(255, 181, 71, .25); }
+  .room { background: repeating-linear-gradient(135deg, var(--line-strong) 0 4px, var(--well) 4px 8px); }
+  .knob { position: absolute; top: 2px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px var(--voucher-glow); }
+  .knob.goal { box-shadow: 0 0 0 4px var(--goal-glow); }
   .unlock .strictness { background: var(--spend); }
-  .unlock .knob { box-shadow: 0 0 0 4px color-mix(in srgb, var(--spend) 25%, transparent); }
+  .unlock .knob { box-shadow: 0 0 0 4px var(--spend-glow); }
   .small .knob { top: 4px; width: 20px; height: 20px; margin-left: -10px; box-shadow: none; }
   .small .ghost { top: 4px; width: 18px; height: 18px; margin-left: -9px; }
   .ghost { position: absolute; top: 2px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; border: 2px dashed var(--goal); }

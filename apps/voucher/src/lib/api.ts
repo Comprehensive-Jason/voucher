@@ -6,6 +6,7 @@ import type { CalendarChoice, CalendarDay, CalendarId, DayTotal, DeviceCalendars
 import { sampleLedger } from "./sample";
 import { sampleDeviceCalendars } from "./sampleExtra";
 import { rememberSources } from "./colors.svelte";
+import { current } from "./palette";
 
 /** Fired after any change to the Ledger's settings, for panels to reload. */
 export const RULES_CHANGED = "voucher:rules-changed";
@@ -148,6 +149,9 @@ export async function ledger<T>(method: "GET" | "POST", path: string, body?: unk
   const reply = await watched(() => (inTauri
     ? invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })
     : previewReply<T>(method, path, body)), method, path);
+  // A blocklist saved in a swatch that moved in a retheme draws as the one it became.
+  const lists = (reply as { settings?: { blocklists?: Record<string, { color: string }> } } | null)?.settings?.blocklists;
+  for (const list of Object.values(lists ?? {})) if (list?.color) list.color = current(list.color);
   if (path === "/status" || (method === "POST" && path.startsWith("/cancel"))) lastStatus = reply as Status;
   // A settings change tells every panel showing settings to look again, so
   // e.g. a loosening made under Sources shows at once among Limits' changes.

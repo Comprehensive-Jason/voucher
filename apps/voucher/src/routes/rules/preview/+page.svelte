@@ -36,26 +36,28 @@
     const g = c.getContext("2d")!;
     const w = c.width, h = c.height;
     const curfew = d.curfewActive;
-    g.fillStyle = curfew ? "#151935" : "#0e0f11";
+    // A canvas can't read var(), so the tokens are looked up (VoucherColors.kt mirrors them).
+    const css = getComputedStyle(c), token = (name: string) => css.getPropertyValue(name).trim();
+    g.fillStyle = token(curfew ? "--night-bg" : "--ground");
     g.fillRect(0, 0, w, h);
     const limit = d.bankLimit || 24;
     const top = h - h * Math.min(1, Math.max(0, d.bank / limit)) * 0.62;
     let parts = d.sources.filter((s) => s.earned > 0).map((s) => ({ color: styleOf(s.id).color, n: s.earned }));
-    if (!parts.length) parts = [{ color: "#6c7177", n: 1 }];
+    if (!parts.length) parts = [{ color: token("--faint"), n: 1 }];
     const total = parts.reduce((a, p) => a + p.n, 0);
     let x = 0;
     for (const p of parts) {
       const bw = (w * p.n) / total;
       g.globalAlpha = curfew ? 110 / 255 : 95 / 255;
-      g.fillStyle = curfew ? "#2e3a78" : p.color;
+      g.fillStyle = curfew ? token("--night-voucher") : p.color;
       g.fillRect(x, top, bw, h - top);
       x += bw;
     }
     g.globalAlpha = 70 / 255;
-    g.fillStyle = curfew ? "#7d8cff" : "#ffffff";
+    g.fillStyle = token(curfew ? "--night" : "--ink");
     g.fillRect(0, top, w, h * 0.003);
     g.globalAlpha = 0.8;
-    g.fillStyle = "#f2f2f0";
+    g.fillStyle = token("--ink");
     g.font = `700 ${w * 0.035}px "JetBrains Mono", monospace`;
     let line = `${d.bank} of ${limit} in the Bank`;
     if (d.goalTarget > 0) line += `  ·  today ${d.goalDone} of ${d.goalTarget}`;
@@ -96,8 +98,8 @@
         <div class="watch" class:night={data.curfewActive}>
           <svg viewBox="0 0 200 200" role="img" aria-label="Watch Tile">
             <!-- The Bank, the outer ring. -->
-            <circle cx="100" cy="100" r={bank.r} fill="none" stroke="#1d4d33" stroke-width="12" />
-            <circle cx="100" cy="100" r={bank.r} fill="none" stroke={data.curfewActive ? "#7d8cff" : "#3ddc84"} stroke-width="12" stroke-linecap="round" stroke-dasharray={bank.dash} transform="rotate(-90 100 100)" />
+            <circle cx="100" cy="100" r={bank.r} fill="none" stroke="var(--voucher-line)" stroke-width="12" />
+            <circle cx="100" cy="100" r={bank.r} fill="none" stroke={data.curfewActive ? "var(--night)" : "var(--voucher)"} stroke-width="12" stroke-linecap="round" stroke-dasharray={bank.dash} transform="rotate(-90 100 100)" />
             <!-- The three sources closest to their next Voucher, inside it. -->
             {#each closest as s, i}
               {@const r = ring(68 - i * 15, s.share)}
@@ -124,11 +126,11 @@
   .row { display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start; }
   figure { margin: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
   figcaption { font-size: 13px; color: var(--muted); max-width: 300px; text-align: center; }
-  .phone { width: 240px; aspect-ratio: 480 / 1040; border-radius: 28px; overflow: hidden; border: 6px solid #2a2e33; }
+  .phone { width: 240px; aspect-ratio: 480 / 1040; border-radius: 28px; overflow: hidden; border: 6px solid var(--line); }
   .phone canvas { width: 100%; height: 100%; display: block; }
-  .watch { width: 260px; aspect-ratio: 1; border-radius: 50%; background: #000; border: 10px solid #2a2e33; padding: 14px; box-sizing: border-box; }
+  .watch { width: 260px; aspect-ratio: 1; border-radius: 50%; background: #000; border: 10px solid var(--line); padding: 14px; box-sizing: border-box; }
   .watch svg { width: 100%; height: 100%; display: block; }
-  .watch .big { font: 700 34px var(--font); fill: #f2f2f0; }
-  .watch .small { font: 600 12px var(--mono); fill: #a3a8ad; }
+  .watch .big { font: 700 34px var(--font); fill: var(--ink); }
+  .watch .small { font: 600 12px var(--mono); fill: var(--muted); }
   .watch circle { transition: stroke-dasharray var(--t-move) var(--ease-out), stroke var(--t-base); }
 </style>

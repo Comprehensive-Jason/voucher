@@ -25,7 +25,7 @@ object Questions {
     const val VERDICT = "io.github.comprehensivejason.voucher.VERDICT"
     const val REASON = "io.github.comprehensivejason.voucher.REASON"
     /** Curfew indigo (--night). */
-    private val NIGHT = 0xFF7D8CFF.toInt()
+    private val NIGHT = VoucherColors.NIGHT
 
     /** The reasons offered on the notification; the app offers more. */
     private val REASONS = listOf("Bored", "Avoiding a task", "Tired")

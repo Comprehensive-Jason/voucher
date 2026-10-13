@@ -131,7 +131,7 @@
     </div>
     {/key}
     <Legend items={[
-      { kind: "box", color: "color-mix(in srgb, var(--muted) 30%, transparent)", label: `Middle half of a ${range === "week" ? "Day" : range === "month" ? "week" : "month"}'s stretches` },
+      { kind: "box", color: "var(--line-strong)", label: `Middle half of a ${range === "week" ? "Day" : range === "month" ? "week" : "month"}'s stretches` },
       { kind: "line", color: "var(--ink)", label: "Typical stretch" },
       ...markerKeys(marksShown),
     ]} />
