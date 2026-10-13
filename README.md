@@ -65,22 +65,38 @@ An administrator can stop any Windows service. If you use Windows as an administ
 ## Layout
 
 ```
+apps/
+  voucher/            the Voucher app (Tauri, for Android and Windows)
+  counterfoil/        Counterfoil, which reads the Ledger and never enforces (a browser app for now)
+packages/
+  core/               what both apps share, as source: theme, Ledger calls, charts, the dashboard
 crates/
   voucher-protocol/   Unlock format and signature checking, shared by Ledger and Rust Enforcers
   voucher-ledger/     the Ledger
   voucher-cli/        manual Enforcer for step 1
   voucher-guard/      the Windows Enforcer service
+dev/                  the test portal, palette and import checks, seeds
 docs/adr/             decision records
 ```
 
+The two apps and core are npm workspaces of the repository root ([ADR 0010](docs/adr/0010-two-apps-one-codebase.md)).
+
 ## Building
 
-Needs a Rust toolchain ([rustup](https://rustup.rs)).
+Needs a Rust toolchain ([rustup](https://rustup.rs)) and, for the apps, Node 24.
 
 ```sh
 cargo test
 cargo build --release
+
+npm ci                    # at the repository root: every workspace's packages
+npm run check             # svelte-check for core and both apps, and core's import check
+npm run build
+npm run dev:voucher       # http://localhost:1420
+npm run dev:counterfoil   # http://localhost:1430
 ```
+
+In a plain browser both apps show sample data; `?state=`, `?ledger=down`, and `?fault=` pick a situation (see `packages/core/src/api.ts`). To serve a dev build to a tablet on the network, set `TAURI_DEV_HOST` to this machine's address.
 
 ## Running the Ledger
 

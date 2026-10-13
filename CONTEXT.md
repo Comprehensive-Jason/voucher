@@ -14,6 +14,24 @@ _Avoid_: server, backend, verifier service
 A per-device program that blocks Distractions unless an Unlock is active. It can check an Unlock's signature but never create one.
 _Avoid_: blocker, client, agent
 
+### Apps
+
+**Counterfoil**:
+The companion app that reads the Ledger and shows how Days went beside sleep, calendars, and Markers. It never Redeems, never changes a rule, and writes only Markers (later, mood). A counterfoil is the stub kept as a record when a ticket is torn off. Voucher, the app, is the one that enforces (ADR 0010).
+_Avoid_: viewer, dashboard app, observer
+
+**Reporter**:
+The one app that sends a given kind of data to the Ledger: Voucher's Android app for workouts, steps, sleep, calendars, focus, and Distraction; Counterfoil for mood. No kind has two.
+_Avoid_: source (that's an Activity source), uploader
+
+**Insight**:
+A finding about what goes with what across Days, such as more focus on Days after a long night, with how sure it is. Shown, never acted on by itself.
+_Avoid_: correlation, tip, recommendation
+
+**Experiment**:
+A rule change made on purpose and tied to a Marker, so Before and after can say whether it worked.
+_Avoid_: trial, test
+
 ### Earning
 
 **Activity source**:

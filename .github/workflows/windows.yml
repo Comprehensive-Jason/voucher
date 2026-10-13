@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "apps/voucher/**"
+      - "packages/**"
       - "crates/**"
       - "package.json"
       - "package-lock.json"

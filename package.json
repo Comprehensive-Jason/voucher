@@ -4,10 +4,12 @@
   "license": "GPL-3.0-only",
   "workspaces": [
     "packages/core",
-    "apps/voucher"
+    "apps/voucher",
+    "apps/counterfoil"
   ],
   "scripts": {
     "dev:voucher": "npm run dev -w apps/voucher",
+    "dev:counterfoil": "npm run dev -w apps/counterfoil",
     "check": "npm run check --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "portal": "node dev/test-portal.mjs"
