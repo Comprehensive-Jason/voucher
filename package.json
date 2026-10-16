@@ -5,13 +5,16 @@
   "workspaces": [
     "packages/core",
     "apps/voucher",
-    "apps/counterfoil"
+    "apps/counterfoil",
+    "packages/mcp"
   ],
   "scripts": {
     "dev:voucher": "npm run dev -w apps/voucher",
     "dev:counterfoil": "npm run dev -w apps/counterfoil",
     "check": "npm run check --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "portal": "node dev/test-portal.mjs"
+    "portal": "node dev/test-portal.mjs",
+    "mcp:build": "npm run build -w packages/mcp",
+    "mcp:test": "npm test -w packages/mcp"
   }
 }

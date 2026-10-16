@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import { sveltekit } from "@sveltejs/kit/vite";
-// @ts-expect-error type error without @types/node package
 import process from "node:process";
 import { ledgerProxy } from "../../packages/core/ledgerProxy.js";
 import { mayCall } from "./src/lib/allowed.js";

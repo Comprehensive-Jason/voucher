@@ -1,0 +1,28 @@
+{
+  "name": "@voucher/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Counterfoil's MCP server: lets an AI assistant read the Ledger's Days, goals, and Insights, and set goals, with the Ledger's coach code.",
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "bin": {
+    "counterfoil-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "vite build",
+    "check": "tsc -p .",
+    "test": "vite build && node test/smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.31.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@types/node": "~24.19.0",
+    "@voucher/core": "0.1.0",
+    "svelte": "^5.56.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16"
+  }
+}

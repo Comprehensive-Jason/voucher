@@ -1,0 +1,23 @@
+{
+  // The server is TypeScript for Node, and it compiles core's source (the
+  // Insights engine) the way the apps do, so it checks with core's options.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "lib": ["esnext", "DOM", "DOM.Iterable"],
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "target": "esnext",
+    "noEmit": true,
+    "types": ["vite/client", "node"],
+    "paths": { "$core/*": ["../core/src/*"] }
+  },
+  "include": ["src/**/*.ts", "vite.config.ts"]
+}
