@@ -50,12 +50,13 @@ const lateEvening = (day: string) => hash(day, 60) < LATE_P;
 // How strongly the sample's links show (see the top of this file).
 const LATE_P = 0.3, LATE_BED = 135, AFTER_BREAK_P = 0.5, AFTER_BREAK = 0.6;
 
-/** The night ending on `day`'s morning, or null for one with no data at all. */
-export function sampleSleep(day: string): Sleep | null {
+/** The night ending on `day`'s morning, or null for one with no data at all;
+ *  `later` puts bedtime that many minutes later, for a shorter night. */
+export function sampleSleep(day: string, later = 0): Sleep | null {
   if (hash(day, 1) < 0.04) return null;
   // Friday and Saturday nights (waking Saturday and Sunday) run later and longer.
   const weekend = weekday(day) === 6 || weekday(day) === 0;
-  const bed = (weekend ? 50 : -15) + Math.round((hash(day, 2) - 0.5) * 90) + (lateEvening(shift(day, -1)) ? LATE_BED : 0);
+  const bed = (weekend ? 50 : -15) + Math.round((hash(day, 2) - 0.5) * 90) + (lateEvening(shift(day, -1)) ? LATE_BED : 0) + later;
   const wake = (weekend ? 9 * 60 + 20 : 7 * 60 + 25) + Math.round((hash(day, 3) - 0.5) * 70);
   const length = wake - bed;
   if (hash(day, 4) < 0.14) {
@@ -201,12 +202,22 @@ function plannedOf(d: DayTotal, b: ReturnType<typeof breaksOf>): PlannedBlock[] 
  *  their Unlocks, timed stretches, Distraction spans, and time blocks. */
 export function withMeasures<T extends DayTotal | DaySummary>(days: T[]): T[] {
   return days.map((d) => {
-    const sleep = sampleSleep(d.day), calendar = sampleCalendar(d.day);
     const shaped = "stretches" in d ? forInsights(d as DayTotal) : null;
+    const sleep = sampleSleep(d.day, laterForGoals(d.day, (shaped ?? d).by_source?.tasks ?? 0)), calendar = sampleCalendar(d.day);
     const breaks = shaped ? lateSpans(shaped, breaksOf(shaped)) : null;
     const extra = breaks ? { ...breaks, planned: plannedOf(shaped!, breaks) } : {};
     return { ...d, ...(shaped ?? {}), ...extra, sleep, calendar } as T;
   });
+}
+
+/** For the sample goals' findings (sample.ts' goals): a Day with 6 or more
+ *  Tasks Vouchers often follows a late night (a Tasks goal Day goes with
+ *  a missed Sleep goal), and most nights of the last 4 weeks run shorter
+ *  (the Sleep goal's hit rate falls). An earlier bedtime and a longer night
+ *  go together on their own (the Bedtime and Sleep goals help each other). */
+function laterForGoals(day: string, tasks: number): number {
+  const n = back(day);
+  return Math.max(tasks >= 6 && hash(day, 180) < 0.7 ? 90 : 0, n >= 1 && n <= 28 && hash(day, 181) < 0.9 ? 100 : 0);
 }
 
 /** A history Day shaped so Insights finds something of every kind. */

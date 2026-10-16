@@ -2,6 +2,7 @@
 // no Tauri and no Ledger. Mirrors the round 4 canvas with neutral task names.
 import { swatch } from "./palette";
 import type { Blocklist, DaySummary, DayTotal, Entry, Source } from "./types";
+import type { Goal, NewGoal } from "./goals";
 import { measuresRoute, SAMPLE_TODAY, sampleCalendarChoice, sampleExperimentMarkers, sampleOpenExperiments, withMeasures } from "./sampleExtra";
 
 const app = (pkg: string, label: string, note: string | null = null, added = false) =>
@@ -9,6 +10,10 @@ const app = (pkg: string, label: string, note: string | null = null, added = fal
 const site = (s: string, note: string | null = null, added = false) => ({ site: s, note, on: true, added });
 
 const TODAY = SAMPLE_TODAY;
+
+/** A setting from the page's address (`?state=streaklost`); none outside a
+ *  browser, where core also runs (the MCP server). */
+const asked = (name: string) => (typeof location === "undefined" ? null : new URLSearchParams(location.search).get(name));
 
 const earned = (time: string, task: string, title: string, day = TODAY): Entry =>
   ({ kind: "earned", at: `${day}T${time}:00-07:00`, task, title, kept: true });
@@ -45,7 +50,7 @@ const days: Record<string, DaySummary> = {
     ],
   },
   "2026-10-06": {
-    day: "2026-10-06", earned: new URLSearchParams(location.search).get("state") === "streaklost" ? 9 : 17, redeemed: 4, unlocked_minutes: 40, goal: 16, goal_met: new URLSearchParams(location.search).get("state") !== "streaklost",
+    day: "2026-10-06", earned: asked("state") === "streaklost" ? 9 : 17, redeemed: 4, unlocked_minutes: 40, goal: 16, goal_met: asked("state") !== "streaklost",
     goal_met_at: "2026-10-06T17:30:00-07:00", streak: 4, by_source: { tasks: 11, obsidian: 3, workout: 1, reading: 2 }, sources: [],
     usage: usage({ Instagram: [[9, 4], [12, 10], [16, 8], [21, 9]], YouTube: [[16, 12], [21, 6]], Reddit: [[12, 6]], Words: [[13, 5]] }),
     log: [
@@ -197,6 +202,26 @@ function nextMorning(): string {
 }
 let pending: [Record<string, unknown>, string][] = [[{ UnlockMinutes: 15 }, nextMorning()]];
 
+/** Sample goals besides the Daily goal (GET /goals lists that first, from
+ *  the setting): something of each kind for the Goals card and Insights.
+ *  `?goals=none` has none. */
+let goals: Goal[] = asked("goals") === "none" ? [] : [
+  { id: "g1", measure: "asleep", direction: "at_least", target: 360, period: "day", daily: false, created_at: "2026-08-03T09:00:00-07:00" },
+  { id: "g2", measure: "source:tasks", direction: "at_least", target: 6, period: "day", daily: false, created_at: "2026-08-03T09:00:00-07:00" },
+  { id: "g3", measure: "bedtime", direction: "at_most", target: 0, period: "day", daily: false, created_at: "2026-08-10T21:00:00-07:00" },
+  { id: "g4", measure: "source_days:workout", direction: "at_least", target: 3, period: "week", daily: false, created_at: "2026-08-17T08:00:00-07:00" },
+  { id: "g5", measure: "distraction", direction: "at_most", target: 300, period: "week", daily: false, created_at: "2026-09-01T08:00:00-07:00" },
+  { id: "g6", measure: "focus", direction: "at_least", target: 90, period: "day", daily: false, created_at: "2026-09-14T08:00:00-07:00" },
+];
+let goalIds = 6;
+
+/** GET /goals: the Daily goal from the setting, with a change waiting, then the rest. */
+function goalList(): Goal[] {
+  const waiting = pending.find(([c]) => "DailyGoal" in c);
+  return [{ id: "daily", measure: "vouchers", direction: "at_least", target: settings.daily_goal, period: "day", daily: true,
+    pending: waiting ? { target: Number(waiting[0].DailyGoal), at: waiting[1] } : null }, ...goals];
+}
+
 export function sampleLedger(method: string, path: string, body: unknown): unknown {
   const [route, query = ""] = path.split("?");
   const params = new URLSearchParams(query);
@@ -204,13 +229,25 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
   const measured = measuresRoute(method, route, body);
   if (measured !== undefined) return measured;
   if (route === "/status") {
-    const expired = new URLSearchParams(location.search).get("expired");
+    const expired = asked("expired");
     return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: withMeasures([days[TODAY]])[0],
       source_errors: expired ? { [expired]: "sign-in expired" } : {},
-      setup_complete: !new URLSearchParams(location.search).get("fresh"),
+      setup_complete: !asked("fresh"),
       first_day: "2026-06-29", log_first_day: "2026-10-01",
-      grace_until: new URLSearchParams(location.search).get("grace") ? "2026-10-11T13:00:00Z" : null,
+      grace_until: asked("grace") ? "2026-10-11T13:00:00Z" : null,
       blocked: { apps: [], sites: [] }, calendars: sampleCalendarChoice(), experiments: sampleOpenExperiments() };
+  }
+  if (route === "/goals") return goalList();
+  if (route === "/goal" && method === "POST") {
+    const b = body as NewGoal;
+    if (b.id === "daily") throw new Error("The Ledger refused this (409)");
+    if (b.id) goals = goals.map((g) => (g.id === b.id ? { ...g, ...b, id: g.id } : g));
+    else goals = [...goals, { ...b, id: `g${++goalIds}`, daily: false, created_at: new Date().toISOString() }];
+    return goalList();
+  }
+  if (route === "/goal/remove" && method === "POST") {
+    goals = goals.filter((g) => g.id !== (body as { id: string }).id);
+    return goalList();
   }
   if (route === "/day") {
     const d = params.get("date") ?? TODAY;
@@ -218,7 +255,7 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
   }
   // ?history=N in the page's address serves N Days whatever is asked: a short
   // one for empty states, a long one for What goes with a good Day.
-  if (route === "/history") return withMeasures(history(Number(new URLSearchParams(location.search).get("history") ?? params.get("days") ?? 84)));
+  if (route === "/history") return withMeasures(history(Number(asked("history") ?? params.get("days") ?? 84)));
   if (route === "/markers") return [...markers, ...sampleExperimentMarkers()].sort((a, c) => a.at.localeCompare(c.at));
   if (route === "/marker" && method === "POST") {
     const b = body as { text: string; at?: string };
@@ -257,6 +294,8 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
       group.packages = c.SourceApps!.packages;
       return "Now";
     }
+    // A newer Daily goal replaces one still waiting, as on the Ledger.
+    if ("DailyGoal" in (body as object)) pending = pending.filter(([c]) => !("DailyGoal" in c));
     pending = [...pending, [body as Record<string, unknown>, nextMorning()]];
     return { At: nextMorning() };
   }
