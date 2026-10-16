@@ -24,7 +24,9 @@ use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
 use voucher_ledger::{
     Change, DEFAULT_DAILY_GOAL, DaySummary, GoalRefusal, Ledger, NewGoal, Scheduled, Settings,
-    SourceKind, clickup, default_blocklists, default_sources,
+    SourceKind,
+    access::Access,
+    clickup, default_blocklists, default_sources,
     faults::{Fault, Faults},
     todoist,
 };
@@ -32,6 +34,9 @@ use voucher_ledger::{
 struct Config {
     /// Required on every request but `GET /key`, when set.
     access_code: Option<String>,
+    /// A second, narrower code: reads, goals, and the Daily goal only
+    /// (`voucher_ledger::access::Access::Coach`). None unless one is set.
+    coach_code: Option<String>,
     data_dir: PathBuf,
     listen: String,
     poll_minutes: u64,
@@ -55,6 +60,7 @@ impl Config {
         };
         Config {
             access_code: None,
+            coach_code: None,
             todoist_token_file: token_file("VOUCHER_TODOIST_TOKEN_FILE", "todoist.token"),
             clickup_token_file: token_file("VOUCHER_CLICKUP_TOKEN_FILE", "clickup.token"),
             data_dir,
@@ -103,6 +109,7 @@ fn main() {
     let mut config = Config::from_env();
     fs::create_dir_all(&config.data_dir).expect("create the data directory");
     config.access_code = load_or_create_access_code(&config.data_dir);
+    config.coach_code = load_coach_code(&config.data_dir, config.access_code.as_deref());
     let key = load_or_create_key(&config.data_dir);
     let state_path = config.data_dir.join("state.json");
     let ledger = match fs::read_to_string(&state_path) {
@@ -215,6 +222,47 @@ fn load_or_create_access_code(data_dir: &Path) -> Option<String> {
     Some(code)
 }
 
+/// The coach code: from VOUCHER_COACH_CODE, or the data folder's
+/// access.coach.code. There is none unless asked for: an empty
+/// access.coach.code asks, and the Ledger fills it with a fresh code. One
+/// the same as the access code is ignored, since it would grant everything.
+fn load_coach_code(data_dir: &Path, access_code: Option<&str>) -> Option<String> {
+    let file = data_dir.join("access.coach.code");
+    let code = match env::var("VOUCHER_COACH_CODE")
+        .ok()
+        .filter(|c| !c.trim().is_empty())
+    {
+        Some(code) => code.trim().to_string(),
+        None => {
+            let saved = fs::read_to_string(&file).ok()?;
+            let saved = saved.trim().to_string();
+            if saved.is_empty() {
+                let code = voucher_ledger::access::new_code();
+                fs::write(&file, format!("{code}\n")).expect("write access.coach.code");
+                restrict_to_owner(&file);
+                eprintln!(
+                    "created coach code {code} in {}: it reads, and sets goals and the Daily goal, nothing else",
+                    file.display()
+                );
+                code
+            } else {
+                saved
+            }
+        }
+    };
+    if access_code.is_none() {
+        eprintln!(
+            "warning: a coach code without an access code limits nothing; every request is allowed"
+        );
+        return None;
+    }
+    if Some(code.as_str()) == access_code {
+        eprintln!("warning: the coach code is the access code, so it is ignored");
+        return None;
+    }
+    Some(code)
+}
+
 fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, config: &Config) {
     let now = Timestamp::now();
     let header = request
@@ -222,9 +270,16 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
         .iter()
         .find(|h| h.field.equiv("Authorization"))
         .map(|h| h.value.as_str().to_string());
-    if request.url() != "/key"
-        && !voucher_ledger::access::authorized(config.access_code.as_deref(), header.as_deref())
-    {
+    let access = if request.url() == "/key" {
+        Some(Access::Full)
+    } else {
+        voucher_ledger::access::access(
+            config.access_code.as_deref(),
+            config.coach_code.as_deref(),
+            header.as_deref(),
+        )
+    };
+    let Some(access) = access else {
         let reply = Response::from_string(json(&Message {
             message: "access code missing or wrong",
         }))
@@ -232,9 +287,19 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap());
         let _ = request.respond(reply);
         return;
-    }
+    };
     let url = request.url().to_string();
     let (path, query) = url.split_once('?').unwrap_or((&url, ""));
+    // The coach code: refused here unless it's a read or a goal; a `/change`
+    // is checked once its body is read, below.
+    let method = request.method().as_str().to_string();
+    if access == Access::Coach
+        && path != "/change"
+        && !voucher_ledger::access::coach_allows(&method, path, false)
+    {
+        let _ = request.respond(coach_refused());
+        return;
+    }
     let forced = FAULTS
         .lock()
         .unwrap()
@@ -597,6 +662,18 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 .ok()
                 .and_then(|_| serde_json::from_str::<Change>(&body).ok());
             match parsed {
+                Some(change)
+                    if access == Access::Coach
+                        && !voucher_ledger::access::coach_allows(
+                            "POST",
+                            "/change",
+                            matches!(change, Change::DailyGoal(_)),
+                        ) =>
+                {
+                    drop(ledger);
+                    let _ = request.respond(coach_refused());
+                    return;
+                }
                 Some(change) => (200, json(&ledger.request(change, now))),
                 None => (
                     400,
@@ -977,6 +1054,15 @@ struct EndExperiment {
 #[derive(Serialize)]
 struct GoalRefused {
     refused: GoalRefusal,
+}
+
+/// What the coach code gets for anything outside its scope.
+fn coach_refused() -> Response<std::io::Cursor<Vec<u8>>> {
+    Response::from_string(json(&Message {
+        message: "the coach code may only read, set goals, and change the Daily goal",
+    }))
+    .with_status_code(403)
+    .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
 }
 
 /// An Experiment request the Ledger turned down, and why.
