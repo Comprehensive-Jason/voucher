@@ -23,8 +23,8 @@ use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
 use voucher_ledger::{
-    Change, DEFAULT_DAILY_GOAL, DaySummary, Ledger, Scheduled, Settings, SourceKind, clickup,
-    default_blocklists, default_sources,
+    Change, DEFAULT_DAILY_GOAL, DaySummary, GoalRefusal, Ledger, NewGoal, Scheduled, Settings,
+    SourceKind, clickup, default_blocklists, default_sources,
     faults::{Fault, Faults},
     todoist,
 };
@@ -606,6 +606,42 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 ),
             }
         }
+        // Every goal, the Daily goal first (see voucher_ledger::goals).
+        (Method::Get, "/goals") => (200, json(&ledger.goals(now))),
+        // Adds a goal, or edits one with its id: {"id"?, "measure",
+        // "direction", "target", "period"}. The Daily goal changes through
+        // /change instead. Answers every goal.
+        (Method::Post, "/goal") => match read_json::<NewGoal>(&mut request) {
+            Some(goal) => match ledger.save_goal(goal, now) {
+                Ok(_) => (200, json(&ledger.goals(now))),
+                Err(refusal) => (409, json(&GoalRefused { refused: refusal })),
+            },
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not a goal",
+                }),
+            ),
+        },
+        // Removes a goal: {"id"}. Answers every goal left.
+        (Method::Post, "/goal/remove") => match read_json::<FindingId>(&mut request) {
+            Some(g) => match ledger.remove_goal(&g.id) {
+                Ok(()) => (200, json(&ledger.goals(now))),
+                Err(GoalRefusal::Unknown) => (
+                    404,
+                    json(&GoalRefused {
+                        refused: GoalRefusal::Unknown,
+                    }),
+                ),
+                Err(refusal) => (409, json(&GoalRefused { refused: refusal })),
+            },
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not a goal's id",
+                }),
+            ),
+        },
         // Insights: the findings dismissed from the card, and every Experiment.
         (Method::Get, "/insights") => (
             200,
@@ -935,6 +971,12 @@ struct ExperimentJudged {
 struct EndExperiment {
     id: u32,
     keep: bool,
+}
+
+/// A goal the Ledger turned down, and why.
+#[derive(Serialize)]
+struct GoalRefused {
+    refused: GoalRefusal,
 }
 
 /// An Experiment request the Ledger turned down, and why.

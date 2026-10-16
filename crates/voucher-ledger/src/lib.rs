@@ -6,6 +6,7 @@
 pub mod access;
 pub mod clickup;
 pub mod faults;
+pub mod goals;
 pub mod insights;
 pub mod instances;
 pub mod measures;
@@ -26,6 +27,7 @@ use jiff::{
 use serde::{Deserialize, Serialize};
 use voucher_protocol::{Unlock, sign};
 
+pub use goals::{Direction, Goal, GoalRefusal, GoalView, NewGoal, Period};
 pub use insights::{Dismissal, Experiment, ExperimentRefusal, ExperimentStatus, ExperimentVerdict};
 pub use measures::{
     CalendarChoice, CalendarDay, CalendarId, CalendarRefusal, Sleep, SleepSession, SleepSource,
@@ -927,6 +929,14 @@ struct State {
     /// Every Experiment, oldest first. Kept for good, like Markers.
     #[serde(default)]
     experiments: Vec<Experiment>,
+    // Added 2026-10-15 for goals, empty when an older state.json loads; an
+    // older Ledger reading a newer file ignores them.
+    /// Every goal but the Daily goal (see `goals`), oldest first.
+    #[serde(default)]
+    goals: Vec<Goal>,
+    /// The last goal id given out, so none is ever reused.
+    #[serde(default)]
+    goal_ids: u32,
 }
 
 fn set_up_already() -> bool {
@@ -962,6 +972,8 @@ impl Ledger {
                 planned: BTreeMap::new(),
                 dismissed: BTreeMap::new(),
                 experiments: Vec::new(),
+                goals: Vec::new(),
+                goal_ids: 0,
             },
         }
     }
@@ -2214,11 +2226,13 @@ impl Ledger {
         let first = self.first_day(now);
         let today = day_of(&self.state.settings, now);
         let span = u32::try_from(first.until(today).map_or(0, |s| s.get_days())).unwrap_or(0) + 1;
+        let goals = self.goals(now);
         serde_json::json!({
             "exported_at": now,
             "days": self.history(span, now),
             "markers": self.state.markers,
             "settings": self.state.settings,
+            "goals": goals,
         })
     }
 }
