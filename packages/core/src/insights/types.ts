@@ -21,7 +21,11 @@ export type Kind =
   /** A new best. */
   | "record"
   /** Days in a row without the Daily goal, longer than usual. */
-  | "lapse";
+  | "lapse"
+  /** A goal's hit rate, the last 4 weeks against the 8 before. */
+  | "goal"
+  /** Days that meet one goal tending to meet or miss another. */
+  | "goal-pair";
 
 /** 1 Low, 2 Medium, 3 High. Records and lapses are counts, so they have none. */
 export type Confidence = 1 | 2 | 3;
@@ -42,7 +46,9 @@ export type Visual =
   /** The new best against the old one. */
   | { kind: "record"; old: number; best: number; labels: [string, string] }
   /** The last Days, met or missed, with the run under it. */
-  | { kind: "squares"; cells: ("met" | "missed" | "bad" | "good" | "none")[]; run: number };
+  | { kind: "squares"; cells: ("met" | "missed" | "bad" | "good" | "none")[]; run: number }
+  /** A goal's hit rate week by week (0 to 1, null unknown), the last `recent` weeks in the change's color. */
+  | { kind: "rates"; rates: (number | null)[]; recent: number; good: boolean };
 
 /** A rule change a finding suggests trying, as the confirm sheet shows it. */
 export type Suggestion = {
@@ -102,6 +108,11 @@ export type Finding = {
   absolute?: boolean;
   /** For an Experiment's verdict, its id. */
   experiment?: number;
+  /** For a goal finding, the goals it's about, and whether any of them is
+   *  about work (Vouchers, tasks, focus, Distraction, Unlocks): Voucher
+   *  shows only those. */
+  goals?: string[];
+  productive?: boolean;
 };
 
 /** An Experiment as the Ledger keeps it (GET /insights). */

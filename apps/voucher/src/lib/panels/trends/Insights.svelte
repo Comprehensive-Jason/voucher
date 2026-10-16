@@ -4,7 +4,8 @@
   // Experiment's row opens ExperimentSheet, and a judged one's proof asks
   // Keep it or Go back. When an Experiment's verdict Day comes, this works
   // the verdict out with Before and after and sends it to the Ledger, where
-  // the phone's Enforcer picks it up for its one notification.
+  // the phone's Enforcer picks it up for its one notification. Goal
+  // findings show only where a goal is about work: Counterfoil has the rest.
   import InsightsCard from "$core/insights/InsightsCard.svelte";
   import { judge, progress } from "$core/insights/experiments";
   import { insights } from "$core/insights/store.svelte";
@@ -12,6 +13,7 @@
   import type { Actions, Experiment, Finding } from "$core/insights/types";
   import { curfew } from "$core/curfew.svelte";
   import { notes } from "$core/notes.svelte";
+  import { statusNow } from "$core/api";
   import { actionFailed } from "$core/toast.svelte";
   import type { Blocklist, DayTotal, Pending, Settings } from "$core/types";
   import TrySheet from "$lib/components/TrySheet.svelte";
@@ -52,6 +54,7 @@
 </script>
 
 <!-- A Ledger from before Insights can't keep dismissals or run Experiments: then it shows findings only. -->
-<InsightsCard {history} {timeZone} {settings} {pending} {blocklists} actions={insights.kept ? actions : undefined} />
+<InsightsCard {history} {timeZone} {settings} {pending} {blocklists} actions={insights.kept ? actions : undefined}
+  sources={settings?.sources} logFirstDay={statusNow()?.log_first_day} dailyGoal={settings?.daily_goal} goalScope="productive" />
 {#if trying?.suggestion}<TrySheet f={trying} s={trying.suggestion} {today} onclose={() => (trying = null)} />{/if}
 {#if running}<ExperimentSheet e={running} {today} onclose={() => (running = null)} />{/if}

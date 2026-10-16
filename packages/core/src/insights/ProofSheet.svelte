@@ -23,7 +23,7 @@
     ondecide?: (e: Experiment, keep: boolean) => void;
   } = $props();
 
-  const KIND: Record<Finding["kind"], string> = { correlation: "Goes together", shift: "This week", planned: "Planned time", pattern: "Keeps happening", verdict: "Before and after", record: "Record", lapse: "Lapse" };
+  const KIND: Record<Finding["kind"], string> = { correlation: "Goes together", shift: "This week", planned: "Planned time", pattern: "Keeps happening", verdict: "Before and after", record: "Record", lapse: "Lapse", goal: "Goal", "goal-pair": "Goals together" };
   let width = $state(0);
   const t = $derived(f.proof.tested);
   const scale = $derived(t ? scaleFor([t], Math.max(120, width)) : null);

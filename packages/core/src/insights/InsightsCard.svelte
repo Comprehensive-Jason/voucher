@@ -16,6 +16,9 @@
   //
   // Under two weeks of history it says how many Days until the first
   // findings, with what each kind is waiting on.
+  //
+  // Goal findings come from the goals the Ledger keeps (GET /goals); with
+  // `goalScope="productive"` (Voucher) only those about work show.
   import TrendCard from "../components/TrendCard.svelte";
   import AboutText from "../components/AboutText.svelte";
   import ScrollCue from "../components/ScrollCue.svelte";
@@ -28,10 +31,11 @@
   import { notes } from "../notes.svelte";
   import { reveal } from "../motion";
   import { actionFailed } from "../toast.svelte";
-  import type { Blocklist, DayTotal, Pending, Settings } from "../types";
+  import type { Blocklist, DayTotal, Pending, Settings, Source } from "../types";
   import { cheapFindings, correlationFindings, FIRST_DAYS, insights as rankAll, waiting, type Context } from "./index";
   import { progress } from "./experiments";
   import { insights } from "./store.svelte";
+  import { goals as goalStore } from "../goals.svelte";
   import { emptyFoot, firstFindings, nothingYet, onDay, running as sayRunning, runningWhen } from "./text";
   import type { Actions, Experiment, Finding } from "./types";
   import Bars from "./Bars.svelte";
@@ -39,9 +43,17 @@
   import Visual from "./Visual.svelte";
   import ProofSheet from "./ProofSheet.svelte";
 
-  let { history, timeZone, settings = null, pending = [], blocklists, actions }: {
+  let { history, timeZone, settings = null, pending = [], blocklists, actions, sources = {}, logFirstDay, dailyGoal, goalScope = "all" }: {
     history: DayTotal[];
     timeZone: string;
+    /** The sources by id, for naming goals and telling work from health. */
+    sources?: Record<string, Source>;
+    /** GET /status's log_first_day. */
+    logFirstDay?: string;
+    /** The Daily goal setting, for a Ledger that doesn't keep goals. */
+    dailyGoal?: number;
+    /** Which goal findings show: every one, or only those about work. */
+    goalScope?: "all" | "productive";
     /** The rules now, for suggestions; null where none can be made. */
     settings?: Settings | null;
     pending?: Pending[];
@@ -51,7 +63,7 @@
   const fit = fitsSlot();
   // Asked again with each new history (the dashboard's poll), so the tablet
   // and the phone agree on what's dismissed and what's being tried.
-  $effect(() => { void history; insights.load(true); });
+  $effect(() => { void history; insights.load(true); goalStore.load(true, dailyGoal); });
   $effect(() => { notes.load(); });
 
   const TOP = 3;
@@ -62,6 +74,7 @@
   const ctx = $derived<Context>({
     days, today, current: history.at(-1) ?? null, timeZone, dayStart, curfewStart: Math.round(curfew.start * 60),
     blocklists, markers: notes.markers, settings, pending, experiments,
+    goals: goalStore.list, sources, logFirstDay,
   });
 
   // Everything but the correlations, on the main thread: worked out again
@@ -71,7 +84,8 @@
   const cheap = $derived.by(() => {
     const c = ctx;
     const key = JSON.stringify([c.days.map(readOf), c.days.map((d) => [d.planned?.length, d.verdict, d.goal_met, d.tears]), c.current?.earned, c.current?.stretches, c.current?.by_source,
-      c.markers.length, c.experiments, c.dayStart, c.curfewStart, Object.keys(c.blocklists), c.settings && [c.settings.curfew_start, c.settings.unlock_minutes, c.settings.daily_goal], c.pending.length]);
+      c.markers.length, c.experiments, c.dayStart, c.curfewStart, Object.keys(c.blocklists), c.settings && [c.settings.curfew_start, c.settings.unlock_minutes, c.settings.daily_goal], c.pending.length,
+      c.goals, c.current?.sleep, c.current?.goal_met, c.current?.tears, c.current?.used, c.logFirstDay]);
     if (key === lastKey) return lastCheap;
     lastKey = key;
     return (lastCheap = cheapFindings(c));
@@ -95,7 +109,7 @@
   });
   const correlations = $derived(found ? correlationFindings(found, setup) : []);
 
-  const list = $derived(rankAll(ctx, cheap, correlations, insights.state.dismissed, { suggestions: !!actions }));
+  const list = $derived(rankAll(ctx, cheap, correlations, insights.state.dismissed, { suggestions: !!actions, goals: goalScope }));
   const top = $derived(list.slice(0, TOP));
   const rest = $derived(list.slice(TOP));
   /** Experiments running, shown as rows in progress (Voucher only). */

@@ -14,6 +14,8 @@
   //             under a lapse; with Curfew answers, a crimson frame for a
   //             goal Day that went badly and green for a missed one that
   //             went well.
+  //   rates     a goal's hit rate week by week as bars on a track, the
+  //             last weeks in the change's color, a dash where unknown.
   //   days      an Experiment's measured Days, done, today, and to come.
   import type { Visual } from "./types";
   let { v, w, h, big = false, axis }: { v: Visual | { kind: "days"; day: number; of: number }; w: number; h: number; big?: boolean; axis?: [string, string, string] } = $props();
@@ -70,6 +72,14 @@
     if (v.kind !== "record") return null;
     const lo = Math.max(0, v.old - (v.best - v.old) * 3), x = (val: number) => 1 + ((val - lo) / Math.max(1e-9, v.best - lo)) * (w - 2);
     return { x, y: h - 8 };
+  });
+
+  // rates
+  const rt = $derived.by(() => {
+    if (v.kind !== "rates") return null;
+    const n = Math.max(1, v.rates.length), g = n > 8 ? 2 : 3, bw = (w - (n - 1) * g) / n;
+    const top = 1, bot = h - (big ? LABEL + 2 : 1);
+    return { n, g, bw, top, bot, x: (i: number) => i * (bw + g) };
   });
 
   // squares
@@ -129,6 +139,22 @@
         stroke={c === "bad" ? "var(--worse-text)" : c === "good" ? "var(--voucher)" : "none"} stroke-width="1.5" />
     {/each}
     {#if v.run}<rect x={(sq.n - v.run) * (sq.size + sq.g)} y={sq.y0 + sq.size + 2} width={v.run * sq.size + (v.run - 1) * sq.g} height="3" rx="1.5" fill="var(--worse)" />{/if}
+  {:else if v.kind === "rates" && rt}
+    {#each v.rates as r, i (i)}
+      {@const recent = i >= rt.n - v.recent}
+      <rect x={rt.x(i)} y={rt.top} width={rt.bw} height={rt.bot - rt.top} rx="1.5" fill="var(--well)" />
+      {#if r === null}
+        <rect x={rt.x(i)} y={rt.bot - 1.5} width={rt.bw} height="1.5" fill="var(--line-strong)" />
+      {:else if r > 0}
+        {@const bh = Math.max(1.5, r * (rt.bot - rt.top))}
+        <rect x={rt.x(i)} y={rt.bot - bh} width={rt.bw} height={bh} rx="1.5" class="rate" class:recent class:worse={recent && !v.good} />
+      {/if}
+    {/each}
+    {#if big && axis}
+      <text x="0" y={h - 1} text-anchor="start">{axis[0]}</text>
+      <text x={rt.x(rt.n - v.recent)} y={h - 1} text-anchor="start">{axis[1]}</text>
+      <text x={w} y={h - 1} text-anchor="end">{axis[2]}</text>
+    {/if}
   {:else if v.kind === "days"}
     {#each Array(v.of) as _, i (i)}
       {@const cw = (w - (v.of - 1) * 2) / v.of}
@@ -145,6 +171,9 @@
   /* Crimson is dim on the card (2.7:1), so its strokes are thicker. */
   .line.worse { stroke: var(--worse); stroke-width: 2.6; }
   .line.neutral { stroke: var(--ink); stroke-width: 1.6; }
+  .rate { fill: var(--faint); }
+  .rate.recent { fill: var(--voucher); }
+  .rate.recent.worse { fill: var(--worse); }
   .day { fill: var(--line-strong); }
   .day.on { fill: var(--muted); }
   .day.now { fill: var(--marker); }

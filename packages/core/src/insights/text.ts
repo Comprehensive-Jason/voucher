@@ -55,6 +55,19 @@ export const intoPlanned = (at: string | null): Run[] => [plain(`Unlocks running
 /** The goal against the Curfew answers: "Goal Days that went badly, the last 8 weeks". */
 export const goalFit = (badGoalDays: boolean): Run[] => [plain(`${badGoalDays ? "Goal Days that went badly" : "Missed Days that went well"}, the last 8 weeks`)];
 
+/** A goal's hit rate shift: "Sleep goal, last 4 weeks". */
+export const goalShift = (goal: Run[]): Run[] => [...goal, plain(", last 4 weeks")];
+
+/** Goals together: "Tasks goal Days: Sleep goal", "Workout Days goal weeks: Sleep goal". */
+export const goalPair = (a: Run[], period: "day" | "week", b: Run[]): Run[] => [...a, plain(period === "week" ? " weeks: " : " Days: "), ...b];
+
+/** Under a goal's hit rate shift. */
+export const goalShiftNote = "The bars say how sure: shuffling whole weeks of your Days thousands of times rarely moves a hit rate this far. The picture is each week's hit rate, the last 4 weeks in color.";
+
+/** Under goals that go together. */
+export const goalPairNote = (helps: boolean) =>
+  `${helps ? "Meeting one goes with meeting the other" : "Meeting one goes with missing the other"}. The bars say how sure, from shuffling whole weeks of your Days thousands of times. They go together; that doesn't prove one causes the other.`;
+
 /** Verdict: "Curfew at 21:30: Distraction a Day". */
 export const verdict = (what: string, measure: string): Run[] => [plain(`${what}: ${measure}`)];
 

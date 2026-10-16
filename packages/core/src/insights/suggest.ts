@@ -10,7 +10,11 @@
 //   - Unlocks 5 minutes shorter, for Unlocks running into planned blocks or
 //     Distraction per Unlock rising, down to 5 minutes.
 //   - The Daily goal 2 higher when goal Days often went badly, or 2 lower
-//     when missed Days often went well, within 1 to 30.
+//     when missed Days often went well, within 1 to 30. From goal findings
+//     too: 2 lower when its hit rate fell over the last 4 weeks, or when
+//     meeting it goes with missing another goal (judged on that goal's
+//     measure where Before and after has one); 2 higher when its hit rate
+//     rose to 80% or more. Other goals get findings, never suggestions.
 // None while an Experiment runs (the Ledger runs one at a time, so their
 // verdicts don't muddle each other), and none for a rule with a change
 // already waiting for the morning.
@@ -74,14 +78,17 @@ function unlocks(s: Settings, measure: MeasureId): Suggestion | null {
   };
 }
 
-function goal(s: Settings, up: boolean): Suggestion | null {
+/** The Before and after measure a goal's measure is judged on, where there's one. */
+const JUDGED: Record<string, MeasureId> = { asleep: "asleep", distraction: "distraction", unlocks: "unlocks", longest: "longest", vouchers: "earned" };
+
+function goal(s: Settings, up: boolean, measure: MeasureId = "went_well"): Suggestion | null {
   const next = s.daily_goal + (up ? GOAL_STEP : -GOAL_STEP);
   if (next < GOAL_LOWEST || next > GOAL_HIGHEST) return null;
   return {
     change: { DailyGoal: next },
     text: `a Daily goal of ${next}`, button: tryButton(String(next)),
     rule: "Daily goal", was: String(s.daily_goal), now: String(next),
-    tightens: up, measure: "went_well", back: `Go back to a goal of ${s.daily_goal}`,
+    tightens: up, measure, back: `Go back to a goal of ${s.daily_goal}`,
   };
 }
 
@@ -111,25 +118,41 @@ function block(s: Settings, app: string): Suggestion | null {
   return null;
 }
 
+/** A goal hit rate finding's last 4 weeks, from its picture. */
+function recentRate(f: Finding): number {
+  if (f.visual.kind !== "rates") return 0;
+  const last = f.visual.rates.slice(-f.visual.recent).filter((r): r is number => r !== null);
+  return last.length ? last.reduce((a, b) => a + b, 0) / last.length : 0;
+}
+
+/** What a Daily goal change for a conflict is judged on: the other goal's measure. */
+function judgedOn(ctx: Context, f: Finding): MeasureId {
+  const other = ctx.goals?.find((g) => f.goals?.includes(g.id) && !g.daily);
+  return (other && JUDGED[other.measure]) ?? "went_well";
+}
+
 /** Puts a suggestion on the first finding that calls for each rule. */
 export function suggest(findings: Finding[], ctx: Context): Finding[] {
   const s = ctx.settings;
   if (!s || ctx.experiments.some((e) => e.status === "running")) return findings;
   const late = ctx.days.slice(-7).some((d) => d.distraction_spans);
-  const pick: [(f: Finding) => boolean, () => Suggestion | null, string][] = [
+  const pick: [(f: Finding) => boolean, (f: Finding) => Suggestion | null, string][] = [
     [(f) => f.id === "shift:late" && f.value > 0 || f.id === "pattern:late" || f.id === "shift:distraction" && f.value > 0 && f.sentence.some((r) => r.text.includes(`after ${hhmm(minutesOf(s.curfew_start) - 60)}`)) || f.id === "cor:~late|~asleep|1" && f.pill?.tone === "worse",
       () => curfew(s, late ? "late" : "distraction"), "Curfew"],
     [(f) => f.id === "shift:per_unlock" && f.value > 0, () => unlocks(s, "per_unlock"), "UnlockMinutes"],
     [(f) => f.id === "pattern:into-planned", () => unlocks(s, "unlocked"), "UnlockMinutes"],
     [(f) => f.id === "pattern:goal-bad", () => goal(s, true), "DailyGoal"],
     [(f) => f.id === "pattern:goal-good", () => goal(s, false), "DailyGoal"],
+    [(f) => f.id === "goal:shift:daily" && f.value < 0, () => goal(s, false, "earned"), "DailyGoal"],
+    [(f) => f.id === "goal:shift:daily" && f.value > 0 && recentRate(f) >= 0.8, () => goal(s, true, "earned"), "DailyGoal"],
+    [(f) => f.kind === "goal-pair" && f.value < 0 && !!f.goals?.includes("daily"), (f) => goal(s, false, judgedOn(ctx, f)), "DailyGoal"],
   ];
   const used = new Set<string>();
   const out = findings.map((f) => ({ ...f }));
   for (const [calls, make, key] of pick) {
     if (used.has(key) || waiting(ctx.pending, key)) continue;
     const f = out.find((x) => calls(x) && !x.suggestion);
-    const suggestion = f ? make() : null;
+    const suggestion = f ? make(f) : null;
     if (f && suggestion) { f.suggestion = suggestion; used.add(key); }
   }
   for (const f of out) {

@@ -2,7 +2,8 @@
 import type { Context as MeasureContext } from "../beforeAfter";
 import { blocklistOf } from "../blocklists";
 import { minutesIntoDay } from "../time";
-import type { Blocklist, DayTotal, Marker, Pending, Settings } from "../types";
+import type { Goal } from "../goals";
+import type { Blocklist, DayTotal, Marker, Pending, Settings, Source } from "../types";
 import type { Experiment } from "./types";
 
 export type Context = {
@@ -21,6 +22,13 @@ export type Context = {
   settings: Settings | null;
   pending: Pending[];
   experiments: Experiment[];
+  /** Every goal, the Daily goal first (GET /goals); none where unknown. */
+  goals?: Goal[];
+  /** The sources by id, for naming goals and telling work from health. */
+  sources?: Record<string, Pick<Source, "kind">>;
+  /** The oldest Day the Ledger keeps its log for (GET /status): before it,
+   *  log-based measures are unknown rather than zero. */
+  logFirstDay?: string;
 };
 
 /** Minutes from a Day's start to a moment, on the Ledger's clock. */

@@ -7,6 +7,7 @@ import type { GoodDaySetup } from "../goodDays";
 import { styleOf } from "../sources";
 import type { Context } from "./context";
 import { experimentFindings, markerFindings } from "./experiments";
+import { goalFindings } from "./goals";
 import { goalFitFindings, lateFindings, unlistedFindings } from "./patterns";
 import { plannedFindings } from "./planned";
 import { rank } from "./rank";
@@ -30,15 +31,17 @@ export function cheapFindings(ctx: Context): Finding[] {
   return [
     ...shifts, ...late, ...plannedFindings(ctx), ...unlistedFindings(ctx), ...goalFitFindings(ctx),
     ...markerFindings(ctx), ...experimentFindings(ctx), ...recordFindings(ctx), ...lapseFindings(ctx),
+    ...goalFindings(ctx),
   ];
 }
 
 /** The findings to show, best first: with suggestions where `suggestions`
  *  (Voucher; Counterfoil only reads), without what dismissals hide, and
- *  without the finding an open Experiment came from. */
-export function insights(ctx: Context, cheap: Finding[], correlations: Finding[], dismissed: Record<string, Dismissal>, { suggestions = true } = {}): Finding[] {
+ *  without the finding an open Experiment came from. With `goals:
+ *  "productive"` (Voucher), goal findings only where a goal is about work. */
+export function insights(ctx: Context, cheap: Finding[], correlations: Finding[], dismissed: Record<string, Dismissal>, { suggestions = true, goals = "all" as "all" | "productive" } = {}): Finding[] {
   const open = new Set(ctx.experiments.filter((e) => e.status === "running" || e.status === "ready").map((e) => e.finding));
-  let all = [...cheap, ...(ctx.days.length < FIRST_DAYS ? [] : correlations)].filter((f) => !open.has(f.id));
+  let all = [...cheap, ...(ctx.days.length < FIRST_DAYS ? [] : correlations)].filter((f) => !open.has(f.id) && (goals === "all" || f.productive !== false));
   if (!suggestions) all = all.filter((f) => f.experiment === undefined);
   else all = suggest(all, ctx);
   return rank(all, dismissed);
