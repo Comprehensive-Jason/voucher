@@ -5,10 +5,11 @@
 import { createArrangement, type Panel } from "$core/arrangement.svelte";
 import { APP } from "./app";
 
-export type PanelId = "insights" | "sleep" | "calendar" | "gooddays";
+export type PanelId = "insights" | "goals" | "sleep" | "calendar" | "gooddays";
 
 export const PANELS: Record<PanelId, Panel> = {
   insights: { name: "Insights", min: 1, max: 3, size: 1 },
+  goals: { name: "Goals", min: 1, max: 3, size: 1 },
   sleep: { name: "Sleep", min: 1, max: 3, size: 1, options: [{
     kind: "chips", id: "columns", label: "Beside each night",
     choices: [{ id: "verdict", label: "Curfew answer" }, { id: "vouchers", label: "Vouchers" }, { id: "distraction", label: "Distraction" }],
@@ -19,7 +20,7 @@ export const PANELS: Record<PanelId, Panel> = {
   gooddays: { name: "What goes with a good Day", min: 1, max: 3, size: 2 },
 };
 
-const DEFAULT: PanelId[] = ["insights", "sleep", "calendar", "gooddays"];
+const DEFAULT: PanelId[] = ["insights", "goals", "sleep", "calendar", "gooddays"];
 
 export const arrangement = createArrangement<PanelId>({
   panels: PANELS,

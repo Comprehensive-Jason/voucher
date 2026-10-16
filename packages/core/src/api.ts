@@ -67,10 +67,11 @@ export const statusNow = () => lastStatus;
 export const sameAnswer = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Which Ledger requests this app may make, when it limits them (allowLedger). */
-let mayCall: ((method: string, path: string) => boolean) | null = null;
-/** Limits this app's Ledger requests to those `check` allows: any other one
- *  throws before it's sent. Counterfoil, which only reads, sets this. */
-export function allowLedger(check: (method: string, path: string) => boolean) {
+let mayCall: ((method: string, path: string, body?: unknown) => boolean) | null = null;
+/** Limits this app's Ledger requests to those `check` allows, by method,
+ *  path, and body: any other one throws before it's sent. Counterfoil, which
+ *  reads and sets only goals and Markers, sets this. */
+export function allowLedger(check: (method: string, path: string, body?: unknown) => boolean) {
   mayCall = check;
 }
 
@@ -97,7 +98,7 @@ async function viaProxy<T>(method: string, path: string, body: unknown): Promise
 
 /** Any other Ledger request, passed through the app's Rust side. */
 export async function ledger<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
-  if (mayCall && !mayCall(method, path)) throw new Error(`${method} ${path.split("?")[0]} isn't a request this app may make`);
+  if (mayCall && !mayCall(method, path, body)) throw new Error(`${method} ${path.split("?")[0]} isn't a request this app may make`);
   if (previewLatency) await new Promise((r) => setTimeout(r, previewLatency));
   const reply = await watched(() => (inTauri
     ? invoke<T>("ledger", { method, path, body: body === undefined ? null : JSON.stringify(body) })

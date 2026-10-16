@@ -9,10 +9,21 @@ export const ABOUT = defineAbout<PanelId>()({
     for: "What my history turned up: the biggest and surest findings of every kind, first.",
     read: [
       "One row per finding. The top one sits on a raised row; the first three come first, and the rest scroll under \"N more\".",
-      "Every kind: what goes with what (all of them are on What goes with a good Day), this week against the 4 weeks before, where lost planned time falls, things that keep happening, Before and after on recent Markers, new records, and lapses.",
+      "Every kind: what goes with what (all of them are on What goes with a good Day), this week against the 4 weeks before, where lost planned time falls, things that keep happening, Before and after on recent Markers, new records, lapses, and goals: a goal's hit rate over the last 4 weeks, and goals that go together or pull against each other.",
       "A sentence says what and when, with sources and blocklists in {sources:their own colors}. The pill is the change, {green:green} when better, {crimson:crimson} when worse, and {gold:gold} for a record.",
       "The bars say how sure: 1 bar Low, 2 Medium, 3 High. Records and lapses are counts, so they have none. Tap a row for what it rests on.",
-      "Findings dismissed in Voucher stay hidden here too. Suggestions and Experiments are Voucher's: Counterfoil only reads.",
+      "Findings dismissed in Voucher stay hidden here too. Suggestions and Experiments are Voucher's: Counterfoil only reads them.",
+    ],
+  },
+  goals: {
+    for: "How each of my goals is going: the Daily goal and any target I set for something the Ledger keeps.",
+    read: [
+      "A row per goal, the Daily goal first. Under its name, what it asks: at least or at most, over a Day or a week (Monday to Sunday).",
+      "The strip is its last 4 weeks of Days, or 12 weeks for a week goal: {gold:gold} where met, hollow where missed, {gray:hatched} where nothing was recorded, and dashed for the Day or week still going. A goal of at least something counts as met the moment it's reached, as the Streak does.",
+      "Streak: Days or weeks met in a row up to now. A hatched one is skipped, neither kept nor broken.",
+      "4 wk and 12 wk: the share of Days or weeks met, of those known, as {gold:gold bars}. Past ones are counted at today's target; the Daily goal is counted at each Day's own.",
+      "Tap a row to change or remove its goal, or + to add one. Goals count Vouchers, a source's Vouchers or Days, focus minutes, the longest focus stretch, Distraction, Unlocks, time asleep, bedtime, or wake-up.",
+      "Changing the Daily goal is a rule change: it starts with the next Day, a lower one waits for 06:00 like every loosening, and it leaves a {marker:rule Marker}. Other goals save at once and change nothing else.",
     ],
   },
   sleep: {

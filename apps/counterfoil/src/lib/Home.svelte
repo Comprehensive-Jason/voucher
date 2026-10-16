@@ -2,7 +2,8 @@
   // Counterfoil's one screen. On a wide screen: the dashboard
   // ($core/Dashboard.svelte), with the Day's column first and Counterfoil's
   // cards beside it. On a narrow one: the Day's column, then the cards one
-  // under another. It only reads the Ledger, and writes nothing but Markers.
+  // under another. It reads the Ledger, and writes only Markers, goals, and
+  // the Daily goal (lib/allowed.js).
   import { ledger } from "$core/api";
   import { wide } from "$core/wide.svelte";
   import { historyDays } from "$core/time";
@@ -48,7 +49,7 @@
     {#if dayName}<h1>{dayName}</h1>{/if}
   </header>
   <LedgerNotice app={NAME} reconnect={() => location.reload()} />
-  <p class="lede">Your Days as the Ledger keeps them, beside how you slept and how full your calendar was. {NAME} only reads; it never spends a Voucher or changes a rule.</p>
+  <p class="lede">Your Days as the Ledger keeps them, beside how you slept, how full your calendar was, and your goals. {NAME} never spends a Voucher; the one rule it moves is the Daily goal.</p>
   <div class="actions"><MarkerButton onclick={() => (addingMarker = true)} /></div>
 {/snippet}
 

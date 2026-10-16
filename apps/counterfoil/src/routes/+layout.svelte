@@ -7,7 +7,8 @@
   import { allowLedger } from "$core/api";
   import { mayCall } from "$lib/allowed";
 
-  // Counterfoil reads; it asks the Ledger for nothing else (lib/allowed.js).
+  // Counterfoil reads, and writes only Markers, goals, and the Daily goal;
+  // it asks the Ledger for nothing else (lib/allowed.js).
   allowLedger(mayCall);
 
   // Every animation's timing comes from $core/motion.ts, as CSS variables on

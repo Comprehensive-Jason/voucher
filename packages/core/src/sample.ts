@@ -233,7 +233,7 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
     return { bank: 9, curfew_active: false, unlock: null, settings, pending, today: withMeasures([days[TODAY]])[0],
       source_errors: expired ? { [expired]: "sign-in expired" } : {},
       setup_complete: !asked("fresh"),
-      first_day: "2026-06-29", log_first_day: "2026-10-01",
+      first_day: "2026-06-29", log_first_day: "2026-06-29",
       grace_until: asked("grace") ? "2026-10-11T13:00:00Z" : null,
       blocked: { apps: [], sites: [] }, calendars: sampleCalendarChoice(), experiments: sampleOpenExperiments() };
   }
