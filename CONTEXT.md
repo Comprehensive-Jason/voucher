@@ -10,6 +10,10 @@ An app and website blocker in which free time is earned by verified productive w
 The single authority that credits Vouchers, keeps the Bank, and signs Unlocks. There is exactly one.
 _Avoid_: server, backend, verifier service
 
+**Coach code**:
+A second, narrower access code (`access.coach.code`) for an AI assistant or other helper: it reads everything, sets goals, and moves the Daily goal, and the Ledger refuses it anything else.
+_Avoid_: API key, read-only code
+
 **Enforcer**:
 A per-device program that blocks Distractions unless an Unlock is active. It can check an Unlock's signature but never create one.
 _Avoid_: blocker, client, agent
@@ -17,7 +21,7 @@ _Avoid_: blocker, client, agent
 ### Apps
 
 **Counterfoil**:
-The companion app that reads the Ledger and shows how Days went beside sleep, calendars, and Markers. It never Redeems, never changes a rule, and writes only Markers (later, mood). A counterfoil is the stub kept as a record when a ticket is torn off. Voucher, the app, is the one that enforces (ADR 0010).
+The companion app that reads the Ledger and shows how Days went beside sleep, calendars, goals, and Markers. It never Redeems, and of the rules it changes only the Daily goal; it writes Markers and goals (later, mood). A counterfoil is the stub kept as a record when a ticket is torn off. Voucher, the app, is the one that enforces (ADR 0010).
 _Avoid_: viewer, dashboard app, observer
 
 **Reporter**:
@@ -25,7 +29,7 @@ The one app that sends a given kind of data to the Ledger: Voucher's Android app
 _Avoid_: source (that's an Activity source), uploader
 
 **Insight**:
-A finding from the history, with how sure it is where that applies: what goes with what across Days (more focus on Days after a long night), this week against the usual, where lost planned time falls, something that keeps happening, Before and after on a Marker, a record, or a lapse. Shown, never acted on by itself; one may suggest an Experiment.
+A finding from the history, with how sure it is where that applies: what goes with what across Days (more focus on Days after a long night), this week against the usual, where lost planned time falls, something that keeps happening, Before and after on a Marker, a record, a lapse, or a goal's hit rate shifting or two goals going together or against each other. Shown, never acted on by itself; one may suggest an Experiment.
 _Avoid_: correlation, tip, recommendation
 
 **Experiment**:
@@ -69,6 +73,10 @@ _Avoid_: calendar day, date
 **Daily goal**:
 The number of Vouchers to earn in one Day for that Day to count toward the Streak. It motivates; it never changes access.
 _Avoid_: target, quota
+
+**Goal**:
+A target for one measure the Ledger keeps (Vouchers, a source's Vouchers or Days, focus minutes, the longest focus stretch, Distraction, Unlocks, time asleep, bedtime, or wake-up), at least or at most, over a Day or a Monday-to-Sunday week. The Daily goal is the first goal, kept as its rule; the others only motivate, change nothing, and apply at once. Each has a hit rate: the share of known Days or weeks that met it.
+_Avoid_: habit, objective, KPI
 
 **Streak**:
 The run of consecutive Days on which the Daily goal was met. Today joins it the moment its goal is met.

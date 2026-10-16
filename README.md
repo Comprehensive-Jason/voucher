@@ -67,9 +67,10 @@ An administrator can stop any Windows service. If you use Windows as an administ
 ```
 apps/
   voucher/            the Voucher app (Tauri, for Android and Windows)
-  counterfoil/        Counterfoil, which reads the Ledger and never enforces (a browser app for now)
+  counterfoil/        Counterfoil, which reads the Ledger, sets goals, and never enforces (a browser app for now)
 packages/
-  core/               what both apps share, as source: theme, Ledger calls, charts, the dashboard
+  core/               what both apps share, as source: theme, Ledger calls, charts, the dashboard, goals, Insights
+  mcp/                an MCP server, so an AI assistant can read the Ledger and set goals (see its README)
 crates/
   voucher-protocol/   Unlock format and signature checking, shared by Ledger and Rust Enforcers
   voucher-ledger/     the Ledger
@@ -139,6 +140,7 @@ In the app, Rules, Sources, Reconnect takes a Todoist or ClickUp API token and s
 | `VOUCHER_LISTEN` | Address to listen on, such as the machine's Tailscale IP | `127.0.0.1:8787` (`0.0.0.0:8787` in the image) |
 | `VOUCHER_TIME_ZONE` or `TZ` | Time zone for a new Ledger's Days and Curfew | the machine's |
 | `VOUCHER_ACCESS_CODE` | Use this access code instead of `access.code` | created on first run |
+| `VOUCHER_COACH_CODE` | A second, narrower code instead of `access.coach.code` (see below) | none |
 | `VOUCHER_POLL_MINUTES` | How often to check Todoist and ClickUp | `5` |
 | `VOUCHER_TODOIST_EXCLUDED_PROJECTS` | Comma-separated project IDs that never earn (Leisure) | none |
 | `VOUCHER_TODOIST_TOKEN_FILE`, `VOUCHER_CLICKUP_TOKEN_FILE` | Where the API tokens are kept | `todoist.token`, `clickup.token` in the data folder |
@@ -146,7 +148,9 @@ In the app, Rules, Sources, Reconnect takes a Todoist or ClickUp API token and s
 
 A Ledger set up before access codes existed keeps running without one; put a code in its `access.code` and reconnect each device to switch it on.
 
-Every request carries the code as `Authorization: Bearer <code>` except `GET /key`. Endpoints include `GET /status`, `POST /redeem?count=`, `POST /change` (a Change, such as `{"UnlockMinutes": 15}`), `GET /day?date=`, `GET /history?days=`, `POST /report`, `POST /check-in?device=`, `POST /sleep` and `POST /calendar` (from devices), `GET`/`POST /calendars` (which calendars count, and the device that reports them), and `POST /energy` (deprecated: the app no longer asks, but older apps can still send answers). Each Day in `/day` and `/history` carries its `sleep`, `calendar` load, any old `energy` answer, and its `planned` time blocks: Todoist tasks with a due time and a duration, snapshotted as the Ledger sees them (no titles), each with how its minutes split between earning sources, Distraction or Unlocked, other, and unknown. Tightenings apply at once; Loosenings wait for the Morning boundary.
+The **coach code** is a second code for an AI assistant (packages/mcp) or any helper that should read and set goals but nothing else. It may make any `GET`, `POST /goal`, `POST /goal/remove`, and `POST /change` with a Daily goal change (`{"DailyGoal": 12}`); anything else gets 403. There is none until asked for: create an empty `access.coach.code` in the data folder and restart, and the Ledger fills it with a fresh code and prints it once.
+
+Every request carries the code as `Authorization: Bearer <code>` except `GET /key`. Endpoints include `GET /status`, `POST /redeem?count=`, `POST /change` (a Change, such as `{"UnlockMinutes": 15}`), `GET /day?date=`, `GET /history?days=`, `POST /report`, `POST /check-in?device=`, `POST /sleep` and `POST /calendar` (from devices), `GET`/`POST /calendars` (which calendars count, and the device that reports them), `GET /goals`, `POST /goal`, and `POST /goal/remove` (goals: a measure, at least or at most, a target, and a Day or a week; the Daily goal is listed first from its setting and changes only through `/change`), and `POST /energy` (deprecated: the app no longer asks, but older apps can still send answers). Each Day in `/day` and `/history` carries its `sleep`, `calendar` load, any old `energy` answer, and its `planned` time blocks: Todoist tasks with a due time and a duration, snapshotted as the Ledger sees them (no titles), each with how its minutes split between earning sources, Distraction or Unlocked, other, and unknown. Tightenings apply at once; Loosenings wait for the Morning boundary.
 
 ## The CLI
 
