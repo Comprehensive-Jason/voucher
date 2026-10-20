@@ -4,7 +4,7 @@
   "private": true,
   "description": "Counterfoil: your Days as the Ledger keeps them, read but never spent. Runs in a browser for now.",
   "type": "module",
-  "license": "GPL-3.0-only",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",

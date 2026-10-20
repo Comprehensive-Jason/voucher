@@ -167,4 +167,4 @@ voucher-cli check                      # the manual Enforcer: UNLOCKED or BLOCKE
 
 ## Licence
 
-GPL-3.0. See [LICENSE](LICENSE).
+AGPL-3.0 from 2026-10-19: anyone who runs a modified Voucher, Counterfoil, or Ledger as a service for others must publish their changes. Versions published before then stay available under GPL-3.0. See [LICENSE](LICENSE).

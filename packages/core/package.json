@@ -4,7 +4,7 @@
   "private": true,
   "description": "What the apps share: the theme, the Ledger's types and calls, charts, and the dashboard. Shipped as source; each app compiles it through its $core alias.",
   "type": "module",
-  "license": "GPL-3.0-only",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "check": "svelte-check --tsconfig ./tsconfig.json && node ../../dev/check-core-imports.mjs"
   },

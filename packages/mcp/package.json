@@ -4,7 +4,7 @@
   "private": true,
   "description": "Counterfoil's MCP server: lets an AI assistant read the Ledger's Days, goals, and Insights, and set goals, with the Ledger's coach code.",
   "type": "module",
-  "license": "GPL-3.0-only",
+  "license": "AGPL-3.0-only",
   "bin": {
     "counterfoil-mcp": "dist/server.js"
   },
