@@ -7,7 +7,7 @@ import { distractionOf } from "$core/beforeAfter";
 import { rememberSources } from "$core/colors.svelte";
 import { correlateRequest } from "$core/correlate";
 import { setCurfew } from "$core/curfew.svelte";
-import { evaluate, measureInfo, showValue, targetText, type Goal, type Named } from "$core/goals";
+import { evaluate, measureInfo, setIn, showValue, targetText, untracked, type Goal, type Named } from "$core/goals";
 import { comparedDays, goodDaySetup } from "$core/goodDays";
 import { cheapFindings, correlationFindings, FIRST_DAYS, insights, type Context } from "$core/insights/index";
 import { goalRuns } from "$core/insights/goals";
@@ -94,6 +94,13 @@ export function goalsWithRates(goals: Goal[], days: DayTotal[], s: Status) {
   const infos = goals.map((g) => ({ g, info: measureInfo(g.measure, s.settings.sources, named) }));
   const known = infos.filter((x): x is { g: Goal; info: NonNullable<typeof x.info> } => !!x.info);
   return infos.map(({ g, info }) => {
+    // Set in an outside app (Samsung Health): read-only here.
+    const owner = setIn(g) ? { owner: g.owner, set_in: setIn(g), read_only: true } : {};
+    if (setIn(g) && g.tracked === false) {
+      const u = untracked(g);
+      return { id: g.id, name: u.name, ...owner, tracked: false, kind: g.kind, target: g.target, unit: g.unit, asks: u.asks,
+        note: "not tracked here: the Ledger has no measure that counts it, so it has no hit rate" };
+    }
     if (!info) return { id: g.id, measure: g.measure, direction: g.direction, target: g.target, period: g.period, note: "a measure this server doesn't know" };
     const r = evaluate(g, days, info, reading);
     const rate = (x: { met: number; of: number } | null) => (x ? { met: x.met, of: x.of, pct: Math.round((x.met / x.of) * 100) } : null);
@@ -102,6 +109,7 @@ export function goalsWithRates(goals: Goal[], days: DayTotal[], s: Status) {
       id: g.id,
       name: text(goalRuns(g, info, known)),
       daily: g.daily || undefined,
+      ...owner,
       measure: g.measure,
       measure_name: info.name,
       unit: info.unit === "clock" ? "clock time" : info.unit,

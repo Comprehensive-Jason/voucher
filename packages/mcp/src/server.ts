@@ -3,12 +3,13 @@
 // sources, and blocklist names, and adds, edits, and removes goals. It
 // changes no rule but the Daily goal, and that through POST /change like
 // every app, so a lower one waits for the next Day. It never Redeems,
-// checks in, or reports for a device. See README.md.
+// checks in, or reports for a device, and it only reads goals set in an
+// outside app (Samsung Health). See README.md.
 import process from "node:process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { DAILY, measureInfo, type Goal, type NewGoal } from "$core/goals";
+import { DAILY, measureInfo, ownedOn, setElsewhereText, setIn, type Goal, type NewGoal } from "$core/goals";
 import type { InsightsState } from "$core/insights/types";
 import { styleOf } from "$core/sources";
 import { historyDays } from "$core/time";
@@ -17,6 +18,14 @@ import { connection, ledger, LedgerError, type Connection } from "./ledger";
 import { blocklistsOf, compactDay, dayDetail, daysBack, findings, goalsWithRates, history, sourcesOf, status } from "./read";
 
 const VERSION = "0.1.0";
+
+/** Said by every tool that writes: goals set in an outside app are read-only. */
+const OUTSIDE_RULE = "Goals set in Samsung Health (owner samsung_health in list_goals, ids like \"samsung_health:bedtime\") are read-only: they change only in Samsung Health on the phone or watch, and no goal here may count the same measure.";
+
+/** Refuses a write to a goal set in an outside app, in words, before the Ledger does. */
+function readOnly(g: Goal | undefined) {
+  if (g && setIn(g)) throw new Error(`${g.id} is set in ${setIn(g)}, so it's read-only here: change it in ${setIn(g)} on the phone or watch.`);
+}
 
 /** Said by every tool that writes: what the Daily goal's rules are. */
 const DAILY_RULE = "The Daily goal (id \"daily\") changes only through the Ledger's rule path: a new target never applies today; it starts with the next Day at 06:00, so loosening (lowering) it waits until 06:00 like every loosening, and the change shows in Voucher's Waiting changes and as a rule Marker.";
@@ -94,7 +103,7 @@ export function server(c: Connection): McpServer {
 
   mcp.registerTool("list_goals", {
     title: "Goals and how they're going",
-    description: "Every goal, the Daily goal first. Each has its id, name, measure, direction (at_least or at_most), target (in the measure's unit; clock times as HH:MM), period (day or week, Monday to Sunday), what it asks in words, streak (Days or weeks met in a row; unknown ones are skipped), hit_rate_4_weeks and hit_rate_12_weeks (met of known, and pct), the current Day or week, and last_12 (the last 12 finished Days or weeks: met, missed, or unknown). Past periods are counted against today's target. The Daily goal has pending when a new target waits for the next Day.",
+    description: "Every goal, the Daily goal first. Goals set in Samsung Health come last, with owner samsung_health, set_in \"Samsung Health\", and read_only true: they're counted like any other, but change only in Samsung Health. One with tracked false (steps, active time) has no measure here, so it has no hit rate. Each has its id, name, measure, direction (at_least or at_most), target (in the measure's unit; clock times as HH:MM), period (day or week, Monday to Sunday), what it asks in words, streak (Days or weeks met in a row; unknown ones are skipped), hit_rate_4_weeks and hit_rate_12_weeks (met of known, and pct), the current Day or week, and last_12 (the last 12 finished Days or weeks: met, missed, or unknown). Past periods are counted against today's target. The Daily goal has pending when a new target waits for the next Day.",
     annotations: read,
   }, () => run(async () => ({ goals: await goalList() })));
 
@@ -153,7 +162,7 @@ export function server(c: Connection): McpServer {
 
   mcp.registerTool("create_goal", {
     title: "Add a goal",
-    description: `Adds a goal, which applies at once and changes no rule. Measures: ${MEASURES}. direction is at_least or at_most; period is day or week (Monday to Sunday; for asleep, bedtime, and wake a week is the average night). Targets are in the measure's unit: Vouchers, minutes, Unlocks, Days, or "HH:MM" for bedtime and wake. A measure, direction, and period already in use is refused. The Daily goal already exists and can't be added: to move it use update_goal with id "daily". ${DAILY_RULE}`,
+    description: `Adds a goal, which applies at once and changes no rule. Measures: ${MEASURES}. direction is at_least or at_most; period is day or week (Monday to Sunday; for asleep, bedtime, and wake a week is the average night). Targets are in the measure's unit: Vouchers, minutes, Unlocks, Days, or "HH:MM" for bedtime and wake. A measure, direction, and period already in use is refused. ${OUTSIDE_RULE} The Daily goal already exists and can't be added: to move it use update_goal with id "daily". ${DAILY_RULE}`,
     inputSchema: {
       measure: z.string().describe("A measure, such as focus, asleep, bedtime, source:tasks, or source_days:workout"),
       direction: z.enum(["at_least", "at_most"]),
@@ -164,6 +173,8 @@ export function server(c: Connection): McpServer {
   }, ({ measure, direction, target: t, period }) => run(async () => {
     const s = await status(c);
     if (!measureInfo(measure, s.settings.sources, (id) => ({ name: styleOf(id).name, color: "" }))) throw new Error(`Unknown measure ${measure}. Measures: ${MEASURES}.`);
+    const outside = ownedOn(await ledger<Goal[]>(c, "GET", "/goals"), measure);
+    if (outside) throw new Error(`${setElsewhereText(outside)} It's read-only here; change it in ${setIn(outside)} on the phone or watch.`);
     const g: NewGoal = { measure, direction, target: ledgerTarget(measure, t), period };
     await ledger<Goal[]>(c, "POST", "/goal", g);
     return { goals: await goalList(s) };
@@ -171,7 +182,7 @@ export function server(c: Connection): McpServer {
 
   mcp.registerTool("update_goal", {
     title: "Change a goal",
-    description: `Changes a goal by id; fields left out stay as they are. Other goals change at once. For the Daily goal (id "daily") only the target can change, in Vouchers. ${DAILY_RULE}`,
+    description: `Changes a goal by id; fields left out stay as they are. Other goals change at once. For the Daily goal (id "daily") only the target can change, in Vouchers. ${OUTSIDE_RULE} ${DAILY_RULE}`,
     inputSchema: {
       id: z.string().describe("The goal's id, from list_goals: \"daily\" or \"g1\", \"g2\", …"),
       target: target.optional().describe("A number in the measure's unit, or \"HH:MM\" for bedtime and wake"),
@@ -191,7 +202,10 @@ export function server(c: Connection): McpServer {
     }
     const goals = await ledger<Goal[]>(c, "GET", "/goals");
     const old = goals.find((g) => g.id === id);
+    readOnly(old);
     if (!old) throw new Error(`No goal has id ${id}. list_goals shows them.`);
+    const outside = measure && measure !== old.measure ? ownedOn(goals, measure) : undefined;
+    if (outside) throw new Error(`${setElsewhereText(outside)} It's read-only here; change it in ${setIn(outside)} on the phone or watch.`);
     const m = measure ?? old.measure;
     const g: NewGoal = { id, measure: m, direction: direction ?? old.direction, period: period ?? old.period,
       target: t === undefined ? old.target : ledgerTarget(m, t) };
@@ -201,11 +215,12 @@ export function server(c: Connection): McpServer {
 
   mcp.registerTool("delete_goal", {
     title: "Remove a goal",
-    description: `Removes a goal by id, at once. The Daily goal can't be removed, only moved with update_goal. ${DAILY_RULE}`,
+    description: `Removes a goal by id, at once. The Daily goal can't be removed, only moved with update_goal. ${OUTSIDE_RULE} ${DAILY_RULE}`,
     inputSchema: { id: z.string().describe("The goal's id, from list_goals") },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   }, ({ id }) => run(async () => {
     if (id === DAILY) throw new Error("The Daily goal can't be removed; move it with update_goal instead.");
+    readOnly((await ledger<Goal[]>(c, "GET", "/goals")).find((g) => g.id === id));
     await ledger<Goal[]>(c, "POST", "/goal/remove", { id });
     return { removed: id, goals: await goalList() };
   }));
