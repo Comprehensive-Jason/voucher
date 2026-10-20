@@ -1,7 +1,8 @@
 use ed25519_dalek::SigningKey;
 use jiff::{Timestamp, civil::time, tz::TimeZone};
 use voucher_ledger::{
-    Change, Direction, Effect, GoalRefusal, Ledger, NewGoal, Period, Settings, goals::MAX_GOALS,
+    Change, Direction, Effect, ExternalRefusal, GoalRefusal, Ledger, NewExternalGoal, NewGoal,
+    Owner, Period, Settings, goals::MAX_GOALS,
 };
 
 fn settings() -> Settings {
@@ -303,4 +304,274 @@ fn goals_are_saved_and_an_older_state_without_them_loads() {
         )
         .unwrap();
     assert_eq!(next.id, "g1");
+}
+
+fn samsung(kind: &str, target: f64) -> NewExternalGoal {
+    NewExternalGoal {
+        kind: kind.into(),
+        target,
+    }
+}
+
+/// Samsung Health's sleep target (a bedtime and a wake-up time) and a step goal.
+fn samsung_goals() -> Vec<NewExternalGoal> {
+    vec![
+        samsung("steps", 6000.0),
+        samsung("bedtime", 1410.0),
+        samsung("wake", 450.0),
+    ]
+}
+
+#[test]
+fn an_outside_apps_goals_are_listed_with_their_owner_and_measure() {
+    let mut ledger = set_up();
+    ledger
+        .save_goal(
+            goal("focus", Direction::AtLeast, 90.0, Period::Day),
+            at(NOON),
+        )
+        .unwrap();
+
+    ledger
+        .report_external_goals(
+            "phone-1",
+            Owner::SamsungHealth,
+            &samsung_goals(),
+            false,
+            at(NOON),
+        )
+        .unwrap();
+
+    let goals = ledger.goals(at(NOON));
+    let ids: Vec<&str> = goals.iter().map(|g| g.id.as_str()).collect();
+    // The user's own first, then each outside app's in a fixed order.
+    assert_eq!(
+        ids,
+        [
+            "daily",
+            "g1",
+            "samsung_health:bedtime",
+            "samsung_health:wake",
+            "samsung_health:steps"
+        ]
+    );
+    assert!(
+        goals[..2]
+            .iter()
+            .all(|g| g.owner == Owner::User && g.tracked)
+    );
+    let bedtime = &goals[2];
+    assert_eq!(bedtime.owner, Owner::SamsungHealth);
+    assert_eq!(bedtime.measure, "bedtime");
+    assert_eq!(bedtime.direction, Direction::AtMost);
+    assert_eq!(bedtime.period, Period::Day);
+    assert_eq!(bedtime.target, 1410.0);
+    assert!(bedtime.tracked);
+    assert_eq!(goals[3].measure, "wake");
+    // Steps has no measure here yet: kept and listed, never counted.
+    let steps = &goals[4];
+    assert!(!steps.tracked);
+    assert_eq!(steps.measure, "");
+    assert_eq!(steps.kind.as_deref(), Some("steps"));
+    assert_eq!(steps.unit.as_deref(), Some("steps"));
+    assert_eq!(steps.target, 6000.0);
+    assert_eq!(
+        ledger
+            .goal_reporters()
+            .get(&Owner::SamsungHealth)
+            .map(String::as_str),
+        Some("phone-1")
+    );
+    // They change nothing, so they leave no Marker.
+    assert!(ledger.markers().is_empty());
+}
+
+#[test]
+fn an_outside_apps_goals_are_read_only_here() {
+    let mut ledger = set_up();
+    ledger
+        .report_external_goals(
+            "phone-1",
+            Owner::SamsungHealth,
+            &samsung_goals(),
+            false,
+            at(NOON),
+        )
+        .unwrap();
+
+    let mut edit = goal("bedtime", Direction::AtMost, 1380.0, Period::Day);
+    edit.id = Some("samsung_health:bedtime".into());
+    assert_eq!(ledger.save_goal(edit, at(NOON)), Err(GoalRefusal::Owned));
+    assert_eq!(
+        ledger.remove_goal("samsung_health:steps"),
+        Err(GoalRefusal::Owned)
+    );
+    assert_eq!(
+        ledger.owner_of("samsung_health:bedtime"),
+        Some(Owner::SamsungHealth)
+    );
+    assert_eq!(ledger.owner_of("g1"), None);
+    // A goal of the user's own on a measure Samsung Health sets would count it twice.
+    assert_eq!(
+        ledger.save_goal(
+            goal("wake", Direction::AtLeast, 420.0, Period::Week),
+            at(NOON)
+        ),
+        Err(GoalRefusal::MeasureOwned)
+    );
+    assert_eq!(ledger.measure_owner("bedtime"), Some(Owner::SamsungHealth));
+    assert_eq!(ledger.measure_owner("asleep"), None);
+    assert!(
+        ledger
+            .save_goal(
+                goal("asleep", Direction::AtLeast, 420.0, Period::Day),
+                at(NOON)
+            )
+            .is_ok()
+    );
+    assert!(
+        GoalRefusal::Owned
+            .message(Some(Owner::SamsungHealth))
+            .contains("set in Samsung Health")
+    );
+}
+
+#[test]
+fn only_the_reporting_device_sends_them_until_another_claims_them() {
+    let mut ledger = set_up();
+    let goals = samsung_goals();
+    ledger
+        .report_external_goals("phone-1", Owner::SamsungHealth, &goals, false, at(NOON))
+        .unwrap();
+
+    assert_eq!(
+        ledger.report_external_goals(
+            "tablet-2",
+            Owner::SamsungHealth,
+            &[samsung("steps", 9000.0)],
+            false,
+            at(NOON)
+        ),
+        Err(ExternalRefusal::NotReporter)
+    );
+    // Turning the switch on, on the tablet, claims them.
+    ledger
+        .report_external_goals(
+            "tablet-2",
+            Owner::SamsungHealth,
+            &[samsung("steps", 9000.0)],
+            true,
+            at(NOON),
+        )
+        .unwrap();
+    assert_eq!(
+        ledger.report_external_goals("phone-1", Owner::SamsungHealth, &goals, false, at(NOON)),
+        Err(ExternalRefusal::NotReporter)
+    );
+    let listed = ledger.goals(at(NOON));
+    assert_eq!(listed.len(), 2);
+    assert_eq!(listed[1].target, 9000.0);
+}
+
+#[test]
+fn a_new_report_replaces_the_last_and_an_empty_one_clears_them() {
+    let mut ledger = set_up();
+    ledger
+        .report_external_goals(
+            "phone-1",
+            Owner::SamsungHealth,
+            &samsung_goals(),
+            false,
+            at(NOON),
+        )
+        .unwrap();
+    let created = ledger.goals(at(NOON))[1].created_at;
+
+    // The bedtime moved on the watch, and the step goal was dropped.
+    let later = at("2026-10-15T08:00-07:00");
+    ledger
+        .report_external_goals(
+            "phone-1",
+            Owner::SamsungHealth,
+            &[samsung("bedtime", 1380.0), samsung("wake", 450.0)],
+            false,
+            later,
+        )
+        .unwrap();
+    let goals = ledger.goals(later);
+    assert_eq!(goals.len(), 3);
+    assert_eq!(goals[1].target, 1380.0);
+    assert_eq!(goals[1].created_at, created);
+
+    ledger
+        .report_external_goals("phone-1", Owner::SamsungHealth, &[], false, later)
+        .unwrap();
+    assert_eq!(ledger.goals(later).len(), 1);
+    // The measure is free for a goal of the user's own again.
+    assert!(
+        ledger
+            .save_goal(
+                goal("bedtime", Direction::AtMost, 1410.0, Period::Day),
+                later
+            )
+            .is_ok()
+    );
+}
+
+#[test]
+fn bad_reports_are_refused() {
+    let mut ledger = set_up();
+    let now = at(NOON);
+    let mut check = |device: &str, owner: Owner, goals: &[NewExternalGoal]| {
+        ledger
+            .report_external_goals(device, owner, goals, false, now)
+            .unwrap_err()
+    };
+
+    assert_eq!(
+        check("phone-1", Owner::User, &[samsung("steps", 1.0)]),
+        ExternalRefusal::NotExternal
+    );
+    assert_eq!(
+        check(" ", Owner::SamsungHealth, &[samsung("steps", 1.0)]),
+        ExternalRefusal::NoDevice
+    );
+    for bad in [
+        vec![samsung("mood", 3.0)],
+        vec![samsung("bedtime", 1440.0)],
+        vec![samsung("steps", -1.0)],
+        vec![samsung("steps", f64::NAN)],
+        vec![samsung("steps", 6000.0), samsung("steps", 7000.0)],
+    ] {
+        assert_eq!(
+            check("phone-1", Owner::SamsungHealth, &bad),
+            ExternalRefusal::BadGoal
+        );
+    }
+    // Nothing was kept, so no device became the reporter either.
+    assert!(ledger.goal_reporters().is_empty());
+}
+
+#[test]
+fn outside_goals_are_saved_and_an_older_state_without_them_loads() {
+    let mut ledger = set_up();
+    ledger
+        .report_external_goals(
+            "phone-1",
+            Owner::SamsungHealth,
+            &samsung_goals(),
+            false,
+            at(NOON),
+        )
+        .unwrap();
+
+    let saved = ledger.save();
+    let mut again = Ledger::load(&saved, SigningKey::from_bytes(&[7; 32])).unwrap();
+    assert_eq!(again.goals(at(NOON)).len(), 4);
+
+    let mut older: serde_json::Value = serde_json::from_str(&saved).unwrap();
+    older.as_object_mut().unwrap().remove("external_goals");
+    let mut old = Ledger::load(&older.to_string(), SigningKey::from_bytes(&[7; 32])).unwrap();
+    assert_eq!(old.goals(at(NOON)).len(), 1);
+    assert!(old.goal_reporters().is_empty());
 }

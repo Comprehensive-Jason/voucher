@@ -27,7 +27,10 @@ use jiff::{
 use serde::{Deserialize, Serialize};
 use voucher_protocol::{Unlock, sign};
 
-pub use goals::{Direction, Goal, GoalRefusal, GoalView, NewGoal, Period};
+pub use goals::{
+    Direction, ExternalGoal, ExternalGoals, ExternalRefusal, Goal, GoalRefusal, GoalView,
+    NewExternalGoal, NewGoal, Owner, Period,
+};
 pub use insights::{Dismissal, Experiment, ExperimentRefusal, ExperimentStatus, ExperimentVerdict};
 pub use measures::{
     CalendarChoice, CalendarDay, CalendarId, CalendarRefusal, Sleep, SleepSession, SleepSource,
@@ -937,6 +940,12 @@ struct State {
     /// The last goal id given out, so none is ever reused.
     #[serde(default)]
     goal_ids: u32,
+    // Added 2026-10-19 for outside apps' goals (Samsung Health), empty when
+    // an older state.json loads; an older Ledger reading a newer file
+    // ignores it.
+    /// Each outside app's goals, read-only here, and the device that reports them.
+    #[serde(default)]
+    external_goals: BTreeMap<goals::Owner, goals::ExternalGoals>,
 }
 
 fn set_up_already() -> bool {
@@ -974,6 +983,7 @@ impl Ledger {
                 experiments: Vec::new(),
                 goals: Vec::new(),
                 goal_ids: 0,
+                external_goals: BTreeMap::new(),
             },
         }
     }

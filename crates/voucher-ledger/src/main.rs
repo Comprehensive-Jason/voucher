@@ -23,8 +23,8 @@ use jiff::{Timestamp, civil::time, tz::TimeZone};
 use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server};
 use voucher_ledger::{
-    Change, DEFAULT_DAILY_GOAL, DaySummary, GoalRefusal, Ledger, NewGoal, Scheduled, Settings,
-    SourceKind,
+    Change, DEFAULT_DAILY_GOAL, DaySummary, ExternalRefusal, GoalRefusal, Ledger, NewExternalGoal,
+    NewGoal, Owner, Scheduled, Settings, SourceKind,
     access::Access,
     clickup, default_blocklists, default_sources,
     faults::{Fault, Faults},
@@ -683,16 +683,25 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
                 ),
             }
         }
-        // Every goal, the Daily goal first (see voucher_ledger::goals).
+        // Every goal, the Daily goal first, each with its owner (see
+        // voucher_ledger::goals).
         (Method::Get, "/goals") => (200, json(&ledger.goals(now))),
         // Adds a goal, or edits one with its id: {"id"?, "measure",
         // "direction", "target", "period"}. The Daily goal changes through
-        // /change instead. Answers every goal.
+        // /change instead, and an outside app's goals only in that app.
+        // Answers every goal.
         (Method::Post, "/goal") => match read_json::<NewGoal>(&mut request) {
-            Some(goal) => match ledger.save_goal(goal, now) {
-                Ok(_) => (200, json(&ledger.goals(now))),
-                Err(refusal) => (409, json(&GoalRefused { refused: refusal })),
-            },
+            Some(goal) => {
+                let owner = goal
+                    .id
+                    .as_deref()
+                    .and_then(|id| ledger.owner_of(id))
+                    .or_else(|| ledger.measure_owner(&goal.measure));
+                match ledger.save_goal(goal, now) {
+                    Ok(_) => (200, json(&ledger.goals(now))),
+                    Err(refusal) => (409, json(&GoalRefused::new(refusal, owner))),
+                }
+            }
             None => (
                 400,
                 json(&Message {
@@ -702,20 +711,38 @@ fn handle(mut request: Request, ledger: &Mutex<Ledger>, state_path: &Path, confi
         },
         // Removes a goal: {"id"}. Answers every goal left.
         (Method::Post, "/goal/remove") => match read_json::<FindingId>(&mut request) {
-            Some(g) => match ledger.remove_goal(&g.id) {
-                Ok(()) => (200, json(&ledger.goals(now))),
-                Err(GoalRefusal::Unknown) => (
-                    404,
-                    json(&GoalRefused {
-                        refused: GoalRefusal::Unknown,
-                    }),
-                ),
-                Err(refusal) => (409, json(&GoalRefused { refused: refusal })),
-            },
+            Some(g) => {
+                let owner = ledger.owner_of(&g.id);
+                match ledger.remove_goal(&g.id) {
+                    Ok(()) => (200, json(&ledger.goals(now))),
+                    Err(GoalRefusal::Unknown) => {
+                        (404, json(&GoalRefused::new(GoalRefusal::Unknown, None)))
+                    }
+                    Err(refusal) => (409, json(&GoalRefused::new(refusal, owner))),
+                }
+            }
             None => (
                 400,
                 json(&Message {
                     message: "body is not a goal's id",
+                }),
+            ),
+        },
+        // An outside app's goals, from the one device that reports them:
+        // {"device", "source": "samsung_health", "goals": [{"kind", "target"}],
+        // "claim"?}. Replaces what was kept; read-only everywhere else.
+        // Answers every goal.
+        (Method::Post, "/goals/external") => match read_json::<ExternalReport>(&mut request) {
+            Some(r) => {
+                match ledger.report_external_goals(&r.device, r.source, &r.goals, r.claim, now) {
+                    Ok(()) => (200, json(&ledger.goals(now))),
+                    Err(refusal) => (409, json(&ExternalRefused::new(refusal, &ledger, r.source))),
+                }
+            }
+            None => (
+                400,
+                json(&Message {
+                    message: "body is not a report of an outside app's goals",
                 }),
             ),
         },
@@ -1050,10 +1077,64 @@ struct EndExperiment {
     keep: bool,
 }
 
-/// A goal the Ledger turned down, and why.
+/// A goal the Ledger turned down, why, and in words. `owner` names the
+/// outside app that sets it, for a goal that is read-only here.
 #[derive(Serialize)]
 struct GoalRefused {
     refused: GoalRefusal,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    owner: Option<Owner>,
+    message: String,
+}
+
+impl GoalRefused {
+    fn new(refused: GoalRefusal, owner: Option<Owner>) -> Self {
+        let owner =
+            owner.filter(|_| matches!(refused, GoalRefusal::Owned | GoalRefusal::MeasureOwned));
+        GoalRefused {
+            refused,
+            owner,
+            message: refused.message(owner),
+        }
+    }
+}
+
+/// An outside app's goals, as the device that reports them sends them.
+#[derive(serde::Deserialize)]
+struct ExternalReport {
+    device: String,
+    source: Owner,
+    #[serde(default)]
+    goals: Vec<NewExternalGoal>,
+    /// Sent once when the device's switch is turned on: it takes over
+    /// reporting this app's goals from whichever device did.
+    #[serde(default)]
+    claim: bool,
+}
+
+/// A report of an outside app's goals the Ledger turned down, and why.
+#[derive(Serialize)]
+struct ExternalRefused {
+    refused: ExternalRefusal,
+    message: String,
+}
+
+impl ExternalRefused {
+    fn new(refused: ExternalRefusal, ledger: &Ledger, source: Owner) -> Self {
+        let message = match refused {
+            ExternalRefusal::NotReporter => format!(
+                "{} reports {}'s goals; send \"claim\": true to take over",
+                ledger.goal_reporters().get(&source).map_or("another device", String::as_str),
+                source.name()
+            ),
+            ExternalRefusal::NotExternal => "goals from \"user\" are set with POST /goal".into(),
+            ExternalRefusal::NoDevice => "needs the reporting device's name".into(),
+            ExternalRefusal::BadGoal => {
+                "each goal needs a known kind (bedtime, wake, steps, active_time, active_calories, or water), once, with a target in range".into()
+            }
+        };
+        ExternalRefused { refused, message }
+    }
 }
 
 /// What the coach code gets for anything outside its scope.
@@ -1150,6 +1231,8 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         grace_until: Option<Timestamp>,
         /// Which calendars count, and the device that reports them.
         calendars: voucher_ledger::CalendarChoice,
+        /// The device that reports each outside app's goals (Samsung Health).
+        goal_reporters: BTreeMap<Owner, String>,
         /// Experiments running or waiting for Keep it or Go back: the phone
         /// raises one notification for each verdict that's in.
         experiments: Vec<voucher_ledger::Experiment>,
@@ -1180,6 +1263,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
     let room_before_curfew = ledger.room_before_curfew(now);
     let grace_until = ledger.grace_until(now);
     let calendars = ledger.calendars().clone();
+    let goal_reporters = ledger.goal_reporters();
     let experiments = ledger.open_experiments();
     let task_services = settings
         .sources
@@ -1206,6 +1290,7 @@ fn status_json(ledger: &mut Ledger, now: Timestamp) -> String {
         room_before_curfew,
         grace_until,
         calendars,
+        goal_reporters,
         experiments,
     })
 }
