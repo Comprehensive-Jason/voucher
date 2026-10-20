@@ -23,6 +23,11 @@
 //   bedtime, wake       the night before's clock times, minutes after midnight
 // The log-based ones (sources, focus, Unlocks) are unknown before the oldest
 // Day the Ledger keeps its log for, rather than zero.
+//
+// Every goal has an owner: the user, or an outside app (Samsung Health)
+// whose goals the phone reports and which are read-only here. One with a
+// measure counts like any other; one without (steps, active time) is
+// listed as not tracked here, with `measure` "" so nothing counts it.
 import { distractionOf } from "./beforeAfter";
 import { measured } from "./notes.svelte";
 import { hoursAndMinutes, minutesIntoDay } from "./time";
@@ -31,6 +36,12 @@ import type { DayTotal, Source, SourceKind } from "./types";
 
 export type Direction = "at_least" | "at_most";
 export type Period = "day" | "week";
+
+/** Who sets a goal: the user, or an outside app. */
+export type Owner = "user" | "samsung_health";
+
+/** Each outside app as people read it. */
+export const OWNER_NAMES: Record<Exclude<Owner, "user">, string> = { samsung_health: "Samsung Health" };
 
 /** A goal as GET /goals lists it. */
 export interface Goal {
@@ -45,6 +56,45 @@ export interface Goal {
   /** The Daily goal's next target, waiting for the next Day. */
   pending?: { target: number; at: string } | null;
   created_at?: string;
+  /** Who sets it; absent from a Ledger from before outside apps' goals. */
+  owner?: Owner;
+  /** False for an outside app's goal with no measure here yet. */
+  tracked?: boolean;
+  /** An outside app's goal: its own kind ("bedtime", "steps", …) and the
+   *  unit of its target ("clock", "steps", "minutes", "kcal", "ml"). */
+  kind?: string;
+  unit?: string;
+}
+
+/** The outside app that sets a goal, by name, or null for the user's own. */
+export const setIn = (g: Pick<Goal, "owner">): string | null => (g.owner && g.owner !== "user" ? OWNER_NAMES[g.owner] ?? g.owner : null);
+
+/** The outside goal on a measure, if an outside app sets one. */
+export const ownedOn = (goals: Goal[], measure: string): Goal | undefined =>
+  goals.find((g) => setIn(g) && g.tracked !== false && g.measure === measure);
+
+/** An outside goal's kind, by name. Samsung Health's sleep target is a bedtime and a wake-up time. */
+const KIND_NAMES: Record<string, { name: string; goal: string }> = {
+  bedtime: { name: "Bedtime", goal: "sleep" }, wake: { name: "Wake-up", goal: "sleep" },
+  steps: { name: "Steps", goal: "step" }, active_time: { name: "Active time", goal: "active time" },
+  active_calories: { name: "Active calories", goal: "active calories" }, water: { name: "Water", goal: "water" },
+};
+
+/** Why a goal on this measure can't be set here: "Your sleep goal is set in Samsung Health." */
+export function setElsewhereText(g: Goal): string {
+  const what = KIND_NAMES[g.kind ?? ""]?.goal ?? measureName(g.measure);
+  return `Your ${what} goal is set in ${setIn(g)}.`;
+}
+const measureName = (m: string) => (FIXED[m]?.goal ?? m).toLowerCase();
+
+/** An outside goal with no measure here: its name, and what it asks in its
+ *  own unit, "6,000 steps a Day". */
+export function untracked(g: Goal): { name: string; asks: string } {
+  const name = KIND_NAMES[g.kind ?? ""]?.name ?? g.kind ?? "Goal";
+  const n = Math.round(g.target).toLocaleString("en-US");
+  const unit = g.unit === "minutes" ? (g.target >= 120 ? hoursAndMinutes(g.target) : `${n} min`)
+    : g.unit === "kcal" ? `${n} kcal` : g.unit === "ml" ? `${n} ml` : g.unit === "steps" ? `${n} steps` : n;
+  return { name, asks: `${g.direction === "at_most" ? "at most" : "at least"} ${unit} a Day` };
 }
 
 /** What POST /goal takes: a new goal, or with `id` an edit. */
