@@ -20,7 +20,7 @@ It exists because existing blockers let you switch them off whenever you like, p
 - **Enforcers** (one per device): block Distractions unless an Unlock is active. They can verify signatures but cannot create them, and they fail closed.
 - **Commitment rules**: tightening is instant; loosening waits for the next morning. Nothing can be Redeemed during the nightly Curfew.
 
-The vocabulary is defined in [CONTEXT.md](CONTEXT.md). Design decisions are in [docs/adr](docs/adr).
+The vocabulary is defined in [GLOSSARY.md](GLOSSARY.md). Design decisions are in [docs/adr](docs/adr).
 
 ## Status
 
