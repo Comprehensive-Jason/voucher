@@ -52,6 +52,21 @@ Voucher needs Android 13 or later, a Ledger reachable over Tailscale, and a comp
 
 To leave, release the device in Rules, Protection. Like any Loosening it waits for 06:00; then Voucher lifts every block, gives up Device Owner, and can be uninstalled.
 
+### Samsung Health goals (optional)
+
+Goals you set in Samsung Health (its sleep target's bedtime and wake-up time, steps, active time, active calories, and water) can show in Counterfoil, read-only, so you never set them twice ([ADR 0011](docs/adr/0011-samsung-health-goals-are-read-only.md)). Bedtime and wake-up count like any goal; the others have nothing on the Ledger to count them yet, so Counterfoil lists them as not tracked here.
+
+This needs a build with Samsung's SDK, which this repository can't include: the Samsung Health Data SDK's license allows using it for development on your own devices but not passing it on.
+
+1. **Get the SDK.** Download the Samsung Health Data SDK from <https://developer.samsung.com/health/data/overview.html> (agreeing to its license), and put its `.aar` file in `apps/voucher/src-tauri/gen/android/app/libs/samsung-health/`, which git ignores. Build as usual; without the file the build leaves Samsung Health out and the switch never shows.
+2. **Turn on Samsung Health's developer mode** on each phone or tablet that should read the goals. Without Samsung's partner approval, the SDK reads only while it's on.
+   1. Open Samsung Health (version 6.30.2 or later), tap ⋮ at the top right, then **Settings**, **About Samsung Health**.
+   2. Tap the version line quickly, 10 times or more, until **Developer mode (Samsung Health Data SDK)** appears, and open it.
+   3. Agree to the notice, then turn on **Developer Mode for Data Read**. Leave the access code fields empty: they're only for writing data, which Voucher never does.
+3. **Turn on the switch.** In Voucher, Rules, Sources, turn on **Samsung Health goals**, then allow the goals in Samsung Health's popup. It shows only on a Samsung device with Samsung Health.
+
+One device reports them, as with calendars: the one whose switch was turned on last. Voucher reads them when it opens and about once an hour, and sends them only when they change. Turning the switch off removes them from the Ledger. The SDK doesn't run on emulators.
+
 ## Installing on Windows
 
 1. Run the installer as an administrator (from the "Windows installer" workflow's artifacts). It installs Voucher, registers the **Voucher guard** service, and starts Voucher in the tray whenever anyone signs in.
