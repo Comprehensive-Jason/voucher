@@ -4,3 +4,5 @@
 /tauri.build.gradle.kts
 /proguard-tauri.pro
 /tauri.properties
+# The Samsung Health Data SDK isn't redistributable: each developer downloads it.
+/libs/samsung-health/

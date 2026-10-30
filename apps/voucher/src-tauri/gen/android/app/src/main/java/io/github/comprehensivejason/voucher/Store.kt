@@ -75,6 +75,10 @@ object Store {
     fun setReported(ctx: Context, source: String, day: String, minutes: Int) =
         prefs(ctx).edit().putInt("reported_${source}_$day", minutes).apply()
 
+    /** A yes/no setting this device keeps, such as the Samsung Health goals switch. */
+    fun bool(ctx: Context, key: String): Boolean = prefs(ctx).getBoolean("bool_$key", false)
+    fun setBool(ctx: Context, key: String, value: Boolean) = prefs(ctx).edit().putBoolean("bool_$key", value).apply()
+
     /** Lasting yes/no markers, such as a Day whose usage was sent for the last time. */
     fun flag(ctx: Context, key: String): Boolean = prefs(ctx).getBoolean("flag_$key", false)
     fun setFlag(ctx: Context, key: String) = prefs(ctx).edit().putBoolean("flag_$key", true).apply()
@@ -83,7 +87,7 @@ object Store {
     fun usageSent(ctx: Context, day: String): String? = prefs(ctx).getString("usage_sent_$day", null)
     fun setUsageSent(ctx: Context, day: String, sent: String) = prefs(ctx).edit().putString("usage_sent_$day", sent).apply()
 
-    /** The last of something sent to the Ledger (sleep, calendar), so unchanged data isn't sent again. */
+    /** The last of something sent to the Ledger (sleep, calendar, Samsung Health goals), so unchanged data isn't sent again. */
     fun sent(ctx: Context, what: String): String? = prefs(ctx).getString("sent_$what", null)
     fun setSent(ctx: Context, what: String, sent: String) = prefs(ctx).edit().putString("sent_$what", sent).apply()
 

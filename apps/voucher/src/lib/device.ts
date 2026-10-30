@@ -242,3 +242,28 @@ export async function deviceCalendars(): Promise<DeviceCalendars | null> {
 export async function requestCalendarAccess(): Promise<void> {
   if (inTauri) { try { await device("requestCalendar"); } catch { /* not on this platform */ } }
 }
+
+/** The Samsung Health goals switch on this device: Android only, and only on
+ *  a Samsung device with Samsung Health in a build with Samsung's SDK
+ *  (`available`); null elsewhere. The browser preview shows it with
+ *  `?samsung=on` or `?samsung=off`. */
+export type SamsungGoals = { available: boolean; on: boolean; granted: boolean };
+let sampleSamsung: SamsungGoals | null = null;
+export async function samsungGoals(): Promise<SamsungGoals | null> {
+  if (!inTauri) {
+    const p = new URLSearchParams(location.search).get("samsung");
+    if (p !== "on" && p !== "off") return null;
+    return (sampleSamsung ??= { available: true, on: p === "on", granted: p === "on" });
+  }
+  try {
+    const s = await device<SamsungGoals>("samsungGoals");
+    return s.available ? s : null;
+  } catch { return null; }
+}
+
+/** Turns the switch on (Samsung Health asks for access first) or off (the
+ *  goals leave the Ledger on the next pass). */
+export async function setSamsungGoals(on: boolean): Promise<SamsungGoals | null> {
+  if (!inTauri) return sampleSamsung ? (sampleSamsung = { ...sampleSamsung, on, granted: on }) : null;
+  try { return await device<SamsungGoals>("setSamsungGoals", { on }); } catch { return null; }
+}

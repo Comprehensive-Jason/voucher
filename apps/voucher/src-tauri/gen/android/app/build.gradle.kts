@@ -14,6 +14,15 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// The Samsung Health Data SDK, for reading Samsung Health's goals. Samsung's
+// license doesn't allow passing it on, so the repository never holds it: put
+// the AAR you downloaded in app/libs/samsung-health/ (ignored by git) and the
+// build uses it with src/samsung; without it the build uses src/nosamsung's
+// stub, and the "Samsung Health goals" switch stays hidden (README, "Samsung
+// Health goals").
+val samsungHealthSdk = fileTree("libs/samsung-health") { include("*.aar") }
+val withSamsungHealth = !samsungHealthSdk.isEmpty
+
 android {
     compileSdk = 37
     namespace = "io.github.comprehensivejason.voucher"
@@ -59,6 +68,7 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    sourceSets.getByName("main").java.srcDir(if (withSamsungHealth) "src/samsung/java" else "src/nosamsung/java")
 }
 
 kotlin {
@@ -81,6 +91,8 @@ dependencies {
     implementation("org.bouncycastle:bcprov-jdk18on:1.82")
     // Workout zone minutes from heart rate (see Health.kt).
     implementation("androidx.health.connect:connect-client:1.1.0")
+    // Samsung Health's goals, only when its SDK is in app/libs (see the top of this file).
+    if (withSamsungHealth) implementation(samsungHealthSdk)
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
