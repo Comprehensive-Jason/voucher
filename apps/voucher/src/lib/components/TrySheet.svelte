@@ -9,6 +9,7 @@
   import AboutText from "$core/components/AboutText.svelte";
   import Marker from "$core/components/Marker.svelte";
   import { schedule } from "$core/insights/experiments";
+  import Pill from "$core/insights/Pill.svelte";
   import { insights } from "$core/insights/store.svelte";
   import { plan, startsWhen, tryTitle } from "$core/insights/text";
   import type { Finding, Suggestion } from "$core/insights/types";
@@ -44,7 +45,10 @@
 <Sheet {onclose} label="try-h">
   <span class="cap exp"><Marker kind="rule" color="var(--marker)" size={12} />Experiment, two weeks</span>
   <h2 id="try-h">{tryTitle(s)}</h2>
-  <p class="why"><AboutText parts={f.sentence} />{#if f.pill}{" "}({f.pill.text}){/if}. Before and after will say whether this helped.</p>
+  <div class="why">
+    <p><AboutText parts={f.sentence} />. Before and after will say whether this helped.</p>
+    {#if f.pill}<Pill text={f.pill.text} tone={f.pill.tone} />{/if}
+  </div>
   <div class="change">
     <span class="cap">The rule change</span>
     <div class="line"><span class="name">{s.rule}</span><span class="was">{s.was}</span><span class="now">{s.now}</span></div>
@@ -82,7 +86,9 @@
 
 <style>
   .exp { color: var(--marker); display: flex; align-items: center; gap: 7px; }
-  .why { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+  .why { display: flex; align-items: flex-start; gap: 10px; }
+  .why p { flex: 1; margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+  .why :global(.pill) { margin-top: 2px; }
   .why :global(.hue) { color: var(--ink); }
   .change { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--raised); }
   .line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 15px; }
