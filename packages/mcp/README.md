@@ -7,7 +7,7 @@ It can:
 - **Read:** Days in a date range, one Day in detail, goals with their hit rates, the current Insights findings, Markers, Experiments, Activity sources, and blocklists (names only).
 - **Write:** add, change, and remove goals, including the Daily goal.
 
-It can't: change any rule but the Daily goal, Redeem or Unlock, answer the Curfew question, check in, or report anything for a device. The Ledger enforces the same: the coach code gets 403 for anything else.
+It can't: change a goal set in Samsung Health (those only change on the phone or watch), change any rule but the Daily goal, Redeem or Unlock, answer the Curfew question, check in, or report anything for a device. The Ledger enforces the same: the coach code gets 403 for anything else.
 
 ## The tools
 
@@ -15,15 +15,15 @@ It can't: change any rule but the Daily goal, Redeem or Unlock, answer the Curfe
 |---|---|
 | `list_days` | Each Day's totals from `from` to `to` (default today), oldest first: `vouchers`, `daily_goal`, `daily_goal_met`, `vouchers_by_source`, `vouchers_spent`, `unlocks`, `unlocked_min`, `distraction_min`, `distraction_by_app_min`, `focus_min`, `longest_stretch_min`, `blocked_opens`, `walked_away`, `sleep` (`asleep_min`, `bedtime`, `wake`, `source`), `calendar` (`events`, `busy_min`), `curfew_answer`, and `planned` (`blocks`, `min`, `done`, `distraction_min`). `null` means unknown, not zero. Up to 400 Days back. |
 | `get_day` | One Day's totals plus its log (Vouchers with source and task title, Unlocks, Gaps), Markers, Unlock reasons, streak, and when the goal was met. |
-| `list_goals` | Every goal, the Daily goal first: measure, direction, target, period, what it asks in words, streak, hit rate over the last 4 and 12 weeks, the current Day or week, and the last 12 periods. |
+| `list_goals` | Every goal, the Daily goal first: measure, direction, target, period, what it asks in words, streak, hit rate over the last 4 and 12 weeks, the current Day or week, and the last 12 periods. Goals set in Samsung Health come last, marked `owner: "samsung_health"` and `read_only: true`; one with `tracked: false` (steps, active time) has nothing here to count it, so it has no hit rate. |
 | `get_insights` | Insights' findings, ranked, as Counterfoil shows them, goal findings included. `confidence` is Low, Medium, or High. |
 | `list_markers` | Markers, optionally between two dates. |
 | `list_experiments` | Every Experiment and its verdict. |
 | `list_sources` | The Activity sources and their Earning rates. |
 | `list_blocklists` | The blocklists by name, and whether each is on. |
-| `create_goal` | Adds a goal. |
-| `update_goal` | Changes a goal; with id `daily`, moves the Daily goal. |
-| `delete_goal` | Removes a goal (never the Daily goal). |
+| `create_goal` | Adds a goal (never on a measure Samsung Health already sets a goal on). |
+| `update_goal` | Changes a goal; with id `daily`, moves the Daily goal. Refuses a Samsung Health goal. |
+| `delete_goal` | Removes a goal (never the Daily goal or a Samsung Health goal). |
 
 Goal measures are the ones `/history` carries: `vouchers`, `source:<id>` (a source's Vouchers; `source:tasks` counts finished Todoist and ClickUp tasks at 1 per task), `source_days:<id>` (Days a source earned, weekly only), `focus`, `longest`, `distraction`, `unlocks`, `asleep`, `bedtime`, and `wake` (clock times as `"HH:MM"`).
 
@@ -131,7 +131,7 @@ MCP_TEST_LEDGER=http://127.0.0.1:8890 MCP_TEST_CODE_FILE=/path/to/test-data/acce
   npm run mcp:test
 ```
 
-It builds the server, spawns it over stdio as an assistant would, lists the tools, checks every write tool's Daily goal warning, calls every tool, and checks the refusals.
+It builds the server, spawns it over stdio as an assistant would, lists the tools, checks every write tool's Daily goal warning, calls every tool, and checks the refusals. Add `MCP_TEST_DEVICE_CODE_FILE=/path/to/test-data/access.code` (the test Ledger's own code) to also report Samsung Health goals as a phone would, check they're listed read-only and every write to them is refused, and clear them again.
 
 To poke at it by hand with the MCP Inspector's command line:
 

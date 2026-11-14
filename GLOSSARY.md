@@ -25,7 +25,7 @@ The companion app that reads the Ledger and shows how Days went beside sleep, ca
 _Avoid_: viewer, dashboard app, observer
 
 **Reporter**:
-The one app that sends a given kind of data to the Ledger: Voucher's Android app for workouts, steps, sleep, calendars, focus, and Distraction; Counterfoil for mood. No kind has two.
+The one app that sends a given kind of data to the Ledger: Voucher's Android app for workouts, steps, sleep, calendars, focus, Distraction, and External goals; Counterfoil for mood. No kind has two.
 _Avoid_: source (that's an Activity source), uploader
 
 **Insight**:
@@ -77,6 +77,14 @@ _Avoid_: target, quota
 **Goal**:
 A target for one measure the Ledger keeps (Vouchers, a source's Vouchers or Days, focus minutes, the longest focus stretch, Distraction, Unlocks, time asleep, bedtime, or wake-up), at least or at most, over a Day or a Monday-to-Sunday week. The Daily goal is the first goal, kept as its rule; the others only motivate, change nothing, and apply at once. Each has a hit rate: the share of known Days or weeks that met it.
 _Avoid_: habit, objective, KPI
+
+**Goal owner**:
+Who sets a goal: the user (in Voucher, Counterfoil, or through the coach code) or an outside app such as Samsung Health. Only the user's goals change here; an outside app's change in that app (ADR 0011).
+_Avoid_: author, source (that's an Activity source)
+
+**External goal**:
+A goal set in an outside app, read on the phone and kept by the Ledger read-only, with that app as its Goal owner: Samsung Health's sleep target (a bedtime and a wake-up goal), steps, active time, active calories, and water. One with a measure here counts like any goal; one without is listed as not tracked here. No goal of the user's own may share its measure.
+_Avoid_: imported goal, synced goal
 
 **Streak**:
 The run of consecutive Days on which the Daily goal was met. Today joins it the moment its goal is met.

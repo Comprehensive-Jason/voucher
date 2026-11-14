@@ -204,22 +204,31 @@ let pending: [Record<string, unknown>, string][] = [[{ UnlockMinutes: 15 }, next
 
 /** Sample goals besides the Daily goal (GET /goals lists that first, from
  *  the setting): something of each kind for the Goals card and Insights.
- *  `?goals=none` has none. */
+ *  `?goals=none` has none, and `?samsung=none` none from Samsung Health. */
 let goals: Goal[] = asked("goals") === "none" ? [] : [
-  { id: "g1", measure: "asleep", direction: "at_least", target: 360, period: "day", daily: false, created_at: "2026-08-03T09:00:00-07:00" },
-  { id: "g2", measure: "source:tasks", direction: "at_least", target: 6, period: "day", daily: false, created_at: "2026-08-03T09:00:00-07:00" },
-  { id: "g3", measure: "bedtime", direction: "at_most", target: 0, period: "day", daily: false, created_at: "2026-08-10T21:00:00-07:00" },
-  { id: "g4", measure: "source_days:workout", direction: "at_least", target: 3, period: "week", daily: false, created_at: "2026-08-17T08:00:00-07:00" },
-  { id: "g5", measure: "distraction", direction: "at_most", target: 300, period: "week", daily: false, created_at: "2026-09-01T08:00:00-07:00" },
-  { id: "g6", measure: "focus", direction: "at_least", target: 90, period: "day", daily: false, created_at: "2026-09-14T08:00:00-07:00" },
+  { id: "g1", measure: "asleep", direction: "at_least", target: 360, period: "day", daily: false, owner: "user", tracked: true, created_at: "2026-08-03T09:00:00-07:00" },
+  { id: "g2", measure: "source:tasks", direction: "at_least", target: 6, period: "day", daily: false, owner: "user", tracked: true, created_at: "2026-08-03T09:00:00-07:00" },
+  { id: "g4", measure: "source_days:workout", direction: "at_least", target: 3, period: "week", daily: false, owner: "user", tracked: true, created_at: "2026-08-17T08:00:00-07:00" },
+  { id: "g5", measure: "distraction", direction: "at_most", target: 300, period: "week", daily: false, owner: "user", tracked: true, created_at: "2026-09-01T08:00:00-07:00" },
+  { id: "g6", measure: "focus", direction: "at_least", target: 90, period: "day", daily: false, owner: "user", tracked: true, created_at: "2026-09-14T08:00:00-07:00" },
 ];
 let goalIds = 6;
+/** Samsung Health's goals, as the phone reports them: its sleep target (in
+ *  bed by 00:00, up by 08:00) and a step goal, which nothing here counts. */
+const samsungGoals: Goal[] = asked("goals") === "none" || asked("samsung") === "none" ? [] : [
+  { id: "samsung_health:bedtime", measure: "bedtime", direction: "at_most", target: 0, period: "day", daily: false, owner: "samsung_health", tracked: true, kind: "bedtime", unit: "clock", created_at: "2026-08-10T21:00:00-07:00" },
+  { id: "samsung_health:wake", measure: "wake", direction: "at_most", target: 480, period: "day", daily: false, owner: "samsung_health", tracked: true, kind: "wake", unit: "clock", created_at: "2026-08-10T21:00:00-07:00" },
+  { id: "samsung_health:steps", measure: "", direction: "at_least", target: 6000, period: "day", daily: false, owner: "samsung_health", tracked: false, kind: "steps", unit: "steps", created_at: "2026-08-10T21:00:00-07:00" },
+];
+
+/** As the Ledger refuses a goal: 409, with its reason in words. */
+const refused = (message: string) => new Error(`The Ledger refused this (409): ${message}`);
 
 /** GET /goals: the Daily goal from the setting, with a change waiting, then the rest. */
 function goalList(): Goal[] {
   const waiting = pending.find(([c]) => "DailyGoal" in c);
-  return [{ id: "daily", measure: "vouchers", direction: "at_least", target: settings.daily_goal, period: "day", daily: true,
-    pending: waiting ? { target: Number(waiting[0].DailyGoal), at: waiting[1] } : null }, ...goals];
+  return [{ id: "daily", measure: "vouchers", direction: "at_least", target: settings.daily_goal, period: "day", daily: true, owner: "user", tracked: true,
+    pending: waiting ? { target: Number(waiting[0].DailyGoal), at: waiting[1] } : null }, ...goals, ...samsungGoals];
 }
 
 export function sampleLedger(method: string, path: string, body: unknown): unknown {
@@ -235,17 +244,21 @@ export function sampleLedger(method: string, path: string, body: unknown): unkno
       setup_complete: !asked("fresh"),
       first_day: "2026-06-29", log_first_day: "2026-06-29",
       grace_until: asked("grace") ? "2026-10-11T13:00:00Z" : null,
-      blocked: { apps: [], sites: [] }, calendars: sampleCalendarChoice(), experiments: sampleOpenExperiments() };
+      blocked: { apps: [], sites: [] }, calendars: sampleCalendarChoice(), experiments: sampleOpenExperiments(),
+      goal_reporters: samsungGoals.length ? { samsung_health: "sample-phone" } : {} };
   }
   if (route === "/goals") return goalList();
   if (route === "/goal" && method === "POST") {
     const b = body as NewGoal;
     if (b.id === "daily") throw new Error("The Ledger refused this (409)");
+    if (b.id?.startsWith("samsung_health:")) throw refused("this goal is set in Samsung Health, so it's read-only here: change it in Samsung Health");
+    if (samsungGoals.some((g) => g.tracked && g.measure === b.measure)) throw refused("a goal on this measure is set in Samsung Health, so it can't be set here too");
     if (b.id) goals = goals.map((g) => (g.id === b.id ? { ...g, ...b, id: g.id } : g));
-    else goals = [...goals, { ...b, id: `g${++goalIds}`, daily: false, created_at: new Date().toISOString() }];
+    else goals = [...goals, { ...b, id: `g${++goalIds}`, daily: false, owner: "user", tracked: true, created_at: new Date().toISOString() }];
     return goalList();
   }
   if (route === "/goal/remove" && method === "POST") {
+    if ((body as { id: string }).id.startsWith("samsung_health:")) throw refused("this goal is set in Samsung Health, so it's read-only here: change it in Samsung Health");
     goals = goals.filter((g) => g.id !== (body as { id: string }).id);
     return goalList();
   }

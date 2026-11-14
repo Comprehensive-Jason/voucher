@@ -8,13 +8,18 @@
   // through POST /change like Voucher's Rules: it starts with the next Day,
   // a lower one waits for 06:00 like every loosening, and it leaves a rule
   // Marker. Every other goal saves at once.
+  //
+  // A measure an outside app already sets a goal on (Samsung Health's
+  // bedtime and wake-up) can't take a second one here: the sheet says where
+  // it's set instead. The Goals card never opens the sheet on an outside
+  // app's goal.
   import { untrack } from "svelte";
   import Sheet from "$core/components/Sheet.svelte";
   import StepField from "$core/components/StepField.svelte";
   import ZoomSwitch from "$core/components/ZoomSwitch.svelte";
   import Visual from "$core/insights/Visual.svelte";
   import { goalRuns, weeklyRates } from "$core/insights/goals";
-  import { evaluate, measureChoices, measureInfo, showValue, type Direction, type Goal, type MeasureInfo, type Named, type NewGoal, type Period } from "$core/goals";
+  import { evaluate, measureChoices, measureInfo, ownedOn, setElsewhereText, showValue, type Direction, type Goal, type MeasureInfo, type Named, type NewGoal, type Period } from "$core/goals";
   import { goals } from "$core/goals.svelte";
   import { styleOf } from "$core/sources";
   import { actionFailed } from "$core/toast.svelte";
@@ -65,8 +70,10 @@
   const draft = $derived<Goal>({ id: goal?.id ?? "draft", measure, direction, target, period, daily });
   const others = $derived(goals.list.filter((g) => g.id !== goal?.id));
   /** Why this draft can't be saved, if it can't. */
+  const outside = $derived(daily ? undefined : ownedOn(goals.list, measure));
   const problem = $derived(
-    !daily && measure === "vouchers" && direction === "at_least" && period === "day" ? "That's the Daily goal: change it instead."
+    outside ? setElsewhereText(outside)
+    : !daily && measure === "vouchers" && direction === "at_least" && period === "day" ? "That's the Daily goal: change it instead."
     : others.some((g) => !g.daily && g.measure === measure && g.direction === direction && g.period === period) ? "There's a goal like this already."
     : null,
   );

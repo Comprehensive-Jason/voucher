@@ -15,6 +15,8 @@ class MainActivity : TauriActivity() {
     )
     super.onCreate(savedInstanceState)
     remember(intent)
+    // Samsung Health's goals are read on app start, then about hourly.
+    SamsungGoals.soon()
     EnforcerService.start(this)
   }
 

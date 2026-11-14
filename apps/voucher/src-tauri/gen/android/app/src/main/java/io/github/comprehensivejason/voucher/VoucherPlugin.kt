@@ -23,6 +23,9 @@ class PackageArgs { var pkg: String = "" }
 class HomeArgs { var closed: Boolean = false }
 
 @InvokeArg
+class OnArgs { var on: Boolean = false }
+
+@InvokeArg
 class ShareArgs { var title: String = ""; var text: String = "" }
 
 /**
@@ -110,6 +113,17 @@ class VoucherPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun healthGranted(invoke: Invoke) = background(invoke) { Health.granted(activity) }
+
+    /** The Samsung Health goals switch: {available, on, granted}; available is false off Samsung devices or without the SDK. */
+    @Command
+    fun samsungGoals(invoke: Invoke) = background(invoke) { SamsungGoals.state(activity) }
+
+    /** Turns the Samsung Health goals switch on (asking Samsung Health for access) or off. */
+    @Command
+    fun setSamsungGoals(invoke: Invoke) = background(invoke) {
+        val on = invoke.parseArgs(OnArgs::class.java).on
+        SamsungGoals.set(activity, on).also { EnforcerService.start(activity) }
+    }
 
     /** This device's calendars, grouped in the app by account: {granted, calendars: [{account, name, color}]}. */
     @Command

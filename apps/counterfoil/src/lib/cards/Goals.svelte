@@ -6,12 +6,18 @@
   // then its streak, and its hit rate over the last 4 and 12 weeks as bars.
   // Tapping a row opens it in the goal editor (GoalSheet); + adds one. The
   // foot names the longest streak going.
+  //
+  // A goal set in an outside app (Samsung Health's sleep target, from the
+  // phone) carries that app's name as a tag and has no editor: it changes
+  // there and shows here on the next poll. Its hit rates count like any
+  // other's. One the Ledger has no measure for (steps) is listed last, as
+  // not tracked here.
   import TrendCard from "$core/components/TrendCard.svelte";
   import AboutText from "$core/components/AboutText.svelte";
   import Legend from "$core/components/Legend.svelte";
   import ScrollCue from "$core/components/ScrollCue.svelte";
   import { fitsSlot } from "$core/fit.svelte";
-  import { evaluate, measureInfo, targetText, showValue, type Goal, type Named } from "$core/goals";
+  import { evaluate, measureInfo, setIn, targetText, showValue, untracked, type Goal, type Named } from "$core/goals";
   import { goals } from "$core/goals.svelte";
   import { goalRuns } from "$core/insights/goals";
   import { reveal } from "$core/motion";
@@ -37,9 +43,11 @@
       const r = evaluate(g, history, info, reading);
       const finished = r.periods.filter((p) => !p.current).slice(-SHOWN[g.period]);
       const current = r.periods.at(-1)?.current ? r.periods.at(-1)! : null;
-      return { g, info, r, cells: [...finished, ...(current ? [current] : [])], name: goalRuns(g, info, known) };
+      return { g, info, r, cells: [...finished, ...(current ? [current] : [])], name: goalRuns(g, info, known), owner: setIn(g) };
     });
   });
+  /** Outside goals with no measure here: shown, never counted. */
+  const others = $derived(goals.list.filter((g) => setIn(g) && g.tracked === false).map((g) => ({ g, owner: setIn(g)!, ...untracked(g) })));
   const best = $derived(rows.filter((x) => x.r.streak > 0).sort((a, b) => b.r.streak - a.r.streak)[0]);
   const unit = (g: Goal, n: number) => (g.period === "day" ? (n === 1 ? "Day" : "Days") : n === 1 ? "week" : "weeks");
   const pct = (x: { met: number; of: number } | null) => (x ? Math.round((x.met / x.of) * 100) : null);
@@ -49,6 +57,27 @@
   let scroller = $state<HTMLDivElement>();
   const keyOn = (fn: () => void) => (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); } };
 </script>
+
+{#snippet row(x: (typeof rows)[number])}
+  <div class="who">
+    <span class="name"><span class="label"><AboutText parts={x.name} /></span>{#if x.owner}<span class="owner">{x.owner}</span>{/if}</span>
+    <span class="asks">{targetText(x.g, x.info)}{#if x.g.pending}<b class="next">, then {x.g.pending.target} from {when(x.g.pending.at)}</b>{/if}</span>
+  </div>
+  <div class="strip" class:weeks={x.g.period === "week"} style="--n: {x.cells.length}"
+    role="img" aria-label="{x.cells.filter((c) => c.cell === 'met').length} of the last {x.cells.length} {unit(x.g, x.cells.length)} met">
+    {#each x.cells as c (c.key)}
+      <i class="cell {c.cell}"
+        title="{c.key}{c.value !== null ? `: ${showValue(x.info, c.value, { units: true })}` : ''}"></i>
+    {/each}
+  </div>
+  <div class="streak"><b>{x.r.streak}</b><span>{unit(x.g, x.r.streak)}</span></div>
+  {#each [x.r.rate4, x.r.rate12] as rate, i (i)}
+    {@const p = pct(rate)}
+    <div class="rate" aria-label="{i ? 'Last 12 weeks' : 'Last 4 weeks'}: {p === null ? 'unknown' : `${p}% met`}">
+      <span class="bar"><i style="width: {p ?? 0}%"></i></span><span class="pct">{p === null ? "–" : `${p}%`}</span>
+    </div>
+  {/each}
+{/snippet}
 
 <TrendCard title="Goals">
   {#snippet tools()}
@@ -61,26 +90,20 @@
     <div class="rows" bind:this={scroller}>
       <div class="heads" aria-hidden="true"><span></span><span></span><span>Streak</span><span>4 wk</span><span>12 wk</span></div>
       {#each rows as x (x.g.id)}
-        <div class="row" role="button" tabindex="0" aria-label="Edit {x.name.map((r) => r.text).join('')}"
-          onclick={() => (editing = x.g)} onkeydown={keyOn(() => (editing = x.g))} transition:reveal>
+        {#if x.owner}
+          <div class="row owned" transition:reveal>{@render row(x)}</div>
+        {:else}
+          <div class="row" role="button" tabindex="0" aria-label="Edit {x.name.map((r) => r.text).join('')}"
+            onclick={() => (editing = x.g)} onkeydown={keyOn(() => (editing = x.g))} transition:reveal>{@render row(x)}</div>
+        {/if}
+      {/each}
+      {#each others as o (o.g.id)}
+        <div class="row owned" transition:reveal>
           <div class="who">
-            <span class="name"><AboutText parts={x.name} /></span>
-            <span class="asks">{targetText(x.g, x.info)}{#if x.g.pending}<b class="next">, then {x.g.pending.target} from {when(x.g.pending.at)}</b>{/if}</span>
+            <span class="name"><span class="label">{o.name}</span><span class="owner">{o.owner}</span></span>
+            <span class="asks">{o.asks}</span>
           </div>
-          <div class="strip" class:weeks={x.g.period === "week"} style="--n: {x.cells.length}"
-            role="img" aria-label="{x.cells.filter((c) => c.cell === 'met').length} of the last {x.cells.length} {unit(x.g, x.cells.length)} met">
-            {#each x.cells as c (c.key)}
-              <i class="cell {c.cell}"
-                title="{c.key}{c.value !== null ? `: ${showValue(x.info, c.value, { units: true })}` : ''}"></i>
-            {/each}
-          </div>
-          <div class="streak"><b>{x.r.streak}</b><span>{unit(x.g, x.r.streak)}</span></div>
-          {#each [x.r.rate4, x.r.rate12] as rate, i (i)}
-            {@const p = pct(rate)}
-            <div class="rate" aria-label="{i ? 'Last 12 weeks' : 'Last 4 weeks'}: {p === null ? 'unknown' : `${p}% met`}">
-              <span class="bar"><i style="width: {p ?? 0}%"></i></span><span class="pct">{p === null ? "–" : `${p}%`}</span>
-            </div>
-          {/each}
+          <div class="untracked">Not tracked here</div>
         </div>
       {/each}
     </div>
@@ -112,10 +135,16 @@
   .heads span { font: 600 9.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); text-align: right; }
   .row { padding: 8px; margin: 0 -8px; border-bottom: 1px solid var(--divider); border-radius: 10px; cursor: pointer; transition: background-color var(--t-quick), var(--press); }
   .row:last-child { border-bottom-color: transparent; }
-  .row:active { filter: var(--press-glow); }
+  .row:active:not(.owned) { filter: var(--press-glow); }
+  .row.owned { cursor: default; }
   .row:focus-visible { outline: 2px solid var(--voucher); outline-offset: -2px; }
   .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .name { font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The tag drops under the name rather than cut it short, on a narrow card. */
+  .name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; font-size: 13.5px; color: var(--ink); }
+  .label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Who sets a read-only goal: neutral, like Voucher's Premade tag. */
+  .owner { flex: none; padding: 1px 5px; border-radius: 6px; border: 1px solid var(--line); font: 700 10px var(--font); color: var(--muted); white-space: nowrap; }
+  .untracked { grid-column: 2 / -1; font-size: 11.5px; color: var(--faint); text-align: right; }
   .asks { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .next { font-weight: 600; color: var(--goal); }
 
@@ -141,5 +170,6 @@
     .heads, .row { grid-template-columns: minmax(0, 1fr) 40px 50px 50px; }
     .heads span:nth-child(2) { display: none; }
     .strip { grid-column: 1 / -1; grid-row: 2; }
+    .untracked { grid-column: 2 / -1; }
   }
 </style>

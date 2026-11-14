@@ -24,6 +24,7 @@ export const ABOUT = defineAbout<PanelId>()({
       "4 wk and 12 wk: the share of Days or weeks met, of those known, as {gold:gold bars}. Past ones are counted at today's target; the Daily goal is counted at each Day's own.",
       "Tap a row to change or remove its goal, or + to add one. Goals count Vouchers, a source's Vouchers or Days, focus minutes, the longest focus stretch, Distraction, Unlocks, time asleep, bedtime, or wake-up.",
       "Changing the Daily goal is a rule change: it starts with the next Day, a lower one waits for 06:00 like every loosening, and it leaves a {marker:rule Marker}. Other goals save at once and change nothing else.",
+      "A goal tagged {gray:Samsung Health} is set there, on the phone or watch, and shows here as it changes; it's counted like any other but can't be changed here, and no second goal can count the same thing. One the Ledger has nothing to count with, such as steps, says Not tracked here.",
     ],
   },
   sleep: {

@@ -75,6 +75,7 @@ object Enforcer {
             reportUsage(ctx, connection, status, zone, end, day)
             reportSleep(ctx, connection, day)
             Calendars.report(ctx, connection, status, zone, end, day)
+            SamsungGoals.report(ctx, connection)
             // Silences between check-ins show in the Log as Gaps.
             runCatching { LedgerClient.post(connection, "/check-in?device=${android.net.Uri.encode(Store.deviceId(ctx))}") }
         }

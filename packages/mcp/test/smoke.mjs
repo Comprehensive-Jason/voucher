@@ -11,6 +11,10 @@
 // goal waits until 06:00; every read tool answers JSON; a goal round trip;
 // the Daily goal through /change (waiting for the next Day); and refusals
 // (removing the Daily goal, a bad measure, a clock time where a number goes).
+//
+// With MCP_TEST_DEVICE_CODE_FILE (the test Ledger's own access.code) it also
+// reports Samsung Health goals as a phone would, checks they're listed
+// read-only and every write to them is refused, and clears them again.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import assert from "node:assert/strict";
@@ -118,6 +122,47 @@ await check("refusals", async () => {
   assert.equal((await call("create_goal", { measure: "focus", direction: "at_least", target: "01:30", period: "day" })).error, true);
   assert.equal((await call("create_goal", { measure: "vouchers", direction: "at_least", target: 9, period: "day" })).error, true, "the Daily goal's twin");
 });
+
+const deviceCodeFile = process.env.MCP_TEST_DEVICE_CODE_FILE;
+if (deviceCodeFile) {
+  const { readFileSync } = await import("node:fs");
+  const deviceCode = readFileSync(deviceCodeFile, "utf8").trim();
+  /** Reports Samsung Health's goals as the phone does, with the Ledger's own code. */
+  const report = (goals) => fetch(`${url}/goals/external`, {
+    method: "POST", headers: { Authorization: `Bearer ${deviceCode}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ device: "mcp-smoke-phone", source: "samsung_health", goals, claim: true }),
+  });
+  await check("Samsung Health goals are listed read-only", async () => {
+    const r = await report([{ kind: "bedtime", target: 1410 }, { kind: "steps", target: 6000 }]);
+    assert.equal(r.status, 200);
+    const { goals } = await call("list_goals");
+    const bedtime = goals.find((g) => g.id === "samsung_health:bedtime");
+    assert.equal(bedtime?.set_in, "Samsung Health");
+    assert.equal(bedtime.read_only, true);
+    assert.equal(bedtime.target, "23:30");
+    assert.ok("hit_rate_4_weeks" in bedtime, "counted like any other goal");
+    const steps = goals.find((g) => g.id === "samsung_health:steps");
+    assert.equal(steps?.tracked, false);
+    assert.match(steps.asks, /6,000 steps a Day/);
+  });
+  await check("writes to Samsung Health goals are refused, in words", async () => {
+    const u = await call("update_goal", { id: "samsung_health:bedtime", target: "23:00" });
+    assert.equal(u.error, true);
+    assert.match(u.text, /set in Samsung Health/);
+    const d = await call("delete_goal", { id: "samsung_health:steps" });
+    assert.equal(d.error, true);
+    assert.match(d.text, /read-only/);
+    const c = await call("create_goal", { measure: "bedtime", direction: "at_most", target: "23:00", period: "week" });
+    assert.equal(c.error, true);
+    assert.match(c.text, /Your sleep goal is set in Samsung Health/);
+  });
+  await check("an empty report clears them", async () => {
+    assert.equal((await report([])).status, 200);
+    assert.ok(!(await call("list_goals")).goals.some((g) => g.id.startsWith("samsung_health:")));
+  });
+} else {
+  console.log("skip Samsung Health goals: set MCP_TEST_DEVICE_CODE_FILE to the test Ledger's access.code");
+}
 
 if (made) await call("delete_goal", { id: made.id });
 await client.close();

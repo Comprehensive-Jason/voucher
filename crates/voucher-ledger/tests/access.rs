@@ -93,6 +93,7 @@ mod coach {
             "/experiment",
             "/experiment/end",
             "/insights/dismiss",
+            "/goals/external",
             "/test/credit",
         ] {
             assert!(!coach_allows("POST", path, false), "{path}");
@@ -173,6 +174,11 @@ mod over_http {
 
     /// The status code of one request.
     fn call(port: u16, method: &str, path: &str, code: &str, body: &str) -> u16 {
+        answer(port, method, path, code, body).0
+    }
+
+    /// The status code and body of one request.
+    fn answer(port: u16, method: &str, path: &str, code: &str, body: &str) -> (u16, String) {
         let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
         write!(
             s,
@@ -182,7 +188,12 @@ mod over_http {
         .unwrap();
         let mut reply = String::new();
         s.read_to_string(&mut reply).unwrap();
-        reply.split(' ').nth(1).unwrap().parse().unwrap()
+        let status = reply.split(' ').nth(1).unwrap().parse().unwrap();
+        let body = reply
+            .split_once("\r\n\r\n")
+            .map_or("", |(_, b)| b)
+            .to_string();
+        (status, body)
     }
 
     #[test]
@@ -244,5 +255,58 @@ mod over_http {
 
         let without = start(None);
         assert_eq!(call(without.port, "GET", "/goals", COACH, ""), 401);
+    }
+
+    #[test]
+    fn samsung_health_goals_are_read_only_for_the_coach_and_every_app() {
+        let ledger = start(Some(COACH));
+        let p = ledger.port;
+        let report = r#"{"device":"phone-1","source":"samsung_health","goals":[{"kind":"bedtime","target":1410},{"kind":"steps","target":6000}]}"#;
+
+        // Only a device with the Ledger's own code reports them, never the coach.
+        assert_eq!(call(p, "POST", "/goals/external", COACH, report), 403);
+        let (status, goals) = answer(p, "POST", "/goals/external", CODE, report);
+        assert_eq!(status, 200);
+        assert!(
+            goals.contains(r#""id":"samsung_health:bedtime""#),
+            "{goals}"
+        );
+        assert!(goals.contains(r#""owner":"samsung_health""#), "{goals}");
+        let (_, listed) = answer(p, "GET", "/goals", COACH, "");
+        assert!(listed.contains(r#""tracked":false"#), "{listed}");
+        let (_, status_body) = answer(p, "GET", "/status", COACH, "");
+        assert!(status_body.contains(r#""goal_reporters":{"samsung_health":"phone-1"}"#));
+
+        // Another device is turned away until it claims them.
+        let other = report.replace("phone-1", "tablet-2");
+        let (status, why) = answer(p, "POST", "/goals/external", CODE, &other);
+        assert_eq!(status, 409);
+        assert!(
+            why.contains("phone-1 reports Samsung Health's goals"),
+            "{why}"
+        );
+
+        // Editing or removing one is refused with a reason, for any code.
+        let edit = r#"{"id":"samsung_health:bedtime","measure":"bedtime","direction":"at_most","target":1380,"period":"day"}"#;
+        for code in [COACH, CODE] {
+            let (status, why) = answer(p, "POST", "/goal", code, edit);
+            assert_eq!(status, 409);
+            assert!(why.contains(r#""refused":"Owned""#), "{why}");
+            assert!(why.contains("set in Samsung Health"), "{why}");
+        }
+        let (status, why) = answer(
+            p,
+            "POST",
+            "/goal/remove",
+            COACH,
+            r#"{"id":"samsung_health:bedtime"}"#,
+        );
+        assert_eq!(status, 409);
+        assert!(why.contains("change it in Samsung Health"), "{why}");
+        // A second bedtime goal here would count the same thing twice.
+        let twin = r#"{"measure":"bedtime","direction":"at_most","target":1380,"period":"week"}"#;
+        let (status, why) = answer(p, "POST", "/goal", COACH, twin);
+        assert_eq!(status, 409);
+        assert!(why.contains(r#""refused":"MeasureOwned""#), "{why}");
     }
 }

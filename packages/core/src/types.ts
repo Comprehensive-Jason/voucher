@@ -350,6 +350,8 @@ export interface Status {
   log_first_day?: string;
   /** Which calendars count, and the device that reports them; absent from older Ledgers. */
   calendars?: CalendarChoice;
+  /** The device that reports each outside app's goals ("samsung_health"); absent from older Ledgers. */
+  goal_reporters?: Record<string, string>;
   /** Experiments running, or judged and waiting for Keep it or Go back; absent from older Ledgers. */
   experiments?: Experiment[];
 }

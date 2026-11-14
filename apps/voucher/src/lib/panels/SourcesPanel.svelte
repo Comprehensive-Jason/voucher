@@ -2,9 +2,11 @@
   // Rules, Sources: what earns Vouchers, and how fast. Every source is a group
   // with one counter: Tasks, Workout, Steps, and named groups of apps whose
   // time adds up. Switching a source off or slowing it applies now; switching
-  // on, speeding up, or adding waits for 06:00. Under them, Calendars: which
-  // calendars count toward each Day's events and busy time (for Trends,
-  // never for earning), chosen in CalendarSheet.
+  // on, speeding up, or adding waits for 06:00. Under them, Samsung Health
+  // goals (on a Samsung device with Samsung Health): the goals set there,
+  // sent to the Ledger read-only so Counterfoil shows them; then Calendars:
+  // which calendars count toward each Day's events and busy time (for
+  // Trends, never for earning), chosen in CalendarSheet.
   import { shownByNotice } from "$core/health.svelte";
   import { actionFailed } from "$core/toast.svelte";
   import { onMount } from "svelte";
@@ -19,6 +21,7 @@
   import CalendarSheet from "../components/CalendarSheet.svelte";
   import { RATE_RANGE, compareSources, defaultColorOf, memberName, needsToken, rateText, serviceOf, styleOf } from "$core/sources";
   import { hhmm, until } from "../rules";
+  import { samsungGoals, setSamsungGoals, type SamsungGoals } from "$lib/device";
   import { andList, tokenAction, tokenPending, type TokenNeed } from "../tokens.svelte";
   import type { Source, SourceKind, Status } from "$core/types";
 
@@ -38,6 +41,22 @@
   const calendarLine = $derived(calendars.calendars.length
     ? `${calendars.calendars.length} calendar${calendars.calendars.length === 1 ? "" : "s"}, reported by ${calendars.device}`
     : "None chosen. Events and busy time per Day, for Trends");
+  /** The Samsung Health goals switch, or null where there's no Samsung Health to read. */
+  let samsung = $state<SamsungGoals | null>(null);
+  /** "Reported by SM-S928U-4f2a", or what they're for. */
+  const samsungLine = $derived.by(() => {
+    const by = status?.goal_reporters?.samsung_health;
+    if (!samsung?.on) return "Off · Goals set in Samsung Health";
+    if (!samsung.granted) return "Waiting for access in Samsung Health";
+    return by ? `Reported by ${by}` : "Read within the hour";
+  });
+  async function setSamsung(on: boolean) {
+    const next = await setSamsungGoals(on);
+    if (!next) { actionFailed(new Error("Samsung Health didn't answer"), "Samsung Health didn't answer. Try again."); return; }
+    samsung = next;
+    note = on ? (next.granted ? "Samsung Health goals: read within a minute." : "Samsung Health goals: allow access in Samsung Health first.") : "Samsung Health goals leave the Ledger within a minute.";
+    setTimeout(load, 3000);
+  }
   /** The rate a source's knob is snapped to while dragging, shown greyed. */
   let ratePreview = $state<Record<string, number | null>>({});
   async function setColor(id: string, color: string | null) {
@@ -87,6 +106,7 @@
   }
 
   async function load() {
+    samsungGoals().then((s) => (samsung = s));
     try { { const s = await ledger<Status>("GET", "/status"); if (!sameAnswer(s, status)) status = s; } error = null; } catch (e) { error = String(e); }
   }
   async function set(id: string, on: boolean, every: number) {
@@ -176,6 +196,18 @@
     </a>
     <div class="footnote">Off or slower: now. On, faster, or new: at {hhmm(status.settings.morning_boundary)}.</div>
     {#if note}<div class="footnote">{note}</div>{/if}
+    {#if samsung}
+      <RulesCard>
+        <div class="line">
+          <svg class="calicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="0.8" fill="var(--muted)" /></svg>
+          <span class="label">
+            <span class="name" class:off={!samsung.on}>Samsung Health goals</span>
+            <span class="sub">{samsungLine}</span>
+          </span>
+          <Switch on={samsung.on} label="Samsung Health goals {samsung.on ? 'on' : 'off'}" onchange={setSamsung} />
+        </div>
+      </RulesCard>
+    {/if}
     <RulesCard>
       <div class="line">
         <svg class="calicon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
